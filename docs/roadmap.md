@@ -248,7 +248,7 @@
   - ✅ Revenue vs Cost, % маржи, summary
   - ✅ **UI дашборд** `/analytics` — таблица + margin bars
   - ⚠️ **Себестоимость упрощена** — не из tarification.service
-- [ ] **Open API + Webhooks**
+- [x] **Open API / Swagger** — `/api/docs` (русский UI, OAS 3.0, 14 тегов)
 - [ ] **White-label**
 - [ ] **Telegram трекинг** — нужен настроенный бот
 - [ ] **Экодрайвинг** — нужны реальные GPS
