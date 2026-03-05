@@ -22,7 +22,10 @@ export function Tabs({
 }) {
     const [internal, setInternal] = useState(defaultValue || '');
     const value = controlledValue ?? internal;
-    const onChange = onValueChange ?? setInternal;
+    const onChange = (v: string) => {
+        setInternal(v);
+        onValueChange?.(v);
+    };
 
     return (
         <TabsContext.Provider value={{ value, onChange }}>
@@ -63,8 +66,8 @@ export function TabsTrigger({
         <button
             onClick={() => ctx.onChange(value)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${active
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
                 } ${className}`}
         >
             {children}
