@@ -197,9 +197,9 @@
 - [x] **Telegram-бот уведомления** — 12 типов событий, BullMQ, webhook routes
 
 ### Phase 2: First-mover advantage 🟠
-- [ ] ЭПД MVP — ГИС ЭПД API + ЭТрН XML (прототип есть)
+- [x] ЭПД MVP — ЭТрН API routes (Title 1 + Title 4 XML generation)
 - [x] WebSocket/SSE для real-time карты диспетчера
-- [ ] SSL/TLS (Let's Encrypt)
+- [x] SSL/TLS — nginx reverse proxy + Let's Encrypt (config + docs)
 
 ### Phase 3: Infrastructure 🟡
 - [ ] S3/MinIO для файлов (фото осмотров, подписи)
