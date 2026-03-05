@@ -9,6 +9,7 @@ import { testRedisConnection } from './integrations/redis.js';
 import { setupRepeatableJobs } from './integrations/queues.js';
 import { startWialonWorker, stopWialonWorker } from './integrations/workers/wialon.worker.js';
 import { startFinesWorker, stopFinesWorker } from './integrations/workers/fines.worker.js';
+import { startNotificationWorker, stopNotificationWorker } from './integrations/workers/notification.worker.js';
 import { sql as rawSql } from './db/connection.js';
 import { APPEND_ONLY_TRIGGER_SQL } from './db/triggers.js';
 
@@ -52,6 +53,7 @@ await app.register(import('./modules/finance/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/sync/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/geo/routes.js'), { prefix: '/api' });
 await app.register(import('./integrations/routes.js'), { prefix: '/api' });
+await app.register(import('./modules/notifications/routes.js'), { prefix: '/api' });
 
 // --- Health check ---
 app.get('/api/health', async () => ({
@@ -85,8 +87,9 @@ const redisOk = await testRedisConnection();
 if (redisOk) {
     startWialonWorker();
     startFinesWorker();
+    startNotificationWorker();
     await setupRepeatableJobs();
-    app.log.info('🔄 BullMQ workers started');
+    app.log.info('🔄 BullMQ workers started (wialon, fines, notifications)');
 } else {
     app.log.warn('⚠️ Redis unavailable — BullMQ workers disabled');
 }
@@ -98,6 +101,7 @@ for (const signal of signals) {
         app.log.info(`Received ${signal}, shutting down gracefully...`);
         await stopWialonWorker();
         await stopFinesWorker();
+        await stopNotificationWorker();
         await app.close();
         process.exit(0);
     });

@@ -575,3 +575,19 @@ export const medAccessLog = pgTable('med_access_log', {
     index('idx_med_access_log_driver').on(table.targetDriverId),
     index('idx_med_access_log_accessed_at').on(table.accessedAt),
 ]);
+
+// ================================================================
+// Notification Subscriptions — Telegram Bot (Sprint 6)
+// ================================================================
+export const notificationSubscriptions = pgTable('notification_subscriptions', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => users.id),
+    telegramChatId: varchar('telegram_chat_id', { length: 50 }).notNull(),
+    telegramUsername: varchar('telegram_username', { length: 100 }),
+    eventTypes: jsonb('event_types').$type<string[]>().notNull().default(['*']),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('notification_subs_chat_id_idx').on(table.telegramChatId),
+    index('notification_subs_user_id_idx').on(table.userId),
+]);

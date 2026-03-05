@@ -43,6 +43,23 @@ export async function recordEvent(params: CreateEventParams, tx?: any) {
         .onConflictDoNothing() // Safe: if externalId unique constraint hit, skip silently
         .returning();
 
+    // Sprint 6: Enqueue Telegram notification (best-effort, non-blocking)
+    if (result[0]) {
+        try {
+            const { enqueueNotification } = await import('../integrations/workers/notification.worker.js');
+            await enqueueNotification({
+                eventType: params.eventType,
+                entityType: params.entityType,
+                entityId: params.entityId,
+                data: params.data,
+                authorId: params.authorId,
+                authorRole: params.authorRole,
+            });
+        } catch {
+            // Silently ignore — notifications are best-effort
+        }
+    }
+
     return result[0] ?? null; // null = duplicate, was ignored
 }
 
