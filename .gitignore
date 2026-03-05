@@ -52,6 +52,10 @@ coverage/
 # Agent skills (large)
 # .agent/skills/ — оставляем, они часть проекта
 
+# AI agent workspace files
+agent-*.code-workspace
+.claude/
+
 # Temporary files
 tmp/
 temp/
