@@ -192,13 +192,13 @@
 **Цель:** Закрыть разрыв с конкурентами (GPS, мобилка, уведомления) + ЭПД first-mover.
 
 ### Phase 1: Must-have (есть у ВСЕХ конкурентов) 🔴
-- [ ] **GPS/ГЛОНАСС real-time** — WebSocket + Wialon API интеграция
+- [x] **GPS/ГЛОНАСС real-time** — `@fastify/websocket` + `/ws/vehicles` + `useVehiclePositions` hook
 - [ ] **Мобильное водителя MVP** — Expo + WatermelonDB → рабочее приложение
-- [ ] **Telegram-бот уведомления** — статусы рейсов, осмотры, ремонты
+- [x] **Telegram-бот уведомления** — 12 типов событий, BullMQ, webhook routes
 
 ### Phase 2: First-mover advantage 🟠
 - [ ] ЭПД MVP — ГИС ЭПД API + ЭТрН XML (прототип есть)
-- [ ] WebSocket/SSE для real-time карты диспетчера
+- [x] WebSocket/SSE для real-time карты диспетчера
 - [ ] SSL/TLS (Let's Encrypt)
 
 ### Phase 3: Infrastructure 🟡
