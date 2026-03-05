@@ -33,7 +33,7 @@
 ## 🔌 Спринт 3: Телематика & Интеграции
 **Статус:** ✅ Завершён | **Агенты:** 8, 9
 
-- [x] BullMQ + Redis, mock Wialon/ГИБДД/DaData/АЗС, auto-enrich контрагентов
+- [x] BullMQ + Redis, mock Wialon/ГИБДД/DaData/АЗС, auto-enrich контрагентов ⚠️ **ВСЕ 4 интеграции на моках** — нет реальных API
 - [x] 1С XML (CommerceML 2.10), геокодинг, Haversine, Leaflet маршруты
 
 ---
@@ -42,8 +42,8 @@
 **Статус:** ✅ Завершён | **Агенты:** 0, 1, 2, 5 | **Дата:** 4 марта 2026
 
 - [x] Агент 1: Логист — убраны fallback моки, CreateTripModal, timeline из API, trip details
-- [x] Агент 2: Путевые листы (/waybills), Sidebar role filtering (H-16), UserContext
-- [x] Агент 5: Finance → live API, KPI → live API, экспорт 1С XML, страница тарифов
+- [x] Агент 2: Путевые листы (/waybills), Sidebar role filtering (H-16), UserContext ⚠️ **Waybills таблица: UUID вместо госномера/ФИО**
+- [x] Агент 5: Finance → live API, KPI → live API, экспорт 1С XML, страница тарифов ⚠️ **KPI: fallback «Смирнов/Козлов» если нет данных**
 - [x] Агент 0: Pool таймауты, FOR UPDATE в транзакциях, триггеры при старте сервера
 
 ## ✅ Спринт 4.2: Security Sprint (Волна 2)
@@ -193,18 +193,38 @@
 
 ### Phase 1: Must-have (есть у ВСЕХ конкурентов) 🔴
 - [x] **GPS/ГЛОНАСС real-time** — `@fastify/websocket` + `/ws/vehicles` + `useVehiclePositions` hook
+  - ⚠️ **GPS = 100% мок** (WialonMock) — нет реального API Wialon/ГЛОНАСС
+  - ⚠️ **WebSocket `/ws/vehicles` без аутентификации** — открыт для всех
+  - ⚠️ **Hook `useVehiclePositions` не подключён** к DispatcherPage — карта статична
 - [x] **Мобильное водителя MVP** — Expo + WatermelonDB + offline queue + trips API
+  - ⚠️ **`/sync/pull` endpoint не существует** — WatermelonDB sync не работает
+  - ⚠️ **Offline queue не тестирован** — нет тестов, нет UI индикатора
 - [x] **Telegram-бот уведомления** — 12 типов событий, BullMQ, webhook routes
+  - ⚠️ **Не настроен** — нет токена BotFather, нет TELEGRAM_BOT_TOKEN на VPS
 
 ### Phase 2: First-mover advantage 🟠
 - [x] ЭПД MVP — ЭТрН API routes (Title 1 + Title 4 XML generation)
-- [x] WebSocket/SSE для real-time карты диспетчера
+  - ⚠️ **Carrier захардкожен** — `ООО «ТМС Логистик»` / `ИНН 7700000000` в коде
+- [x] WebSocket/SSE для real-time карты диспетчера *(см. Phase 1 — hook не подключён)*
 - [x] SSL/TLS — nginx reverse proxy + Let's Encrypt (config + docs)
+  - ⚠️ **Только конфиг** — домен не привязан, сертификат не получен
 
 ### Phase 3: Infrastructure 🟡
 - [ ] S3/MinIO для файлов (фото осмотров, подписи)
 - [ ] PostGIS для геозон (МКАД/ТТК/пропуска)
 - [ ] Deferred audit items (console.log→fastify.log, shared types)
+
+### ⚠️ Известные долги (из аудита 05.03.2026)
+- [ ] 🔴 Подключить `useVehiclePositions` hook к DispatcherPage
+- [ ] 🔴 Добавить JWT auth на WebSocket `/ws/vehicles`
+- [ ] 🔴 Создать `/api/sync/pull` + `/api/sync/push` для WatermelonDB
+- [ ] 🟡 Вынести carrier данные (ИНН/название) в `.env` / настройки организации
+- [ ] 🟡 Убрать fallback данные из KPI (водители «Смирнов/Козлов»)
+- [ ] 🟡 Waybills таблица: показать госномер/ФИО вместо UUID
+- [ ] 🟡 Кнопка «Добавить ТС» — подключить modal
+- [ ] 🟢 Создать бота @BotFather, добавить токен на VPS
+- [ ] 🟢 Привязать домен, получить SSL сертификат
+- [ ] 🟢 Тесты для offline queue мобилки
 
 ---
 
@@ -234,17 +254,18 @@
 
 ---
 
-## 📊 Ресурсная сводка
+## 📊 Ресурсная сводка (скорректированная после аудита 05.03.2026)
 
-| Компонент | Sprint 1 | Sprint 2.5 | Sprint 4 | Sprint 5 | Sprint 5.7 | Sprint 5.8 |
-|-----------|----------|------------|----------|----------|------------|------------|
-| **Архитектура** | 85% | 85% | 90% | 95% | 97% | 97% |
-| **Бизнес-логика** | 75% | 90% | 92% | 95% | 97% | **98%** |
-| **Безопасность** | 30% | 80% | 90% | 95% | 99% | **99.5%** |
-| **Фронтенд** | 40% | 45% | 75% | 85% | 88% | 88% |
-| **Mobile** | 55% | 60% | 60% | 70% | 70% | 70% |
-| **Тесты** | 15% | 30% | 35% | 60% | 60% | 60% |
-| **DevOps** | 5% | 5% | 5% | 70% | 92% | **92%** |
-| **Compliance (ЭПД)** | 0% | 0% | 0% | 15% | 15% | 15% |
-| **ОБЩАЯ** | **45%** | **~55%** | **~70%** | **~80%** | **~88%** | **~90%** |
+| Компонент | Sprint 5.8 | Sprint 6 (факт) | Комментарий |
+|-----------|------------|------------------|-------------|
+| **Архитектура** | 97% | 97% | |
+| **Бизнес-логика** | 98% | **90%** | sync endpoint нет, моки интеграций |
+| **Безопасность** | 99.5% | **95%** | WS без auth |
+| **Фронтенд** | 88% | **80%** | WS hook не подключён, кнопки без handler |
+| **Mobile** | 70% | **40%** | sync не работает, offline не тестирован |
+| **GPS** | — | **5%** | 100% мок |
+| **Тесты** | 60% | 60% | |
+| **DevOps** | 92% | 92% | |
+| **Compliance (ЭПД)** | 15% | **25%** | генератор ✅, carrier hardcode |
+| **ОБЩАЯ** | **~90%** | **~70%** | после честного аудита |
 
