@@ -39,6 +39,63 @@ await app.register(cors, {
     credentials: true, // Required for httpOnly cookies
 });
 
+// --- Swagger / OpenAPI (русский) ---
+await app.register(import('@fastify/swagger'), {
+    openapi: {
+        info: {
+            title: 'TMS API — Управление транспортом',
+            description: 'REST API для системы управления грузоперевозками (TMS). Включает управление заявками, рейсами, автопарком, водителями, финансами, аналитикой и импортом данных.',
+            version: '1.0.0',
+            contact: { name: 'TMS Team', email: 'admin@tms.local' },
+        },
+        servers: [
+            { url: 'http://localhost:4000', description: 'Локальная разработка' },
+            { url: 'http://5.42.102.58:4000', description: 'Production VPS' },
+        ],
+        tags: [
+            { name: 'Авторизация', description: 'Вход, выход, обновление токенов' },
+            { name: 'Заявки', description: 'CRUD заявок на перевозку' },
+            { name: 'Рейсы', description: 'Управление рейсами и маршрутами' },
+            { name: 'Автопарк', description: 'Транспортные средства и водители' },
+            { name: 'Осмотры', description: 'Технические и медицинские осмотры' },
+            { name: 'Путевые листы', description: 'Формирование и учёт путевых листов' },
+            { name: 'Ремонты', description: 'Обслуживание и ремонт ТС' },
+            { name: 'Финансы', description: 'Счета, тарифы, KPI' },
+            { name: 'Аналитика', description: 'Предиктивное ТО и маржинальность' },
+            { name: 'Импорт', description: 'Массовый импорт данных (JSON/CSV)' },
+            { name: 'Геозоны', description: 'Ограничительные зоны (МКАД, ТТК)' },
+            { name: 'Синхронизация', description: 'Офлайн-синхронизация мобильного приложения' },
+            { name: 'Уведомления', description: 'Push-уведомления и WebSocket' },
+            { name: 'Здоровье', description: 'Health check и readiness' },
+        ],
+        components: {
+            securitySchemes: {
+                cookieAuth: {
+                    type: 'apiKey',
+                    in: 'cookie',
+                    name: 'token',
+                    description: 'JWT токен в httpOnly cookie (устанавливается при /auth/login)',
+                },
+                bearerAuth: {
+                    type: 'http',
+                    scheme: 'bearer',
+                    bearerFormat: 'JWT',
+                    description: 'Bearer токен (для мобильного приложения)',
+                },
+            },
+        },
+    },
+});
+await app.register(import('@fastify/swagger-ui'), {
+    routePrefix: '/api/docs',
+    uiConfig: {
+        docExpansion: 'list',
+        deepLinking: true,
+        defaultModelsExpandDepth: 3,
+        persistAuthorization: true,
+    },
+});
+
 // --- Auth ---
 registerAuthRoutes(app);
 
