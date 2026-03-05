@@ -60,6 +60,20 @@ export async function generateWaybill(
         throw new Error('Рейс не найден');
     }
 
+    // FIX: Idempotency — prevent duplicate waybills for the same trip
+    const [existingWaybill] = await db
+        .select({ id: waybills.id, number: waybills.number })
+        .from(waybills)
+        .where(eq(waybills.tripId, tripId))
+        .limit(1);
+
+    if (existingWaybill) {
+        throw Object.assign(
+            new Error(`Путевой лист для этого рейса уже существует: ${existingWaybill.number}`),
+            { statusCode: 409 }
+        );
+    }
+
     if (!trip.vehicleId || !trip.driverId) {
         throw new Error('Рейсу не назначены ТС и/или водитель');
     }

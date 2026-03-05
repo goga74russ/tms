@@ -26,6 +26,16 @@ async function seed() {
     }
     const passwordHash = await hashPassword(seedPassword);
 
+    // SYSTEM USER: Fixed UUID for BullMQ workers (matches SYSTEM_USER_ID in integrations)
+    // Must exist to satisfy FK constraint on events.author_id
+    await db.insert(users).values({
+        id: '00000000-0000-0000-0000-000000000000',
+        email: 'system@tms.internal',
+        passwordHash,
+        fullName: 'Система (BullMQ)',
+        roles: ['admin'],
+    }).onConflictDoNothing();
+
     const [admin] = await db.insert(users).values({
         email: 'admin@tms.local',
         passwordHash,

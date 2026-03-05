@@ -51,44 +51,45 @@ export class FinanceService {
 
     // === INVOICES ===
     async generateInvoices(params: InvoiceCreate, authorId: string, authorRole: string) {
-        // Найдем все завершенные рейсы контрактора за период, которые еще не отбиллированы
-        const unbilledTripsQuery = await db.select({ id: trips.id }).from(trips).innerJoin(
-            orders,
-            eq(trips.id, orders.tripId)
-        ).where(
-            and(
-                eq(trips.status, 'completed'),
-                eq(orders.contractorId, params.contractorId),
-                gte(trips.actualCompletionAt, new Date(params.periodStart)),
-                lte(trips.actualCompletionAt, new Date(params.periodEnd))
-            )
-        );
-
-        const unbilledTripIds = unbilledTripsQuery.map((t: any) => t.id);
-
-        if (unbilledTripIds.length === 0) {
-            return { message: 'No unbilled completed trips found for this period and contractor.' };
-        }
-
-        // C-3: Batch calculate all trip costs (eliminates N+1)
-        const costMap = await tarificationService.calculateBatchTripCosts(unbilledTripIds);
-
-        let totalSubtotal = 0;
-        let totalVat = 0;
-        let finalTotal = 0;
-        const tripIdsToBill: string[] = [];
-
-        for (const tripId of unbilledTripIds) {
-            const cost = costMap.get(tripId);
-            if (!cost) continue; // Skip trips that couldn't be calculated
-            totalSubtotal += cost.subtotal;
-            totalVat += cost.vatAmount;
-            finalTotal += cost.total;
-            tripIdsToBill.push(tripId);
-        }
-
         // H-NEW-1 FIX: Number generation INSIDE transaction with FOR UPDATE
+        // FIX: Move unbilled trips query inside tx to prevent race condition
         const newInvoice = await db.transaction(async (tx: any) => {
+            // FIX: Use DISTINCT to avoid duplicating trips when trip has multiple orders
+            const unbilledTripsQuery = await tx.selectDistinct({ id: trips.id }).from(trips).innerJoin(
+                orders,
+                eq(trips.id, orders.tripId)
+            ).where(
+                and(
+                    eq(trips.status, 'completed'),
+                    eq(orders.contractorId, params.contractorId),
+                    gte(trips.actualCompletionAt, new Date(params.periodStart)),
+                    lte(trips.actualCompletionAt, new Date(params.periodEnd))
+                )
+            );
+
+            const unbilledTripIds = unbilledTripsQuery.map((t: any) => t.id);
+
+            if (unbilledTripIds.length === 0) {
+                return { message: 'No unbilled completed trips found for this period and contractor.' };
+            }
+
+            // C-3: Batch calculate all trip costs (eliminates N+1)
+            const costMap = await tarificationService.calculateBatchTripCosts(unbilledTripIds);
+
+            let totalSubtotal = 0;
+            let totalVat = 0;
+            let finalTotal = 0;
+            const tripIdsToBill: string[] = [];
+
+            for (const tripId of unbilledTripIds) {
+                const cost = costMap.get(tripId);
+                if (!cost) continue;
+                totalSubtotal += cost.subtotal;
+                totalVat += cost.vatAmount;
+                finalTotal += cost.total;
+                tripIdsToBill.push(tripId);
+            }
+
             const invoiceNumber = await this.getNextInvoiceNumber(params.type, tx);
 
             const [invoice] = await tx.insert(invoices).values({

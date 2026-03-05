@@ -1,8 +1,6 @@
-// ============================================================
-// Trips Module — Fastify Routes (§3.2)
-// ============================================================
 import { FastifyPluginAsync } from 'fastify';
 import { requireAbility } from '../../auth/rbac.js';
+import { resolveContractorId } from '../../auth/guards.js';
 import {
     createTrip,
     getTrips,
@@ -18,8 +16,8 @@ import {
     getAvailableDrivers,
 } from './service.js';
 import { db } from '../../db/connection.js';
-import { drivers } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { drivers, orders } from '../../db/schema.js';
+import { eq, inArray } from 'drizzle-orm';
 import { TripCreateSchema, TripUpdateSchema, RoutePointSchema } from '@tms/shared';
 
 // H-3: Resolve driverId from JWT userId (for RLS)
@@ -30,7 +28,7 @@ async function resolveDriverId(userId: string): Promise<string | null> {
 }
 
 const tripsRoutes: FastifyPluginAsync = async (app) => {
-    // --- GET /trips — list with pagination & filters ---
+    // --- GET /trips — list with pagination & filters (RLS: driver sees own, client sees own) ---
     app.get('/trips', {
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
     }, async (request) => {
@@ -52,6 +50,17 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             if (myDriverId) rlsDriverId = myDriverId;
         }
 
+        // RLS: client can only see trips linked to their orders
+        let rlsTripIds: string[] | undefined;
+        if (user.roles.includes('client')) {
+            const myContractorId = await resolveContractorId(user.userId);
+            if (!myContractorId) return { success: true, data: [], total: 0, page: 1, limit: 20 };
+            const clientOrders = await db.select({ tripId: orders.tripId })
+                .from(orders).where(eq(orders.contractorId, myContractorId));
+            rlsTripIds = clientOrders.map((o: any) => o.tripId).filter(Boolean);
+            if (rlsTripIds.length === 0) return { success: true, data: [], total: 0, page: 1, limit: 20 };
+        }
+
         const result = await getTrips({
             status: query.status,
             vehicleId: query.vehicleId,
@@ -60,6 +69,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             dateTo: query.dateTo,
             page: query.page ? parseInt(query.page, 10) : undefined,
             limit: query.limit ? parseInt(query.limit, 10) : undefined,
+            tripIds: rlsTripIds,
         });
 
         return { success: true, ...result };
@@ -97,6 +107,21 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         if (user.roles.includes('driver')) {
             const myDriverId = await resolveDriverId(user.userId);
             if (myDriverId && trip.driverId !== myDriverId) {
+                return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
+            }
+        }
+
+        // RLS: client can only see trips linked to their orders
+        if (user.roles.includes('client')) {
+            const myContractorId = await resolveContractorId(user.userId);
+            if (!myContractorId) {
+                return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
+            }
+            const [linkedOrder] = await db.select({ id: orders.id })
+                .from(orders)
+                .where(eq(orders.tripId, id))
+                .limit(1);
+            if (!linkedOrder) {
                 return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
             }
         }

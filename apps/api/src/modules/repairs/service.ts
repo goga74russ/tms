@@ -4,7 +4,7 @@
 // ============================================================
 import { db } from '../../db/connection.js';
 import { repairRequests, vehicles } from '../../db/schema.js';
-import { eq, and, desc, count, or, ilike, gte, lte, sql } from 'drizzle-orm';
+import { eq, and, desc, count, or, ilike, gte, lte, sql, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 
 // ================================================================
@@ -183,11 +183,24 @@ export async function updateRepairStatus(
             .where(eq(repairRequests.id, id))
             .returning();
 
-        // On completion, set vehicle back to available
+        // On completion, conditionally set vehicle back to available
+        // FIX: Only set available if NO other active repairs exist for this vehicle
         if (newStatus === 'done') {
-            await tx.update(vehicles)
-                .set({ status: 'available' as any, updatedAt: new Date() })
-                .where(eq(vehicles.id, repair.vehicleId));
+            const otherActiveRepairs = await tx.select({ id: repairRequests.id })
+                .from(repairRequests)
+                .where(and(
+                    eq(repairRequests.vehicleId, repair.vehicleId),
+                    inArray(repairRequests.status, ['created', 'waiting_parts', 'in_progress']),
+                    sql`${repairRequests.id} != ${id}`
+                ))
+                .limit(1);
+
+            if (otherActiveRepairs.length === 0) {
+                await tx.update(vehicles)
+                    .set({ status: 'available' as any, updatedAt: new Date() })
+                    .where(eq(vehicles.id, repair.vehicleId));
+            }
+            // else: vehicle stays in maintenance/broken — other repairs still active
         }
 
         // Events inside transaction (N-2)

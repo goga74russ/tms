@@ -1,12 +1,13 @@
 import { FastifyPluginAsync } from 'fastify';
 import { requireAbility } from '../../auth/rbac.js';
+import { resolveContractorId } from '../../auth/guards.js';
 import { tarificationService } from './tarification.service.js';
 import { financeService } from './finance.service.js';
 import { InvoiceCreateSchema, FuelAnalysisQuerySchema, Export1CQuerySchema } from './schemas.js';
 import { db } from '../../db/connection.js';
 import { invoices } from '../../db/schema.js';
 import { z } from 'zod';
-import { desc } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 
 const financeRoutes: FastifyPluginAsync = async (fastify) => {
 
@@ -24,14 +25,30 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         }
     );
 
-    // 2. GET /finance/invoices — Список счетов
+    // 2. GET /finance/invoices — Список счетов (RLS: client sees only own)
     fastify.get<{ Querystring: { page?: string; limit?: string } }>(
         '/finance/invoices',
         { preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')] },
         async (request, reply) => {
+            const user = request.user as { userId: string; roles: string[] };
             const page = parseInt(request.query.page || '1', 10);
             const limit = parseInt(request.query.limit || '50', 10);
             const offset = (page - 1) * limit;
+
+            // RLS: client can only see invoices for their contractor
+            if (user.roles.includes('client')) {
+                const myContractorId = await resolveContractorId(user.userId);
+                if (!myContractorId) {
+                    return { success: true, data: [] };
+                }
+                const list = await db.query.invoices.findMany({
+                    where: eq(invoices.contractorId, myContractorId),
+                    orderBy: [desc(invoices.createdAt)],
+                    limit,
+                    offset,
+                });
+                return { success: true, data: list };
+            }
 
             const list = await db.query.invoices.findMany({
                 orderBy: [desc(invoices.createdAt)],
@@ -111,14 +128,23 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         }
     );
 
-    // 7. GET /finance/export/1c — Экспорт в 1С (CommerceML XML)
+    // 7. GET /finance/export/1c — Экспорт в 1С (RLS: client sees only own)
     fastify.get<{ Querystring: { startDate?: string; endDate?: string; format?: string } }>(
         '/finance/export/1c',
         { preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')] },
         async (request, reply) => {
+            const user = request.user as { userId: string; roles: string[] };
             const q = request.query;
             const start = new Date(q.startDate || new Date(new Date().setMonth(new Date().getMonth() - 1)));
             const end = new Date(q.endDate || new Date());
+
+            // RLS: clients cannot export all data
+            if (user.roles.includes('client')) {
+                return reply.code(403).send({
+                    success: false,
+                    error: 'Клиентам доступен только просмотр своих счетов',
+                });
+            }
 
             // Legacy JSON format (for backward compatibility)
             if (q.format === 'json') {

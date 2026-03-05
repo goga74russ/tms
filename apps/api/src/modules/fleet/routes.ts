@@ -4,6 +4,7 @@
 // ============================================================
 import { FastifyInstance } from 'fastify';
 import { requireAbility } from '../../auth/rbac.js';
+import { resolveDriverId } from '../../auth/guards.js';
 import * as fleetService from './service.js';
 import { VehicleCreateSchema, DriverCreateSchema, ContractorCreateSchema, PermitCreateSchema, PermitUpdateSchema, FineCreateSchema, FineUpdateSchema } from '@tms/shared';
 
@@ -71,6 +72,18 @@ export default async function fleetRoutes(app: FastifyInstance) {
     app.get('/fleet/drivers', {
         preHandler: [app.authenticate, requireAbility('read', 'Driver')],
     }, async (request, reply) => {
+        const user = request.user as { userId: string; roles: string[] };
+
+        // RLS: driver can only see self
+        if (user.roles.includes('driver')) {
+            const myDriverId = await resolveDriverId(user.userId);
+            if (!myDriverId) {
+                return { success: true, data: [], total: 0, page: 1, limit: 1 };
+            }
+            const driver = await fleetService.getDriver(myDriverId);
+            return { success: true, data: driver ? [driver] : [], total: driver ? 1 : 0, page: 1, limit: 1 };
+        }
+
         const { page, limit, search, active } = request.query as any;
         const result = await fleetService.listDrivers(
             { search, isActive: active !== undefined ? active === 'true' : undefined },
@@ -83,6 +96,16 @@ export default async function fleetRoutes(app: FastifyInstance) {
         preHandler: [app.authenticate, requireAbility('read', 'Driver')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[] };
+
+        // RLS: driver can only see self
+        if (user.roles.includes('driver')) {
+            const myDriverId = await resolveDriverId(user.userId);
+            if (!myDriverId || myDriverId !== id) {
+                return reply.status(403).send({ success: false, error: 'Отказано в доступе (чужой профиль)' });
+            }
+        }
+
         const driver = await fleetService.getDriver(id);
         if (!driver) return reply.status(404).send({ success: false, error: 'Водитель не найден' });
         return { success: true, data: driver };

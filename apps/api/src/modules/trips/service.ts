@@ -65,6 +65,7 @@ export interface TripFilters {
     dateTo?: string;
     page?: number;
     limit?: number;
+    tripIds?: string[]; // RLS: restrict to specific trip IDs (client filter)
 }
 
 export interface AssignmentWarning {
@@ -137,6 +138,9 @@ export async function getTrips(filters: TripFilters) {
     }
     if (filters.dateTo) {
         conditions.push(lte(trips.createdAt, new Date(filters.dateTo)));
+    }
+    if (filters.tripIds && filters.tripIds.length > 0) {
+        conditions.push(inArray(trips.id, filters.tripIds));
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
