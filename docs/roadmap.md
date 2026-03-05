@@ -188,8 +188,90 @@
 ---
 
 ## 🚀 Спринт 6: Конкурентоспособность + Compliance (MUST)
-**Статус:** 🔄 В работе | **Сроки:** Март 2026
+**Статус:** ✅ Phase 1-2 завершены | **Сроки:** Март 2026
 **Цель:** Закрыть разрыв с конкурентами (GPS, мобилка, уведомления) + ЭПД first-mover.
+
+### Phase 1: Must-have ✅
+- [x] **GPS/ГЛОНАСС real-time** — WS + JWT auth + useVehiclePositions на карте
+  - ⚠️ **GPS = 100% мок** (WialonMock) — нужен API ключ Wialon
+- [x] **Мобильное водителя** — `/sync/pull` endpoint (WatermelonDB, driver RLS)
+  - ⚠️ **Offline queue не тестирован** — нет тестов
+- [x] **Telegram-бот** — 12 типов, BullMQ, webhook routes
+  - ⚠️ **Не настроен** — нужен @BotFather → TELEGRAM_BOT_TOKEN
+
+### Phase 2: First-mover ✅
+- [x] ЭПД MVP — ЭТрН XML (Title 1+4), carrier из `.env`, кнопка «Скачать ЭТрН»
+  - ⚠️ **ЭДО не интегрирован** — нужен оператор + КЭП
+- [x] SSL/TLS — nginx + Let's Encrypt (config ready)
+  - ⚠️ **Нужен домен** + A-запись
+
+### Phase 3: Infrastructure 🟡
+- [x] **AddVehicleModal** — полная форма + POST /fleet/vehicles ✅
+- [ ] S3/MinIO для файлов
+- [ ] PostGIS для геозон
+
+### ⚠️ Нерешённые долги Sprint 6
+- [ ] 🔴 GPS мок → нужен Wialon API  
+- [ ] 🔴 Telegram → @BotFather  
+- [ ] 🟡 SSL → домен  
+- [ ] 🟡 Тесты offline queue  
+- [ ] 🟡 ЭДО интеграция  
+
+---
+
+## 🌐 Спринт 7: Рост и Удержание (SHOULD)
+**Статус:** 🔄 Частично | **Обновлено:** 05.03.2026
+**Цель:** Удержание клиентов + конкурентные преимущества.
+
+- [x] **Клиентский портал** `/client` — заявки + счета, стат-карты, sidebar ✅
+  - ✅ Backend RLS фильтрует по `contractorId`
+- [x] **Импорт данных** — `POST /import/vehicles|drivers|contractors` (до 200/batch)
+  - ⚠️ **Drivers** — userId placeholder (нужна привязка к аккаунту)
+  - ⚠️ **Нет UI** — нужна страница с drag-n-drop Excel
+- [ ] **Мультитенантность:** `organizationId` middleware
+- [ ] **Маршрутизация:** OSRM Docker или Яндекс API
+  - ⚠️ Нужен OSRM (2-3 GB RAM) или API ключ
+- [ ] **Топливные карты** — нужны API ключи АЗС
+- [ ] **Платон** — учёт для грузовиков >12т
+
+---
+
+## 🏆 Спринт 8: Enterprise & Killer-фичи (COULD)
+**Статус:** 🔄 Частично | **Обновлено:** 05.03.2026
+**Цель:** Enterprise + уникальные преимущества.
+
+- [x] **Предиктивное ТО** `GET /analytics/maintenance-alerts`
+  - ✅ Дата: ТО/ОСАГО/техосмотр/тахограф (critical <7д, warning <30д)
+  - ✅ Одометр: предупреждение за 2000 км
+  - ⚠️ **Нет UI** — только API
+- [x] **Маржинальность** `GET /analytics/profitability`
+  - ✅ Revenue vs Cost, % маржи, summary
+  - ⚠️ **Себестоимость упрощена** — не из tarification.service
+  - ⚠️ **Нет UI** — только API
+- [ ] **Open API + Webhooks**
+- [ ] **White-label**
+- [ ] **Telegram трекинг** — нужен настроенный бот
+- [ ] **Экодрайвинг** — нужны реальные GPS
+
+---
+
+## 📊 Ресурсная сводка (обновлено 05.03.2026 12:30)
+
+| Компонент | Sprint 5.8 | Sprint 8 (факт) | Моки/Долги |
+|-----------|:---:|:---:|-------------|
+| **Архитектура** | 97% | **98%** | +analytics, +import |
+| **Бизнес-логика** | 98% | **95%** | sync ✅, fuelNorm ✅, моки интеграций |
+| **Безопасность** | 99.5% | **99%** | WS JWT ✅ |
+| **Фронтенд** | 88% | **92%** | AddVehicle ✅, client ✅, ЭТрН ✅ |
+| **Mobile** | 70% | **55%** | sync pull ✅, offline tests 🔴 |
+| **GPS** | — | **5%** | 🔴 100% мок |
+| **Тесты** | 60% | 60% | |
+| **DevOps** | 92% | **93%** | docs ✅ |
+| **ЭПД** | 15% | **30%** | XML ✅, ЭДО 🔴 |
+| **Analytics** | — | **40%** | API ✅, UI 🔴 |
+| **Import** | — | **50%** | API ✅, UI 🔴 |
+| **ОБЩАЯ** | **~90%** | **~80%** | честная оценка |
+
 
 ### Phase 1: Must-have (есть у ВСЕХ конкурентов) 🔴
 - [x] **GPS/ГЛОНАСС real-time** — `@fastify/websocket` + `/ws/vehicles` + `useVehiclePositions` hook

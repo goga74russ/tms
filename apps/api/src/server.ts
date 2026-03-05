@@ -55,6 +55,8 @@ await app.register(import('./modules/sync/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/geo/routes.js'), { prefix: '/api' });
 await app.register(import('./integrations/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/notifications/routes.js'), { prefix: '/api' });
+await app.register(import('./modules/import/routes.js'), { prefix: '/api' });
+await app.register(import('./modules/analytics/routes.js'), { prefix: '/api' });
 await app.register(import('./integrations/websocket.js'), { prefix: '/api' });
 
 // --- Health check ---

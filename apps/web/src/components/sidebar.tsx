@@ -32,6 +32,7 @@ const navigation = [
     { name: 'KPI', href: '/kpi', icon: BarChart3, roles: ['manager'] },
     { name: 'Тарифы', href: '/tariffs', icon: FileText, roles: ['accountant', 'manager'] },
     { name: 'Водители', href: '/drivers', icon: Users, roles: ['mechanic', 'dispatcher', 'logist', 'manager'] },
+    { name: 'Портал клиента', href: '/client', icon: Building2, roles: ['client'] },
     { name: 'Админ-панель', href: '/admin/users', icon: Settings, roles: ['admin'] },
 ];
 
