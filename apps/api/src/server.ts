@@ -117,14 +117,14 @@ await app.register(import('./modules/analytics/routes.js'), { prefix: '/api' });
 await app.register(import('./integrations/websocket.js'), { prefix: '/api' });
 
 // --- Health check ---
-app.get('/api/health', async () => ({
+app.get('/api/health', { schema: { tags: ['Здоровье'], summary: 'Health check', description: 'Базовая проверка: API работает.' } }, async () => ({
     status: 'ok',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
 }));
 
 // --- Readiness check (DB + Redis) ---
-app.get('/api/health/ready', async () => {
+app.get('/api/health/ready', { schema: { tags: ['Здоровье'], summary: 'Readiness check', description: 'Проверка готовности: БД + Redis.' } }, async () => {
     let dbOk = false;
     let redisOk = false;
     try {

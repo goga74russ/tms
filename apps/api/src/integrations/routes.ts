@@ -16,6 +16,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
     // POST /integrations/wialon/sync — manual trigger
     // ──────────────────────────────────────────────
     app.post('/integrations/wialon/sync', {
+        schema: { tags: ['Интеграции'], summary: 'Синхронизация Wialon', description: 'Ручной запуск синхронизации GPS-позиций из Wialon/ГЛОНАСС.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
     }, async (request, reply) => {
         try {
@@ -31,6 +32,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
     // POST /integrations/fines/sync — manual trigger
     // ──────────────────────────────────────────────
     app.post('/integrations/fines/sync', {
+        schema: { tags: ['Интеграции'], summary: 'Синхронизация штрафов', description: 'Ручной запуск проверки штрафов ГИБДД.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
     }, async (request, reply) => {
         try {
@@ -46,6 +48,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
     // GET /integrations/status — worker health
     // ──────────────────────────────────────────────
     app.get('/integrations/status', {
+        schema: { tags: ['Интеграции'], summary: 'Статус очередей', description: 'Здоровье BullMQ воркеров: ожидание, активные, завершённые, ошибки.' },
         preHandler: [app.authenticate],
     }, async () => {
         const [wialonWaiting, wialonActive, wialonCompleted, wialonFailed] = await Promise.all([
@@ -88,6 +91,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
     // GET /integrations/dadata/lookup/:inn — DaData lookup
     // ──────────────────────────────────────────────
     app.get('/integrations/dadata/lookup/:inn', {
+        schema: { tags: ['Интеграции'], summary: 'Поиск по ИНН', description: 'Поиск компании в DaData по ИНН (10 или 12 цифр).' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { inn } = request.params as { inn: string };
@@ -111,6 +115,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
     // GET /integrations/dadata/suggest-address — address suggestions
     // ──────────────────────────────────────────────
     app.get('/integrations/dadata/suggest-address', {
+        schema: { tags: ['Интеграции'], summary: 'Подсказки адресов', description: 'Автодополнение адресов через DaData.' },
         preHandler: [app.authenticate],
     }, async (request) => {
         const { query } = request.query as { query?: string };
@@ -122,6 +127,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
     // GET /integrations/fuel/transactions/:vehicleId — fuel card data
     // ──────────────────────────────────────────────
     app.get('/integrations/fuel/transactions/:vehicleId', {
+        schema: { tags: ['Интеграции'], summary: 'Транзакции топливных карт', description: 'Заправки ТС за последние N дней с итогами по расходу.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { vehicleId } = request.params as { vehicleId: string };

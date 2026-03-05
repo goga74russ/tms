@@ -77,6 +77,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // Login — rate limited
     app.post('/api/auth/login', {
+        schema: { tags: ['Авторизация'], summary: 'Вход в систему', description: 'Аутентификация по email/password. Устанавливает httpOnly cookie. Rate limit: 5/мин.' },
         config: {
             rateLimit: {
                 max: 5,
@@ -140,6 +141,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // H-15: Logout — clear cookie
     app.post('/api/auth/logout', {
+        schema: { tags: ['Авторизация'], summary: 'Выход', description: 'Очистка JWT cookie.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         reply.clearCookie(COOKIE_NAME, { path: '/' });
@@ -148,6 +150,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // Get current user
     app.get('/api/auth/me', {
+        schema: { tags: ['Авторизация'], summary: 'Текущий пользователь', description: 'Информация об авторизованном пользователе (без passwordHash).' },
         preHandler: [app.authenticate],
     }, async (request) => {
         const payload = request.user as { userId: string; roles: string[] };
@@ -168,6 +171,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // Short-lived token for WebSocket connections (browser can't send cookies over WS)
     app.get('/api/auth/ws-token', {
+        schema: { tags: ['Авторизация'], summary: 'WS токен', description: 'Короткоживущий JWT (5 мин) для WebSocket подключения.' },
         preHandler: [app.authenticate],
     }, async (request) => {
         const payload = request.user as { userId: string; roles: string[] };
@@ -198,6 +202,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // GET /api/auth/users — list all users (admin only, H-16: paginated)
     app.get('/api/auth/users', {
+        schema: { tags: ['Авторизация'], summary: 'Список пользователей', description: 'Все пользователи системы (только admin). Пагинация.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -232,6 +237,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // POST /api/auth/users — create user (admin only)
     app.post('/api/auth/users', {
+        schema: { tags: ['Авторизация'], summary: 'Создать пользователя', description: 'Регистрация нового пользователя (admin). Валидация email, пароля, ролей.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -276,7 +282,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
     });
 
     // PUT /api/auth/users/:id — update user (admin only)
-    app.put<{ Params: { id: string } }>('/api/auth/users/:id', {
+    app.put<{
+        schema: { tags: ['Авторизация'], summary: 'Обновить пользователя', description: 'Обновление данных пользователя. Защита от self-escalation.' }, Params: { id: string } }>('/api/auth/users/:id', {
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { userId, roles } = request.user as { userId: string; roles: string[] };
@@ -356,6 +363,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // GET /api/auth/tariffs — list all tariffs (admin only)
     app.get('/api/auth/tariffs', {
+        schema: { tags: ['Авторизация'], summary: 'Список тарифов', description: 'Все тарифы (admin). Для управления ценообразованием.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -373,6 +381,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // POST /api/auth/tariffs — create tariff (admin only)
     app.post('/api/auth/tariffs', {
+        schema: { tags: ['Авторизация'], summary: 'Создать тариф', description: 'Новый тариф с модификаторами (ночь, выходные, НДС).' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -394,7 +403,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
     });
 
     // PUT /api/auth/tariffs/:id — update tariff
-    app.put<{ Params: { id: string } }>('/api/auth/tariffs/:id', {
+    app.put<{
+        schema: { tags: ['Авторизация'], summary: 'Обновить тариф', description: 'Обновление тарифа и коэффициентов.' }, Params: { id: string } }>('/api/auth/tariffs/:id', {
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -443,6 +453,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // GET /api/auth/checklist-templates
     app.get('/api/auth/checklist-templates', {
+        schema: { tags: ['Авторизация'], summary: 'Шаблоны чек-листов', description: 'Все шаблоны чек-листов (техосмотр/медосмотр).' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -460,6 +471,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // POST /api/auth/checklist-templates
     app.post('/api/auth/checklist-templates', {
+        schema: { tags: ['Авторизация'], summary: 'Создать шаблон', description: 'Новый шаблон чек-листа для осмотров.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -481,7 +493,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
     });
 
     // PUT /api/auth/checklist-templates/:id
-    app.put<{ Params: { id: string } }>('/api/auth/checklist-templates/:id', {
+    app.put<{
+        schema: { tags: ['Авторизация'], summary: 'Обновить шаблон', description: 'Обновление шаблона чек-листа.' }, Params: { id: string } }>('/api/auth/checklist-templates/:id', {
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
