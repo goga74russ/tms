@@ -223,12 +223,18 @@ export class TarificationService {
             cancellationCost = (tariff.cancellationFee ?? 0) || baseCost * 0.3;
         }
 
+        // Fetch vehicle fuel norm for cost calculation
+        const [vehicleForFuel] = await db.select({ fuelNormPer100Km: vehicles.fuelNormPer100Km })
+            .from(vehicles).where(eq(vehicles.id, tripRecord.vehicleId!)).limit(1);
+
         // ——— 4. Себестоимость ———
         const fuelPriceLiter = Number(process.env.FUEL_PRICE_PER_LITER) || 60;
-        const fuelNorm = 0; // будет из vehicles
-        const fuelCost = (distance / 100) * (fuelNorm || 30) * fuelPriceLiter;
-        const driverSalary = totalHours * 350; // placeholder ₽/ч
-        const amortization = distance * 3; // placeholder ₽/км
+        const fuelNormPer100 = vehicleForFuel?.fuelNormPer100Km || Number(process.env.FUEL_NORM_PER_100KM) || 30;
+        const fuelCost = (distance / 100) * fuelNormPer100 * fuelPriceLiter;
+        const driverSalaryRate = Number(process.env.DRIVER_SALARY_PER_HOUR) || 350;
+        const driverSalary = totalHours * driverSalaryRate;
+        const amortizationRate = Number(process.env.AMORTIZATION_PER_KM) || 3;
+        const amortization = distance * amortizationRate;
         const tollsCost = 0; // placeholder — Платон
 
         // ——— 5. Итог + Округление + НДС ———
@@ -341,7 +347,7 @@ export class TarificationService {
                 const points = pointsByTrip.get(tripRecord.id) || [];
 
                 // Reuse in-memory calculation logic (same as calculateTripCost)
-                const cost = this.computeTripCost(tripRecord, tariff, points);
+                const cost = await this.computeTripCost(tripRecord, tariff, points);
                 results.set(tripRecord.id, cost);
             } catch {
                 // Skip trips that fail calculation
@@ -354,7 +360,7 @@ export class TarificationService {
     /**
      * Pure in-memory computation — extracted from calculateTripCost for reuse.
      */
-    private computeTripCost(tripRecord: any, tariff: any, points: any[]): TripCostBreakdown {
+    private async computeTripCost(tripRecord: any, tariff: any, points: any[]): Promise<TripCostBreakdown> {
         const distance = tripRecord.actualDistanceKm || tripRecord.plannedDistanceKm || 0;
         const weight = tripRecord.order?.cargoWeightKg || 0;
         const weightTon = weight / 1000;
@@ -441,9 +447,15 @@ export class TarificationService {
         const cancellationCost = (tripRecord.status === 'cancelled' && tripRecord.vehicleId)
             ? ((tariff.cancellationFee ?? 0) || baseCost * 0.3) : 0;
 
-        // Cost components — H-9 FIX: Use env vars instead of hardcoded values
+        // Cost components — fetch vehicle fuelNorm from DB
         const fuelPriceLiter = Number(process.env.FUEL_PRICE_PER_LITER) || 60;
-        const fuelCost = (distance / 100) * 30 * fuelPriceLiter;
+        let vehicleFuelNorm = Number(process.env.FUEL_NORM_PER_100KM) || 30;
+        if (tripRecord.vehicleId) {
+            const [veh] = await db.select({ fuelNormPer100Km: vehicles.fuelNormPer100Km })
+                .from(vehicles).where(eq(vehicles.id, tripRecord.vehicleId)).limit(1);
+            if (veh?.fuelNormPer100Km) vehicleFuelNorm = veh.fuelNormPer100Km;
+        }
+        const fuelCost = (distance / 100) * vehicleFuelNorm * fuelPriceLiter;
         const driverSalaryRate = Number(process.env.DRIVER_SALARY_PER_HOUR) || 350;
         const driverSalary = totalHours * driverSalaryRate;
         const amortizationRate = Number(process.env.AMORTIZATION_PER_KM) || 3;
