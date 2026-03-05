@@ -73,6 +73,33 @@ services:
     ports:
       - "${WEB_PORT:-3000}:3000"
 
+  # --- Nginx Reverse Proxy + SSL ---
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-var:/var/lib/letsencrypt
+      - certbot-webroot:/var/www/certbot:ro
+
+  # --- Certbot (Let's Encrypt) ---
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - certbot-webroot:/var/www/certbot
+
 volumes:
   pgdata:
   redisdata:
+  certbot-etc:
+  certbot-var:
+  certbot-webroot:
