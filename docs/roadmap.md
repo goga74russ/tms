@@ -1,11 +1,11 @@
 # 🗺️ Радар проекта TMS (Transport Management System)
 
-> **Статус проекта:** ✅ Sprint 5.7 завершён (GPT Audit Hardening)
+> **Статус проекта:** ✅ Sprint 5.8 завершён → Sprint 6 в работе
 > **Дата обновления:** 5 марта 2026 г.
 > **Архитектура:** Monorepo (pnpm workspaces), Fastify + Drizzle, Next.js + shadcn/ui, React Native (Expo)
 > **Тесты:** 279+ unit-тестов (100% pass rate)
-> **Аудит:** 57/67 + 15/15 GPT-аудит закрыто ✅
-> **Готовность к MVP:** ~88% (backend ✅, frontend 🟡, devops ✅, security ✅)
+> **Аудит:** 3 GPT-аудита — все CRIT/HIGH закрыты ✅
+> **Готовность к MVP:** ~90% (backend ✅, frontend 🟡, devops ✅, security ✅)
 
 ---
 
@@ -169,21 +169,42 @@
 
 ---
 
-## 🏛️ Спринт 6: ЭПД + Compliance (MUST — без этого не продать)
-**Статус:** ⏳ Бэклог | **Сроки:** Апрель–Май 2026
-**Цель:** Электронный путевой лист — главное УТП и законодательное требование.
+## 🔐 Спринт 5.8: GPT Audit 3 — Post-Fix Deep Audit
+**Статус:** ✅ Завершён | **Дата:** 5 марта 2026
+**Источник:** `audits/gpt0503(3).md` — 8 CRIT/HIGH находок
 
-- [ ] Интеграция с ГИС ЭПД (API Минтранса)
-- [ ] Формирование ЭТрН в формате ФНС (XML)
-- [ ] КЭП подписание через CryptoPro CSP
-- [ ] Интеграция ЭДО (Диадок или СБИС — 1 оператор)
-- [ ] Уведомления: SMS/push/email (BullMQ каналы)
+### CRIT ✅
+- [x] Finance IDOR: client видел все invoices → contractor filter + 403 на export
+- [x] Fleet PII: driver видел всех водителей → self-only RLS + 403
+
+### HIGH ✅
+- [x] Trips: client видел все trips → filter через orders→contractorId
+- [x] System user FK crash → UUID `00000000...` в seed
+- [x] Event journal externalId → миграция `ALTER TABLE` на VPS
+- [x] Waybill не идемпотентен → check existing + 409
+- [x] Invoice JOIN дубли → `selectDistinct` + query inside tx
+- [x] Repair done → available без проверки → агрегация активных ремонтов
+
+---
+
+## 🚀 Спринт 6: Конкурентоспособность + Compliance (MUST)
+**Статус:** 🔄 В работе | **Сроки:** Март 2026
+**Цель:** Закрыть разрыв с конкурентами (GPS, мобилка, уведомления) + ЭПД first-mover.
+
+### Phase 1: Must-have (есть у ВСЕХ конкурентов) 🔴
+- [ ] **GPS/ГЛОНАСС real-time** — WebSocket + Wialon API интеграция
+- [ ] **Мобильное водителя MVP** — Expo + WatermelonDB → рабочее приложение
+- [ ] **Telegram-бот уведомления** — статусы рейсов, осмотры, ремонты
+
+### Phase 2: First-mover advantage 🟠
+- [ ] ЭПД MVP — ГИС ЭПД API + ЭТрН XML (прототип есть)
 - [ ] WebSocket/SSE для real-time карты диспетчера
-- [ ] S3/MinIO для файлов
+- [ ] SSL/TLS (Let's Encrypt)
+
+### Phase 3: Infrastructure 🟡
+- [ ] S3/MinIO для файлов (фото осмотров, подписи)
 - [ ] PostGIS для геозон (МКАД/ТТК/пропуска)
-- [ ] **Мультитенантность:** `organizationId` middleware
-- [ ] **Deferred audit items:** S-1 (тесты-тавтологии), S-10 (full RLS),
-  console.log→fastify.log, CRUD модалки, shared types, join-таблица invoices
+- [ ] Deferred audit items (console.log→fastify.log, shared types)
 
 ---
 
@@ -215,15 +236,15 @@
 
 ## 📊 Ресурсная сводка
 
-| Компонент | Sprint 1 | Sprint 2.5 | Sprint 4 | Sprint 5 | Sprint 5.6 | Sprint 5.7 |
+| Компонент | Sprint 1 | Sprint 2.5 | Sprint 4 | Sprint 5 | Sprint 5.7 | Sprint 5.8 |
 |-----------|----------|------------|----------|----------|------------|------------|
-| **Архитектура** | 85% | 85% | 90% | 95% | 95% | 97% |
-| **Бизнес-логика** | 75% | 90% | 92% | 95% | 97% | 97% |
-| **Безопасность** | 30% | 80% | 90% | 95% | 98% | **99%** |
+| **Архитектура** | 85% | 85% | 90% | 95% | 97% | 97% |
+| **Бизнес-логика** | 75% | 90% | 92% | 95% | 97% | **98%** |
+| **Безопасность** | 30% | 80% | 90% | 95% | 99% | **99.5%** |
 | **Фронтенд** | 40% | 45% | 75% | 85% | 88% | 88% |
 | **Mobile** | 55% | 60% | 60% | 70% | 70% | 70% |
 | **Тесты** | 15% | 30% | 35% | 60% | 60% | 60% |
-| **DevOps** | 5% | 5% | 5% | 70% | 80% | **92%** |
+| **DevOps** | 5% | 5% | 5% | 70% | 92% | **92%** |
 | **Compliance (ЭПД)** | 0% | 0% | 0% | 15% | 15% | 15% |
-| **ОБЩАЯ** | **45%** | **~55%** | **~70%** | **~80%** | **~85%** | **~88%** |
+| **ОБЩАЯ** | **45%** | **~55%** | **~70%** | **~80%** | **~88%** | **~90%** |
 
