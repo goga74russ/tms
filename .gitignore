@@ -8,6 +8,7 @@ dist/
 out/
 *.tsbuildinfo
 .turbo
+apps/api/src/**/*.js
 
 # Environment variables
 .env

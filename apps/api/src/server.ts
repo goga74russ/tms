@@ -15,10 +15,12 @@ import { APPEND_ONLY_TRIGGER_SQL } from './db/triggers.js';
 const app = Fastify({
     logger: {
         level: process.env.LOG_LEVEL || 'info',
-        transport: {
-            target: 'pino-pretty',
-            options: { colorize: true },
-        },
+        ...(process.env.NODE_ENV !== 'production' ? {
+            transport: {
+                target: 'pino-pretty',
+                options: { colorize: true },
+            },
+        } : {}),
     },
 });
 
@@ -57,6 +59,26 @@ app.get('/api/health', async () => ({
     timestamp: new Date().toISOString(),
     version: '1.0.0',
 }));
+
+// --- Readiness check (DB + Redis) ---
+app.get('/api/health/ready', async () => {
+    let dbOk = false;
+    let redisOk = false;
+    try {
+        await rawSql`SELECT 1`;
+        dbOk = true;
+    } catch { }
+    redisOk = await testRedisConnection();
+    const status = dbOk && redisOk ? 'ok' : 'degraded';
+    return { status, db: dbOk, redis: redisOk, timestamp: new Date().toISOString() };
+});
+
+// --- Request-ID correlation ---
+app.addHook('onRequest', (request, reply, done) => {
+    const reqId = (request.headers['x-request-id'] as string) || request.id;
+    reply.header('x-request-id', reqId);
+    done();
+});
 
 // --- BullMQ Workers ---
 const redisOk = await testRedisConnection();

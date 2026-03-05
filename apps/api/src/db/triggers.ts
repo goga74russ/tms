@@ -24,7 +24,11 @@ BEGIN
        NEW.author_id = OLD.author_id AND
        NEW.event_type = OLD.event_type AND
        NEW.entity_id = OLD.entity_id AND
-       NEW.data = OLD.data THEN
+       NEW.data = OLD.data AND
+       NEW.author_role = OLD.author_role AND
+       NEW.entity_type = OLD.entity_type AND
+       NEW.version = OLD.version AND
+       NEW.offline_created_at IS NOT DISTINCT FROM OLD.offline_created_at THEN
       RETURN NEW;
     END IF;
     RAISE EXCEPTION 'UPDATE запрещён на таблице events (append-only journal). Допускается только изменение поля conflict.';

@@ -8,7 +8,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9.15.2 --activate
 
 # Copy workspace config first (cache layer)
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* tsconfig.base.json ./
@@ -16,7 +16,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/api/package.json ./apps/api/
 
 # Install deps
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 
 # Copy source
 COPY packages/shared/ ./packages/shared/
@@ -30,7 +30,7 @@ RUN pnpm --filter @tms/api build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9.15.2 --activate
 
 # Copy workspace config
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
@@ -38,7 +38,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/api/package.json ./apps/api/
 
 # Install production deps only
-RUN pnpm install --prod
+RUN pnpm install --prod --frozen-lockfile
 
 # Copy build output
 COPY --from=builder /app/packages/shared/ ./packages/shared/

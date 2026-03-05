@@ -7,7 +7,7 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9.15.2 --activate
 
 # Copy workspace config
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* tsconfig.base.json ./
@@ -15,7 +15,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/web/package.json ./apps/web/
 
 # Install deps (allow lockfile update for version resolution)
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 
 # Copy source
 COPY packages/shared/ ./packages/shared/

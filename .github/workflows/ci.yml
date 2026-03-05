@@ -1,116 +1,64 @@
-# ============================================================
-# TMS CI/CD — GitHub Actions
-# Lint → Test → Build → Deploy
-# ============================================================
-
-name: TMS CI/CD
+name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
 
-env:
-  NODE_VERSION: "20"
-
 jobs:
-  # --- Lint & Type Check ---
-  lint:
-    name: Lint & Type Check
+  build-and-test:
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          version: 9
+          node-version: 20
 
-      - uses: actions/setup-node@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+          version: 9.15.2
 
-      - run: pnpm install --frozen-lockfile
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
-      - name: Type check API
-        run: pnpm --filter @tms/api lint
-
-      - name: Type check Web
-        run: pnpm --filter @tms/web lint
-
-  # --- Tests ---
-  test:
-    name: Tests
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
+      - name: Cache pnpm
+        uses: actions/cache@v4
         with:
-          version: 9
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - run: pnpm install --frozen-lockfile
+      - name: Build shared package
+        run: pnpm --filter @tms/shared build
 
-      - name: Run API tests
-        run: pnpm --filter @tms/api test
+      - name: Build API
+        run: pnpm --filter @tms/api build
+
+      - name: Build Web
+        run: pnpm --filter @tms/web build
+
+      - name: Run tests
+        run: pnpm -r --if-present test
+
+      - name: Validate Docker Compose (dev)
+        run: docker compose -f docker-compose.yml config > /dev/null
+
+      - name: Validate Docker Compose (prod)
+        run: docker compose -f docker-compose.prod.yml config > /dev/null
         env:
-          JWT_SECRET: test-secret-ci-only
-          DATABASE_URL: postgresql://tms:tms@localhost:5432/tms
-
-  # --- Build Docker Images ---
-  build:
-    name: Build Docker Images
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build API image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          push: false
-          tags: tms-api:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build Web image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/web/Dockerfile
-          push: false
-          tags: tms-web:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # --- Deploy (uncomment when ready) ---
-  # deploy:
-  #   name: Deploy to Production
-  #   runs-on: ubuntu-latest
-  #   needs: build
-  #   if: github.ref == 'refs/heads/main'
-  #   steps:
-  #     - name: Deploy via SSH
-  #       uses: appleboy/ssh-action@v1
-  #       with:
-  #         host: ${{ secrets.DEPLOY_HOST }}
-  #         username: ${{ secrets.DEPLOY_USER }}
-  #         key: ${{ secrets.DEPLOY_SSH_KEY }}
-  #         script: |
-  #           cd /opt/tms
-  #           git pull origin main
-  #           docker compose -f docker-compose.prod.yml up -d --build
-  #           docker compose -f docker-compose.prod.yml exec api node apps/api/dist/db/seed.js
+          POSTGRES_DB: tms
+          POSTGRES_USER: tms
+          POSTGRES_PASSWORD: ci-test
+          REDIS_PASSWORD: ci-test
+          JWT_SECRET: ci-test-secret

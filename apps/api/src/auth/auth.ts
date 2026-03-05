@@ -118,7 +118,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         // H-15: Set httpOnly cookie instead of returning token in body
         reply.setCookie(COOKIE_NAME, token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production' && process.env.HTTPS === 'true',
+            secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             path: '/',
             maxAge: COOKIE_MAX_AGE,
