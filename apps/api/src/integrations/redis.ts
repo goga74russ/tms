@@ -32,7 +32,7 @@ export async function testRedisConnection(): Promise<boolean> {
         await client.connect();
         await client.ping();
         await client.quit();
-        console.log('✅ Redis connected');
+        console.info('✅ Redis connected');
         return true;
     } catch (err: any) {
         console.warn('⚠️ Redis connection failed (workers disabled):', err.message);

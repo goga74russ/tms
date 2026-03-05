@@ -237,6 +237,29 @@ GET  /api/health/ready                — Readiness probe (DB + Redis)
 GET  /api/integrations/status         — статус BullMQ workers
 ```
 
+## Импорт данных (Sprint 7)
+
+```
+POST /api/import/vehicles             — массовый импорт ТС (JSON, до 200)
+POST /api/import/drivers              — массовый импорт водителей
+POST /api/import/contractors          — массовый импорт контрагентов
+```
+
+> Все эндпоинты требуют роль `admin` или `manager`.
+> Принимают `{ items: [...] }`. Возвращают `{ created, errors[] }`.
+> ⚠️ Drivers: userId = placeholder UUID, нужна привязка к аккаунтам.
+
+## Аналитика (Sprint 8)
+
+```
+GET  /api/analytics/maintenance-alerts — алерты предиктивного ТО
+GET  /api/analytics/profitability      — маржинальность рейсов
+```
+
+> `/maintenance-alerts` — дата-алерты (ТО/ОСАГО/техосмотр/тахограф) + одометр-алерты (до ТО < 2000 км).
+> `/profitability` — revenue vs cost для каждого completed trip, % маржи, summary.
+> ⚠️ Себестоимость упрощена (фиксированные коэф.), нет UI дашборда.
+
 ---
 
 > **Правило**: Если модулю нужны данные из другого модуля — использовать ТОЛЬКО API или прямой SELECT из БД. НЕ импортировать код другого модуля.

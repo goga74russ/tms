@@ -55,7 +55,7 @@ export async function setupRepeatableJobs(): Promise<void> {
         repeat: { pattern: '0 3 * * *' }, // daily at 03:00
     });
 
-    console.log('📋 Repeatable jobs configured: Wialon (*/15min), Fines (daily 03:00)');
+    console.info('📋 Repeatable jobs configured: Wialon (*/15min), Fines (daily 03:00)');
 }
 
 /**

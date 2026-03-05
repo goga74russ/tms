@@ -139,14 +139,14 @@ export function startFinesWorker(): Worker {
     });
 
     finesWorker.on('completed', (job) => {
-        console.log(`✅ Fines sync job ${job.id} completed`);
+        console.info(`✅ Fines sync job ${job.id} completed`);
     });
 
     finesWorker.on('failed', (job, err) => {
         console.error(`❌ Fines sync job ${job?.id} failed:`, err.message);
     });
 
-    console.log('🚔 Fines sync worker started');
+    console.info('🚔 Fines sync worker started');
     return finesWorker;
 }
 

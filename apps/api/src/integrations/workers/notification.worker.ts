@@ -86,7 +86,7 @@ export function startNotificationWorker(): Worker {
     notificationWorker.on('completed', (job) => {
         const result = job.returnvalue;
         if (result && !result.skipped) {
-            console.log(`📨 Notification sent: ${result.eventType} → ${result.sent} recipients`);
+            console.info(`📨 Notification sent: ${result.eventType} → ${result.sent} recipients`);
         }
     });
 
@@ -94,7 +94,7 @@ export function startNotificationWorker(): Worker {
         console.error(`❌ Notification job ${job?.id} failed:`, err.message);
     });
 
-    console.log('📨 Notification worker started');
+    console.info('📨 Notification worker started');
     return notificationWorker;
 }
 

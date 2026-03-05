@@ -117,14 +117,14 @@ export function startWialonWorker(): Worker {
     });
 
     wialonWorker.on('completed', (job) => {
-        console.log(`✅ Wialon sync job ${job.id} completed`);
+        console.info(`✅ Wialon sync job ${job.id} completed`);
     });
 
     wialonWorker.on('failed', (job, err) => {
         console.error(`❌ Wialon sync job ${job?.id} failed:`, err.message);
     });
 
-    console.log('🛰️ Wialon sync worker started');
+    console.info('🛰️ Wialon sync worker started');
     return wialonWorker;
 }
 

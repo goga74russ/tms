@@ -105,7 +105,7 @@ export function startPositionBroadcast(intervalMs = 10000) {
     positionInterval = setInterval(fetchAndBroadcastPositions, intervalMs);
     // Initial broadcast
     fetchAndBroadcastPositions();
-    console.log(`📡 Vehicle position broadcast started (every ${intervalMs / 1000}s)`);
+    console.info(`📡 Vehicle position broadcast started (every ${intervalMs / 1000}s)`);
 }
 
 export function stopPositionBroadcast() {
