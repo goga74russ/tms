@@ -25,6 +25,7 @@ export async function testRedisConnection(): Promise<boolean> {
         const client = new Redis({
             host: redisConnectionConfig.host,
             port: redisConnectionConfig.port,
+            password: redisConnectionConfig.password,
             connectTimeout: 3000,
             lazyConnect: true,
         });
