@@ -54,3 +54,24 @@
 **Дата:** 2026-03-04
 **Статус:** Принято
 **Причина:** Аудит M-16 — отсутствие Error Boundary приводило к белому экрану при unhandled render error. Создан `apps/web/src/app/error.tsx` — глобальный Error Boundary Next.js с кнопкой "Попробовать снова".
+
+## ADR-011: numeric(12,2) для денежных полей
+**Дата:** 2026-03-05
+**Статус:** Принято
+**Причина:** GPT-аудит выявил использование `real` (float32) для денежных полей — потеря точности при финансовых вычислениях. Все 21 денежное поле (tariffs, invoices, fines, repairs) мигрированы на `numeric(12,2).$type<number>()`. Координаты и физические величины мигрированы на `doublePrecision`.
+
+## ADR-012: Structured JSON logging в production
+**Дата:** 2026-03-05
+**Статус:** Принято
+**Причина:** `pino-pretty` добавляет overhead и ломает JSON-парсинг в prod логах (ELK/Grafana). Теперь: production = raw JSON, development = pino-pretty с цветами.
+
+## ADR-013: Readiness endpoint + Request-ID correlation
+**Дата:** 2026-03-05
+**Статус:** Принято
+**Причина:** GPT-аудит — отсутствие readiness endpoint для оркестратора. `/api/health/ready` проверяет DB (`SELECT 1`) + Redis (ping). `x-request-id` header пробрасывается из запроса в ответ для трейсинга.
+
+## ADR-014: Reproducible Docker builds
+**Дата:** 2026-03-05
+**Статус:** Принято
+**Причина:** GPT-аудит — `pnpm@latest` и `pnpm install` без lockfile. Теперь: `pnpm@9.15.2` (pin) + `--frozen-lockfile` в обоих Dockerfile. Гарантирует идентичные сборки.
+

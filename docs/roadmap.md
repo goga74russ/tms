@@ -1,11 +1,11 @@
 # 🗺️ Радар проекта TMS (Transport Management System)
 
-> **Статус проекта:** ✅ Sprint 5.6 завершён (Security Audit Final Fixes)
-> **Дата обновления:** 4 марта 2026 г.
+> **Статус проекта:** ✅ Sprint 5.7 завершён (GPT Audit Hardening)
+> **Дата обновления:** 5 марта 2026 г.
 > **Архитектура:** Monorepo (pnpm workspaces), Fastify + Drizzle, Next.js + shadcn/ui, React Native (Expo)
 > **Тесты:** 279+ unit-тестов (100% pass rate)
-> **Аудит:** 57/67 находок закрыто ✅
-> **Готовность к MVP:** ~85% (backend ✅, frontend 🟡, devops ✅)
+> **Аудит:** 57/67 + 15/15 GPT-аудит закрыто ✅
+> **Готовность к MVP:** ~88% (backend ✅, frontend 🟡, devops ✅, security ✅)
 
 ---
 
@@ -129,6 +129,44 @@
 - [x] **M-24**: Дедупликация event journal
 - 📋 12 пунктов DEFERRED → Sprint 6 (mobile, PostGIS, CRUD модалки, shared types)
 
+## 🔐 Спринт 5.7: GPT Audit Hardening
+**Статус:** ✅ Завершён | **Дата:** 5 марта 2026
+**Источник:** `audits/gpt0503.md` → 15 CRIT/HIGH/MED находок
+
+### Phase 1: Repo Hygiene ✅
+- [x] Удалены 5 `.js` дублёров из `apps/api/src/` (auth, connection, schema, seed, triggers)
+- [x] `.gitignore` → `apps/api/src/**/*.js`
+- [x] Root `test` script: `pnpm -r --if-present test`
+- [x] Dockerfiles: `pnpm@9.15.2` (pin) + `--frozen-lockfile`
+
+### Phase 2: Docker/Compose Security ✅
+- [x] Закрыты порты Postgres/Redis в `docker-compose.prod.yml` (internal network only)
+- [x] Fail-fast секреты `${VAR:?Set VAR}` — нет дефолтных паролей
+- [x] Redis auth: `--requirepass` + пароль в `REDIS_URL`
+- [x] `.github/workflows/ci.yml` — валидный CI (checkout → build → test → compose validate)
+
+### Phase 3: Security ✅
+- [x] Append-only триггер: проверка ВСЕХ полей (`author_role`, `entity_type`, `version`, `offline_created_at`)
+- [x] Cookie `secure: true` всегда в production (без зависимости от `HTTPS` env)
+- [x] Structured JSON logging в prod (pino-pretty только в dev)
+
+### Phase 4: DB Types ✅
+- [x] Денежные поля: `real` → `numeric(12,2).$type<number>()` (21 колонка)
+- [x] Координаты: `real` → `doublePrecision` (lat/lon)
+- [x] Физические величины: `real` → `doublePrecision` (вес, объём, пробег, топливо)
+
+### Phase 5: Observability ✅
+- [x] Readiness endpoint `/api/health/ready` (проверка DB + Redis)
+- [x] Correlation header `x-request-id`
+
+### Phase 6: Env Standardization ✅
+- [x] `.env.example` — prod шаблон с `REDIS_PASSWORD`
+- [x] `.env.local.example` — dev шаблон (пароли синхронизированы с compose)
+- [x] `deploy.sh` — автомиграция существующего `.env` (добавление `REDIS_PASSWORD`)
+
+### Bonus: Redis Auth Fix ✅
+- [x] `redis.ts` — `testRedisConnection()` передаёт пароль
+
 ---
 
 ## 🏛️ Спринт 6: ЭПД + Compliance (MUST — без этого не продать)
@@ -177,15 +215,15 @@
 
 ## 📊 Ресурсная сводка
 
-| Компонент | Sprint 1 | Sprint 2.5 | Sprint 4 | Sprint 5 | Sprint 5.6 |
-|-----------|----------|------------|----------|----------|------------|
-| **Архитектура** | 85% | 85% | 90% | 95% | 95% |
-| **Бизнес-логика** | 75% | 90% | 92% | 95% | 97% |
-| **Безопасность** | 30% | 80% | 90% | 95% | **98%** |
-| **Фронтенд** | 40% | 45% | 75% | 85% | 88% |
-| **Mobile** | 55% | 60% | 60% | 70% | 70% |
-| **Тесты** | 15% | 30% | 35% | 60% | 60% |
-| **DevOps** | 5% | 5% | 5% | 70% | 80% |
-| **Compliance (ЭПД)** | 0% | 0% | 0% | 15% | 15% |
-| **ОБЩАЯ** | **45%** | **~55%** | **~70%** | **~80%** | **~85%** |
+| Компонент | Sprint 1 | Sprint 2.5 | Sprint 4 | Sprint 5 | Sprint 5.6 | Sprint 5.7 |
+|-----------|----------|------------|----------|----------|------------|------------|
+| **Архитектура** | 85% | 85% | 90% | 95% | 95% | 97% |
+| **Бизнес-логика** | 75% | 90% | 92% | 95% | 97% | 97% |
+| **Безопасность** | 30% | 80% | 90% | 95% | 98% | **99%** |
+| **Фронтенд** | 40% | 45% | 75% | 85% | 88% | 88% |
+| **Mobile** | 55% | 60% | 60% | 70% | 70% | 70% |
+| **Тесты** | 15% | 30% | 35% | 60% | 60% | 60% |
+| **DevOps** | 5% | 5% | 5% | 70% | 80% | **92%** |
+| **Compliance (ЭПД)** | 0% | 0% | 0% | 15% | 15% | 15% |
+| **ОБЩАЯ** | **45%** | **~55%** | **~70%** | **~80%** | **~85%** | **~88%** |
 

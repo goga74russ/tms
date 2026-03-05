@@ -1,11 +1,11 @@
 # TMS Full Project Audit Log
 **Agent 7:** Architect & Security Officer (READ-ONLY)
-**Date:** 2026-03-04 | **Обновлено:** 17:00 (5-я ре-верификация + внешний аудит Claude)
+**Date:** 2026-03-04 | **Обновлено:** 2026-03-05 10:00 (GPT Audit fixes)
 **Scope:** 97 исходных файлов (~13 000 строк)
 
 ---
 
-## 🏁 PRODUCTION-READINESS: 7.5 / 10
+## 🏁 PRODUCTION-READINESS: 8.0 / 10
 
 > Backend API полностью пригоден для staging/production с оговорками (ПЭП verif + mobile auth).
 > Web frontend работоспособен в текущем виде (httpOnly cookies позволяют raw `fetch`).
@@ -13,8 +13,9 @@
 
 ---
 
-## Статус: 57 из 67 находок ПОДТВЕРЖДЁННО исправлены ✅
+## Статус: 57 из 67 находок + 15/15 GPT-аудит ПОДТВЕРЖДЁННО исправлены ✅
 
+### Основной аудит (Claude, Agent 7)
 | Severity | Было | Подтв. ✅ | Спорно ⚠ | DEFERRED 📋 | Осталось ❌ |
 |----------|------|-----------|----------|-------------|------------|
 | 🔴 CRITICAL | 9 | **9** | 0 | 0 | **0** |
@@ -22,6 +23,14 @@
 | 🟡 MEDIUM | 24 | **19** | 0 | 2 | **3** |
 | 🟢 LOW/OK | 10 | **7** | 0 | 0 | **3** |
 | **ИТОГО** | **67** | **57** ✅ | **1** ⚠ | **2** 📋 | **7** ❌ |
+
+### GPT Аудит (gpt0503.md) — 5 марта 2026
+| Severity | Было | Исправлено ✅ |
+|----------|------|---------------|
+| 🔴 CRIT | 4 | **4** |
+| 🟠 HIGH | 5 | **5** |
+| 🟡 MED | 6 | **6** |
+| **ИТОГО** | **15** | **15** ✅ |
 
 ---
 
@@ -156,6 +165,42 @@
 
 ---
 
+## 🆕 GPT Аудит (gpt0503.md) — Все 15 находок исправлены ✅
+
+**Дата исправления:** 5 марта 2026 | **Коммиты:** `c38ce06`, `084b4e9`
+
+### 🔴 CRIT — 4/4 ✅
+
+| ID | Проблема | Исправление |
+|----|----------|-------------|
+| G-1 | `.js` дублёры рядом с `.ts` | ✅ Удалены 5 файлов + `.gitignore` правило |
+| G-2 | Postgres/Redis порты открыты наружу | ✅ Порты убраны из `docker-compose.prod.yml` |
+| G-3 | Дефолтные пароли `:-tms` в compose | ✅ Fail-fast `${VAR:?Set VAR}` |
+| G-4 | CI workflow невалидный YAML | ✅ Пересоздан `.github/workflows/ci.yml` |
+
+### 🟠 HIGH — 5/5 ✅
+
+| ID | Проблема | Исправление |
+|----|----------|-------------|
+| G-5 | Append-only триггер неполный | ✅ Добавлены `author_role`, `entity_type`, `version`, `offline_created_at` |
+| G-6 | Root `pnpm test` падает | ✅ Добавлен `test: "pnpm -r --if-present test"` |
+| G-7 | Redis auth несостыковка | ✅ Пароль в `REDIS_URL` + `--requirepass` + `testRedisConnection()` fix |
+| G-8 | Docker `pnpm@latest` + без `--frozen-lockfile` | ✅ `pnpm@9.15.2` + `--frozen-lockfile` в обоих Dockerfile |
+| G-9 | Cookie secure зависит от `HTTPS` env | ✅ `secure: NODE_ENV === 'production'` |
+
+### 🟡 MED — 6/6 ✅
+
+| ID | Проблема | Исправление |
+|----|----------|-------------|
+| G-10 | Денежные поля `real` (float) | ✅ `numeric(12,2).$type<number>()` — 21 колонка |
+| G-11 | Координаты `real` | ✅ `doublePrecision` — lat/lon |
+| G-12 | `pino-pretty` всегда в prod | ✅ JSON logging в prod, pretty только в dev |
+| G-13 | Нет readiness endpoint | ✅ `/api/health/ready` — DB + Redis |
+| G-14 | Нет request-id correlation | ✅ `x-request-id` header |
+| G-15 | `.env.example` без Redis password | ✅ Обновлён + `.env.local.example` для dev |
+
+---
+
 ## Приоритеты для Sprint 6
 
 | # | Действие | Severity |
@@ -166,6 +211,8 @@
 | 4 | `recordEvent` transaction awareness (N-2) | 🟡 MEDIUM |
 | 5 | DB indexes при prod миграции (M-3) | 🟡 MEDIUM |
 | 6 | 152-ФЗ privacy compliance (M-9) | 🟡 MEDIUM |
+| 7 | SSL/TLS (Let's Encrypt — нужен домен) | 🟡 MEDIUM |
+| 8 | DB миграция `real → numeric/doublePrecision` на prod | 🟡 MEDIUM |
 
 ---
 
