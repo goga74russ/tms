@@ -75,3 +75,18 @@
 **Статус:** Принято
 **Причина:** GPT-аудит — `pnpm@latest` и `pnpm install` без lockfile. Теперь: `pnpm@9.15.2` (pin) + `--frozen-lockfile` в обоих Dockerfile. Гарантирует идентичные сборки.
 
+## ADR-015: WebSocket auth через ?token= query param
+**Дата:** 2026-03-05
+**Статус:** Принято
+**Причина:** Browser WebSocket API не поддерживает custom headers и cookies. Решение: frontend получает short-lived JWT (5мин) через cookie-authenticated endpoint `/api/auth/ws-token`, затем передаёт его в `?token=` query param при подключении к `/ws/vehicles`. Backend проверяет через `jwt.verify()` и закрывает соединение с кодом 4401 при невалидном токене.
+
+## ADR-016: WatermelonDB sync pull endpoint
+**Дата:** 2026-03-05
+**Статус:** Принято
+**Причина:** Мобильное приложение использует WatermelonDB для offline-first. Для синхронизации нужен `GET /sync/pull?lastSyncAt=<ISO>`, который возвращает diff по `updatedAt > since`. Driver RLS: водители получают только свои рейсы. Push уже был через `POST /sync/events`.
+
+## ADR-017: fuelNorm из таблицы vehicles вместо хардкода
+**Дата:** 2026-03-05
+**Статус:** Принято
+**Причина:** `calculateTripCost` использовал `fuelNorm = 30` хардкод. Каждое ТС имеет `vehicles.fuelNormPer100Km`. Теперь: DB query → env fallback `FUEL_NORM_PER_100KM` → 30. Аналогично: `DRIVER_SALARY_PER_HOUR` (350), `AMORTIZATION_PER_KM` (3).
+

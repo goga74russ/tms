@@ -191,5 +191,53 @@ GET /api/integrations/status         — здоровье очередей (wait
 
 ---
 
+## Auth: дополнительные эндпоинты
+
+```
+POST /api/auth/login              — логин (rate-limited 5/мин)
+POST /api/auth/logout             — логаут (clear cookie)
+GET  /api/auth/me                 — текущий пользователь
+GET  /api/auth/ws-token           — short-lived JWT (5мин) для WebSocket
+GET  /api/auth/users              — список пользователей (admin)
+POST /api/auth/users              — создание пользователя (admin)
+PUT  /api/auth/users/:id          — обновление (admin, self-escalation guard)
+GET  /api/auth/tariffs            — список тарифов (admin/accountant/manager)
+POST /api/auth/tariffs            — создание тарифа (admin/accountant)
+PUT  /api/auth/tariffs/:id        — обновление тарифа
+GET  /api/auth/checklist-templates — шаблоны чеклистов (admin)
+POST /api/auth/checklist-templates — создание шаблона
+PUT  /api/auth/checklist-templates/:id — обновление шаблона
+```
+
+## Sync: мобильная синхронизация
+
+```
+GET  /api/sync/pull?lastSyncAt=<ISO>  — WatermelonDB pull (trips, vehicles, orders since date)
+POST /api/sync/events                  — push events from mobile (max 100/batch)
+```
+
+## WebSocket: real-time позиции
+
+```
+WS   /api/ws/vehicles?token=<jwt>     — WebSocket stream (JWT auth через query param)
+GET  /api/vehicles/positions           — REST fallback (cookie auth)
+```
+
+## ЭПД/ЭТрН: электронные документы
+
+```
+GET  /api/waybills/:id/etrn           — ЭТрН XML (Титул 1) для путевого листа
+GET  /api/waybills/:id/etrn-title4    — ЭТрН XML (Титул 4)
+```
+
+## Health / Служебные
+
+```
+GET  /api/health/ready                — Readiness probe (DB + Redis)
+GET  /api/integrations/status         — статус BullMQ workers
+```
+
+---
+
 > **Правило**: Если модулю нужны данные из другого модуля — использовать ТОЛЬКО API или прямой SELECT из БД. НЕ импортировать код другого модуля.
 
