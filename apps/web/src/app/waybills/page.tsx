@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
     FileText, Search, Filter, X, Eye, Lock, CheckCircle2,
-    Clock, RotateCcw, ChevronDown, Truck, User,
+    Clock, RotateCcw, ChevronDown, Truck, User, Download,
 } from 'lucide-react';
 
 // ================================================================
@@ -521,7 +521,23 @@ export default function WaybillsPage() {
                                             {new Date(wb.issuedAt).toLocaleDateString('ru-RU')}
                                         </td>
                                         <td className="px-4 py-3">
-                                            <Eye className="w-4 h-4 text-slate-300" />
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); openDetail(wb.id); }}
+                                                    className="p-1 rounded hover:bg-blue-100 transition-colors" title="Подробности"
+                                                >
+                                                    <Eye className="w-4 h-4 text-slate-400" />
+                                                </button>
+                                                <a
+                                                    href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/waybills/${wb.id}/etrn`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="p-1 rounded hover:bg-emerald-100 transition-colors" title="Скачать ЭТрН XML"
+                                                >
+                                                    <Download className="w-4 h-4 text-emerald-600" />
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
