@@ -3,6 +3,7 @@
 // ============================================================
 import { FastifyPluginAsync } from 'fastify';
 import { requireAbility } from '../../auth/rbac.js';
+import { assertOrderAccess, AccessDeniedError } from '../../auth/guards.js';
 import {
     createOrder,
     getOrders,
@@ -171,6 +172,17 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
         preHandler: [app.authenticate, requireAbility('update', 'Order')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[] };
+
+        // IDOR guard: verify ownership
+        try {
+            await assertOrderAccess(id, user);
+        } catch (err: any) {
+            if (err instanceof AccessDeniedError) {
+                return reply.status(403).send({ success: false, error: err.message });
+            }
+            throw err;
+        }
 
         const parseResult = OrderUpdateSchema.safeParse(request.body);
         if (!parseResult.success) {
@@ -197,6 +209,9 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             const { id } = request.params as { id: string };
             const user = request.user as { userId: string; roles: string[] };
 
+            // IDOR guard: verify ownership
+            await assertOrderAccess(id, user);
+
             const order = await changeOrderStatus(id, 'confirmed', {
                 userId: user.userId,
                 role: user.roles[0],
@@ -204,6 +219,9 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
 
             return { success: true, data: order };
         } catch (err: any) {
+            if (err instanceof AccessDeniedError) {
+                return reply.status(403).send({ success: false, error: err.message });
+            }
             return reply.status(400).send({ success: false, error: err.message });
         }
     });
@@ -217,6 +235,9 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             const user = request.user as { userId: string; roles: string[] };
             const body = request.body as { reason?: string };
 
+            // IDOR guard: verify ownership
+            await assertOrderAccess(id, user);
+
             const order = await changeOrderStatus(id, 'cancelled', {
                 userId: user.userId,
                 role: user.roles[0],
@@ -224,6 +245,9 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
 
             return { success: true, data: order };
         } catch (err: any) {
+            if (err instanceof AccessDeniedError) {
+                return reply.status(403).send({ success: false, error: err.message });
+            }
             return reply.status(400).send({ success: false, error: err.message });
         }
     });

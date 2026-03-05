@@ -125,14 +125,29 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 break;
 
             case 'admin':
-                // TODO [PRODUCTION]: Перед релизом вернуть ограниченные права:
-                //   can('manage', 'Settings');
-                //   can('manage', 'ChecklistTemplate');
-                //   can('read', 'all');
-                //   cannot('read', 'MedInspectionDetails'); // §А.3 — медданные
-                //   cannot('read', 'KPI');                  // §А.3 — KPI
-                // Сейчас полный доступ для тестирования:
-                can('manage', 'all');
+                // Production-safe permissions (§А.3)
+                can('manage', 'Settings');
+                can('manage', 'ChecklistTemplate');
+                can('read', 'Order');
+                can('read', 'Trip');
+                can('read', 'Vehicle');
+                can('read', 'Driver');
+                can('read', 'Contractor');
+                can('read', 'Contract');
+                can('read', 'Waybill');
+                can('read', 'TechInspection');
+                can('read', 'MedInspection');
+                cannot('read', 'MedInspectionDetails'); // §А.3 — медданные
+                can('read', 'RepairRequest');
+                can('read', 'Permit');
+                can('read', 'Fine');
+                can('read', 'Tariff');
+                can('read', 'Invoice');
+                cannot('read', 'KPI'); // §А.3
+                // Admin-specific: user management, tariff management
+                can('manage', 'Tariff');
+                can('manage', 'Contract');
+                can('manage', 'Contractor');
                 break;
 
             case 'client':

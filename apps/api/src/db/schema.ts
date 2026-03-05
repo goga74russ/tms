@@ -549,11 +549,14 @@ export const events = pgTable('events', {
     version: integer('version').notNull().default(1),
     conflict: boolean('conflict').notNull().default(false),
     offlineCreatedAt: timestamp('offline_created_at', { withTimezone: true }),
+    /** Idempotency key — prevents duplicate events on retries */
+    externalId: varchar('external_id', { length: 255 }),
 }, (table) => [
     index('idx_events_entity').on(table.entityType, table.entityId),
     index('idx_events_type').on(table.eventType),
     index('idx_events_timestamp').on(table.timestamp),
     index('idx_events_author').on(table.authorId),
+    uniqueIndex('idx_events_external_id').on(table.externalId),
 ]);
 
 // ================================================================

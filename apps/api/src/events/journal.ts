@@ -14,15 +14,17 @@ interface CreateEventParams {
     entityId: string;
     data: Record<string, unknown>;
     offlineCreatedAt?: string;
+    /** Optional idempotency key — prevents duplicate events on retries */
+    externalId?: string;
 }
 
 /**
  * Записывает неизменяемое событие в журнал.
- * Идемпотентность: если событие с таким ID уже есть — игнорируется.
+ * Идемпотентность: если передан externalId и событие с таким ID уже есть — игнорируется.
  */
 export async function recordEvent(params: CreateEventParams, tx?: any) {
     const dbInstance = tx || db;
-    const [event] = await dbInstance.insert(events).values({
+    const values: Record<string, unknown> = {
         authorId: params.authorId,
         authorRole: params.authorRole,
         eventType: params.eventType,
@@ -30,9 +32,18 @@ export async function recordEvent(params: CreateEventParams, tx?: any) {
         entityId: params.entityId,
         data: params.data,
         offlineCreatedAt: params.offlineCreatedAt ? new Date(params.offlineCreatedAt) : undefined,
-    }).returning();
+    };
 
-    return event;
+    // If externalId provided, set it for idempotency
+    if (params.externalId) {
+        values.externalId = params.externalId;
+    }
+
+    const result = await dbInstance.insert(events).values(values)
+        .onConflictDoNothing() // Safe: if externalId unique constraint hit, skip silently
+        .returning();
+
+    return result[0] ?? null; // null = duplicate, was ignored
 }
 
 /**

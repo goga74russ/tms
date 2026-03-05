@@ -7,6 +7,7 @@ import {
     trips, checklistTemplates, repairRequests, medAccessLog, permits,
 } from '../../db/schema.js';
 import { recordEvent } from '../../events/journal.js';
+import { getBusinessDayBounds } from '../../utils/timezone.js';
 import { eq, and, gte, lte, isNull, desc, sql, count, inArray } from 'drizzle-orm';
 
 // ================================================================
@@ -53,10 +54,7 @@ interface MedInspectionInput {
  * that haven't been inspected today yet.
  */
 export async function getTechInspectionQueue() {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const { todayStart, todayEnd } = getBusinessDayBounds();
 
     // C-4 FIX: Single query with LEFT JOIN instead of N+1 loop
     // 1. Get assigned trips with vehicles in one query
@@ -369,10 +367,7 @@ export async function getTechInspectionById(id: string) {
  * Get queue of drivers awaiting med inspection today.
  */
 export async function getMedInspectionQueue() {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const { todayStart, todayEnd } = getBusinessDayBounds();
 
     // 1. Get all assigned trips with drivers
     const assignedTrips = await db
@@ -724,10 +719,7 @@ export async function getExpiringMedCertificates(daysAhead = 30) {
  * Check if vehicle has valid tech inspection today.
  */
 export async function hasValidTechInspectionToday(vehicleId: string): Promise<boolean> {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const { todayStart, todayEnd } = getBusinessDayBounds();
 
     const [result] = await db
         .select({ id: techInspections.id })
@@ -749,10 +741,7 @@ export async function hasValidTechInspectionToday(vehicleId: string): Promise<bo
  * Check if driver has valid med inspection today.
  */
 export async function hasValidMedInspectionToday(driverId: string): Promise<boolean> {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const { todayStart, todayEnd } = getBusinessDayBounds();
 
     const [result] = await db
         .select({ id: medInspections.id })
@@ -774,10 +763,7 @@ export async function hasValidMedInspectionToday(driverId: string): Promise<bool
  * Get today's approved tech inspection ID for a vehicle.
  */
 export async function getTodayTechInspectionId(vehicleId: string): Promise<string | null> {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const { todayStart, todayEnd } = getBusinessDayBounds();
 
     const [result] = await db
         .select({ id: techInspections.id, signature: techInspections.signature })
@@ -800,10 +786,7 @@ export async function getTodayTechInspectionId(vehicleId: string): Promise<strin
  * Get today's approved med inspection ID for a driver.
  */
 export async function getTodayMedInspectionId(driverId: string): Promise<string | null> {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    const { todayStart, todayEnd } = getBusinessDayBounds();
 
     const [result] = await db
         .select({ id: medInspections.id, signature: medInspections.signature })
