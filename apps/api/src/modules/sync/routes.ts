@@ -1,6 +1,9 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import * as syncService from './service.js';
+import { db } from '../../db/connection.js';
+import { trips, vehicles, drivers, orders } from '../../db/schema.js';
+import { eq, gt, and } from 'drizzle-orm';
 
 const SyncEventInputSchema = z.object({
     id: z.string().uuid(),
@@ -10,14 +13,77 @@ const SyncEventInputSchema = z.object({
         'route_point_completed',
     ]),
     timestamp: z.string().datetime(),
-    payload: z.record(z.any()), // We allow dynamic payload but it's checked in service.ts further
+    payload: z.record(z.any()),
 });
 
 const SyncBodySchema = z.object({
-    events: z.array(SyncEventInputSchema).max(100), // Max 100 events per sync batch
+    events: z.array(SyncEventInputSchema).max(100),
 });
 
 export default async function syncRoutes(app: FastifyInstance) {
+
+    /**
+     * GET /sync/pull — WatermelonDB pull protocol
+     * Returns rows changed since lastSyncAt.
+     * Driver RLS: drivers only see their own trips.
+     */
+    app.get('/sync/pull', {
+        preHandler: [app.authenticate],
+    }, async (request, reply) => {
+        const user = request.user as { userId: string; roles: string[] };
+        const { lastSyncAt = '1970-01-01T00:00:00Z' } = request.query as Record<string, string>;
+        const since = new Date(lastSyncAt);
+        const now = new Date();
+        const isDriver = user.roles.includes('driver');
+
+        try {
+            let driverId: string | undefined;
+            if (isDriver) {
+                const [driver] = await db
+                    .select({ id: drivers.id })
+                    .from(drivers)
+                    .where(eq(drivers.userId, user.userId))
+                    .limit(1);
+                driverId = driver?.id;
+            }
+
+            // Trips: driver sees only own, others see all updated
+            const tripConditions = isDriver && driverId
+                ? and(gt(trips.updatedAt, since), eq(trips.driverId, driverId))
+                : gt(trips.updatedAt, since);
+
+            const updatedTrips = await db.select().from(trips)
+                .where(tripConditions).limit(500);
+
+            // Vehicles: all updated
+            const updatedVehicles = await db
+                .select({
+                    id: vehicles.id,
+                    plateNumber: vehicles.plateNumber,
+                    make: vehicles.make,
+                    model: vehicles.model,
+                    status: vehicles.status,
+                    currentOdometerKm: vehicles.currentOdometerKm,
+                    updatedAt: vehicles.updatedAt,
+                })
+                .from(vehicles)
+                .where(gt(vehicles.updatedAt, since))
+                .limit(500);
+
+            return {
+                success: true,
+                changes: {
+                    trips: { created: updatedTrips, updated: [], deleted: [] },
+                    vehicles: { created: updatedVehicles, updated: [], deleted: [] },
+                },
+                timestamp: now.toISOString(),
+            };
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(500).send({ success: false, error: error.message || 'Sync pull failed' });
+        }
+    });
+
     app.post('/sync/events', {
         preHandler: [app.authenticate] // Driver authentication
     }, async (request, reply) => {

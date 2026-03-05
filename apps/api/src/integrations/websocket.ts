@@ -122,8 +122,27 @@ const websocketRoutes: FastifyPluginAsync = async (app) => {
     // Register WebSocket plugin
     await app.register(websocket);
 
-    // WebSocket endpoint: /ws/vehicles
+    // WebSocket endpoint: /ws/vehicles (JWT auth via ?token= query param)
     app.get('/ws/vehicles', { websocket: true }, (socket, request) => {
+        // --- JWT Auth ---
+        const url = new URL(request.url, `http://${request.headers.host}`);
+        const token = url.searchParams.get('token');
+
+        if (!token) {
+            socket.send(JSON.stringify({ type: 'error', message: 'Missing token' }));
+            socket.close(4401, 'Unauthorized');
+            return;
+        }
+
+        try {
+            (app as any).jwt.verify(token);
+        } catch {
+            socket.send(JSON.stringify({ type: 'error', message: 'Invalid token' }));
+            socket.close(4401, 'Unauthorized');
+            return;
+        }
+        // --- End Auth ---
+
         connectedClients.add(socket);
         app.log.info(`📡 WS client connected (total: ${connectedClients.size})`);
 
@@ -152,7 +171,10 @@ const websocketRoutes: FastifyPluginAsync = async (app) => {
     });
 
     // REST endpoint: get current positions (fallback for non-WS clients)
-    app.get('/vehicles/positions', async () => {
+    app.get('/vehicles/positions', {
+        preHandler: [app.authenticate],
+    }, async () => {
+
         const vehicleList = await db.select({
             id: vehicles.id,
             plateNumber: vehicles.plateNumber,

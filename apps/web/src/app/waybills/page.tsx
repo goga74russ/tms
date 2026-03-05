@@ -506,8 +506,8 @@ export default function WaybillsPage() {
                                         <td className="px-4 py-3">
                                             <StatusBadge status={wb.status} />
                                         </td>
-                                        <td className="px-4 py-3 text-slate-700">{wb.vehicleId.substring(0, 8)}...</td>
-                                        <td className="px-4 py-3 text-slate-700">{wb.driverId.substring(0, 8)}...</td>
+                                        <td className="px-4 py-3 text-slate-700 font-mono text-xs">{(wb as any).vehiclePlate || wb.vehicleId.substring(0, 8)}</td>
+                                        <td className="px-4 py-3 text-slate-700 text-xs">{(wb as any).driverName || wb.driverId.substring(0, 8)}</td>
                                         <td className="px-4 py-3 text-slate-600 text-xs">
                                             {wb.departureAt ? new Date(wb.departureAt).toLocaleString('ru-RU', {
                                                 day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',

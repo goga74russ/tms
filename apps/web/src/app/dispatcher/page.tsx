@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Map as MapIcon, ArrowLeftRight, Clock, Loader2, Info, Truck, User, MapPin } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Map as MapIcon, ArrowLeftRight, Clock, Loader2, Info, Truck, User, MapPin, Wifi, WifiOff } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { AssignmentPanel } from './components/AssignmentPanel';
 import { VehicleTimeline } from './components/VehicleTimeline';
 import { Card, CardContent } from '@/components/ui/card';
 import { api } from '@/lib/api';
+import { useVehiclePositions } from '@/hooks/useVehiclePositions';
 import type { RoutePoint } from './components/TripRouteLayer';
 
 // Leaflet must be loaded client-side only
@@ -106,6 +107,21 @@ export default function DispatcherPage() {
     const [tripRoutePoints, setTripRoutePoints] = useState<RoutePoint[]>([]);
     const [activeTripDetails, setActiveTripDetails] = useState<ActiveTripDetails | null>(null);
 
+    // Real-time vehicle positions via WebSocket
+    const { positions: wsPositions, isConnected: wsConnected } = useVehiclePositions();
+
+    // Merge WS positions into vehicles for the map
+    const enrichedVehicles = useMemo(() => {
+        if (wsPositions.length === 0) return vehicles;
+        return vehicles.map(v => {
+            const pos = wsPositions.find(p => p.vehicleId === v.id);
+            if (pos) {
+                return { ...v, lat: pos.lat, lon: pos.lon };
+            }
+            return v;
+        });
+    }, [vehicles, wsPositions]);
+
     // Load vehicles, orders, and trips
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -128,7 +144,7 @@ export default function DispatcherPage() {
 
     useEffect(() => {
         loadData();
-        const intervalId = setInterval(loadData, 15000);
+        const intervalId = setInterval(loadData, 30000); // reduced frequency since WS handles positions
         return () => clearInterval(intervalId);
     }, [loadData]);
 
@@ -188,10 +204,10 @@ export default function DispatcherPage() {
 
     // Stats
     const vehicleStats = {
-        available: vehicles.filter(v => v.status === 'available').length,
-        assigned: vehicles.filter(v => v.status === 'assigned').length,
-        inTrip: vehicles.filter(v => v.status === 'in_trip').length,
-        problem: vehicles.filter(v => ['broken', 'maintenance'].includes(v.status)).length,
+        available: enrichedVehicles.filter(v => v.status === 'available').length,
+        assigned: enrichedVehicles.filter(v => v.status === 'assigned').length,
+        inTrip: enrichedVehicles.filter(v => v.status === 'in_trip').length,
+        problem: enrichedVehicles.filter(v => ['broken', 'maintenance'].includes(v.status)).length,
     };
 
     return (
@@ -213,6 +229,13 @@ export default function DispatcherPage() {
                         <span>Синхронизация...</span>
                     </div>
                 )}
+                <div className="flex items-center gap-2 text-xs">
+                    {wsConnected ? (
+                        <><Wifi className="w-3.5 h-3.5 text-emerald-500" /><span className="text-emerald-600">Live</span></>
+                    ) : (
+                        <><WifiOff className="w-3.5 h-3.5 text-slate-400" /><span className="text-slate-400">Offline</span></>
+                    )}
+                </div>
             </div>
 
             {/* Vehicle stats */}
@@ -293,7 +316,7 @@ export default function DispatcherPage() {
                 <div className="col-span-2 space-y-4">
                     {activeTab === 'map' ? (
                         <DispatcherMap
-                            vehicles={vehicles}
+                            vehicles={enrichedVehicles}
                             selectedVehicle={selectedVehicle}
                             onSelectVehicle={setSelectedVehicle}
                             tripRoutePoints={tripRoutePoints}
@@ -385,7 +408,7 @@ export default function DispatcherPage() {
                 <div className="col-span-1">
                     <AssignmentPanel
                         orders={orders}
-                        vehicles={vehicles.filter(v => v.status === 'available')}
+                        vehicles={enrichedVehicles.filter(v => v.status === 'available')}
                         onAssign={async (orderId, vehicleId) => {
                             const order = orders.find(o => o.id === orderId);
                             if (!order) return;

@@ -39,11 +39,30 @@ export function useVehiclePositions(options: UseVehiclePositionsOptions = {}) {
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const mountedRef = useRef(true);
 
-    const connect = useCallback(() => {
+    const connect = useCallback(async () => {
         if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-        const wsUrl = apiUrl.replace(/^http/, 'ws').replace(/\/api$/, '/api/ws/vehicles');
+
+        // Fetch WS auth token via cookie-authenticated endpoint
+        let token = '';
+        try {
+            const res = await fetch(`${apiUrl}/auth/ws-token`, { credentials: 'include' });
+            if (res.ok) {
+                const data = await res.json();
+                token = data.token || '';
+            }
+        } catch { /* will fail to connect below */ }
+
+        if (!token) {
+            setError('Failed to get WS token');
+            fallbackPoll();
+            return;
+        }
+
+        const wsUrl = apiUrl
+            .replace(/^http/, 'ws')
+            .replace(/\/api$/, `/api/ws/vehicles?token=${token}`);
 
         try {
             const ws = new WebSocket(wsUrl);
@@ -53,7 +72,6 @@ export function useVehiclePositions(options: UseVehiclePositionsOptions = {}) {
                 if (!mountedRef.current) return;
                 setIsConnected(true);
                 setError(null);
-                console.log('📡 WS connected to vehicle positions');
             };
 
             ws.onmessage = (event) => {
@@ -83,7 +101,6 @@ export function useVehiclePositions(options: UseVehiclePositionsOptions = {}) {
             };
         } catch (err: any) {
             setError(err.message);
-            // Fallback to REST polling
             fallbackPoll();
         }
     }, [autoReconnect, reconnectDelay]);

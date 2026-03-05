@@ -278,8 +278,30 @@ export async function listWaybills(page = 1, limit = 20, driverId?: string) {
         .where(conditions);
 
     const items = await db
-        .select()
+        .select({
+            id: waybills.id,
+            number: waybills.number,
+            tripId: waybills.tripId,
+            vehicleId: waybills.vehicleId,
+            driverId: waybills.driverId,
+            techInspectionId: waybills.techInspectionId,
+            medInspectionId: waybills.medInspectionId,
+            status: waybills.status,
+            odometerOut: waybills.odometerOut,
+            odometerIn: waybills.odometerIn,
+            fuelIn: waybills.fuelIn,
+            departureAt: waybills.departureAt,
+            returnAt: waybills.returnAt,
+            issuedAt: waybills.issuedAt,
+            closedAt: waybills.closedAt,
+            mechanicSignature: waybills.mechanicSignature,
+            medicSignature: waybills.medicSignature,
+            vehiclePlate: vehicles.plateNumber,
+            driverName: drivers.fullName,
+        })
         .from(waybills)
+        .leftJoin(vehicles, eq(waybills.vehicleId, vehicles.id))
+        .leftJoin(drivers, eq(waybills.driverId, drivers.id))
         .where(conditions)
         .orderBy(desc(waybills.issuedAt))
         .limit(limit)

@@ -215,12 +215,12 @@
 - [ ] Deferred audit items (console.log→fastify.log, shared types)
 
 ### ⚠️ Известные долги (из аудита 05.03.2026)
-- [ ] 🔴 Подключить `useVehiclePositions` hook к DispatcherPage
-- [ ] 🔴 Добавить JWT auth на WebSocket `/ws/vehicles`
-- [ ] 🔴 Создать `/api/sync/pull` + `/api/sync/push` для WatermelonDB
-- [ ] 🟡 Вынести carrier данные (ИНН/название) в `.env` / настройки организации
-- [ ] 🟡 Убрать fallback данные из KPI (водители «Смирнов/Козлов»)
-- [ ] 🟡 Waybills таблица: показать госномер/ФИО вместо UUID
+- [x] ~~🔴 Подключить `useVehiclePositions` hook к DispatcherPage~~ ✅ done
+- [x] ~~🔴 Добавить JWT auth на WebSocket `/ws/vehicles`~~ ✅ done + `/auth/ws-token`
+- [x] ~~🔴 Создать `/api/sync/pull` + `/api/sync/push` для WatermelonDB~~ ✅ GET `/sync/pull` added
+- [x] ~~🟡 Вынести carrier данные (ИНН/название) в `.env`~~ ✅ `process.env.CARRIER_*`
+- [x] ~~🟡 Убрать fallback данные из KPI~~ ✅ fake drivers removed
+- [x] ~~🟡 Waybills таблица: показать госномер/ФИО~~ ✅ LEFT JOIN vehicles+drivers
 - [ ] 🟡 Кнопка «Добавить ТС» — подключить modal
 - [ ] 🟢 Создать бота @BotFather, добавить токен на VPS
 - [ ] 🟢 Привязать домен, получить SSL сертификат

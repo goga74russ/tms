@@ -85,22 +85,8 @@ const fmtMoney = (n: number) => {
     return n.toLocaleString('ru-RU') + ' ₽';
 };
 
-// Fallback data for charts that don't have dedicated API yet
-const costBreakdownFallback = [
-    { name: 'Топливо', value: 45 },
-    { name: 'Зарплата', value: 30 },
-    { name: 'Ремонты', value: 15 },
-    { name: 'Штрафы/Прочее', value: 10 },
-];
+// Cost breakdown colors for pie chart
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-
-// Driver ranking (static until API exists)
-const driversFallback = [
-    { name: 'Смирнов А.В.', trips: 24, eco: '98%', score: '5.0' },
-    { name: 'Козлов И.Д.', trips: 22, eco: '95%', score: '4.8' },
-    { name: 'Петров В.С.', trips: 26, eco: '91%', score: '4.6' },
-    { name: 'Иванов П.А.', trips: 18, eco: '88%', score: '4.2' },
-];
 
 // ================================================================
 export default function KPIDashboard() {
@@ -143,7 +129,7 @@ export default function KPIDashboard() {
         { name: 'Ремонты', value: kpi.repairsAmount || 0 },
         { name: 'Штрафы', value: kpi.finesAmount || 0 },
         { name: 'Прочие', value: Math.max(0, kpi.cost - (kpi.repairsAmount || 0) - (kpi.finesAmount || 0)) },
-    ] : costBreakdownFallback;
+    ] : [];
 
     // Transform fuel data for chart
     const fuelChartData = fuelData.map(f => ({
@@ -254,7 +240,7 @@ export default function KPIDashboard() {
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie data={costBreakdown} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
-                                        {costBreakdown.map((_, index) => (
+                                        {costBreakdown.map((_entry: any, index: number) => (
                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>

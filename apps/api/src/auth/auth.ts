@@ -166,6 +166,18 @@ export function registerAuthRoutes(app: FastifyInstance) {
         return { success: true, data: user };
     });
 
+    // Short-lived token for WebSocket connections (browser can't send cookies over WS)
+    app.get('/api/auth/ws-token', {
+        preHandler: [app.authenticate],
+    }, async (request) => {
+        const payload = request.user as { userId: string; roles: string[] };
+        const token = app.jwt.sign(
+            { userId: payload.userId, roles: payload.roles },
+            { expiresIn: '5m' }, // short-lived for WS handshake only
+        );
+        return { success: true, token };
+    });
+
     // --- Admin: User Management ---
 
     const UserCreateSchema = z.object({
