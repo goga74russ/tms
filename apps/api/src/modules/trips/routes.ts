@@ -30,6 +30,7 @@ async function resolveDriverId(userId: string): Promise<string | null> {
 const tripsRoutes: FastifyPluginAsync = async (app) => {
     // --- GET /trips — list with pagination & filters (RLS: driver sees own, client sees own) ---
     app.get('/trips', {
+        schema: { tags: ['Рейсы'], summary: 'Список рейсов', description: 'Получить все рейсы с фильтрацией по статусу, ТС, водителю, дате. Пагинация. RLS для водителей/клиентов.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
     }, async (request) => {
         const user = request.user as { userId: string; roles: string[] };
@@ -77,6 +78,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- GET /trips/available-vehicles ---
     app.get('/trips/available-vehicles', {
+        schema: { tags: ['Рейсы'], summary: 'Доступные ТС', description: 'Список ТС со статусом available для назначения на рейс.' },
         preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
     }, async () => {
         const vehicles = await getAvailableVehicles();
@@ -85,6 +87,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- GET /trips/available-drivers ---
     app.get('/trips/available-drivers', {
+        schema: { tags: ['Рейсы'], summary: 'Доступные водители', description: 'Список активных водителей для назначения на рейс.' },
         preHandler: [app.authenticate, requireAbility('read', 'Driver')],
     }, async () => {
         const drivers = await getAvailableDrivers();
@@ -93,6 +96,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- GET /trips/:id ---
     app.get('/trips/:id', {
+        schema: { tags: ['Рейсы'], summary: 'Получить рейс', description: 'Детальная информация о рейсе по ID с привязанными заявками.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -131,6 +135,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /trips — create ---
     app.post('/trips', {
+        schema: { tags: ['Рейсы'], summary: 'Создать рейс', description: 'Создание нового рейса. Автогенерация номера. Валидация Zod.' },
         preHandler: [app.authenticate, requireAbility('create', 'Trip')],
     }, async (request, reply) => {
         try {
@@ -155,6 +160,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- PUT /trips/:id — update ---
     app.put('/trips/:id', {
+        schema: { tags: ['Рейсы'], summary: 'Обновить рейс', description: 'Частичное обновление рейса (маршрут, плановые данные).' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -177,6 +183,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /trips/:id/assign — assign vehicle + driver ---
     app.post('/trips/:id/assign', {
+        schema: { tags: ['Рейсы'], summary: 'Назначить ТС/водителя', description: 'Привязка транспортного средства и водителя к рейсу. Проверка доступности.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         try {
@@ -217,6 +224,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /trips/:id/status — advance status ---
     app.post('/trips/:id/status', {
+        schema: { tags: ['Рейсы'], summary: 'Сменить статус', description: 'Переход по state machine рейса (planning→assigned→inspection→…→completed). Валидация переходов.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         try {
@@ -249,6 +257,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /trips/:id/cancel ---
     app.post('/trips/:id/cancel', {
+        schema: { tags: ['Рейсы'], summary: 'Отменить рейс', description: 'Отмена рейса с указанием причины. Освобождение ТС и водителя.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         try {
@@ -271,6 +280,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- GET /trips/:id/points ---
     app.get('/trips/:id/points', {
+        schema: { tags: ['Рейсы'], summary: 'Точки маршрута', description: 'Список точек маршрута рейса (погрузка/разгрузка) с координатами и статусами.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -291,6 +301,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /trips/:id/points ---
     app.post('/trips/:id/points', {
+        schema: { tags: ['Рейсы'], summary: 'Добавить точку', description: 'Добавление новой точки маршрута к рейсу.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -311,6 +322,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- PUT /trips/:id/points/:pointId ---
     app.put('/trips/:id/points/:pointId', {
+        schema: { tags: ['Рейсы'], summary: 'Обновить точку', description: 'Обновление точки маршрута (координаты, время прибытия, статус).' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         const { pointId } = request.params as { id: string; pointId: string };
@@ -334,6 +346,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- DELETE /trips/:id/points/:pointId ---
     app.delete('/trips/:id/points/:pointId', {
+        schema: { tags: ['Рейсы'], summary: 'Удалить точку', description: 'Удаление точки маршрута из рейса.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         const { pointId } = request.params as { id: string; pointId: string };

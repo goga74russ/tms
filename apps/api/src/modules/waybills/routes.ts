@@ -27,6 +27,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
      * List waybills (paginated, H-3: driver RLS)
      */
     app.get('/waybills', {
+        schema: { tags: ['Путевые листы'], summary: 'Список путевых листов', description: 'Все путевые листы с пагинацией.' },
         preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -56,6 +57,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
      * Single waybill with related data
      */
     app.get('/waybills/:id', {
+        schema: { tags: ['Путевые листы'], summary: 'Получить путевой лист', description: 'Детальная информация о путевом листе с данными рейса, ТС и водителя.' },
         preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -95,6 +97,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
      * Generate waybill for a trip (requires both approvals)
      */
     app.post('/waybills/generate/:tripId', {
+        schema: { tags: ['Путевые листы'], summary: 'Сформировать путевой лист', description: 'Автоматическое формирование путевого листа для рейса. Проверка наличия техосмотра и медосмотра.' },
         preHandler: [app.authenticate, requireAbility('create', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -118,6 +121,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
      * Close waybill (odometer, fuel, return time)
      */
     app.post('/waybills/:id/close', {
+        schema: { tags: ['Путевые листы'], summary: 'Закрыть путевой лист', description: 'Закрытие путевого листа с финальными данными одометра и ГСМ.' },
         preHandler: [app.authenticate, requireAbility('update', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -158,6 +162,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
      * Generate ЭТрН Титул 1 XML for a waybill
      */
     app.get('/waybills/:id/etrn', {
+        schema: { tags: ['Путевые листы'], summary: 'XML ЭТрН', description: 'Электронная транспортная накладная в формате XML для ГИС ЭПД.' },
         preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -214,6 +219,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
      * Generate ЭТрН Титул 4 XML (completion) for a waybill
      */
     app.get('/waybills/:id/etrn-title4', {
+        schema: { tags: ['Путевые листы'], summary: 'XML ЭТрН Титул 4', description: 'Титул 4 (приёмка груза) ЭТрН в XML.' },
         preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {

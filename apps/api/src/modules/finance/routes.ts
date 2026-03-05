@@ -14,7 +14,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
     // 1. GET /finance/trips/:id/cost — Расчёт стоимости рейса
     fastify.get<{ Params: { id: string } }>(
         '/finance/trips/:id/cost',
-        { preHandler: [fastify.authenticate, requireAbility('read', 'Trip')] },
+        { schema: { tags: ['Финансы'], summary: 'Рассчитать стоимость рейса', description: 'Расчёт по тарифу: дистанция × ставка + модификаторы + НДС.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Trip')] },
         async (request, reply) => {
             try {
                 const cost = await tarificationService.calculateTripCost(request.params.id);
@@ -28,7 +28,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
     // 2. GET /finance/invoices — Список счетов (RLS: client sees only own)
     fastify.get<{ Querystring: { page?: string; limit?: string } }>(
         '/finance/invoices',
-        { preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')] },
+        { schema: { tags: ['Финансы'], summary: 'Список счетов', description: 'Все счета/акты. RLS: клиент видит только свои.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')] },
         async (request, reply) => {
             const user = request.user as { userId: string; roles: string[] };
             const page = parseInt(request.query.page || '1', 10);
@@ -62,7 +62,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
     // 3. POST /finance/invoices — Генерация счёта
     fastify.post(
         '/finance/invoices',
-        { preHandler: [fastify.authenticate, requireAbility('create', 'Invoice')] },
+        { schema: { tags: ['Финансы'], summary: 'Сформировать счёт', description: 'Генерация счёта по завершённым рейсам за период. Валидация Zod.' }, preHandler: [fastify.authenticate, requireAbility('create', 'Invoice')] },
         async (request, reply) => {
             const parsed = InvoiceCreateSchema.safeParse(request.body);
             if (!parsed.success) {
@@ -80,7 +80,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
     // 4. PUT /finance/invoices/:id/status — Смена статуса счёта
     fastify.put<{ Params: { id: string } }>(
         '/finance/invoices/:id/status',
-        { preHandler: [fastify.authenticate, requireAbility('update', 'Invoice')] },
+        { schema: { tags: ['Финансы'], summary: 'Сменить статус счёта', description: 'draft→sent→paid/overdue. Валидация переходов.' }, preHandler: [fastify.authenticate, requireAbility('update', 'Invoice')] },
         async (request, reply) => {
             try {
                 const parseResult = z.object({ status: z.string().min(1) }).safeParse(request.body);
@@ -104,7 +104,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
     // 5. GET /finance/fuel-analysis — План-факт ГСМ
     fastify.get(
         '/finance/fuel-analysis',
-        { preHandler: [fastify.authenticate, requireAbility('read', 'Vehicle')] },
+        { schema: { tags: ['Финансы'], summary: 'План-факт ГСМ', description: 'Анализ расхода топлива: норматив vs факт. Фильтр по дате и ТС.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Vehicle')] },
         async (request, reply) => {
             const q = request.query as any;
             const start = q.startDate ? new Date(q.startDate) : undefined;
@@ -118,7 +118,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
     // 6. GET /finance/kpi — KPI метрики
     fastify.get<{ Querystring: { startDate?: string; endDate?: string } }>(
         '/finance/kpi',
-        { preHandler: [fastify.authenticate, requireAbility('read', 'KPI')] },
+        { schema: { tags: ['Финансы'], summary: 'KPI метрики', description: 'Выручка, маржа, простои, загрузка ТС, производительность водителей за период.' }, preHandler: [fastify.authenticate, requireAbility('read', 'KPI')] },
         async (request, reply) => {
             const q = request.query;
             const start = new Date(q.startDate || new Date(new Date().setMonth(new Date().getMonth() - 1)));
@@ -131,7 +131,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
     // 7. GET /finance/export/1c — Экспорт в 1С (RLS: client sees only own)
     fastify.get<{ Querystring: { startDate?: string; endDate?: string; format?: string } }>(
         '/finance/export/1c',
-        { preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')] },
+        { schema: { tags: ['Финансы'], summary: 'Экспорт в 1С', description: 'Выгрузка данных в CommerceML 2.x XML для 1С. RLS: клиентам недоступно.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')] },
         async (request, reply) => {
             const user = request.user as { userId: string; roles: string[] };
             const q = request.query;

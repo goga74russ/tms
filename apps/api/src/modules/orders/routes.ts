@@ -33,6 +33,7 @@ async function resolveContractorId(userId: string): Promise<string | null> {
 const ordersRoutes: FastifyPluginAsync = async (app) => {
     // --- GET /orders — list with pagination & filters ---
     app.get('/orders', {
+        schema: { tags: ['Заявки'], summary: 'Список заявок', description: 'Получить список заявок с фильтрацией по статусу, контрагенту, дате и поиском. Поддерживает пагинацию. Для водителей/клиентов — только свои заявки (RLS).' },
         preHandler: [app.authenticate, requireAbility('read', 'Order')],
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[] };
@@ -77,6 +78,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
 
     // --- GET /orders/kanban — grouped by status ---
     app.get('/orders/kanban', {
+        schema: { tags: ['Заявки'], summary: 'Kanban доска', description: 'Заявки сгруппированные по статусам для Kanban-доски логиста.' },
         preHandler: [app.authenticate, requireAbility('read', 'Order')],
     }, async (request) => {
         const user = request.user as { userId: string; roles: string[] };
@@ -103,6 +105,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
 
     // --- GET /orders/:id ---
     app.get('/orders/:id', {
+        schema: { tags: ['Заявки'], summary: 'Получить заявку', description: 'Получить заявку по ID. Проверка доступа (RLS) для водителей и клиентов.' },
         preHandler: [app.authenticate, requireAbility('read', 'Order')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -137,6 +140,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /orders — create ---
     app.post('/orders', {
+        schema: { tags: ['Заявки'], summary: 'Создать заявку', description: 'Создание новой заявки на перевозку. Валидация через Zod. Автоматическая генерация номера.' },
         preHandler: [app.authenticate, requireAbility('create', 'Order')],
     }, async (request, reply) => {
         try {
@@ -169,6 +173,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
 
     // --- PUT /orders/:id — update ---
     app.put('/orders/:id', {
+        schema: { tags: ['Заявки'], summary: 'Обновить заявку', description: 'Частичное обновление заявки. IDOR-защита: проверка владения.' },
         preHandler: [app.authenticate, requireAbility('update', 'Order')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -203,6 +208,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /orders/:id/confirm ---
     app.post('/orders/:id/confirm', {
+        schema: { tags: ['Заявки'], summary: 'Подтвердить заявку', description: 'Перевод заявки в статус «подтверждена». Валидация state machine.' },
         preHandler: [app.authenticate, requireAbility('update', 'Order')],
     }, async (request, reply) => {
         try {
@@ -228,6 +234,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /orders/:id/cancel ---
     app.post('/orders/:id/cancel', {
+        schema: { tags: ['Заявки'], summary: 'Отменить заявку', description: 'Отмена заявки с указанием причины. IDOR-защита.' },
         preHandler: [app.authenticate, requireAbility('update', 'Order')],
     }, async (request, reply) => {
         try {
@@ -254,6 +261,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /orders/from-template ---
     app.post('/orders/from-template', {
+        schema: { tags: ['Заявки'], summary: 'Создать из шаблона', description: 'Создание заявки на основе существующей (копирование с переопределением полей).' },
         preHandler: [app.authenticate, requireAbility('create', 'Order')],
     }, async (request, reply) => {
         try {

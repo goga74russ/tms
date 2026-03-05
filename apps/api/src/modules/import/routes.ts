@@ -17,6 +17,7 @@ export default async function importRoutes(app: FastifyInstance) {
     // POST /import/vehicles — массовый импорт ТС
     // ================================================================
     app.post('/import/vehicles', {
+        schema: { tags: ['Импорт'], summary: 'Импорт ТС', description: 'Массовый импорт транспортных средств (до 200 за запрос). Валидация каждой записи.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const user = (request as any).user;
@@ -66,6 +67,7 @@ export default async function importRoutes(app: FastifyInstance) {
     // POST /import/drivers — массовый импорт водителей
     // ================================================================
     app.post('/import/drivers', {
+        schema: { tags: ['Импорт'], summary: 'Импорт водителей', description: 'Массовый импорт водителей. Требуется userId для привязки к учётной записи.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const user = (request as any).user;
@@ -107,6 +109,7 @@ export default async function importRoutes(app: FastifyInstance) {
     // POST /import/contractors — массовый импорт контрагентов
     // ================================================================
     app.post('/import/contractors', {
+        schema: { tags: ['Импорт'], summary: 'Импорт контрагентов', description: 'Массовый импорт контрагентов. Валидация ИНН.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const user = (request as any).user;

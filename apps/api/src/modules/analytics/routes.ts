@@ -17,6 +17,7 @@ export default async function analyticsRoutes(app: FastifyInstance) {
     //         или пробег приближается к плановому км ТО
     // ================================================================
     app.get('/analytics/maintenance-alerts', {
+        schema: { tags: ['Аналитика'], summary: 'ТО-алерты', description: 'Предиктивные алерты: ТО, ОСАГО, техосмотр, тахограф (<7д — critical, <30д — warning), пробег (<2000 км).' },
         preHandler: [app.authenticate],
     }, async (request) => {
         const user = (request as any).user;
@@ -124,6 +125,7 @@ export default async function analyticsRoutes(app: FastifyInstance) {
     // ⚠️ MOK: базовая версия — нужны реальные данные себестоимости
     // ================================================================
     app.get('/analytics/profitability', {
+        schema: { tags: ['Аналитика'], summary: 'Маржинальность рейсов', description: 'Анализ выручки vs себестоимости по завершённым рейсам. % маржи, суммарные показатели.' },
         preHandler: [app.authenticate],
     }, async (request) => {
         const user = (request as any).user;

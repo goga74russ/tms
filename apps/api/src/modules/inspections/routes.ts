@@ -29,6 +29,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * Queue of vehicles awaiting tech inspection today
      */
     app.get('/inspections/tech/queue', {
+        schema: { tags: ['Осмотры'], summary: 'Очередь техосмотров', description: 'Список рейсов, ожидающих техосмотр (статус inspection).' },
         preHandler: [app.authenticate, requireAbility('read', 'TechInspection')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -48,6 +49,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * Active tech checklist template
      */
     app.get('/inspections/tech/checklist', {
+        schema: { tags: ['Осмотры'], summary: 'Чек-лист техосмотра', description: 'Актуальный шаблон чек-листа техосмотра.' },
         preHandler: [app.authenticate, requireAbility('read', 'ChecklistTemplate')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -73,6 +75,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * List tech inspections (paginated)
      */
     app.get('/inspections/tech', {
+        schema: { tags: ['Осмотры'], summary: 'Все техосмотры', description: 'Список всех проведённых техосмотров с пагинацией.' },
         preHandler: [app.authenticate, requireAbility('read', 'TechInspection')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -93,6 +96,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * Single tech inspection
      */
     app.get('/inspections/tech/:id', {
+        schema: { tags: ['Осмотры'], summary: 'Получить техосмотр', description: 'Детальная информация о техосмотре по ID.' },
         preHandler: [app.authenticate, requireAbility('read', 'TechInspection')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -119,6 +123,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * Create tech inspection (mechanic only)
      */
     app.post('/inspections/tech', {
+        schema: { tags: ['Осмотры'], summary: 'Провести техосмотр', description: 'Создание акта техосмотра. ПЭП (подпись). Допуск/отказ ТС.' },
         preHandler: [app.authenticate, requireAbility('create', 'TechInspection')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -173,6 +178,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * Queue of drivers awaiting med inspection today
      */
     app.get('/inspections/med/queue', {
+        schema: { tags: ['Осмотры'], summary: 'Очередь медосмотров', description: 'Список водителей, ожидающих медосмотр.' },
         preHandler: [app.authenticate, requireAbility('read', 'MedInspection')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -202,6 +208,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * Active med checklist template
      */
     app.get('/inspections/med/checklist', {
+        schema: { tags: ['Осмотры'], summary: 'Чек-лист медосмотра', description: 'Актуальный шаблон чек-листа медосмотра.' },
         preHandler: [app.authenticate, requireAbility('read', 'ChecklistTemplate')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -227,6 +234,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * Rejection statistics (medic only)
      */
     app.get('/inspections/med/stats', {
+        schema: { tags: ['Осмотры'], summary: 'Статистика медосмотров', description: 'Агрегированная статистика: среднее АД, пульс, температура, % допуска.' },
         preHandler: [app.authenticate, requireAbility('read', 'MedInspection')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -258,6 +266,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * Drivers with expiring med certificates
      */
     app.get('/inspections/med/expiring-certificates', {
+        schema: { tags: ['Осмотры'], summary: 'Истекающие медсправки', description: 'Водители с истекающими медицинскими справками (< 60 дней).' },
         preHandler: [app.authenticate, requireAbility('read', 'MedInspection')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -278,6 +287,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * List med inspections (152-ФЗ filtered)
      */
     app.get('/inspections/med', {
+        schema: { tags: ['Осмотры'], summary: 'Все медосмотры', description: 'Список всех медосмотров. Без чувствительных медданных для нечувсвительных ролей.' },
         preHandler: [app.authenticate, requireAbility('read', 'MedInspection')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -307,6 +317,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * Single med inspection (152-ФЗ filtered)
      */
     app.get('/inspections/med/:id', {
+        schema: { tags: ['Осмотры'], summary: 'Получить медосмотр', description: 'Детальная информация. Медики видят все данные, остальные — только решение.' },
         preHandler: [app.authenticate, requireAbility('read', 'MedInspection')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -343,6 +354,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
      * Create med inspection (medic only, 152-ФЗ)
      */
     app.post('/inspections/med', {
+        schema: { tags: ['Осмотры'], summary: 'Провести медосмотр', description: 'Создание акта медосмотра (152-ФЗ). АД, пульс, температура, алкотест. ПЭП.' },
         preHandler: [app.authenticate, requireAbility('create', 'MedInspection')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {

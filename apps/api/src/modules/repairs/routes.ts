@@ -10,6 +10,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
 
     // List repairs (with filters)
     app.get('/repairs', {
+        schema: { tags: ['Ремонты'], summary: 'Список ремонтов', description: 'Все заявки на ремонт с фильтрацией по статусу и ТС.' },
         preHandler: [app.authenticate, requireAbility('read', 'RepairRequest')],
     }, async (request, reply) => {
         const { page, limit, status, vehicleId, search, dateFrom, dateTo } = request.query as any;
@@ -22,6 +23,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
 
     // Get single repair
     app.get('/repairs/:id', {
+        schema: { tags: ['Ремонты'], summary: 'Получить ремонт', description: 'Детальная информация о заявке на ремонт.' },
         preHandler: [app.authenticate, requireAbility('read', 'RepairRequest')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -32,6 +34,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
 
     // Create repair
     app.post('/repairs', {
+        schema: { tags: ['Ремонты'], summary: 'Создать заявку на ремонт', description: 'Новая заявка: описание, приоритет, источник (автоосмотр / водитель / механик).' },
         preHandler: [app.authenticate, requireAbility('create', 'RepairRequest')],
     }, async (request, reply) => {
         try {
@@ -48,6 +51,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
 
     // Update repair details
     app.put('/repairs/:id', {
+        schema: { tags: ['Ремонты'], summary: 'Обновить ремонт', description: 'Обновление заявки (описание работ, запчасти, стоимость).' },
         preHandler: [app.authenticate, requireAbility('update', 'RepairRequest')],
     }, async (request, reply) => {
         try {
@@ -64,6 +68,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
 
     // Change repair status (state machine)
     app.put('/repairs/:id/status', {
+        schema: { tags: ['Ремонты'], summary: 'Сменить статус ремонта', description: 'Переход: created→waiting_parts→in_progress→done. Валидация state machine.' },
         preHandler: [app.authenticate, requireAbility('update', 'RepairRequest')],
     }, async (request, reply) => {
         try {
@@ -79,6 +84,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
 
     // Repair analytics by status
     app.get('/repairs/analytics/by-status', {
+        schema: { tags: ['Ремонты'], summary: 'Аналитика по статусам', description: 'Количество ремонтов по статусам (для дашборда).' },
         preHandler: [app.authenticate, requireAbility('read', 'RepairRequest')],
     }, async (request, reply) => {
         const result = await repairsService.repairsByStatus();
@@ -87,6 +93,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
 
     // Repair cost by vehicle
     app.get('/repairs/analytics/cost/:vehicleId', {
+        schema: { tags: ['Ремонты'], summary: 'Стоимость ремонтов ТС', description: 'Суммарная стоимость ремонтов для конкретного ТС.' },
         preHandler: [app.authenticate, requireAbility('read', 'RepairRequest')],
     }, async (request, reply) => {
         const { vehicleId } = request.params as { vehicleId: string };

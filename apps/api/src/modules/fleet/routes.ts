@@ -15,6 +15,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     // ========================================
 
     app.get('/fleet/vehicles', {
+        schema: { tags: ['Автопарк'], summary: 'Список ТС', description: 'Все транспортные средства с фильтрацией по статусу и поиском.' },
         preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
     }, async (request, reply) => {
         const { page, limit, status, search, archived } = request.query as any;
@@ -26,6 +27,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.get('/fleet/vehicles/:id', {
+        schema: { tags: ['Автопарк'], summary: 'Получить ТС', description: 'Детальная информация о транспортном средстве по ID.' },
         preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -35,6 +37,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.post('/fleet/vehicles', {
+        schema: { tags: ['Автопарк'], summary: 'Добавить ТС', description: 'Регистрация нового транспортного средства. Валидация VIN и госномера.' },
         preHandler: [app.authenticate, requireAbility('create', 'Vehicle')],
     }, async (request, reply) => {
         try {
@@ -50,6 +53,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.put('/fleet/vehicles/:id', {
+        schema: { tags: ['Автопарк'], summary: 'Обновить ТС', description: 'Обновление данных ТС (пробег, статус, документы).' },
         preHandler: [app.authenticate, requireAbility('update', 'Vehicle')],
     }, async (request, reply) => {
         try {
@@ -70,6 +74,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     // ========================================
 
     app.get('/fleet/drivers', {
+        schema: { tags: ['Автопарк'], summary: 'Список водителей', description: 'Все водители с поиском по ФИО и номеру ВУ.' },
         preHandler: [app.authenticate, requireAbility('read', 'Driver')],
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[] };
@@ -93,6 +98,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.get('/fleet/drivers/:id', {
+        schema: { tags: ['Автопарк'], summary: 'Получить водителя', description: 'Детальная информация о водителе по ID.' },
         preHandler: [app.authenticate, requireAbility('read', 'Driver')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -112,6 +118,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.post('/fleet/drivers', {
+        schema: { tags: ['Автопарк'], summary: 'Добавить водителя', description: 'Регистрация нового водителя с привязкой к учётной записи.' },
         preHandler: [app.authenticate, requireAbility('create', 'Driver')],
     }, async (request, reply) => {
         try {
@@ -126,6 +133,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.put('/fleet/drivers/:id', {
+        schema: { tags: ['Автопарк'], summary: 'Обновить водителя', description: 'Обновление данных водителя (ВУ, медсправка, категории).' },
         preHandler: [app.authenticate, requireAbility('update', 'Driver')],
     }, async (request, reply) => {
         try {
@@ -145,6 +153,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     // ========================================
 
     app.get('/fleet/contractors', {
+        schema: { tags: ['Автопарк'], summary: 'Список контрагентов', description: 'Все контрагенты с поиском.' },
         preHandler: [app.authenticate, requireAbility('read', 'Contractor')],
     }, async (request, reply) => {
         const { page, limit, search, archived } = request.query as any;
@@ -156,6 +165,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.post('/fleet/contractors', {
+        schema: { tags: ['Автопарк'], summary: 'Добавить контрагента', description: 'Регистрация нового контрагента. Валидация ИНН/КПП.' },
         preHandler: [app.authenticate, requireAbility('create', 'Contractor')],
     }, async (request, reply) => {
         try {
@@ -170,6 +180,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.put('/fleet/contractors/:id', {
+        schema: { tags: ['Автопарк'], summary: 'Обновить контрагента', description: 'Обновление данных контрагента.' },
         preHandler: [app.authenticate, requireAbility('update', 'Contractor')],
     }, async (request, reply) => {
         try {
@@ -198,6 +209,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     // ========================================
 
     app.get('/fleet/permits', {
+        schema: { tags: ['Автопарк'], summary: 'Список пропусков', description: 'Все пропуска (МКАД, ТТК) с фильтрацией по ТС.' },
         preHandler: [app.authenticate, requireAbility('read', 'Permit')],
     }, async (request, reply) => {
         const { page, limit, vehicleId, active } = request.query as any;
@@ -209,6 +221,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.post('/fleet/permits', {
+        schema: { tags: ['Автопарк'], summary: 'Добавить пропуск', description: 'Регистрация пропуска на ТС для зоны ограничения.' },
         preHandler: [app.authenticate, requireAbility('create', 'Permit')],
     }, async (request, reply) => {
         try {
@@ -223,6 +236,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.put('/fleet/permits/:id', {
+        schema: { tags: ['Автопарк'], summary: 'Обновить пропуск', description: 'Обновление данных пропуска.' },
         preHandler: [app.authenticate, requireAbility('update', 'Permit')],
     }, async (request, reply) => {
         try {
@@ -242,6 +256,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     // ========================================
 
     app.get('/fleet/fines', {
+        schema: { tags: ['Автопарк'], summary: 'Список штрафов', description: 'Все штрафы ГИБДД с фильтрацией по статусу и ТС.' },
         preHandler: [app.authenticate, requireAbility('read', 'Fine')],
     }, async (request, reply) => {
         const { page, limit, vehicleId, driverId, status } = request.query as any;
@@ -253,6 +268,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.post('/fleet/fines', {
+        schema: { tags: ['Автопарк'], summary: 'Добавить штраф', description: 'Регистрация штрафа ГИБДД.' },
         preHandler: [app.authenticate, requireAbility('create', 'Fine')],
     }, async (request, reply) => {
         try {
@@ -267,6 +283,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.put('/fleet/fines/:id', {
+        schema: { tags: ['Автопарк'], summary: 'Обновить штраф', description: 'Обновление штрафа (статус, оплата).' },
         preHandler: [app.authenticate, requireAbility('update', 'Fine')],
     }, async (request, reply) => {
         try {

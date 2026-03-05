@@ -11,7 +11,9 @@ import { sendMessage, getMe, setWebhook, deleteWebhook } from '../../integration
 
 const telegramRoutes: FastifyPluginAsync = async (app) => {
     // --- Webhook endpoint (receives updates from Telegram) ---
-    app.post('/telegram/webhook', async (request, reply) => {
+    app.post('/telegram/webhook', {
+        schema: { tags: ['Уведомления'], summary: 'Telegram webhook', description: 'Приём входящих сообщений от Telegram Bot API.' },
+    }, async (request, reply) => {
         const update = request.body as any;
 
         // Handle /start command
@@ -107,6 +109,7 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
 
     // --- Admin: Setup webhook ---
     app.post('/telegram/setup-webhook', {
+        schema: { tags: ['Уведомления'], summary: 'Настроить webhook', description: 'Регистрация webhook URL в Telegram Bot API.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
     }, async (request, reply) => {
         const { url } = request.body as { url: string };
@@ -117,6 +120,7 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
 
     // --- Admin: Delete webhook ---
     app.delete('/telegram/webhook', {
+        schema: { tags: ['Уведомления'], summary: 'Удалить webhook', description: 'Удаление webhook из Telegram.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
     }, async () => {
         const result = await deleteWebhook();
@@ -125,6 +129,7 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
 
     // --- Admin: Bot info ---
     app.get('/telegram/bot-info', {
+        schema: { tags: ['Уведомления'], summary: 'Информация о боте', description: 'Получить данные Telegram-бота (имя, username).' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
     }, async () => {
         const result = await getMe();
@@ -133,6 +138,7 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
 
     // --- Admin: List subscriptions ---
     app.get('/telegram/subscriptions', {
+        schema: { tags: ['Уведомления'], summary: 'Подписки', description: 'Список привязанных Telegram-аккаунтов.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
     }, async () => {
         const subs = await db.select().from(notificationSubscriptions);
@@ -141,6 +147,7 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
 
     // --- Admin: Test notification ---
     app.post('/telegram/test', {
+        schema: { tags: ['Уведомления'], summary: 'Тест уведомления', description: 'Отправка тестового сообщения в Telegram.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
     }, async (request) => {
         const { chatId, message } = request.body as { chatId?: string; message?: string };

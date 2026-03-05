@@ -28,6 +28,7 @@ export default async function syncRoutes(app: FastifyInstance) {
      * Driver RLS: drivers only see their own trips.
      */
     app.get('/sync/pull', {
+        schema: { tags: ['Синхронизация'], summary: 'Pull обновлений', description: 'Получить изменения с сервера для офлайн-синхронизации мобильного приложения (WatermelonDB). Фильтр по lastSyncAt.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[] };
@@ -85,6 +86,7 @@ export default async function syncRoutes(app: FastifyInstance) {
     });
 
     app.post('/sync/events', {
+        schema: { tags: ['Синхронизация'], summary: 'Push событий', description: 'Отправка офлайн-событий с мобильного устройства. Разрешение конфликтов по timestamp.' },
         preHandler: [app.authenticate] // Driver authentication
     }, async (request, reply) => {
         try {
