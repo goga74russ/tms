@@ -300,6 +300,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
 
     // Fines analytics
     app.get('/fleet/fines/analytics', {
+        schema: { tags: ['Автопарк'], summary: 'Аналитика штрафов', description: 'Статистика штрафов по ТС и водителям.' },
         preHandler: [app.authenticate, requireAbility('read', 'Fine')],
     }, async (request, reply) => {
         const { vehicleId, driverId } = request.query as any;

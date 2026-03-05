@@ -202,7 +202,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // GET /api/auth/users — list all users (admin only, H-16: paginated)
     app.get('/api/auth/users', {
-        schema: { tags: ['Авторизация'], summary: 'Список пользователей', description: 'Все пользователи системы (только admin). Пагинация.' },
+        schema: { tags: ['Администрирование'], summary: 'Список пользователей', description: 'Все пользователи системы (только admin). Пагинация.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -237,7 +237,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // POST /api/auth/users — create user (admin only)
     app.post('/api/auth/users', {
-        schema: { tags: ['Авторизация'], summary: 'Создать пользователя', description: 'Регистрация нового пользователя (admin). Валидация email, пароля, ролей.' },
+        schema: { tags: ['Администрирование'], summary: 'Создать пользователя', description: 'Регистрация нового пользователя (admin). Валидация email, пароля, ролей.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -282,8 +282,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
     });
 
     // PUT /api/auth/users/:id — update user (admin only)
-    app.put<{
-        schema: { tags: ['Авторизация'], summary: 'Обновить пользователя', description: 'Обновление данных пользователя. Защита от self-escalation.' }, Params: { id: string } }>('/api/auth/users/:id', {
+    app.put<{ Params: { id: string } }>('/api/auth/users/:id', {
+        schema: { tags: ['Администрирование'], summary: 'Обновить пользователя', description: 'Обновление данных пользователя. Защита от self-escalation.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { userId, roles } = request.user as { userId: string; roles: string[] };
@@ -363,7 +363,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // GET /api/auth/tariffs — list all tariffs (admin only)
     app.get('/api/auth/tariffs', {
-        schema: { tags: ['Авторизация'], summary: 'Список тарифов', description: 'Все тарифы (admin). Для управления ценообразованием.' },
+        schema: { tags: ['Администрирование'], summary: 'Список тарифов', description: 'Все тарифы (admin). Для управления ценообразованием.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -381,7 +381,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // POST /api/auth/tariffs — create tariff (admin only)
     app.post('/api/auth/tariffs', {
-        schema: { tags: ['Авторизация'], summary: 'Создать тариф', description: 'Новый тариф с модификаторами (ночь, выходные, НДС).' },
+        schema: { tags: ['Администрирование'], summary: 'Создать тариф', description: 'Новый тариф с модификаторами (ночь, выходные, НДС).' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -403,8 +403,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
     });
 
     // PUT /api/auth/tariffs/:id — update tariff
-    app.put<{
-        schema: { tags: ['Авторизация'], summary: 'Обновить тариф', description: 'Обновление тарифа и коэффициентов.' }, Params: { id: string } }>('/api/auth/tariffs/:id', {
+    app.put<{ Params: { id: string } }>('/api/auth/tariffs/:id', {
+        schema: { tags: ['Администрирование'], summary: 'Обновить тариф', description: 'Обновление тарифа и коэффициентов.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -453,7 +453,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // GET /api/auth/checklist-templates
     app.get('/api/auth/checklist-templates', {
-        schema: { tags: ['Авторизация'], summary: 'Шаблоны чек-листов', description: 'Все шаблоны чек-листов (техосмотр/медосмотр).' },
+        schema: { tags: ['Администрирование'], summary: 'Шаблоны чек-листов', description: 'Все шаблоны чек-листов (техосмотр/медосмотр).' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -471,7 +471,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // POST /api/auth/checklist-templates
     app.post('/api/auth/checklist-templates', {
-        schema: { tags: ['Авторизация'], summary: 'Создать шаблон', description: 'Новый шаблон чек-листа для осмотров.' },
+        schema: { tags: ['Администрирование'], summary: 'Создать шаблон', description: 'Новый шаблон чек-листа для осмотров.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };
@@ -493,8 +493,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
     });
 
     // PUT /api/auth/checklist-templates/:id
-    app.put<{
-        schema: { tags: ['Авторизация'], summary: 'Обновить шаблон', description: 'Обновление шаблона чек-листа.' }, Params: { id: string } }>('/api/auth/checklist-templates/:id', {
+    app.put<{ Params: { id: string } }>('/api/auth/checklist-templates/:id', {
+        schema: { tags: ['Администрирование'], summary: 'Обновить шаблон чек-листа', description: 'Обновление шаблона чек-листа.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const { roles } = request.user as { userId: string; roles: string[] };

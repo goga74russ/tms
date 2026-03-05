@@ -172,6 +172,7 @@ const websocketRoutes: FastifyPluginAsync = async (app) => {
 
     // REST endpoint: get current positions (fallback for non-WS clients)
     app.get('/vehicles/positions', {
+        schema: { tags: ['GPS-трекинг'], summary: 'Позиции ТС', description: 'Текущие GPS-координаты всех транспортных средств (REST-фоллбэк для WebSocket).' },
         preHandler: [app.authenticate],
     }, async () => {
 
