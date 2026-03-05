@@ -193,7 +193,7 @@
 
 ### Phase 1: Must-have (есть у ВСЕХ конкурентов) 🔴
 - [x] **GPS/ГЛОНАСС real-time** — `@fastify/websocket` + `/ws/vehicles` + `useVehiclePositions` hook
-- [ ] **Мобильное водителя MVP** — Expo + WatermelonDB → рабочее приложение
+- [x] **Мобильное водителя MVP** — Expo + WatermelonDB + offline queue + trips API
 - [x] **Telegram-бот уведомления** — 12 типов событий, BullMQ, webhook routes
 
 ### Phase 2: First-mover advantage 🟠
