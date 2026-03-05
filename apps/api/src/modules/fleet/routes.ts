@@ -197,6 +197,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
 
     // DaData lookup placeholder
     app.get('/fleet/contractors/lookup/:inn', {
+        schema: { tags: ['Автопарк'], summary: 'Поиск по ИНН', description: 'Поиск контрагента по ИНН через DaData.' },
         preHandler: [app.authenticate, requireAbility('read', 'Contractor')],
     }, async (request, reply) => {
         const { inn } = request.params as { inn: string };
