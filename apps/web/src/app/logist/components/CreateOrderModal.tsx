@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Package, MapPin, Clock, User, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { Order } from '../page';
@@ -11,8 +11,9 @@ interface CreateOrderModalProps {
 }
 
 export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
+    const [contractors, setContractors] = useState<any[]>([]);
     const [form, setForm] = useState({
-        contractorName: '',
+        contractorId: '',
         cargoDescription: '',
         cargoWeightKg: '',
         loadingAddress: '',
@@ -25,12 +26,16 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         notes: '',
     });
 
+    useEffect(() => {
+        api.get<any>('/fleet/contractors?limit=100').then(r => setContractors(r.data || [])).catch(() => { });
+    }, []);
+
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [submitting, setSubmitting] = useState(false);
 
     const validate = () => {
         const e: Record<string, string> = {};
-        if (!form.contractorName) e.contractorName = 'Укажите клиента';
+        if (!form.contractorId) e.contractorId = 'Выберите контрагента';
         if (!form.cargoDescription) e.cargoDescription = 'Опишите груз';
         if (!form.cargoWeightKg || parseFloat(form.cargoWeightKg) <= 0) e.cargoWeightKg = 'Укажите вес';
         if (!form.loadingAddress) e.loadingAddress = 'Укажите адрес погрузки';
@@ -46,15 +51,15 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         try {
             const now = new Date().toISOString();
             const payload = {
-                contractorName: form.contractorName,
+                contractorId: form.contractorId,
                 cargoDescription: form.cargoDescription,
                 cargoWeightKg: parseFloat(form.cargoWeightKg),
                 loadingAddress: form.loadingAddress,
                 unloadingAddress: form.unloadingAddress,
-                loadingWindowStart: form.loadingWindowStart || now,
-                loadingWindowEnd: form.loadingWindowEnd || now,
-                unloadingWindowStart: form.unloadingWindowStart || now,
-                unloadingWindowEnd: form.unloadingWindowEnd || now,
+                loadingWindowStart: form.loadingWindowStart || undefined,
+                loadingWindowEnd: form.loadingWindowEnd || undefined,
+                unloadingWindowStart: form.unloadingWindowStart || undefined,
+                unloadingWindowEnd: form.unloadingWindowEnd || undefined,
                 notes: form.notes || undefined,
             };
 
@@ -104,17 +109,20 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     <div>
                         <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
                             <User className="w-4 h-4 text-slate-400" />
-                            Клиент
+                            Контрагент
                         </label>
-                        <input
-                            type="text"
-                            value={form.contractorName}
-                            onChange={(e) => setForm(f => ({ ...f, contractorName: e.target.value }))}
-                            className={inputClass('contractorName')}
-                            placeholder="Название компании или ИП"
-                        />
-                        {errors.contractorName && (
-                            <p className="text-xs text-red-500 mt-1">{errors.contractorName}</p>
+                        <select
+                            value={form.contractorId}
+                            onChange={(e) => setForm(f => ({ ...f, contractorId: e.target.value }))}
+                            className={inputClass('contractorId')}
+                        >
+                            <option value="">Выберите контрагента</option>
+                            {contractors.map(c => (
+                                <option key={c.id} value={c.id}>{c.name} (ИНН: {c.inn})</option>
+                            ))}
+                        </select>
+                        {errors.contractorId && (
+                            <p className="text-xs text-red-500 mt-1">{errors.contractorId}</p>
                         )}
                     </div>
 

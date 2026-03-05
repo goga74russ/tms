@@ -11,7 +11,7 @@ function CreateRepairModal({ onClose, onCreated }: { onClose: () => void; onCrea
     const [vehicles, setVehicles] = useState<any[]>([]);
     const [vehicleId, setVehicleId] = useState('');
     const [description, setDescription] = useState('');
-    const [priority, setPriority] = useState('normal');
+    const [priority, setPriority] = useState('medium');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
@@ -27,7 +27,7 @@ function CreateRepairModal({ onClose, onCreated }: { onClose: () => void; onCrea
         setSubmitting(true);
         setError('');
         try {
-            const result = await api.post<any>('/repairs', { vehicleId, description, priority });
+            const result = await api.post<any>('/repairs', { vehicleId, description, priority, source: 'mechanic' });
             if (result.success) {
                 onCreated();
             } else {
@@ -82,7 +82,7 @@ function CreateRepairModal({ onClose, onCreated }: { onClose: () => void; onCrea
                             className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                             <option value="low">Низкий</option>
-                            <option value="normal">Обычный</option>
+                            <option value="medium">Обычный</option>
                             <option value="high">Высокий</option>
                             <option value="critical">Критический</option>
                         </select>
