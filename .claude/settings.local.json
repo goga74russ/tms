@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -1 /d/Ai/TMS/apps/web/src/app/*/components/)"
+    ]
+  }
+}

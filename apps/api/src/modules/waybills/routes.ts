@@ -1,0 +1,149 @@
+// ============================================================
+// Waybills Routes — Путевые листы (§3.5)
+// ============================================================
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { requireAbility } from '../../auth/rbac.js';
+import {
+    generateWaybill,
+    closeWaybill,
+    listWaybills,
+    getWaybillById,
+} from './service.js';
+import { db } from '../../db/connection.js';
+import { drivers } from '../../db/schema.js';
+import { eq } from 'drizzle-orm';
+
+// H-3: Resolve driverId from JWT userId (for RLS)
+async function resolveDriverId(userId: string): Promise<string | null> {
+    const [driver] = await db.select({ id: drivers.id })
+        .from(drivers).where(eq(drivers.userId, userId)).limit(1);
+    return driver?.id ?? null;
+}
+
+export default async function waybillRoutes(app: FastifyInstance) {
+
+    /**
+     * GET /api/waybills
+     * List waybills (paginated, H-3: driver RLS)
+     */
+    app.get('/waybills', {
+        preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const user = request.user as { userId: string; roles: string[] };
+            const { page = '1', limit = '20' } = request.query as Record<string, string>;
+
+            // H-3: RLS — drivers can only see their own waybills
+            let rlsDriverId: string | undefined;
+            if (user.roles.includes('driver')) {
+                const myDriverId = await resolveDriverId(user.userId);
+                if (myDriverId) rlsDriverId = myDriverId;
+            }
+
+            const result = await listWaybills(parseInt(page), parseInt(limit), rlsDriverId);
+            return { success: true, ...result };
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(500).send({
+                success: false,
+                error: error.message || 'Ошибка',
+            });
+        }
+    });
+
+    /**
+     * GET /api/waybills/:id
+     * Single waybill with related data
+     */
+    app.get('/waybills/:id', {
+        preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const user = request.user as { userId: string; roles: string[] };
+            const { id } = request.params as { id: string };
+            const waybill = await getWaybillById(id);
+            if (!waybill) {
+                return reply.status(404).send({
+                    success: false,
+                    error: 'Путевой лист не найден',
+                });
+            }
+
+            // H-20: RLS - Drivers can only access their own waybills
+            if (user.roles.includes('driver')) {
+                const myDriverId = await resolveDriverId(user.userId);
+                if (myDriverId && waybill.driverId !== myDriverId) {
+                    return reply.status(403).send({
+                        success: false,
+                        error: 'Отказано в доступе (чужой путевой лист)',
+                    });
+                }
+            }
+
+            return { success: true, data: waybill };
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(500).send({
+                success: false,
+                error: error.message || 'Ошибка',
+            });
+        }
+    });
+
+    /**
+     * POST /api/waybills/generate/:tripId
+     * Generate waybill for a trip (requires both approvals)
+     */
+    app.post('/waybills/generate/:tripId', {
+        preHandler: [app.authenticate, requireAbility('create', 'Waybill')],
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const user = request.user as { userId: string; roles: string[] };
+            const { tripId } = request.params as { tripId: string };
+
+            const waybill = await generateWaybill(tripId, user.userId, user.roles[0]);
+            return reply.status(201).send({ success: true, data: waybill });
+        } catch (error: any) {
+            request.log.error(error);
+            const statusCode = error.message.includes('Нет допуска') ? 409 : 500;
+            return reply.status(statusCode).send({
+                success: false,
+                error: error.message || 'Ошибка при формировании путевого листа',
+            });
+        }
+    });
+
+    /**
+     * POST /api/waybills/:id/close
+     * Close waybill (odometer, fuel, return time)
+     */
+    app.post('/waybills/:id/close', {
+        preHandler: [app.authenticate, requireAbility('update', 'Waybill')],
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const user = request.user as { userId: string; roles: string[] };
+            const { id } = request.params as { id: string };
+            const body = request.body as {
+                odometerIn: number;
+                fuelIn?: number;
+                returnAt?: string;
+            };
+
+            if (!body.odometerIn && body.odometerIn !== 0) {
+                return reply.status(400).send({
+                    success: false,
+                    error: 'Обязательное поле: odometerIn',
+                });
+            }
+
+            const waybill = await closeWaybill(id, body, user.userId, user.roles[0]);
+            return { success: true, data: waybill };
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(500).send({
+                success: false,
+                error: error.message || 'Ошибка при закрытии путевого листа',
+            });
+        }
+    });
+}

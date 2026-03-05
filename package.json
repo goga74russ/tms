@@ -1,0 +1,31 @@
+{
+    "name": "tms",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Операционная платформа управления транспортной компанией",
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "dev:api": "npm run dev --workspace=@tms/api",
+        "dev:web": "npm run dev --workspace=@tms/web",
+        "build": "npm run build --workspaces",
+        "lint": "npm run lint --workspaces",
+        "db:generate": "npm run db:generate --workspace=@tms/api",
+        "db:migrate": "npm run db:migrate --workspace=@tms/api",
+        "db:seed": "npm run db:seed --workspace=@tms/api"
+    },
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "pnpm": {
+        "overrides": {
+            "react": "19.2.4",
+            "react-dom": "19.2.4"
+        }
+    },
+    "devDependencies": {
+        "ssh2": "^1.17.0"
+    }
+}

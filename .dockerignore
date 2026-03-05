@@ -1,0 +1,16 @@
+node_modules
+.next
+dist
+.git
+*.md
+*.test.ts
+__tests__
+.env*
+docker-compose*
+Dockerfile*
+.dockerignore
+.agent
+.agents
+docs
+**/playwright.config.ts
+**/e2e

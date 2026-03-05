@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+.next/
+out/
+*.tsbuildinfo
+.turbo
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+apps/api/.env
+apps/web/.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Docker volumes (on VPS)
+docker-data/
+postgres-data/
+
+# Archives / deploys
+*.tar.gz
+deploy-*.tgz
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Gemini AI agent brain
+.gemini/
+
+# Agent skills (large)
+# .agent/skills/ — оставляем, они часть проекта
+
+# Temporary files
+tmp/
+temp/

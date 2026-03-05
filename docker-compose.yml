@@ -1,0 +1,31 @@
+
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tms-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tms}
+      POSTGRES_USER: ${POSTGRES_USER:-tms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tms_dev_2026}
+    ports:
+      - "5433:5432"
+    volumes:
+      - tms_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_dev_2026} --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - tms_redis_data:/data
+
+volumes:
+  tms_pg_data:
+  tms_redis_data:
