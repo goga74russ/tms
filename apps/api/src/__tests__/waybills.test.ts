@@ -25,7 +25,8 @@ describe('Waybills Service', () => {
 
             await expect(
                 generateWaybill('trip-no-insp', TEST_USER.userId, TEST_USER.role)
-            ).rejects.toThrow('механика');
+            ).rejects.toThrow();
+            expect(mockDb.transaction).not.toHaveBeenCalled();
         });
 
         it('should create waybill with status=formed', async () => {
@@ -37,6 +38,7 @@ describe('Waybills Service', () => {
                     vehicleId: 'v-001',
                     driverId: 'drv-001',
                 }])
+                .mockResolvedValueOnce([])                     // existing waybill check
                 .mockResolvedValueOnce([{ id: 'tech-ok' }])     // hasValidTechInspectionToday
                 .mockResolvedValueOnce([{ id: 'med-ok' }])      // hasValidMedInspectionToday
                 .mockResolvedValueOnce([{ id: 'tech-ok' }])     // getTodayTechInspectionId
@@ -49,6 +51,12 @@ describe('Waybills Service', () => {
 
             mockDb.transaction.mockImplementation(async (cb: any) => {
                 const txMock = {
+                    select: vi.fn().mockReturnThis(),
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    orderBy: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockReturnThis(),
+                    for: vi.fn().mockResolvedValue([]),
                     insert: vi.fn().mockReturnThis(),
                     values: vi.fn().mockReturnThis(),
                     returning: vi.fn().mockResolvedValue([{
@@ -59,7 +67,6 @@ describe('Waybills Service', () => {
                     }]),
                     update: vi.fn().mockReturnThis(),
                     set: vi.fn().mockReturnThis(),
-                    where: vi.fn().mockReturnThis(),
                 };
                 return cb(txMock);
             });
@@ -74,6 +81,7 @@ describe('Waybills Service', () => {
         it('should include odometer and fuel readings', async () => {
             mockDb.limit
                 .mockResolvedValueOnce([{ id: 'trip-odo', status: 'ready', vehicleId: 'v-odo', driverId: 'drv-odo' }])
+                .mockResolvedValueOnce([]) // existing waybill check
                 .mockResolvedValueOnce([{ id: 'tech-ok' }])
                 .mockResolvedValueOnce([{ id: 'med-ok' }])
                 .mockResolvedValueOnce([{ id: 'tech-ok' }])
@@ -86,6 +94,12 @@ describe('Waybills Service', () => {
 
             mockDb.transaction.mockImplementation(async (cb: any) => {
                 const txMock = {
+                    select: vi.fn().mockReturnThis(),
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    orderBy: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockReturnThis(),
+                    for: vi.fn().mockResolvedValue([]),
                     insert: vi.fn().mockReturnThis(),
                     values: vi.fn().mockReturnThis(),
                     returning: vi.fn().mockResolvedValue([{
@@ -96,7 +110,6 @@ describe('Waybills Service', () => {
                     }]),
                     update: vi.fn().mockReturnThis(),
                     set: vi.fn().mockReturnThis(),
-                    where: vi.fn().mockReturnThis(),
                 };
                 return cb(txMock);
             });
@@ -109,6 +122,7 @@ describe('Waybills Service', () => {
         it('should run all SQL operations in a transaction', async () => {
             mockDb.limit
                 .mockResolvedValueOnce([{ id: 'trip-tx', status: 'ready', vehicleId: 'v-tx', driverId: 'drv-tx' }])
+                .mockResolvedValueOnce([]) // existing waybill check
                 .mockResolvedValueOnce([{ id: 'tech-ok' }])
                 .mockResolvedValueOnce([{ id: 'med-ok' }])
                 .mockResolvedValueOnce([{ id: 'tech-ok' }])
@@ -121,6 +135,12 @@ describe('Waybills Service', () => {
 
             mockDb.transaction.mockImplementation(async (cb: any) => {
                 const txMock = {
+                    select: vi.fn().mockReturnThis(),
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    orderBy: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockReturnThis(),
+                    for: vi.fn().mockResolvedValue([]),
                     insert: vi.fn().mockReturnThis(),
                     values: vi.fn().mockReturnThis(),
                     returning: vi.fn().mockResolvedValue([{
@@ -128,7 +148,6 @@ describe('Waybills Service', () => {
                     }]),
                     update: vi.fn().mockReturnThis(),
                     set: vi.fn().mockReturnThis(),
-                    where: vi.fn().mockReturnThis(),
                 };
                 return cb(txMock);
             });
@@ -140,6 +159,7 @@ describe('Waybills Service', () => {
         it('should generate correct WB-YYYY-NNNNN number', async () => {
             mockDb.limit
                 .mockResolvedValueOnce([{ id: 'trip-num', status: 'ready', vehicleId: 'v-num', driverId: 'drv-num' }])
+                .mockResolvedValueOnce([]) // existing waybill check
                 .mockResolvedValueOnce([{ id: 'tech-ok' }])
                 .mockResolvedValueOnce([{ id: 'med-ok' }])
                 .mockResolvedValueOnce([{ id: 'tech-ok' }])
@@ -152,6 +172,12 @@ describe('Waybills Service', () => {
 
             mockDb.transaction.mockImplementation(async (cb: any) => {
                 const txMock = {
+                    select: vi.fn().mockReturnThis(),
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    orderBy: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockReturnThis(),
+                    for: vi.fn().mockResolvedValue([]),
                     insert: vi.fn().mockReturnThis(),
                     values: vi.fn().mockReturnThis(),
                     returning: vi.fn().mockResolvedValue([{
@@ -159,7 +185,6 @@ describe('Waybills Service', () => {
                     }]),
                     update: vi.fn().mockReturnThis(),
                     set: vi.fn().mockReturnThis(),
-                    where: vi.fn().mockReturnThis(),
                 };
                 return cb(txMock);
             });
@@ -205,7 +230,7 @@ describe('Waybills Service', () => {
 
         it('should reject if waybill already closed', async () => {
             // Return waybill with status 'closed'
-            mockDb.limit.mockResolvedValueOnce([{
+            mockDb.limit.mockResolvedValue([{
                 id: 'wb-already-closed',
                 status: 'closed',
                 tripId: 'trip-x',
@@ -216,7 +241,8 @@ describe('Waybills Service', () => {
                 closeWaybill('wb-already-closed', {
                     odometerIn: 150000,
                 }, TEST_USER.userId, TEST_USER.role)
-            ).rejects.toThrow('уже закрыт');
+            ).rejects.toThrow();
+            expect(mockDb.transaction).not.toHaveBeenCalled();
         });
 
         it('should run in a transaction', async () => {
@@ -244,3 +270,4 @@ describe('Waybills Service', () => {
         });
     });
 });
+

@@ -176,12 +176,11 @@ describe('Trips Service', () => {
 
             await createTrip({ createdBy: TEST_USER.userId }, TEST_USER);
 
-            expect(recordEvent).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    eventType: 'trip.created',
-                    entityType: 'trip',
-                })
-            );
+            expect(recordEvent).toHaveBeenCalled();
+            expect((recordEvent as any).mock.calls.some(([event]: any[]) =>
+                event?.eventType === 'trip.created' && event?.entityType === 'trip'
+            )).toBe(true);
         });
     });
 });
+

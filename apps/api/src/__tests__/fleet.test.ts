@@ -74,12 +74,10 @@ describe('Fleet Service', () => {
 
             await createVehicle(vehicleData, TEST_ADMIN);
 
-            expect(recordEvent).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    eventType: 'vehicle.created',
-                    entityType: 'vehicle',
-                })
-            );
+            expect(recordEvent).toHaveBeenCalled();
+            expect((recordEvent as any).mock.calls.some(([event]: any[]) =>
+                event?.eventType === 'vehicle.created' && event?.entityType === 'vehicle'
+            )).toBe(true);
         });
 
         it('should run create in a transaction', async () => {
@@ -142,13 +140,10 @@ describe('Fleet Service', () => {
             await createDriver(driverData, TEST_ADMIN);
 
             // Verify recordEvent was called for driver creation
-            expect(recordEvent).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    entityType: 'driver',
-                    // BUG M-8: eventType is 'vehicle.status_changed' (copy-paste from vehicle)
-                    // After fix, this should be 'driver.created'
-                })
-            );
+            expect(recordEvent).toHaveBeenCalled();
+            expect((recordEvent as any).mock.calls.some(([event]: any[]) =>
+                event?.entityType === 'driver'
+            )).toBe(true);
         });
     });
 
@@ -257,3 +252,4 @@ describe('Fleet Service', () => {
         });
     });
 });
+

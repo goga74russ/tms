@@ -122,12 +122,13 @@ describe('Inspections Service', () => {
             await createTechInspection(validInput, TEST_MECHANIC.userId, TEST_MECHANIC.role);
 
             // recordEvent should be called for start + completion
-            expect(recordEvent).toHaveBeenCalledWith(
-                expect.objectContaining({ eventType: 'inspection.tech_started' })
-            );
-            expect(recordEvent).toHaveBeenCalledWith(
-                expect.objectContaining({ eventType: 'inspection.tech_completed' })
-            );
+            expect(recordEvent).toHaveBeenCalled();
+            expect((recordEvent as any).mock.calls.some(([event]: any[]) =>
+                event?.eventType === 'inspection.tech_started'
+            )).toBe(true);
+            expect((recordEvent as any).mock.calls.some(([event]: any[]) =>
+                event?.eventType === 'inspection.tech_completed'
+            )).toBe(true);
         });
 
         it('should run in a transaction', async () => {
@@ -169,15 +170,9 @@ describe('Inspections Service', () => {
         ];
 
         it('should expose full vital signs ONLY to medic', async () => {
-            // Mock DB for listMedInspections
-            mockDb.select.mockReturnThis();
-            mockDb.from.mockReturnThis();
-            mockDb.where.mockReturnThis();
-            mockDb.limit.mockReturnThis();
             // count query
-            const mockCount = [{ count: 1 }];
             mockDb.select.mockReturnValueOnce({
-                from: vi.fn().mockReturnValue(mockCount),
+                from: vi.fn().mockResolvedValue([{ count: 1 }]),
             });
             // items query
             mockDb.select.mockReturnValueOnce({
@@ -187,6 +182,14 @@ describe('Inspections Service', () => {
                             offset: vi.fn().mockResolvedValue(mockMedData),
                         }),
                     }),
+                }),
+            });
+            // batch driver lookup
+            mockDb.select.mockReturnValueOnce({
+                from: vi.fn().mockReturnValue({
+                    where: vi.fn().mockResolvedValue([
+                        { id: 'driver-001', fullName: 'Test Driver', licenseNumber: '123' },
+                    ]),
                 }),
             });
             // access log insert
@@ -207,7 +210,7 @@ describe('Inspections Service', () => {
         it('should hide vital signs from non-medics', async () => {
             // Mock DB for non-medic access
             mockDb.select.mockReturnValueOnce({
-                from: vi.fn().mockReturnValue([{ count: 1 }]),
+                from: vi.fn().mockResolvedValue([{ count: 1 }]),
             });
             mockDb.select.mockReturnValueOnce({
                 from: vi.fn().mockReturnValue({
@@ -216,6 +219,13 @@ describe('Inspections Service', () => {
                             offset: vi.fn().mockResolvedValue(mockMedData),
                         }),
                     }),
+                }),
+            });
+            mockDb.select.mockReturnValueOnce({
+                from: vi.fn().mockReturnValue({
+                    where: vi.fn().mockResolvedValue([
+                        { id: 'driver-001', fullName: 'Test Driver', licenseNumber: '123' },
+                    ]),
                 }),
             });
             mockDb.insert.mockReturnThis();
@@ -240,7 +250,7 @@ describe('Inspections Service', () => {
         it('should log access to med data in access log', async () => {
             // After any listMedInspections call, access should be logged via medAccessLog insert
             mockDb.select.mockReturnValueOnce({
-                from: vi.fn().mockReturnValue([{ count: 1 }]),
+                from: vi.fn().mockResolvedValue([{ count: 1 }]),
             });
             mockDb.select.mockReturnValueOnce({
                 from: vi.fn().mockReturnValue({
@@ -249,6 +259,13 @@ describe('Inspections Service', () => {
                             offset: vi.fn().mockResolvedValue(mockMedData),
                         }),
                     }),
+                }),
+            });
+            mockDb.select.mockReturnValueOnce({
+                from: vi.fn().mockReturnValue({
+                    where: vi.fn().mockResolvedValue([
+                        { id: 'driver-001', fullName: 'Test Driver', licenseNumber: '123' },
+                    ]),
                 }),
             });
             mockDb.insert.mockReturnThis();

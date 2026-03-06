@@ -135,13 +135,12 @@ describe('Repairs Service', () => {
 
             await updateRepairStatus('repair-evt', 'in_progress', TEST_ADMIN);
 
-            expect(recordEvent).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    eventType: 'repair.status_changed',
-                    entityType: 'repair',
-                    entityId: 'repair-evt',
-                })
-            );
+            expect(recordEvent).toHaveBeenCalled();
+            expect((recordEvent as any).mock.calls.some(([event]: any[]) =>
+                event?.eventType === 'repair.status_changed'
+                && event?.entityType === 'repair'
+                && event?.entityId === 'repair-evt'
+            )).toBe(true);
         });
     });
 

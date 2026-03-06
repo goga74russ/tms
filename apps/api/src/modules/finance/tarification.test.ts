@@ -4,8 +4,14 @@ import { db } from '../../db/connection.js';
 
 // Mock DB
 vi.mock('../../db/connection.js', () => {
+    const selectChain = {
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue([{ fuelNormPer100Km: 30 }]),
+    };
     return {
         db: {
+            select: vi.fn(() => selectChain),
             query: {
                 trips: { findFirst: vi.fn() },
                 routePoints: { findMany: vi.fn() }

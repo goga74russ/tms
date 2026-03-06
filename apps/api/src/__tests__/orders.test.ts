@@ -149,13 +149,12 @@ describe('Orders Service', () => {
                 createdBy: TEST_USER.userId,
             }, TEST_USER);
 
-            expect(recordEvent).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    eventType: 'order.created',
-                    entityType: 'order',
-                    authorId: TEST_USER.userId,
-                })
-            );
+            expect(recordEvent).toHaveBeenCalled();
+            expect((recordEvent as any).mock.calls.some(([event]: any[]) =>
+                event?.eventType === 'order.created'
+                && event?.entityType === 'order'
+                && event?.authorId === TEST_USER.userId
+            )).toBe(true);
         });
 
         it('should reject if contractorId is invalid', async () => {
@@ -231,13 +230,12 @@ describe('Orders Service', () => {
 
             await assignOrderToTrip('ord-evt', 'trip-001', TEST_USER);
 
-            expect(recordEvent).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    eventType: 'order.assigned',
-                    entityType: 'order',
-                    entityId: 'ord-evt',
-                })
-            );
+            expect(recordEvent).toHaveBeenCalled();
+            expect((recordEvent as any).mock.calls.some(([event]: any[]) =>
+                event?.eventType === 'order.assigned'
+                && event?.entityType === 'order'
+                && event?.entityId === 'ord-evt'
+            )).toBe(true);
         });
     });
 

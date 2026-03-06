@@ -40,9 +40,8 @@ describe('E2E: Full Business Cycle', () => {
 
             expect(order.status).toBe('draft');
             expect(order.number).toMatch(/^ORD-/);
-            expect(recordEvent).toHaveBeenCalledWith(
-                expect.objectContaining({ eventType: 'order.created' })
-            );
+            expect(recordEvent).toHaveBeenCalled();
+            expect((recordEvent as any).mock.calls.some(([event]: any[]) => event?.eventType === 'order.created')).toBe(true);
         });
 
         it('Step 2: Логист подтверждает заявку', async () => {
@@ -63,9 +62,8 @@ describe('E2E: Full Business Cycle', () => {
             const updated = await changeOrderStatus('order-e2e-001', 'confirmed', TEST_USER);
 
             expect(updated.status).toBe('confirmed');
-            expect(recordEvent).toHaveBeenCalledWith(
-                expect.objectContaining({ eventType: 'order.confirmed' })
-            );
+            expect(recordEvent).toHaveBeenCalled();
+            expect((recordEvent as any).mock.calls.some(([event]: any[]) => event?.eventType === 'order.confirmed')).toBe(true);
         });
 
         it('Step 3: Диспетчер создаёт рейс и привязывает заявку', async () => {
@@ -131,9 +129,8 @@ describe('E2E: Full Business Cycle', () => {
             const result = await createTechInspection(techInput, TEST_MECHANIC.userId, TEST_MECHANIC.role);
 
             expect(result.decision).toBe('approved');
-            expect(recordEvent).toHaveBeenCalledWith(
-                expect.objectContaining({ eventType: 'inspection.tech_completed' })
-            );
+            expect(recordEvent).toHaveBeenCalled();
+            expect((recordEvent as any).mock.calls.some(([event]: any[]) => event?.eventType === 'inspection.tech_completed')).toBe(true);
         });
 
         it('Step 6: Медик проводит медосмотр (approved)', async () => {
@@ -400,3 +397,4 @@ describe('E2E: Full Business Cycle', () => {
         });
     });
 });
+
