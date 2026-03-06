@@ -1,15 +1,31 @@
 // ============================================================
 // API Client — используется всеми модулями
-// H-15: Cookie-based auth (credentials: 'include')
+// Uses Bearer token auth (stored in localStorage after login)
 // ============================================================
 
 // API Client — uses Next.js rewrite proxy (same-origin, no cross-origin cookie issues)
 // In production: browser hits :3000/api/* → Next.js proxies to :4000/api/*
 const API_BASE = '/api';
 
+const TOKEN_KEY = 'tms_token';
+
 class ApiClient {
-    // S-9 FIX: Removed setToken/getToken/clearToken — web uses httpOnly cookies exclusively.
-    // Mobile app uses a separate API client with SecureStore.
+    private getToken(): string | null {
+        if (typeof window === 'undefined') return null;
+        return localStorage.getItem(TOKEN_KEY);
+    }
+
+    private setToken(token: string) {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(TOKEN_KEY, token);
+        }
+    }
+
+    clearToken() {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem(TOKEN_KEY);
+        }
+    }
 
     private async request<T>(
         method: string,
@@ -21,13 +37,18 @@ class ApiClient {
             'Content-Type': 'application/json',
             ...options?.headers,
         };
-        // httpOnly cookies are sent automatically via credentials: 'include'
+
+        // Add Bearer token if available
+        const token = this.getToken();
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
 
         const response = await fetch(`${API_BASE}${path}`, {
             method,
             headers,
             body: body ? JSON.stringify(body) : undefined,
-            credentials: 'include', // H-15: Send httpOnly cookies automatically
+            credentials: 'include', // Still send cookies if available
         });
 
         if (!response.ok) {
@@ -50,7 +71,10 @@ class ApiClient {
             success: boolean;
             data: { token?: string; user: { id: string; email: string; fullName: string; roles: string[] } };
         }>('/auth/login', { email, password });
-        // S-9: Web uses httpOnly cookies, no need to store token
+        // Store token from response for Bearer auth
+        if (result.success && result.data.token) {
+            this.setToken(result.data.token);
+        }
         return result;
     }
 
@@ -67,7 +91,9 @@ class ApiClient {
         } catch {
             // Ignore errors — clear local state regardless
         }
+        this.clearToken();
     }
 }
 
 export const api = new ApiClient();
+
