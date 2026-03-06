@@ -46,11 +46,14 @@ export default async function syncRoutes(app: FastifyInstance) {
                     .where(eq(drivers.userId, user.userId))
                     .limit(1);
                 driverId = driver?.id;
+                if (!driverId) {
+                    return reply.status(403).send({ success: false, error: 'Профиль водителя не привязан' });
+                }
             }
 
             // Trips: driver sees only own, others see all updated
-            const tripConditions = isDriver && driverId
-                ? and(gt(trips.updatedAt, since), eq(trips.driverId, driverId))
+            const tripConditions = isDriver
+                ? and(gt(trips.updatedAt, since), eq(trips.driverId, driverId!))
                 : gt(trips.updatedAt, since);
 
             const updatedTrips = await db.select().from(trips)

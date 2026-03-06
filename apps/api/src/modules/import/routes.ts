@@ -33,12 +33,13 @@ export default async function importRoutes(app: FastifyInstance) {
             return reply.status(400).send({ success: false, error: 'Максимум 200 записей' });
         }
 
-        const results = { created: 0, errors: [] as string[] };
+        const results = { created: 0, errors: [] as { index: number, error: string }[] };
 
-        for (const item of items) {
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
             try {
                 if (!item.plateNumber || !item.vin || !item.make || !item.model) {
-                    results.errors.push(`Пропущено: ${item.plateNumber || '?'} — не заполнены обязательные поля`);
+                    results.errors.push({ index: i, error: `Пропущено: ${item.plateNumber || '?'} — не заполнены обязательные поля` });
                     continue;
                 }
                 await db.insert(vehicles).values({
@@ -56,7 +57,7 @@ export default async function importRoutes(app: FastifyInstance) {
                 });
                 results.created++;
             } catch (err: any) {
-                results.errors.push(`${item.plateNumber || '?'}: ${err?.message?.includes('unique') ? 'дубликат' : err?.message}`);
+                results.errors.push({ index: i, error: `${item.plateNumber || '?'}: ${err?.message?.includes('unique') ? 'дубликат' : err?.message}` });
             }
         }
 
@@ -80,12 +81,13 @@ export default async function importRoutes(app: FastifyInstance) {
             return reply.status(400).send({ success: false, error: 'items[] обязателен' });
         }
 
-        const results = { created: 0, errors: [] as string[] };
+        const results = { created: 0, errors: [] as { index: number, error: string }[] };
 
-        for (const item of items) {
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
             try {
                 if (!item.fullName || !item.licenseNumber) {
-                    results.errors.push(`Пропущено: ${item.fullName || '?'} — не заполнены обязательные поля`);
+                    results.errors.push({ index: i, error: `Пропущено: ${item.fullName || '?'} — не заполнены обязательные поля` });
                     continue;
                 }
                 await db.insert(drivers).values({
@@ -98,7 +100,7 @@ export default async function importRoutes(app: FastifyInstance) {
                 });
                 results.created++;
             } catch (err: any) {
-                results.errors.push(`${item.fullName || '?'}: ${err?.message}`);
+                results.errors.push({ index: i, error: `${item.fullName || '?'}: ${err?.message}` });
             }
         }
 
@@ -122,12 +124,13 @@ export default async function importRoutes(app: FastifyInstance) {
             return reply.status(400).send({ success: false, error: 'items[] обязателен' });
         }
 
-        const results = { created: 0, errors: [] as string[] };
+        const results = { created: 0, errors: [] as { index: number, error: string }[] };
 
-        for (const item of items) {
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
             try {
                 if (!item.name || !item.inn) {
-                    results.errors.push(`Пропущено: ${item.name || '?'} — не заполнены обязательные поля`);
+                    results.errors.push({ index: i, error: `Пропущено: ${item.name || '?'} — не заполнены обязательные поля` });
                     continue;
                 }
                 await db.insert(contractors).values({
@@ -140,7 +143,7 @@ export default async function importRoutes(app: FastifyInstance) {
                 });
                 results.created++;
             } catch (err: any) {
-                results.errors.push(`${item.name || '?'}: ${err?.message?.includes('unique') ? 'дубликат ИНН' : err?.message}`);
+                results.errors.push({ index: i, error: `${item.name || '?'}: ${err?.message?.includes('unique') ? 'дубликат ИНН' : err?.message}` });
             }
         }
 

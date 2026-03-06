@@ -51,6 +51,7 @@
 | Переменная | Описание | Умолчание |
 |-----------|----------|-----------|
 | `TELEGRAM_BOT_TOKEN` | Токен Telegram бота (@BotFather) | — |
+| `API_PUBLIC_URL` | Публичный URL API (для OpenAPI spec) | `http://localhost:4000` |
 
 ## 🌐 Frontend (apps/web/.env.local)
 

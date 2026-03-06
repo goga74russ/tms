@@ -50,7 +50,7 @@ await app.register(import('@fastify/swagger'), {
         },
         servers: [
             { url: 'http://localhost:4000', description: 'Локальная разработка' },
-            { url: 'http://5.42.102.58:4000', description: 'Production VPS' },
+            { url: process.env.API_PUBLIC_URL || 'http://localhost:4000', description: 'Production API' },
         ],
         tags: [
             { name: 'Авторизация', description: 'Вход, выход, обновление токенов' },

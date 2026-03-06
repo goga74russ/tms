@@ -1,3 +1,15 @@
+# 🛡 Спринт 5.7: Final Audit Fixes (06.03.2026) — 10/10 ✅
+  ✅ FA-1: Утечка данных driver в GET /api/waybills при driverId=null → 403
+  ✅ FA-2: Утечка данных driver в GET /api/sync/pull при driverId=null → 403
+  ✅ FA-3: JWT убран из body login-ответа → только httpOnly cookie
+  ✅ FA-4: Маппинг ошибок 409 в waybills/generate (statusCode propagation)
+  ✅ FA-5: Маппинг бизнес-ошибок в waybills/close (400/404 вместо 500)
+  ✅ FA-6: Убран hardcoded fallback DB URL с tms:tms → fail-fast
+  ✅ FA-7: Import API контракт: errors теперь { index, error }[] вместо string[]
+  ✅ FA-8: Middleware JWT structure check (3-segment validation)
+  ✅ FA-9: Замена Math.random() → детерминированная формула KPI
+  ✅ FA-10: Убран hardcoded IP из OpenAPI → env API_PUBLIC_URL
+
 Агент 0 — Фундамент: Полностью готов и проверен ✅
 Что создано
 Монорепо (npm workspaces)

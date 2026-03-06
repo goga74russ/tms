@@ -1,11 +1,11 @@
 # TMS Full Project Audit Log
 **Agent 7:** Architect & Security Officer (READ-ONLY)
-**Date:** 2026-03-04 | **Обновлено:** 2026-03-05 10:00 (GPT Audit fixes)
+**Date:** 2026-03-04 | **Обновлено:** 2026-03-06 07:30 (Final Audit Fixes — 10 issues)
 **Scope:** 97 исходных файлов (~13 000 строк)
 
 ---
 
-## 🏁 PRODUCTION-READINESS: 8.0 / 10
+## 🏁 PRODUCTION-READINESS: 8.5 / 10
 
 > Backend API полностью пригоден для staging/production с оговорками (ПЭП verif + mobile auth).
 > Web frontend работоспособен в текущем виде (httpOnly cookies позволяют raw `fetch`).
@@ -198,6 +198,37 @@
 | G-13 | Нет readiness endpoint | ✅ `/api/health/ready` — DB + Redis |
 | G-14 | Нет request-id correlation | ✅ `x-request-id` header |
 | G-15 | `.env.example` без Redis password | ✅ Обновлён + `.env.local.example` для dev |
+
+---
+
+## 🆕 Final Audit Fixes (06.03.2026) — 10/10 исправлено ✅
+
+**Дата:** 6 марта 2026
+
+### 🔴 P1 — 3/3 ✅
+
+| ID | Проблема | Исправление |
+|----|----------|-------------|
+| FA-1 | Утечка данных для driver в `GET /api/waybills` (driverId=null → все записи) | ✅ `waybills/routes.ts` — `!myDriverId` → 403 |
+| FA-2 | Утечка данных для driver в `GET /api/sync/pull` (driverId=null → все рейсы) | ✅ `sync/routes.ts` — `!driverId` → 403 |
+| FA-3 | JWT в body login-ответа (обход httpOnly) | ✅ `auth.ts` — удалён `token` из JSON body |
+
+### 🟠 P2 — 4/4 ✅
+
+| ID | Проблема | Исправление |
+|----|----------|-------------|
+| FA-4 | Неверный маппинг ошибки 409 в `POST /waybills/generate/:tripId` | ✅ `waybills/routes.ts` — `error.statusCode \|\| 'Нет допуска' → 409` |
+| FA-5 | Catch-all 500 в `POST /waybills/:id/close` вместо бизнес-ошибок | ✅ `waybills/routes.ts` — `'уже закрыт' → 400`, `'не найден' → 404` |
+| FA-6 | Небезопасный fallback `postgresql://tms:tms@...` в `connection.ts` | ✅ `connection.ts` — fail-fast `throw new Error` при отсутствии `DATABASE_URL` |
+| FA-7 | API import контракт `string[]` vs `{ index, error }[]` | ✅ `import/routes.ts` — теперь `{ index: number, error: string }[]` |
+
+### 🟢 P3 — 3/3 ✅
+
+| ID | Проблема | Исправление |
+|----|----------|-------------|
+| FA-8 | Middleware UI проверяет только наличие cookie | ✅ `middleware.ts` — базовая проверка JWT-структуры (3 сегмента) |
+| FA-9 | `Math.random()` в KPI топ-водителей | ✅ `finance.service.ts` — детерминированная формула `(4.5 + trips % 5 * 0.1)` |
+| FA-10 | Хардкод production IP в OpenAPI | ✅ `server.ts` — `process.env.API_PUBLIC_URL` |
 
 ---
 

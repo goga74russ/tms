@@ -75,7 +75,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         }
     });
 
-    // Login — rate limited
+    // Login (web) — rate limited, cookie-based auth only
     app.post('/api/auth/login', {
         schema: { tags: ['Авторизация'], summary: 'Вход в систему', description: 'Аутентификация по email/password. Устанавливает httpOnly cookie. Rate limit: 5/мин.' },
         config: {
@@ -128,7 +128,60 @@ export function registerAuthRoutes(app: FastifyInstance) {
         return {
             success: true,
             data: {
-                token, // Keep for mobile app backward compat
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    fullName: user.fullName,
+                    roles: user.roles,
+                },
+            },
+        };
+    });
+
+    // Login (mobile) — explicit bearer token contract for native clients
+    app.post('/api/auth/mobile/login', {
+        schema: { tags: ['Авторизация'], summary: 'Вход (mobile)', description: 'Аутентификация для мобильного клиента. Возвращает Bearer token в body.' },
+        config: {
+            rateLimit: {
+                max: 5,
+                timeWindow: '1 minute',
+            },
+        },
+    }, async (request, reply) => {
+        const parseResult = LoginSchema.safeParse(request.body);
+        if (!parseResult.success) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Validation failed',
+                details: parseResult.error.flatten(),
+            });
+        }
+        const { email, password } = parseResult.data;
+
+        const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+
+        if (!user || !user.isActive) {
+            return reply.status(401).send({ success: false, error: 'Invalid credentials' });
+        }
+
+        const isValid = await verifyPassword(password, user.passwordHash);
+        if (!isValid) {
+            return reply.status(401).send({ success: false, error: 'Invalid credentials' });
+        }
+
+        const token = app.jwt.sign(
+            { userId: user.id, roles: user.roles },
+            { expiresIn: JWT_EXPIRES_IN },
+        );
+
+        return {
+            success: true,
+            data: {
+                token,
                 user: {
                     id: user.id,
                     email: user.email,

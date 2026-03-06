@@ -38,7 +38,13 @@ export default async function waybillRoutes(app: FastifyInstance) {
             let rlsDriverId: string | undefined;
             if (user.roles.includes('driver')) {
                 const myDriverId = await resolveDriverId(user.userId);
-                if (myDriverId) rlsDriverId = myDriverId;
+                if (!myDriverId) {
+                    return reply.status(403).send({
+                        success: false,
+                        error: 'Отказано в доступе (профиль водителя не привязан)',
+                    });
+                }
+                rlsDriverId = myDriverId;
             }
 
             const result = await listWaybills(parseInt(page), parseInt(limit), rlsDriverId);
@@ -108,7 +114,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             return reply.status(201).send({ success: true, data: waybill });
         } catch (error: any) {
             request.log.error(error);
-            const statusCode = error.message.includes('Нет допуска') ? 409 : 500;
+            const statusCode = error.statusCode || (error.message.includes('Нет допуска') ? 409 : 500);
             return reply.status(statusCode).send({
                 success: false,
                 error: error.message || 'Ошибка при формировании путевого листа',
@@ -144,7 +150,8 @@ export default async function waybillRoutes(app: FastifyInstance) {
             return { success: true, data: waybill };
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(500).send({
+            const statusCode = error.statusCode || (error.message.includes('уже закрыт') ? 400 : error.message.includes('не найден') ? 404 : 500);
+            return reply.status(statusCode).send({
                 success: false,
                 error: error.message || 'Ошибка при закрытии путевого листа',
             });

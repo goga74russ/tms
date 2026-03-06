@@ -28,8 +28,8 @@ export function middleware(request: NextRequest) {
     // It is a protected route. Check for the tms_token cookie.
     const token = request.cookies.get('tms_token');
 
-    if (!token) {
-        // Redirect to /login if no valid cookie is found
+    if (!token || token.value.split('.').length !== 3) {
+        // Redirect to /login if no valid cookie is found (basic JWT structure check)
         const url = new URL('/login', request.url);
         return NextResponse.redirect(url);
     }

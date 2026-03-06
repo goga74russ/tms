@@ -246,7 +246,7 @@ export class FinanceService {
             name: ds.name,
             trips: ds.trips,
             eco: '95%', // Placeholder for now, could be calculated from telemetry if available
-            score: (4.5 + Math.random() * 0.5).toFixed(1) // Placeholder rating
+            score: (4.5 + (ds.trips % 5) * 0.1).toFixed(1) // Stable placeholder rating based on trips count
         }));
 
         return {
