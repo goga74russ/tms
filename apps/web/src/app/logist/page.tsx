@@ -108,21 +108,22 @@ export default function LogistPage() {
         ));
 
         try {
-            const statusEndpoints: Record<string, string> = {
-                confirmed: `/api/orders/${orderId}/confirm`,
-                cancelled: `/api/orders/${orderId}/cancel`,
-            };
-
-            const endpoint = statusEndpoints[newStatus];
-            if (endpoint) {
-                const json = await api.post(endpoint, {});
-                if (!json.success) {
-                    throw new Error(json.error || 'API Error');
-                }
+            let json;
+            if (newStatus === 'confirmed') {
+                json = await api.post(`/orders/${orderId}/confirm`, {});
+            } else if (newStatus === 'cancelled') {
+                json = await api.post(`/orders/${orderId}/cancel`, {});
+            } else {
+                // General status update via PUT
+                json = await api.put(`/orders/${orderId}`, { status: newStatus });
             }
+            if (!json.success) {
+                throw new Error(json.error || 'API Error');
+            }
+            showToast(`Статус → ${newStatus}`);
         } catch (err) {
             console.error('Failed to update order status', err);
-            showToast('Не удалось обновить статус', 'error');
+            showToast(err instanceof Error ? err.message : 'Не удалось обновить статус', 'error');
             loadOrders();
         }
     }, [ordersList, loadOrders, showToast]);
