@@ -116,10 +116,12 @@ export function registerAuthRoutes(app: FastifyInstance) {
             { expiresIn: JWT_EXPIRES_IN },
         );
 
-        // H-15: Set httpOnly cookie instead of returning token in body
+        // H-15: Set httpOnly cookie (still useful for direct API access)
+        // COOKIE_SECURE: set to 'false' when running without HTTPS
+        const isSecure = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
         reply.setCookie(COOKIE_NAME, token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isSecure,
             sameSite: 'lax',
             path: '/',
             maxAge: COOKIE_MAX_AGE,
@@ -128,6 +130,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         return {
             success: true,
             data: {
+                token, // Also return token in body for Bearer auth (Next.js proxy)
                 user: {
                     id: user.id,
                     email: user.email,
