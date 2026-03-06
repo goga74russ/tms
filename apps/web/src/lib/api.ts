@@ -3,7 +3,9 @@
 // H-15: Cookie-based auth (credentials: 'include')
 // ============================================================
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+// API Client — uses Next.js rewrite proxy (same-origin, no cross-origin cookie issues)
+// In production: browser hits :3000/api/* → Next.js proxies to :4000/api/*
+const API_BASE = '/api';
 
 class ApiClient {
     // S-9 FIX: Removed setToken/getToken/clearToken — web uses httpOnly cookies exclusively.
