@@ -2,6 +2,7 @@
 const nextConfig = {
     output: 'standalone',  // Minimal Docker image (~100MB vs ~500MB)
     transpilePackages: ['@tms/shared'],
+    eslint: { ignoreDuringBuilds: true },  // Lint separately, don't block build
     async rewrites() {
         // Proxy /api/* to the backend API server
         // This keeps all requests same-origin (no cross-origin cookie issues)
