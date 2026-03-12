@@ -140,15 +140,20 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
     }, async (request, reply) => {
         try {
             const user = request.user as { userId: string; roles: string[] };
+            const body = request.body as any;
+
+            // Extract orderIds before Zod strips it (not a DB/schema field)
+            const orderIds = body.orderIds as string[] | undefined;
+
             // H-4: Zod validation for trip creation
             const parsed = TripCreateSchema.safeParse({
-                ...(request.body as any),
+                ...body,
                 createdBy: user.userId,
             });
             if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
 
             const trip = await createTrip(
-                parsed.data as any,
+                { ...(parsed.data as any), orderIds },
                 { userId: user.userId, role: user.roles[0] },
             );
 

@@ -206,6 +206,37 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
         return { success: true, data: order };
     });
 
+    // --- POST /orders/:id/status — generic status transition (state machine) ---
+    app.post('/orders/:id/status', {
+        schema: { tags: ['Заявки'], summary: 'Изменить статус заявки', description: 'Переход статуса через state machine. Валидация допустимости перехода.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Order')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[] };
+            const body = request.body as { status: string; reason?: string };
+
+            if (!body.status) {
+                return reply.status(400).send({ success: false, error: 'Поле status обязательно' });
+            }
+
+            // IDOR guard: verify ownership
+            await assertOrderAccess(id, user);
+
+            const order = await changeOrderStatus(id, body.status, {
+                userId: user.userId,
+                role: user.roles[0],
+            }, body.reason ? { reason: body.reason } : undefined);
+
+            return { success: true, data: order };
+        } catch (err: any) {
+            if (err instanceof AccessDeniedError) {
+                return reply.status(403).send({ success: false, error: err.message });
+            }
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
     // --- POST /orders/:id/confirm ---
     app.post('/orders/:id/confirm', {
         schema: { tags: ['Заявки'], summary: 'Подтвердить заявку', description: 'Перевод заявки в статус «подтверждена». Валидация state machine.' },
