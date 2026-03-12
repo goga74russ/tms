@@ -27,9 +27,9 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
             case 'logist':
                 can('manage', 'Order');
                 can('read', 'Trip');
-                can('read', 'Vehicle');
-                can('read', 'Driver');
-                can('read', 'Contractor');
+                can('manage', 'Vehicle');
+                can('manage', 'Driver');
+                can('manage', 'Contractor');
                 can('read', 'Waybill');
                 can('read', 'Permit');
                 can('read', 'Tariff');
@@ -125,29 +125,10 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 break;
 
             case 'admin':
-                // Production-safe permissions (§А.3)
-                can('manage', 'Settings');
-                can('manage', 'ChecklistTemplate');
-                can('read', 'Order');
-                can('read', 'Trip');
-                can('read', 'Vehicle');
-                can('read', 'Driver');
-                can('read', 'Contractor');
-                can('read', 'Contract');
-                can('read', 'Waybill');
-                can('read', 'TechInspection');
-                can('read', 'MedInspection');
-                cannot('read', 'MedInspectionDetails'); // §А.3 — медданные
-                can('read', 'RepairRequest');
-                can('read', 'Permit');
-                can('read', 'Fine');
-                can('read', 'Tariff');
-                can('read', 'Invoice');
-                cannot('read', 'KPI'); // §А.3
-                // Admin-specific: user management, tariff management
-                can('manage', 'Tariff');
-                can('manage', 'Contract');
-                can('manage', 'Contractor');
+                // Admin has full access to all resources
+                can('manage', 'all');
+                // §А.3 restrictions — медданные остаются закрытыми
+                cannot('read', 'MedInspectionDetails');
                 break;
 
             case 'client':

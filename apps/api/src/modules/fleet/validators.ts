@@ -1,6 +1,7 @@
 // ============================================================
 // Fleet Validators — INN, Plate, VIN, deadline traffic light
 // ============================================================
+import { findByInn as dadataFindByInn } from '../../integrations/mocks/dadata.mock.js';
 
 /**
  * Validate Russian INN checksum (10 or 12 digits)
@@ -126,9 +127,7 @@ export async function lookupByInn(inn: string): Promise<{
     kpp?: string;
     legalAddress?: string;
 } | null> {
-    // Dynamic import to avoid circular dependency issues
-    const { findByInn } = await import('../../integrations/mocks/dadata.mock.js');
-    const company = findByInn(inn);
+    const company = dadataFindByInn(inn);
     if (!company) return null;
     return {
         name: company.name,
