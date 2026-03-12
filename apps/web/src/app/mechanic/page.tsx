@@ -113,6 +113,7 @@ export default function MechanicPage() {
     const [submitting, setSubmitting] = useState(false);
     const [signature, setSignature] = useState('');
     const [journal, setJournal] = useState<InspectionRecord[]>([]);
+    const [vehicleMap, setVehicleMap] = useState<Record<string, string>>({});
     const [activeTab, setActiveTab] = useState<'queue' | 'journal'>('queue');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -142,6 +143,15 @@ export default function MechanicPage() {
     useEffect(() => {
         loadQueue();
         loadJournal();
+        // Load vehicle names for journal
+        (async () => {
+            try {
+                const res = await api.get<any>('/fleet/vehicles?limit=200');
+                const vm: Record<string, string> = {};
+                for (const v of (res.data || [])) vm[v.id] = v.plateNumber;
+                setVehicleMap(vm);
+            } catch { /* ignore */ }
+        })();
     }, [loadQueue, loadJournal]);
 
     // Select vehicle and init checklist
@@ -528,7 +538,7 @@ export default function MechanicPage() {
                                                     })}
                                                 </td>
                                                 <td className="px-4 py-3 font-medium text-slate-900">
-                                                    {record.vehicleId.substring(0, 8)}...
+                                                    {vehicleMap[record.vehicleId] || record.vehicleId.substring(0, 8) + '...'}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${record.decision === 'approved'

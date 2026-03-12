@@ -100,6 +100,7 @@ export default function MedicPage() {
     const [stats, setStats] = useState<RejectionStats | null>(null);
     const [expiringCerts, setExpiringCerts] = useState<ExpiringCert[]>([]);
     const [journal, setJournal] = useState<MedInspectionRecord[]>([]);
+    const [driverMap, setDriverMap] = useState<Record<string, string>>({});
     const [activeTab, setActiveTab] = useState<'queue' | 'journal' | 'stats'>('queue');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -147,6 +148,15 @@ export default function MedicPage() {
         loadStats();
         loadExpiringCerts();
         loadJournal();
+        // Load driver names for journal
+        (async () => {
+            try {
+                const res = await api.get<any>('/drivers?limit=200');
+                const dm: Record<string, string> = {};
+                for (const d of (res.data || [])) dm[d.id] = d.fullName;
+                setDriverMap(dm);
+            } catch { /* ignore */ }
+        })();
     }, [loadQueue, loadStats, loadExpiringCerts, loadJournal]);
 
     const selectDriver = (item: DriverQueueItem) => {
@@ -613,7 +623,7 @@ export default function MedicPage() {
                                                     })}
                                                 </td>
                                                 <td className="px-4 py-3 font-medium text-slate-900">
-                                                    {record.driverId.substring(0, 8)}...
+                                                    {driverMap[record.driverId] || record.driverId.substring(0, 8) + '...'}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${record.decision === 'approved'

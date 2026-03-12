@@ -326,6 +326,10 @@ export default function WaybillsPage() {
     const [total, setTotal] = useState(0);
     const limit = 20;
 
+    // Lookup maps for resolving UUIDs to names
+    const [vehicleMap, setVehicleMap] = useState<Record<string, string>>({});
+    const [driverMap, setDriverMap] = useState<Record<string, string>>({});
+
     // Filters
     const [statusFilter, setStatusFilter] = useState('');
     const [searchFilter, setSearchFilter] = useState('');
@@ -359,6 +363,24 @@ export default function WaybillsPage() {
     useEffect(() => {
         loadWaybills();
     }, [loadWaybills]);
+
+    // Load vehicles & drivers once to resolve UUIDs
+    useEffect(() => {
+        (async () => {
+            try {
+                const [vRes, dRes] = await Promise.all([
+                    api.get<any>('/fleet/vehicles?limit=200'),
+                    api.get<any>('/drivers?limit=200'),
+                ]);
+                const vm: Record<string, string> = {};
+                for (const v of (vRes.data || [])) vm[v.id] = v.plateNumber;
+                setVehicleMap(vm);
+                const dm: Record<string, string> = {};
+                for (const d of (dRes.data || [])) dm[d.id] = d.fullName;
+                setDriverMap(dm);
+            } catch { /* ignore */ }
+        })();
+    }, []);
 
     const openDetail = async (waybillId: string) => {
         try {
@@ -506,8 +528,8 @@ export default function WaybillsPage() {
                                         <td className="px-4 py-3">
                                             <StatusBadge status={wb.status} />
                                         </td>
-                                        <td className="px-4 py-3 text-slate-700 font-mono text-xs">{(wb as any).vehiclePlate || wb.vehicleId.substring(0, 8)}</td>
-                                        <td className="px-4 py-3 text-slate-700 text-xs">{(wb as any).driverName || wb.driverId.substring(0, 8)}</td>
+                                        <td className="px-4 py-3 text-slate-700 font-medium text-xs">{vehicleMap[wb.vehicleId] || wb.vehicleId.substring(0, 8)}</td>
+                                        <td className="px-4 py-3 text-slate-700 text-xs">{driverMap[wb.driverId] || wb.driverId.substring(0, 8)}</td>
                                         <td className="px-4 py-3 text-slate-600 text-xs">
                                             {wb.departureAt ? new Date(wb.departureAt).toLocaleString('ru-RU', {
                                                 day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
