@@ -370,7 +370,7 @@ export default function WaybillsPage() {
             try {
                 const [vRes, dRes] = await Promise.all([
                     api.get<any>('/fleet/vehicles?limit=200'),
-                    api.get<any>('/drivers?limit=200'),
+                    api.get<any>('/fleet/drivers?limit=200'),
                 ]);
                 const vm: Record<string, string> = {};
                 for (const v of (vRes.data || [])) vm[v.id] = v.plateNumber;

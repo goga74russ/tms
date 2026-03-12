@@ -151,7 +151,7 @@ export default function MedicPage() {
         // Load driver names for journal
         (async () => {
             try {
-                const res = await api.get<any>('/drivers?limit=200');
+                const res = await api.get<any>('/fleet/drivers?limit=200');
                 const dm: Record<string, string> = {};
                 for (const d of (res.data || [])) dm[d.id] = d.fullName;
                 setDriverMap(dm);
