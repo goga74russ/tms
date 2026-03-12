@@ -1,6 +1,7 @@
 // ============================================================
 // Seed Data — тестовые данные для разработки
 // ============================================================
+import 'dotenv/config';
 import { db, sql } from './connection.js';
 import {
     users, contractors, contracts, vehicles, drivers,
