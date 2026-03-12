@@ -19,19 +19,34 @@ interface Trip {
     createdAt: string;
 }
 
+interface VehicleInfo {
+    id: string;
+    plateNumber: string;
+    make?: string;
+    model?: string;
+}
+
 const STATUS_LABELS: Record<string, string> = {
     planning: 'Планирование',
-    ready: 'Готов',
+    assigned: 'Назначен',
+    inspection: 'Осмотр',
+    waybill_issued: 'ПЛ выдан',
+    loading: 'Погрузка',
     in_transit: 'В пути',
     completed: 'Завершён',
+    billed: 'Оплачен',
     cancelled: 'Отменён',
 };
 
 const STATUS_COLORS: Record<string, string> = {
     planning: 'bg-slate-100 text-slate-700',
-    ready: 'bg-blue-100 text-blue-700',
+    assigned: 'bg-blue-100 text-blue-700',
+    inspection: 'bg-cyan-100 text-cyan-700',
+    waybill_issued: 'bg-violet-100 text-violet-700',
+    loading: 'bg-orange-100 text-orange-700',
     in_transit: 'bg-amber-100 text-amber-800',
     completed: 'bg-emerald-100 text-emerald-700',
+    billed: 'bg-green-100 text-green-800',
     cancelled: 'bg-red-100 text-red-700',
 };
 
@@ -46,6 +61,7 @@ function formatDate(d?: string) {
 export default function TripsPage() {
     const [trips, setTrips] = useState<Trip[]>([]);
     const [loading, setLoading] = useState(true);
+    const [vehicleMap, setVehicleMap] = useState<Record<string, VehicleInfo>>({});
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -58,6 +74,20 @@ export default function TripsPage() {
     useEffect(() => {
         loadTrips();
     }, [debouncedSearch, statusFilter]);
+
+    // Load vehicles once to resolve IDs to plate numbers
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await api.get<any>('/fleet/vehicles?limit=200');
+                const map: Record<string, VehicleInfo> = {};
+                for (const v of (res.data || [])) {
+                    map[v.id] = { id: v.id, plateNumber: v.plateNumber, make: v.make, model: v.model };
+                }
+                setVehicleMap(map);
+            } catch { /* ignore */ }
+        })();
+    }, []);
 
     async function loadTrips() {
         setLoading(true);
@@ -168,7 +198,9 @@ export default function TripsPage() {
                                             {t.vehicleId ? (
                                                 <span className="flex items-center gap-1">
                                                     <Truck className="w-3.5 h-3.5" />
-                                                    <span className="truncate max-w-[120px]">{t.vehicleId.slice(0, 8)}...</span>
+                                                    <span className="font-medium">
+                                                        {vehicleMap[t.vehicleId]?.plateNumber || t.vehicleId.slice(0, 8) + '...'}
+                                                    </span>
                                                 </span>
                                             ) : '—'}
                                         </td>
