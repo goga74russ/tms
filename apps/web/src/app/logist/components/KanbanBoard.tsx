@@ -20,7 +20,7 @@ interface KanbanBoardProps {
 
 const STATUS_LABELS: Record<string, string> = {
     draft: 'Черновик',
-    confirmed: 'Подтверждена',
+    confirmed: 'В работе',
     assigned: 'Назначена',
     in_transit: 'В пути',
     delivered: 'Доставлена',

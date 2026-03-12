@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Package, MapPin, Clock, User, Loader2 } from 'lucide-react';
+import { X, Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { Order } from '../page';
 
@@ -16,12 +16,22 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         contractorId: '',
         cargoDescription: '',
         cargoWeightKg: '',
+        cargoVolumeM3: '',
+        cargoPlaces: '',
+        // Sprint 9: ярусность
+        multiTierAllowed: false,
+        maxTiers: '1',
+        // Sprint 9: температурный режим
+        temperatureMin: '',
+        temperatureMax: '',
+        // Sprint 9: тип загрузки
+        loadingType: '',
+        hydraulicLiftRequired: false,
+        // Адреса
         loadingAddress: '',
+        loadingDate: '',
         unloadingAddress: '',
-        loadingWindowStart: '',
-        loadingWindowEnd: '',
-        unloadingWindowStart: '',
-        unloadingWindowEnd: '',
+        unloadingDate: '',
         vehicleRequirements: '',
         notes: '',
     });
@@ -40,6 +50,9 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         if (!form.cargoWeightKg || parseFloat(form.cargoWeightKg) <= 0) e.cargoWeightKg = 'Укажите вес';
         if (!form.loadingAddress) e.loadingAddress = 'Укажите адрес погрузки';
         if (!form.unloadingAddress) e.unloadingAddress = 'Укажите адрес выгрузки';
+        if (form.temperatureMin && form.temperatureMax && parseFloat(form.temperatureMin) > parseFloat(form.temperatureMax)) {
+            e.temperatureMin = 'Мин. > Макс.';
+        }
         setErrors(e);
         return Object.keys(e).length === 0;
     };
@@ -49,17 +62,24 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         setSubmitting(true);
 
         try {
-            const now = new Date().toISOString();
             const payload = {
                 contractorId: form.contractorId,
                 cargoDescription: form.cargoDescription,
                 cargoWeightKg: parseFloat(form.cargoWeightKg),
+                cargoVolumeM3: form.cargoVolumeM3 ? parseFloat(form.cargoVolumeM3) : undefined,
+                cargoPlaces: form.cargoPlaces ? parseInt(form.cargoPlaces, 10) : undefined,
+                // Sprint 9
+                multiTierAllowed: form.multiTierAllowed,
+                maxTiers: form.multiTierAllowed ? parseInt(form.maxTiers, 10) : 1,
+                temperatureMin: form.temperatureMin ? parseFloat(form.temperatureMin) : undefined,
+                temperatureMax: form.temperatureMax ? parseFloat(form.temperatureMax) : undefined,
+                loadingType: form.loadingType || undefined,
+                hydraulicLiftRequired: form.hydraulicLiftRequired,
+                // Addresses
                 loadingAddress: form.loadingAddress,
+                loadingDate: form.loadingDate ? new Date(form.loadingDate).toISOString() : undefined,
                 unloadingAddress: form.unloadingAddress,
-                loadingWindowStart: form.loadingWindowStart || undefined,
-                loadingWindowEnd: form.loadingWindowEnd || undefined,
-                unloadingWindowStart: form.unloadingWindowStart || undefined,
-                unloadingWindowEnd: form.unloadingWindowEnd || undefined,
+                unloadingDate: form.unloadingDate ? new Date(form.unloadingDate).toISOString() : undefined,
                 notes: form.notes || undefined,
             };
 
@@ -127,38 +147,154 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     </div>
 
                     {/* Cargo */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="col-span-2">
-                            <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
-                                <Package className="w-4 h-4 text-slate-400" />
-                                Груз
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="col-span-2">
+                                <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                                    <Package className="w-4 h-4 text-slate-400" />
+                                    Груз
+                                </label>
+                                <input
+                                    type="text"
+                                    value={form.cargoDescription}
+                                    onChange={(e) => setForm(f => ({ ...f, cargoDescription: e.target.value }))}
+                                    className={inputClass('cargoDescription')}
+                                    placeholder="Описание груза"
+                                />
+                                {errors.cargoDescription && (
+                                    <p className="text-xs text-red-500 mt-1">{errors.cargoDescription}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 mb-1.5 block">
+                                    Вес (кг)
+                                </label>
+                                <input
+                                    type="number"
+                                    value={form.cargoWeightKg}
+                                    onChange={(e) => setForm(f => ({ ...f, cargoWeightKg: e.target.value }))}
+                                    className={inputClass('cargoWeightKg')}
+                                    placeholder="0"
+                                    min="0"
+                                />
+                                {errors.cargoWeightKg && (
+                                    <p className="text-xs text-red-500 mt-1">{errors.cargoWeightKg}</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Volume + Places */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Объём (м³)</label>
+                                <input
+                                    type="number"
+                                    value={form.cargoVolumeM3}
+                                    onChange={(e) => setForm(f => ({ ...f, cargoVolumeM3: e.target.value }))}
+                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="0"
+                                    min="0"
+                                    step="0.1"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 mb-1.5 block">Кол-во мест</label>
+                                <input
+                                    type="number"
+                                    value={form.cargoPlaces}
+                                    onChange={(e) => setForm(f => ({ ...f, cargoPlaces: e.target.value }))}
+                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="0"
+                                    min="0"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Multi-tier */}
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={form.multiTierAllowed}
+                                    onChange={(e) => setForm(f => ({ ...f, multiTierAllowed: e.target.checked }))}
+                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <Layers className="w-4 h-4 text-slate-400" />
+                                Разрешить ярусную загрузку
                             </label>
-                            <input
-                                type="text"
-                                value={form.cargoDescription}
-                                onChange={(e) => setForm(f => ({ ...f, cargoDescription: e.target.value }))}
-                                className={inputClass('cargoDescription')}
-                                placeholder="Описание груза"
-                            />
-                            {errors.cargoDescription && (
-                                <p className="text-xs text-red-500 mt-1">{errors.cargoDescription}</p>
+                            {form.multiTierAllowed && (
+                                <select
+                                    value={form.maxTiers}
+                                    onChange={(e) => setForm(f => ({ ...f, maxTiers: e.target.value }))}
+                                    className="px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                >
+                                    <option value="2">2 яруса</option>
+                                    <option value="3">3 яруса</option>
+                                </select>
                             )}
                         </div>
+                    </div>
+
+                    {/* Temperature regime */}
+                    <div>
+                        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                            <Thermometer className="w-4 h-4 text-blue-500" />
+                            Температурный режим (°C)
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <input
+                                    type="number"
+                                    value={form.temperatureMin}
+                                    onChange={(e) => setForm(f => ({ ...f, temperatureMin: e.target.value }))}
+                                    className={inputClass('temperatureMin')}
+                                    placeholder="Мин, напр. -18"
+                                />
+                                {errors.temperatureMin && (
+                                    <p className="text-xs text-red-500 mt-1">{errors.temperatureMin}</p>
+                                )}
+                            </div>
+                            <div>
+                                <input
+                                    type="number"
+                                    value={form.temperatureMax}
+                                    onChange={(e) => setForm(f => ({ ...f, temperatureMax: e.target.value }))}
+                                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Макс, напр. -15"
+                                />
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">Оставьте пустым, если не требуется</p>
+                    </div>
+
+                    {/* Loading type + hydraulic lift */}
+                    <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">
-                                Вес (кг)
+                            <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                                <Truck className="w-4 h-4 text-slate-400" />
+                                Тип загрузки
                             </label>
-                            <input
-                                type="number"
-                                value={form.cargoWeightKg}
-                                onChange={(e) => setForm(f => ({ ...f, cargoWeightKg: e.target.value }))}
-                                className={inputClass('cargoWeightKg')}
-                                placeholder="0"
-                                min="0"
-                            />
-                            {errors.cargoWeightKg && (
-                                <p className="text-xs text-red-500 mt-1">{errors.cargoWeightKg}</p>
-                            )}
+                            <select
+                                value={form.loadingType}
+                                onChange={(e) => setForm(f => ({ ...f, loadingType: e.target.value }))}
+                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                <option value="">Любой</option>
+                                <option value="rear">Задняя</option>
+                                <option value="side">Боковая</option>
+                                <option value="top">Верхняя</option>
+                            </select>
+                        </div>
+                        <div className="flex items-end pb-1">
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={form.hydraulicLiftRequired}
+                                    onChange={(e) => setForm(f => ({ ...f, hydraulicLiftRequired: e.target.checked }))}
+                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                Нужен гидроборт
+                            </label>
                         </div>
                     </div>
 
@@ -166,37 +302,29 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     <div>
                         <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
                             <MapPin className="w-4 h-4 text-green-500" />
-                            Адрес погрузки
+                            Погрузка
                         </label>
                         <input
                             type="text"
                             value={form.loadingAddress}
                             onChange={(e) => setForm(f => ({ ...f, loadingAddress: e.target.value }))}
                             className={inputClass('loadingAddress')}
-                            placeholder="Город, улица, строение"
+                            placeholder="Адрес погрузки"
                         />
                         {errors.loadingAddress && (
                             <p className="text-xs text-red-500 mt-1">{errors.loadingAddress}</p>
                         )}
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                            <div>
-                                <label className="text-xs text-slate-500 mb-1 block">Окно: от</label>
-                                <input
-                                    type="datetime-local"
-                                    value={form.loadingWindowStart}
-                                    onChange={(e) => setForm(f => ({ ...f, loadingWindowStart: e.target.value }))}
-                                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs text-slate-500 mb-1 block">Окно: до</label>
-                                <input
-                                    type="datetime-local"
-                                    value={form.loadingWindowEnd}
-                                    onChange={(e) => setForm(f => ({ ...f, loadingWindowEnd: e.target.value }))}
-                                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                            </div>
+                        <div className="mt-2">
+                            <label className="text-xs text-slate-500 mb-1 block">
+                                <Clock className="w-3 h-3 inline mr-1" />
+                                Дата погрузки
+                            </label>
+                            <input
+                                type="date"
+                                value={form.loadingDate}
+                                onChange={(e) => setForm(f => ({ ...f, loadingDate: e.target.value }))}
+                                className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
                         </div>
                     </div>
 
@@ -204,37 +332,29 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     <div>
                         <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
                             <MapPin className="w-4 h-4 text-red-500" />
-                            Адрес выгрузки
+                            Выгрузка
                         </label>
                         <input
                             type="text"
                             value={form.unloadingAddress}
                             onChange={(e) => setForm(f => ({ ...f, unloadingAddress: e.target.value }))}
                             className={inputClass('unloadingAddress')}
-                            placeholder="Город, улица, строение"
+                            placeholder="Адрес выгрузки"
                         />
                         {errors.unloadingAddress && (
                             <p className="text-xs text-red-500 mt-1">{errors.unloadingAddress}</p>
                         )}
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                            <div>
-                                <label className="text-xs text-slate-500 mb-1 block">Окно: от</label>
-                                <input
-                                    type="datetime-local"
-                                    value={form.unloadingWindowStart}
-                                    onChange={(e) => setForm(f => ({ ...f, unloadingWindowStart: e.target.value }))}
-                                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs text-slate-500 mb-1 block">Окно: до</label>
-                                <input
-                                    type="datetime-local"
-                                    value={form.unloadingWindowEnd}
-                                    onChange={(e) => setForm(f => ({ ...f, unloadingWindowEnd: e.target.value }))}
-                                    className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                />
-                            </div>
+                        <div className="mt-2">
+                            <label className="text-xs text-slate-500 mb-1 block">
+                                <Clock className="w-3 h-3 inline mr-1" />
+                                Дата выгрузки
+                            </label>
+                            <input
+                                type="date"
+                                value={form.unloadingDate}
+                                onChange={(e) => setForm(f => ({ ...f, unloadingDate: e.target.value }))}
+                                className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
                         </div>
                     </div>
 

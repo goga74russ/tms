@@ -29,7 +29,7 @@ export type Order = {
 
 const STATUS_COLUMNS = [
     { key: 'draft', label: 'Черновик', color: '#94a3b8' },
-    { key: 'confirmed', label: 'Подтверждена', color: '#3b82f6' },
+    { key: 'confirmed', label: 'В работе', color: '#3b82f6' },
     { key: 'assigned', label: 'Назначена', color: '#8b5cf6' },
     { key: 'in_transit', label: 'В пути', color: '#f59e0b' },
     { key: 'delivered', label: 'Доставлена', color: '#22c55e' },

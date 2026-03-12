@@ -42,7 +42,7 @@ interface Invoice {
 
 const ORDER_STATUS_LABELS: Record<string, { label: string; color: string; icon: any }> = {
     draft: { label: 'Черновик', color: 'bg-slate-100 text-slate-600', icon: Clock },
-    confirmed: { label: 'Подтверждена', color: 'bg-blue-100 text-blue-700', icon: CheckCircle2 },
+    confirmed: { label: 'В работе', color: 'bg-blue-100 text-blue-700', icon: CheckCircle2 },
     assigned: { label: 'Назначена', color: 'bg-indigo-100 text-indigo-700', icon: Truck },
     in_transit: { label: 'В пути', color: 'bg-amber-100 text-amber-700', icon: MapPin },
     delivered: { label: 'Доставлена', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },

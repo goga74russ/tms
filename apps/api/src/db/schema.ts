@@ -179,6 +179,10 @@ export const vehicles = pgTable('vehicles', {
     maintenanceNextDate: timestamp('maintenance_next_date', { withTimezone: true }),
     maintenanceNextKm: doublePrecision('maintenance_next_km'),
     tachographCalibrationExpiry: timestamp('tachograph_calibration_expiry', { withTimezone: true }),
+    // Sprint 9: Топливная карта, транспондер, гидроборт
+    fuelCardNumber: varchar('fuel_card_number', { length: 50 }),
+    transponderNumber: varchar('transponder_number', { length: 50 }),
+    hasHydraulicLift: boolean('has_hydraulic_lift').notNull().default(false),
     isArchived: boolean('is_archived').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -202,6 +206,10 @@ export const drivers = pgTable('drivers', {
     medCertificateExpiry: timestamp('med_certificate_expiry', { withTimezone: true }),
     personalDataConsent: boolean('personal_data_consent').notNull().default(false),
     personalDataConsentDate: timestamp('personal_data_consent_date', { withTimezone: true }),
+    // Sprint 9: Доверенность, топливная карта
+    powerOfAttorneyNumber: varchar('power_of_attorney_number', { length: 50 }),
+    powerOfAttorneyExpiry: timestamp('power_of_attorney_expiry', { withTimezone: true }),
+    fuelCardNumber: varchar('fuel_card_number', { length: 50 }),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -224,15 +232,26 @@ export const orders = pgTable('orders', {
     cargoVolumeM3: doublePrecision('cargo_volume_m3'),
     cargoPlaces: integer('cargo_places'),
     cargoType: varchar('cargo_type', { length: 100 }),
+    // Sprint 9: Ярусность
+    multiTierAllowed: boolean('multi_tier_allowed').notNull().default(false),
+    maxTiers: integer('max_tiers').notNull().default(1),
+    // Sprint 9: Температурный режим (рефрижераторы)
+    temperatureMin: doublePrecision('temperature_min'),
+    temperatureMax: doublePrecision('temperature_max'),
+    // Sprint 9: Тип загрузки
+    loadingType: varchar('loading_type', { length: 20 }),  // rear, side, top
+    hydraulicLiftRequired: boolean('hydraulic_lift_required').notNull().default(false),
     // Адреса
     loadingAddress: text('loading_address').notNull(),
     loadingLat: doublePrecision('loading_lat'),
     loadingLon: doublePrecision('loading_lon'),
+    loadingDate: timestamp('loading_date', { withTimezone: true }),
     loadingWindowStart: timestamp('loading_window_start', { withTimezone: true }),
     loadingWindowEnd: timestamp('loading_window_end', { withTimezone: true }),
     unloadingAddress: text('unloading_address').notNull(),
     unloadingLat: doublePrecision('unloading_lat'),
     unloadingLon: doublePrecision('unloading_lon'),
+    unloadingDate: timestamp('unloading_date', { withTimezone: true }),
     unloadingWindowStart: timestamp('unloading_window_start', { withTimezone: true }),
     unloadingWindowEnd: timestamp('unloading_window_end', { withTimezone: true }),
     // Требования

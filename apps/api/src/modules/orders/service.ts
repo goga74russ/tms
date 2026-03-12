@@ -51,14 +51,24 @@ export interface CreateOrderInput {
     cargoVolumeM3?: number;
     cargoPlaces?: number;
     cargoType?: string;
+    // Sprint 9
+    multiTierAllowed?: boolean;
+    maxTiers?: number;
+    temperatureMin?: number;
+    temperatureMax?: number;
+    loadingType?: string;
+    hydraulicLiftRequired?: boolean;
+    // Addresses
     loadingAddress: string;
     loadingLat?: number;
     loadingLon?: number;
+    loadingDate?: string;
     loadingWindowStart?: string;
     loadingWindowEnd?: string;
     unloadingAddress: string;
     unloadingLat?: number;
     unloadingLon?: number;
+    unloadingDate?: string;
     unloadingWindowStart?: string;
     unloadingWindowEnd?: string;
     vehicleRequirements?: string;
@@ -98,14 +108,24 @@ export async function createOrder(
             cargoVolumeM3: input.cargoVolumeM3,
             cargoPlaces: input.cargoPlaces,
             cargoType: input.cargoType,
+            // Sprint 9
+            multiTierAllowed: input.multiTierAllowed,
+            maxTiers: input.maxTiers,
+            temperatureMin: input.temperatureMin,
+            temperatureMax: input.temperatureMax,
+            loadingType: input.loadingType,
+            hydraulicLiftRequired: input.hydraulicLiftRequired,
+            // Addresses
             loadingAddress: input.loadingAddress,
             loadingLat: input.loadingLat,
             loadingLon: input.loadingLon,
+            loadingDate: input.loadingDate ? new Date(input.loadingDate) : undefined,
             loadingWindowStart: input.loadingWindowStart ? new Date(input.loadingWindowStart) : undefined,
             loadingWindowEnd: input.loadingWindowEnd ? new Date(input.loadingWindowEnd) : undefined,
             unloadingAddress: input.unloadingAddress,
             unloadingLat: input.unloadingLat,
             unloadingLon: input.unloadingLon,
+            unloadingDate: input.unloadingDate ? new Date(input.unloadingDate) : undefined,
             unloadingWindowStart: input.unloadingWindowStart ? new Date(input.unloadingWindowStart) : undefined,
             unloadingWindowEnd: input.unloadingWindowEnd ? new Date(input.unloadingWindowEnd) : undefined,
             vehicleRequirements: input.vehicleRequirements,
@@ -200,8 +220,10 @@ export async function updateOrder(
         .update(orders)
         .set({
             ...updates,
+            loadingDate: updates.loadingDate ? new Date(updates.loadingDate) : undefined,
             loadingWindowStart: updates.loadingWindowStart ? new Date(updates.loadingWindowStart) : undefined,
             loadingWindowEnd: updates.loadingWindowEnd ? new Date(updates.loadingWindowEnd) : undefined,
+            unloadingDate: updates.unloadingDate ? new Date(updates.unloadingDate) : undefined,
             unloadingWindowStart: updates.unloadingWindowStart ? new Date(updates.unloadingWindowStart) : undefined,
             unloadingWindowEnd: updates.unloadingWindowEnd ? new Date(updates.unloadingWindowEnd) : undefined,
             updatedAt: new Date(),
@@ -283,6 +305,14 @@ export async function createOrderFromTemplate(
         cargoVolumeM3: overrides.cargoVolumeM3 ?? template.cargoVolumeM3 ?? undefined,
         cargoPlaces: overrides.cargoPlaces ?? template.cargoPlaces ?? undefined,
         cargoType: overrides.cargoType ?? template.cargoType ?? undefined,
+        // Sprint 9
+        multiTierAllowed: overrides.multiTierAllowed ?? template.multiTierAllowed ?? undefined,
+        maxTiers: overrides.maxTiers ?? template.maxTiers ?? undefined,
+        temperatureMin: overrides.temperatureMin ?? template.temperatureMin ?? undefined,
+        temperatureMax: overrides.temperatureMax ?? template.temperatureMax ?? undefined,
+        loadingType: overrides.loadingType ?? template.loadingType ?? undefined,
+        hydraulicLiftRequired: overrides.hydraulicLiftRequired ?? template.hydraulicLiftRequired ?? undefined,
+        // Addresses
         loadingAddress: overrides.loadingAddress ?? template.loadingAddress,
         loadingLat: overrides.loadingLat ?? template.loadingLat ?? undefined,
         loadingLon: overrides.loadingLon ?? template.loadingLon ?? undefined,

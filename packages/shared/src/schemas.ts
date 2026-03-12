@@ -127,6 +127,10 @@ export const VehicleSchema = z.object({
     maintenanceNextDate: z.string().optional(),
     maintenanceNextKm: z.number().optional(),
     tachographCalibrationExpiry: z.string().optional(),
+    // Sprint 9
+    fuelCardNumber: z.string().optional(),
+    transponderNumber: z.string().optional(),
+    hasHydraulicLift: z.boolean().default(false),
     isArchived: z.boolean().default(false),
     createdAt: dateStr,
     updatedAt: dateStr,
@@ -152,6 +156,10 @@ export const DriverSchema = z.object({
     medCertificateExpiry: z.string().optional(),
     personalDataConsent: z.boolean().default(false),
     personalDataConsentDate: z.string().optional(),
+    // Sprint 9
+    powerOfAttorneyNumber: z.string().optional(),
+    powerOfAttorneyExpiry: z.string().optional(),
+    fuelCardNumber: z.string().optional(),
     isActive: z.boolean().default(true),
     createdAt: dateStr,
     updatedAt: dateStr,
@@ -177,15 +185,26 @@ export const OrderSchema = z.object({
     cargoVolumeM3: z.number().positive().optional(),
     cargoPlaces: z.number().int().positive().optional(),
     cargoType: z.string().optional(),
+    // Sprint 9: Ярусность
+    multiTierAllowed: z.boolean().default(false),
+    maxTiers: z.number().int().min(1).max(3).default(1),
+    // Sprint 9: Температурный режим
+    temperatureMin: z.number().optional(),
+    temperatureMax: z.number().optional(),
+    // Sprint 9: Тип загрузки
+    loadingType: z.enum(['rear', 'side', 'top']).optional(),
+    hydraulicLiftRequired: z.boolean().default(false),
     // Адреса
     loadingAddress: z.string(),
     loadingLat: z.number().optional(),
     loadingLon: z.number().optional(),
+    loadingDate: dateStr.optional(),
     loadingWindowStart: dateStr.optional(),
     loadingWindowEnd: dateStr.optional(),
     unloadingAddress: z.string(),
     unloadingLat: z.number().optional(),
     unloadingLon: z.number().optional(),
+    unloadingDate: dateStr.optional(),
     unloadingWindowStart: dateStr.optional(),
     unloadingWindowEnd: dateStr.optional(),
     // Требования
