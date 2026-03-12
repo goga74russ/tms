@@ -53,6 +53,29 @@ export const routePointStatusEnum = pgEnum('route_point_status', [
     'pending', 'arrived', 'completed', 'skipped',
 ]);
 
+// Sprint 9 — Incidents
+export const incidentSeverityEnum = pgEnum('incident_severity', [
+    'low', 'medium', 'critical',
+]);
+
+export const incidentStatusEnum = pgEnum('incident_status', [
+    'open', 'investigating', 'resolved', 'dismissed',
+]);
+
+export const incidentTypeEnum = pgEnum('incident_type', [
+    'med_inspection', 'tech_inspection', 'road', 'cargo', 'other',
+]);
+
+// Sprint 9 — Trailers
+export const trailerTypeEnum = pgEnum('trailer_type', [
+    'tent', 'board', 'refrigerator', 'cistern', 'flatbed', 'container', 'other',
+]);
+
+// Sprint 9 — Expense categories
+export const expenseCategoryEnum = pgEnum('expense_category', [
+    'fuel', 'platon', 'parking', 'fine', 'repair', 'toll', 'other',
+]);
+
 export const tariffTypeEnum = pgEnum('tariff_type', [
     'per_km', 'per_ton', 'per_hour', 'fixed_route', 'combined',
 ]);
@@ -609,4 +632,96 @@ export const notificationSubscriptions = pgTable('notification_subscriptions', {
 }, (table) => [
     uniqueIndex('notification_subs_chat_id_idx').on(table.telegramChatId),
     index('notification_subs_user_id_idx').on(table.userId),
+]);
+
+// ================================================================
+// Sprint 9 — Прицепы (Trailers)
+// ================================================================
+export const trailers = pgTable('trailers', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    plateNumber: varchar('plate_number', { length: 20 }).notNull().unique(),
+    vin: varchar('vin', { length: 17 }),
+    type: trailerTypeEnum('type').notNull(),
+    make: varchar('make', { length: 100 }),
+    model: varchar('model', { length: 100 }),
+    year: integer('year'),
+    payloadCapacityKg: doublePrecision('payload_capacity_kg'),
+    payloadVolumeM3: doublePrecision('payload_volume_m3'),
+    // Документы
+    techInspectionExpiry: timestamp('tech_inspection_expiry', { withTimezone: true }),
+    osagoExpiry: timestamp('osago_expiry', { withTimezone: true }),
+    tachographCalibrationExpiry: timestamp('tachograph_calibration_expiry', { withTimezone: true }),
+    // Привязка к тягачу (может меняться)
+    currentVehicleId: uuid('current_vehicle_id').references(() => vehicles.id),
+    isArchived: boolean('is_archived').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('idx_trailers_plate').on(table.plateNumber),
+    index('idx_trailers_vehicle').on(table.currentVehicleId),
+]);
+
+// ================================================================
+// Sprint 9 — Инциденты (Incidents)
+// ================================================================
+export const incidents = pgTable('incidents', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    type: incidentTypeEnum('type').notNull(),
+    severity: incidentSeverityEnum('severity').notNull().default('low'),
+    status: incidentStatusEnum('status').notNull().default('open'),
+    description: text('description').notNull(),
+    // Связи
+    vehicleId: uuid('vehicle_id').references(() => vehicles.id),
+    driverId: uuid('driver_id').references(() => drivers.id),
+    tripId: uuid('trip_id').references(() => trips.id),
+    techInspectionId: uuid('tech_inspection_id').references(() => techInspections.id),
+    medInspectionId: uuid('med_inspection_id').references(() => medInspections.id),
+    // Решение
+    resolution: text('resolution'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    resolvedBy: uuid('resolved_by').references(() => users.id),
+    // Блокировка
+    blocksRelease: boolean('blocks_release').notNull().default(false),
+    createdBy: uuid('created_by').notNull().references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_incidents_status').on(table.status),
+    index('idx_incidents_vehicle').on(table.vehicleId),
+    index('idx_incidents_driver').on(table.driverId),
+    index('idx_incidents_trip').on(table.tripId),
+]);
+
+// ================================================================
+// Sprint 9 — Несколько водителей на путевом (Waybill Drivers)
+// ================================================================
+export const waybillDrivers = pgTable('waybill_drivers', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    waybillId: uuid('waybill_id').notNull().references(() => waybills.id),
+    driverId: uuid('driver_id').notNull().references(() => drivers.id),
+    shiftStart: timestamp('shift_start', { withTimezone: true }),
+    shiftEnd: timestamp('shift_end', { withTimezone: true }),
+    isPrimary: boolean('is_primary').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_waybill_drivers_waybill').on(table.waybillId),
+    index('idx_waybill_drivers_driver').on(table.driverId),
+]);
+
+// ================================================================
+// Sprint 9 — Расходы путевого листа (Waybill Expenses)
+// ================================================================
+export const waybillExpenses = pgTable('waybill_expenses', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    waybillId: uuid('waybill_id').notNull().references(() => waybills.id),
+    category: expenseCategoryEnum('category').notNull(),
+    description: varchar('description', { length: 255 }),
+    plannedAmount: numeric('planned_amount', { precision: 12, scale: 2 }).$type<number>(),
+    actualAmount: numeric('actual_amount', { precision: 12, scale: 2 }).$type<number>(),
+    receiptUrl: text('receipt_url'),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_waybill_expenses_waybill').on(table.waybillId),
+    index('idx_waybill_expenses_category').on(table.category),
 ]);

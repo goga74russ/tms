@@ -196,6 +196,55 @@ export const InvoicePaymentStatus = {
 } as const;
 export type InvoicePaymentStatus = (typeof InvoicePaymentStatus)[keyof typeof InvoicePaymentStatus];
 
+// --- Sprint 9: Инциденты ---
+export const IncidentSeverity = {
+    LOW: 'low',
+    MEDIUM: 'medium',
+    CRITICAL: 'critical',
+} as const;
+export type IncidentSeverity = (typeof IncidentSeverity)[keyof typeof IncidentSeverity];
+
+export const IncidentStatus = {
+    OPEN: 'open',
+    INVESTIGATING: 'investigating',
+    RESOLVED: 'resolved',
+    DISMISSED: 'dismissed',
+} as const;
+export type IncidentStatus = (typeof IncidentStatus)[keyof typeof IncidentStatus];
+
+export const IncidentType = {
+    MED_INSPECTION: 'med_inspection',
+    TECH_INSPECTION: 'tech_inspection',
+    ROAD: 'road',
+    CARGO: 'cargo',
+    OTHER: 'other',
+} as const;
+export type IncidentType = (typeof IncidentType)[keyof typeof IncidentType];
+
+// --- Sprint 9: Прицепы ---
+export const TrailerType = {
+    TENT: 'tent',
+    BOARD: 'board',
+    REFRIGERATOR: 'refrigerator',
+    CISTERN: 'cistern',
+    FLATBED: 'flatbed',
+    CONTAINER: 'container',
+    OTHER: 'other',
+} as const;
+export type TrailerType = (typeof TrailerType)[keyof typeof TrailerType];
+
+// --- Sprint 9: Категории расходов ---
+export const ExpenseCategory = {
+    FUEL: 'fuel',
+    PLATON: 'platon',
+    PARKING: 'parking',
+    FINE: 'fine',
+    REPAIR: 'repair',
+    TOLL: 'toll',
+    OTHER: 'other',
+} as const;
+export type ExpenseCategory = (typeof ExpenseCategory)[keyof typeof ExpenseCategory];
+
 // ================================================================
 // State Machine Transitions (H-18, M-19 — canonical maps for reuse)
 // ================================================================

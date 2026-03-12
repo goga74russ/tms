@@ -15,6 +15,13 @@
       "when": 1773329028354,
       "tag": "0001_bouncy_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773329194491,
+      "tag": "0002_curious_rockslide",
+      "breakpoints": true
     }
   ]
 }
