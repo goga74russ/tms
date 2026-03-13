@@ -12,6 +12,7 @@ type Subjects =
     | 'Waybill' | 'RepairRequest' | 'Permit' | 'Fine'
     | 'Tariff' | 'Contract' | 'Invoice'
     | 'KPI' | 'Settings' | 'ChecklistTemplate'
+    | 'Incident' | 'Trailer' | 'WaybillExpense' | 'WaybillDriver'
     | 'all';
 
 export type AppAbility = MongoAbility<[Actions, Subjects]>;
@@ -36,6 +37,10 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('read', 'Contract');
                 can('read', 'Invoice');
                 can('read', 'ChecklistTemplate');
+                can('manage', 'Incident');
+                can('manage', 'Trailer');
+                can('read', 'WaybillExpense');
+                can('read', 'WaybillDriver');
                 break;
 
             case 'dispatcher':
@@ -51,6 +56,10 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('read', 'Fine');
                 can('read', 'RepairRequest');
                 can('read', 'ChecklistTemplate');
+                can('manage', 'Incident');
+                can('read', 'Trailer');
+                can('manage', 'WaybillExpense');
+                can('manage', 'WaybillDriver');
                 break;
 
             case 'manager':
@@ -69,6 +78,10 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('read', 'Invoice');
                 can('read', 'KPI');
                 can('read', 'ChecklistTemplate');
+                can('read', 'Incident');
+                can('read', 'Trailer');
+                can('read', 'WaybillExpense');
+                can('read', 'WaybillDriver');
                 break;
 
             case 'mechanic':
@@ -80,6 +93,9 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('read', 'Waybill');
                 can('read', 'Permit');
                 can('read', 'ChecklistTemplate');
+                can('manage', 'Incident');
+                can('read', 'Trailer');
+                can('read', 'WaybillDriver');
                 break;
 
             case 'medic':
@@ -87,6 +103,7 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('read', 'MedInspectionDetails');
                 can('read', 'Driver');
                 can('read', 'ChecklistTemplate');
+                can('read', 'Incident');
                 // Не видит: финансы, ремонты, заявки (§А.2)
                 break;
 
@@ -96,6 +113,8 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('update', 'Vehicle');
                 can('read', 'TechInspection');
                 can('read', 'ChecklistTemplate');
+                can('read', 'Incident');
+                can('read', 'Trailer');
                 break;
 
             case 'driver':
@@ -106,6 +125,9 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('create', 'RepairRequest');
                 can('read', 'Vehicle');
                 can('read', 'Driver');
+                can('read', 'Incident');
+                can('read', 'WaybillDriver');
+                can('manage', 'WaybillExpense');
                 break;
 
             case 'accountant':
@@ -122,6 +144,8 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('manage', 'Fine');
                 can('read', 'RepairRequest');
                 can('read', 'Permit');
+                can('read', 'Trailer');
+                can('manage', 'WaybillExpense');
                 break;
 
             case 'admin':

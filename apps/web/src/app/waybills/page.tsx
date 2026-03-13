@@ -32,10 +32,31 @@ interface Waybill {
     medicSignature: string | null;
 }
 
+interface WaybillDriverLink {
+    id: string;
+    driverId: string;
+    driverName: string;
+    licenseNumber: string;
+    shiftStart?: string | null;
+    shiftEnd?: string | null;
+    isPrimary: boolean;
+}
+
+interface WaybillExpense {
+    id: string;
+    category: string;
+    description?: string | null;
+    plannedAmount?: number | null;
+    actualAmount?: number | null;
+    receiptUrl?: string | null;
+}
+
 interface WaybillDetail extends Waybill {
     vehicle?: { plateNumber: string; make: string; model: string };
     driver?: { fullName: string; licenseNumber: string };
     trip?: { number: string; status: string };
+    drivers?: WaybillDriverLink[];
+    expenses?: WaybillExpense[];
 }
 
 // ================================================================
@@ -294,6 +315,51 @@ function DetailModal({
                         </div>
                     </div>
 
+                    {waybill.drivers && waybill.drivers.length > 0 && (
+                        <div className="p-3 bg-slate-50 rounded-xl space-y-2">
+                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Водители на путевом</p>
+                            <div className="space-y-2">
+                                {waybill.drivers.map((link) => (
+                                    <div key={link.id} className="flex items-center justify-between gap-3 text-sm">
+                                        <div>
+                                            <p className="font-medium text-slate-800">{link.driverName}</p>
+                                            <p className="text-xs text-slate-500">ВУ: {link.licenseNumber}</p>
+                                        </div>
+                                        <div className="text-right text-xs text-slate-500">
+                                            {link.isPrimary && <p className="text-emerald-600 font-semibold">Основной</p>}
+                                            {(link.shiftStart || link.shiftEnd) && (
+                                                <p>
+                                                    {link.shiftStart ? new Date(link.shiftStart).toLocaleString('ru-RU') : '—'}
+                                                    {' → '}
+                                                    {link.shiftEnd ? new Date(link.shiftEnd).toLocaleString('ru-RU') : '—'}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {waybill.expenses && waybill.expenses.length > 0 && (
+                        <div className="p-3 bg-slate-50 rounded-xl space-y-2">
+                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Расходы по путевому</p>
+                            <div className="space-y-2">
+                                {waybill.expenses.map((expense) => (
+                                    <div key={expense.id} className="flex items-center justify-between gap-3 text-sm border-b border-slate-200 pb-2 last:border-b-0 last:pb-0">
+                                        <div>
+                                            <p className="font-medium text-slate-800">{expense.category}</p>
+                                            <p className="text-xs text-slate-500">{expense.description || 'Без описания'}</p>
+                                        </div>
+                                        <div className="text-right text-xs text-slate-600">
+                                            <p>План: {expense.plannedAmount ?? 0} ₽</p>
+                                            <p>Факт: {expense.actualAmount ?? 0} ₽</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     <div className="text-xs text-slate-400 pt-2">
                         Выдан: {new Date(waybill.issuedAt).toLocaleString('ru-RU')}
                         {waybill.closedAt && ` • Закрыт: ${new Date(waybill.closedAt).toLocaleString('ru-RU')}`}
@@ -384,9 +450,17 @@ export default function WaybillsPage() {
 
     const openDetail = async (waybillId: string) => {
         try {
-            const result = await api.get<{ success: boolean; data: WaybillDetail }>(`/waybills/${waybillId}`);
-            if (result.success) {
-                setDetailWaybill(result.data);
+            const [detail, driversRes, expensesRes] = await Promise.all([
+                api.get<{ success: boolean; data: WaybillDetail }>(`/waybills/${waybillId}`),
+                api.get<{ success: boolean; data: WaybillDriverLink[] }>(`/waybills/${waybillId}/drivers`).catch(() => ({ success: false, data: [] })),
+                api.get<{ success: boolean; data: WaybillExpense[] }>(`/waybills/${waybillId}/expenses`).catch(() => ({ success: false, data: [] })),
+            ]);
+            if (detail.success) {
+                setDetailWaybill({
+                    ...detail.data,
+                    drivers: driversRes.success ? driversRes.data : [],
+                    expenses: expensesRes.success ? expensesRes.data : [],
+                });
             }
         } catch (err) {
             console.error('Failed to load waybill detail:', err);

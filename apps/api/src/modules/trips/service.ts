@@ -519,17 +519,15 @@ async function linkOrdersToTrip(
                 windowStart: order.unloadingWindowStart,
                 windowEnd: order.unloadingWindowEnd,
             });
-            // Record events inside transaction (N-2)
-            for (const orderId of orderIds) {
-                await recordEvent({
-                    authorId: author.userId,
-                    authorRole: author.role,
-                    eventType: 'order.assigned',
-                    entityType: 'order',
-                    entityId: orderId,
-                    data: { tripId },
-                }, tx);
-            }
+            // Record a single assignment event for the current order.
+            await recordEvent({
+                authorId: author.userId,
+                authorRole: author.role,
+                eventType: 'order.assigned',
+                entityType: 'order',
+                entityId: orderId,
+                data: { tripId },
+            }, tx);
         }
     });
 }
