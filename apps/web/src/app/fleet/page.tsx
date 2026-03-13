@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Truck, Users, ShieldCheck, AlertTriangle, Building2 } from 'lucide-react';
+import { Truck, Users, ShieldCheck, AlertTriangle, Building2, Container } from 'lucide-react';
 import { VehiclesTable } from './components/VehiclesTable';
 import { DriversTable } from './components/DriversTable';
 import { PermitsTable } from './components/PermitsTable';
 import { FinesTable } from './components/FinesTable';
 import { ContractorsTable } from './components/ContractorsTable';
+import { TrailersTable } from './components/TrailersTable';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const tabs = [
@@ -15,6 +16,7 @@ const tabs = [
     { id: 'permits', label: 'Пропуска', icon: ShieldCheck },
     { id: 'fines', label: 'Штрафы', icon: AlertTriangle },
     { id: 'contractors', label: 'Контрагенты', icon: Building2 },
+    { id: 'trailers', label: 'Прицепы', icon: Container },
 ] as const;
 
 type TabId = typeof tabs[number]['id'];
@@ -54,6 +56,7 @@ export default function FleetPage() {
                     <TabsContent value="permits" className="m-0"><PermitsTable /></TabsContent>
                     <TabsContent value="fines" className="m-0"><FinesTable /></TabsContent>
                     <TabsContent value="contractors" className="m-0"><ContractorsTable /></TabsContent>
+                    <TabsContent value="trailers" className="m-0"><TrailersTable /></TabsContent>
                 </div>
             </Tabs>
         </div>
