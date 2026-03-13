@@ -128,6 +128,113 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         }
     );
 
+    // 6.5 GET /finance/invoices/:id/pdf — Скачать счёт/акт как PDF
+    fastify.get<{ Params: { id: string } }>(
+        '/finance/invoices/:id/pdf',
+        { schema: { tags: ['Финансы'], summary: 'PDF счёта/акта', description: 'Скачать счёт на оплату или акт выполненных работ в формате PDF.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')] },
+        async (request, reply) => {
+            try {
+                const { id } = request.params;
+                const user = request.user as { userId: string; roles: string[] };
+
+                const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id)).limit(1);
+                if (!invoice) {
+                    return reply.code(404).send({ success: false, error: 'Счёт не найден' });
+                }
+
+                // RLS: clients can only access their own invoices
+                if (user.roles.includes('client')) {
+                    const myContractorId = await resolveContractorId(user.userId);
+                    if (invoice.contractorId !== myContractorId) {
+                        return reply.code(403).send({ success: false, error: 'Доступ запрещён' });
+                    }
+                }
+
+                // Load contractor info
+                const { contractors, trips: tripsTable, orders } = await import('../../db/schema.js');
+                const [contractor] = invoice.contractorId
+                    ? await db.select().from(contractors).where(eq(contractors.id, invoice.contractorId)).limit(1)
+                    : [null];
+
+                // Build trip rows for act
+                const tripIds: string[] = Array.isArray(invoice.tripIds) ? invoice.tripIds as string[] : [];
+                const tripRows: any[] = [];
+                if (tripIds.length > 0) {
+                    const { inArray } = await import('drizzle-orm');
+                    const tripList = await db.select({
+                        id: tripsTable.id,
+                        number: tripsTable.number,
+                        actualCompletionAt: tripsTable.actualCompletionAt,
+                        distanceKm: tripsTable.actualDistanceKm,
+                    }).from(tripsTable).where(inArray(tripsTable.id, tripIds));
+
+                    for (const t of tripList) {
+                        const [ord] = await db.select({ loadingAddress: orders.loadingAddress, unloadingAddress: orders.unloadingAddress })
+                            .from(orders).where(eq(orders.tripId, t.id)).limit(1);
+                        const costPerTrip = tripIds.length > 0 ? Number(invoice.total) / tripIds.length : 0;
+                        tripRows.push({
+                            date: t.actualCompletionAt,
+                            tripNumber: t.number,
+                            route: ord ? `${ord.loadingAddress} → ${ord.unloadingAddress}` : '—',
+                            distanceKm: t.distanceKm ? Number(t.distanceKm) : null,
+                            amount: costPerTrip,
+                        });
+                    }
+                }
+
+                let pdfBuffer: Buffer;
+
+                if (invoice.type === 'invoice') {
+                    const { generateInvoicePdf } = await import('../documents/invoice-pdf.js');
+                    pdfBuffer = await generateInvoicePdf({
+                        number: invoice.number,
+                        date: invoice.createdAt,
+                        contractorName: contractor?.name ?? '—',
+                        contractorInn: contractor?.inn,
+                        contractorKpp: contractor?.kpp,
+                        contractorAddress: contractor?.legalAddress,
+                        items: [{
+                            name: `Транспортные услуги за период ${invoice.periodStart ? new Date(invoice.periodStart).toLocaleDateString('ru-RU') : '—'} — ${invoice.periodEnd ? new Date(invoice.periodEnd).toLocaleDateString('ru-RU') : '—'}`,
+                            qty: tripIds.length || 1,
+                            unit: 'рейс',
+                            price: Number(invoice.subtotal) / (tripIds.length || 1),
+                            amount: Number(invoice.subtotal),
+                        }],
+                        subtotal: Number(invoice.subtotal),
+                        vatAmount: Number(invoice.vatAmount),
+                        total: Number(invoice.total),
+                    });
+                } else {
+                    // act or upd
+                    const { generateActPdf } = await import('../documents/act-pdf.js');
+                    pdfBuffer = await generateActPdf({
+                        number: invoice.number,
+                        date: invoice.createdAt,
+                        periodStart: invoice.periodStart,
+                        periodEnd: invoice.periodEnd,
+                        contractorName: contractor?.name ?? '—',
+                        contractorInn: contractor?.inn,
+                        contractorKpp: contractor?.kpp,
+                        contractorAddress: contractor?.legalAddress,
+                        trips: tripRows,
+                        subtotal: Number(invoice.subtotal),
+                        vatAmount: Number(invoice.vatAmount),
+                        total: Number(invoice.total),
+                    });
+                }
+
+                const typeLabel = invoice.type === 'invoice' ? 'invoice' : 'act';
+                reply.header('Content-Type', 'application/pdf');
+                reply.header('Content-Disposition', `attachment; filename="${typeLabel}_${invoice.number}.pdf"`);
+                reply.header('Content-Length', pdfBuffer.length);
+                return reply.send(pdfBuffer);
+            } catch (error: any) {
+                request.log.error(error);
+                return reply.code(500).send({ success: false, error: error.message });
+            }
+        }
+    );
+
     // 7. GET /finance/export/1c — Экспорт в 1С (RLS: client sees only own)
     fastify.get<{ Querystring: { startDate?: string; endDate?: string; format?: string } }>(
         '/finance/export/1c',

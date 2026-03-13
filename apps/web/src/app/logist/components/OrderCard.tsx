@@ -1,8 +1,26 @@
 'use client';
 
 import { DragEvent } from 'react';
-import { Package, MapPin, Clock, AlertTriangle } from 'lucide-react';
+import { Package, MapPin, Clock, AlertTriangle, FileText } from 'lucide-react';
 import type { Order } from '../page';
+
+const TOKEN_KEY = 'tms_token';
+
+async function downloadTtn(orderId: string, orderNumber: string) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+    const res = await fetch(`/api/orders/${orderId}/ttn`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ttn_${orderNumber}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
 
 interface OrderCardProps {
     key?: string;
@@ -96,6 +114,26 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
                     </span>
                 </div>
             )}
+            {/* ТТН */}
+            <div className="flex items-center justify-end mt-2 pt-1 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); downloadTtn(order.id, order.number); }}
+                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition-colors"
+                    title="Скачать ТТН (PDF)"
+                >
+                    <FileText className="w-3 h-3" />
+                    ТТН
+                </button>
+                <button
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); window.open(`/print/ttn/${order.id}`, '_blank'); }}
+                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-purple-600 px-1.5 py-0.5 rounded hover:bg-purple-50 transition-colors ml-1"
+                    title="Печать ТТН"
+                >
+                    🖨
+                </button>
+            </div>
         </div>
     );
 }

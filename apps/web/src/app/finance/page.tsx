@@ -12,6 +12,25 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
+import { FileDown, Printer } from "lucide-react";
+
+const TOKEN_KEY = 'tms_token';
+
+async function downloadPdfAuth(apiPath: string, filename: string) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+    const res = await fetch(apiPath, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Ошибка загрузки PDF');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
 
 // ——— Types ———
 interface Invoice {
@@ -283,9 +302,23 @@ export default function FinanceDashboard() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); setSelectedInvoice(inv); }}>
-                                                    ⋮
-                                                </Button>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        onClick={e => { e.stopPropagation(); downloadPdfAuth(`/api/finance/invoices/${inv.id}/pdf`, `${inv.type}_${inv.number}.pdf`); }}
+                                                        className="p-1 rounded hover:bg-red-100 transition-colors" title="Скачать PDF"
+                                                    >
+                                                        <FileDown className="w-4 h-4 text-red-500" />
+                                                    </button>
+                                                    <button
+                                                        onClick={e => { e.stopPropagation(); window.open(`/print/${inv.type === 'invoice' ? 'invoice' : 'act'}/${inv.id}`, '_blank'); }}
+                                                        className="p-1 rounded hover:bg-purple-100 transition-colors" title="Печать"
+                                                    >
+                                                        <Printer className="w-4 h-4 text-purple-500" />
+                                                    </button>
+                                                    <Button variant="ghost" size="sm" onClick={e => { e.stopPropagation(); setSelectedInvoice(inv); }}>
+                                                        ⋮
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))}

@@ -6,8 +6,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
     FileText, Search, Filter, X, Eye, Lock, CheckCircle2,
-    Clock, RotateCcw, ChevronDown, Truck, User, Download,
+    Clock, RotateCcw, ChevronDown, Truck, User, Download, FileDown, Printer,
 } from 'lucide-react';
+
+const TOKEN_KEY = 'tms_token';
+
+async function downloadPdfAuth(apiPath: string, filename: string) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+    const res = await fetch(apiPath, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Ошибка загрузки PDF');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
 
 // ================================================================
 // Types
@@ -633,6 +651,18 @@ export default function WaybillsPage() {
                                                 >
                                                     <Download className="w-4 h-4 text-emerald-600" />
                                                 </a>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); downloadPdfAuth(`/api/waybills/${wb.id}/pdf`, `waybill_${wb.number}.pdf`); }}
+                                                    className="p-1 rounded hover:bg-red-100 transition-colors" title="Скачать PDF (Путевой лист)"
+                                                >
+                                                    <FileDown className="w-4 h-4 text-red-500" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); window.open(`/print/waybill/${wb.id}`, '_blank'); }}
+                                                    className="p-1 rounded hover:bg-purple-100 transition-colors" title="Печать путевого листа"
+                                                >
+                                                    <Printer className="w-4 h-4 text-purple-500" />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>

@@ -159,6 +159,115 @@ export default async function waybillRoutes(app: FastifyInstance) {
     });
 
     // ================================================================
+    // PDF — Путевой лист
+    // ================================================================
+    const { generateWaybillPdf } = await import('../documents/waybill-pdf.js');
+
+    /**
+     * GET /api/waybills/:id/pdf
+     * Download waybill as PDF (Ф.4-П)
+     */
+    app.get('/waybills/:id/pdf', {
+        schema: { tags: ['Путевые листы'], summary: 'PDF путевого листа', description: 'Скачать путевой лист в формате PDF (форма Ф.4-П).' },
+        preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[] };
+            const waybill = await getWaybillById(id);
+            if (!waybill) {
+                return reply.status(404).send({ success: false, error: 'Путевой лист не найден' });
+            }
+
+            // RLS for driver
+            if (user.roles.includes('driver')) {
+                const myDriverId = await resolveDriverId(user.userId);
+                if (myDriverId && waybill.driverId !== myDriverId) {
+                    return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
+                }
+            }
+
+            const { trips: tripsTable, orders: ordersTable, vehicles: vehiclesTable, contractors, techInspections, medInspections, users } = await import('../../db/schema.js');
+            const [trip] = await db.select().from(tripsTable).where(eq(tripsTable.id, waybill.tripId!)).limit(1);
+            const [order] = trip ? await db.select().from(ordersTable).where(eq(ordersTable.tripId, trip.id)).limit(1) : [null];
+            const [vehicle] = waybill.vehicleId ? await db.select({ make: vehiclesTable.make, model: vehiclesTable.model, plateNumber: vehiclesTable.plateNumber, vin: vehiclesTable.vin }).from(vehiclesTable).where(eq(vehiclesTable.id, waybill.vehicleId)).limit(1) : [null];
+
+            // Get mechanic name via techInspection.mechanicId → users.fullName
+            let mechanicName: string | null = null;
+            let mechanicDecision: string | null = null;
+            let mechanicTime: Date | null = null;
+            if (waybill.techInspectionId) {
+                const [techInsp] = await db.select({ mechanicId: techInspections.mechanicId, decision: techInspections.decision, createdAt: techInspections.createdAt })
+                    .from(techInspections).where(eq(techInspections.id, waybill.techInspectionId)).limit(1);
+                if (techInsp) {
+                    mechanicDecision = techInsp.decision;
+                    mechanicTime = techInsp.createdAt;
+                    const [mechUser] = await db.select({ fullName: users.fullName }).from(users).where(eq(users.id, techInsp.mechanicId)).limit(1);
+                    mechanicName = mechUser?.fullName ?? null;
+                }
+            }
+
+            // Get medic name via medInspection.medicId → users.fullName
+            let medicName: string | null = null;
+            let medicDecision: string | null = null;
+            let medicTime: Date | null = null;
+            if (waybill.medInspectionId) {
+                const [medInsp] = await db.select({ medicId: medInspections.medicId, decision: medInspections.decision, createdAt: medInspections.createdAt })
+                    .from(medInspections).where(eq(medInspections.id, waybill.medInspectionId)).limit(1);
+                if (medInsp) {
+                    medicDecision = medInsp.decision;
+                    medicTime = medInsp.createdAt;
+                    const [medicUser] = await db.select({ fullName: users.fullName }).from(users).where(eq(users.id, medInsp.medicId)).limit(1);
+                    medicName = medicUser?.fullName ?? null;
+                }
+            }
+
+            // Order numbers linked to the trip
+            const orderNumbers: string[] = [];
+            if (trip) {
+                const linkedOrders = await db.select({ number: ordersTable.number }).from(ordersTable).where(eq(ordersTable.tripId, trip.id));
+                orderNumbers.push(...linkedOrders.map(o => o.number));
+            }
+
+            const pdfBuffer = await generateWaybillPdf({
+                number: waybill.number,
+                issuedAt: waybill.issuedAt,
+                departureAt: waybill.departureAt,
+                returnAt: waybill.returnAt,
+                vehicleMake: vehicle?.make,
+                vehicleModel: vehicle?.model,
+                vehiclePlate: vehicle?.plateNumber,
+                vehicleVin: vehicle?.vin,
+                odometerOut: waybill.odometerOut ? Number(waybill.odometerOut) : null,
+                odometerIn: waybill.odometerIn ? Number(waybill.odometerIn) : null,
+                fuelOut: waybill.fuelOut ? Number(waybill.fuelOut) : null,
+                fuelIn: waybill.fuelIn ? Number(waybill.fuelIn) : null,
+                driverName: waybill.driver?.fullName,
+                driverLicense: waybill.driver?.licenseNumber,
+                mechanicName,
+                mechanicDecision,
+                mechanicTime,
+                medicName,
+                medicDecision,
+                medicTime,
+                tripNumber: trip?.number,
+                loadingAddress: order?.loadingAddress,
+                unloadingAddress: order?.unloadingAddress,
+                orderNumbers,
+                status: waybill.status,
+            });
+
+            reply.header('Content-Type', 'application/pdf');
+            reply.header('Content-Disposition', `attachment; filename="waybill_${waybill.number}.pdf"`);
+            reply.header('Content-Length', pdfBuffer.length);
+            return reply.send(pdfBuffer);
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(500).send({ success: false, error: error.message });
+        }
+    });
+
+    // ================================================================
     // ЭПД / ЭТрН — Электронная транспортная накладная (Sprint 6)
     // ================================================================
     const { generateETrN, generateETrNTitle4 } = await import('./etrn-generator.js');

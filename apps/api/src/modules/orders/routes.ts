@@ -138,6 +138,100 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
         return { success: true, data: order };
     });
 
+    // --- GET /orders/:id/ttn — Download ТТН as PDF ---
+    app.get('/orders/:id/ttn', {
+        schema: { tags: ['Заявки'], summary: 'PDF ТТН', description: 'Скачать товарно-транспортную накладную (форма 1-Т) в формате PDF.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Order')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[] };
+        const order = await getOrderById(id);
+
+        if (!order) {
+            return reply.status(404).send({ success: false, error: 'Заявка не найдена' });
+        }
+
+        // RLS
+        if (user.roles.includes('driver')) {
+            const myDriverId = await resolveDriverId(user.userId);
+            if (!myDriverId || !order.tripId) return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
+            const [trip] = await db.select({ driverId: trips.driverId }).from(trips).where(eq(trips.id, order.tripId)).limit(1);
+            if (!trip || trip.driverId !== myDriverId) return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
+        }
+        if (user.roles.includes('client')) {
+            const myContractorId = await resolveContractorId(user.userId);
+            if (!myContractorId || order.contractorId !== myContractorId) return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
+        }
+
+        try {
+            const { vehicles, drivers: driversTable, contractors, waybills } = await import('../../db/schema.js');
+
+            const [contractor] = order.contractorId
+                ? await db.select({ name: contractors.name, inn: contractors.inn, legalAddress: contractors.legalAddress })
+                    .from(contractors).where(eq(contractors.id, order.contractorId)).limit(1)
+                : [null];
+
+            let vehicleMake, vehicleModel, vehiclePlate, driverName, driverLicense, waybillNumber, tripNumber, distanceKm;
+
+            if (order.tripId) {
+                const [trip] = await db.select().from(trips).where(eq(trips.id, order.tripId)).limit(1);
+                if (trip) {
+                    tripNumber = trip.number;
+                    distanceKm = trip.actualDistanceKm ? Number(trip.actualDistanceKm) : undefined;
+
+                    if (trip.vehicleId) {
+                        const [veh] = await db.select({ make: vehicles.make, model: vehicles.model, plateNumber: vehicles.plateNumber })
+                            .from(vehicles).where(eq(vehicles.id, trip.vehicleId)).limit(1);
+                        vehicleMake = veh?.make;
+                        vehicleModel = veh?.model;
+                        vehiclePlate = veh?.plateNumber;
+                    }
+                    if (trip.driverId) {
+                        const [drv] = await db.select({ fullName: driversTable.fullName, licenseNumber: driversTable.licenseNumber })
+                            .from(driversTable).where(eq(driversTable.id, trip.driverId)).limit(1);
+                        driverName = drv?.fullName;
+                        driverLicense = drv?.licenseNumber;
+                    }
+                    if (trip.waybillId) {
+                        const [wb] = await db.select({ number: waybills.number }).from(waybills).where(eq(waybills.id, trip.waybillId)).limit(1);
+                        waybillNumber = wb?.number;
+                    }
+                }
+            }
+
+            const { generateTtnPdf } = await import('../documents/ttn-pdf.js');
+            const pdfBuffer = await generateTtnPdf({
+                orderNumber: order.number,
+                date: order.createdAt,
+                shipperName: contractor?.name ?? '—',
+                shipperInn: contractor?.inn,
+                shipperAddress: contractor?.legalAddress,
+                consigneeName: order.unloadingAddress ?? '—',
+                consigneeAddress: order.unloadingAddress,
+                cargoDescription: order.cargoDescription ?? '—',
+                cargoWeightKg: order.cargoWeightKg ? Number(order.cargoWeightKg) : null,
+                vehicleMake,
+                vehicleModel,
+                vehiclePlate,
+                driverName,
+                driverLicense,
+                loadingAddress: order.loadingAddress ?? '—',
+                unloadingAddress: order.unloadingAddress ?? '—',
+                distanceKm,
+                tripNumber,
+                waybillNumber,
+            });
+
+            reply.header('Content-Type', 'application/pdf');
+            reply.header('Content-Disposition', `attachment; filename="ttn_${order.number}.pdf"`);
+            reply.header('Content-Length', pdfBuffer.length);
+            return reply.send(pdfBuffer);
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(500).send({ success: false, error: error.message });
+        }
+    });
+
     // --- POST /orders — create ---
     app.post('/orders', {
         schema: { tags: ['Заявки'], summary: 'Создать заявку', description: 'Создание новой заявки на перевозку. Валидация через Zod. Автоматическая генерация номера.' },
