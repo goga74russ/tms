@@ -16,6 +16,7 @@ import { eq, and, gte, lte, isNull, desc, sql, count, inArray } from 'drizzle-or
 interface TechInspectionInput {
     vehicleId: string;
     tripId?: string;
+    inspectionType?: 'pre_trip' | 'periodic';
     checklistVersion: string;
     items: Array<{
         name: string;
@@ -31,6 +32,7 @@ interface TechInspectionInput {
 interface MedInspectionInput {
     driverId: string;
     tripId?: string;
+    inspectionType?: 'pre_trip' | 'periodic';
     checklistVersion: string;
     systolicBp: number;
     diastolicBp: number;
@@ -85,6 +87,7 @@ export async function getTechInspectionQueue() {
                 gte(techInspections.createdAt, todayStart),
                 lte(techInspections.createdAt, todayEnd),
                 eq(techInspections.decision, 'approved'),
+                eq(techInspections.inspectionType, 'pre_trip'),
             ),
         );
     const inspectedVehicleIds = new Set(todayInspections.map((i: any) => i.vehicleId));
@@ -234,6 +237,7 @@ export async function createTechInspection(
             vehicleId: input.vehicleId,
             mechanicId,
             tripId: input.tripId,
+            inspectionType: input.inspectionType ?? 'pre_trip',
             checklistVersion: input.checklistVersion,
             items: input.items,
             decision: input.decision,
@@ -396,6 +400,7 @@ export async function getMedInspectionQueue() {
                 gte(medInspections.createdAt, todayStart),
                 lte(medInspections.createdAt, todayEnd),
                 eq(medInspections.decision, 'approved'),
+                eq(medInspections.inspectionType, 'pre_trip'),
             ),
         );
     const approvedDriverIds = new Set(approvedToday.map((r: any) => r.driverId));
@@ -493,6 +498,7 @@ export async function createMedInspection(
             driverId: input.driverId,
             medicId,
             tripId: input.tripId,
+            inspectionType: input.inspectionType ?? 'pre_trip',
             checklistVersion: input.checklistVersion,
             systolicBp: input.systolicBp,
             diastolicBp: input.diastolicBp,

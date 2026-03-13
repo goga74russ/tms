@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import {
     UserRole, OrderStatus, TripStatus, VehicleStatus, RepairStatus,
-    FineStatus, WaybillStatus, InspectionDecision, RoutePointType,
+    FineStatus, WaybillStatus, InspectionDecision, InspectionType, RoutePointType,
     RoutePointStatus, TariffType, EpdDocumentType, EventType,
     RestrictionZoneType, InvoicePaymentStatus,
 } from './enums.js';
@@ -313,6 +313,19 @@ export const WaybillSchema = z.object({
 });
 export type Waybill = z.infer<typeof WaybillSchema>;
 
+export const WaybillAttachmentSchema = z.object({
+    id: uuid,
+    waybillId: uuid,
+    fileName: z.string(),
+    originalName: z.string(),
+    mimeType: z.string(),
+    fileSize: z.number().int(),
+    storagePath: z.string(),
+    uploadedBy: uuid.optional(),
+    createdAt: dateStr,
+});
+export type WaybillAttachment = z.infer<typeof WaybillAttachmentSchema>;
+
 // ================================================================
 // Акт техосмотра (§3.3)
 // ================================================================
@@ -321,6 +334,7 @@ export const TechInspectionSchema = z.object({
     vehicleId: uuid,
     mechanicId: uuid,
     tripId: uuid.optional(),
+    inspectionType: z.nativeEnum(InspectionType).default('pre_trip'),
     checklistVersion: z.string(),
     items: z.array(z.object({
         name: z.string(),
@@ -343,6 +357,7 @@ export const MedInspectionSchema = z.object({
     driverId: uuid,
     medicId: uuid,
     tripId: uuid.optional(),
+    inspectionType: z.nativeEnum(InspectionType).default('pre_trip'),
     checklistVersion: z.string(),
     // Медданные — шифруются при хранении
     systolicBp: z.number().int(), // АД верхнее

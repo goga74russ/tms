@@ -2,7 +2,11 @@
 // Waybills Routes — Путевые листы (§3.5)
 // ============================================================
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import { basename, extname, join, resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { requireAbility } from '../../auth/rbac.js';
+import { assertWaybillAccess, resolveDriverId } from '../../auth/guards.js';
 import {
     generateWaybill,
     closeWaybill,
@@ -10,14 +14,21 @@ import {
     getWaybillById,
 } from './service.js';
 import { db } from '../../db/connection.js';
-import { drivers } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { drivers, waybills, waybillAttachments } from '../../db/schema.js';
+import { and, eq } from 'drizzle-orm';
 
-// H-3: Resolve driverId from JWT userId (for RLS)
-async function resolveDriverId(userId: string): Promise<string | null> {
-    const [driver] = await db.select({ id: drivers.id })
-        .from(drivers).where(eq(drivers.userId, userId)).limit(1);
-    return driver?.id ?? null;
+const WAYBILL_UPLOADS_DIR = resolve(process.cwd(), 'uploads', 'waybills');
+
+function sanitizeFileName(fileName: string) {
+    return fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+async function ensureWaybillUploadsDir() {
+    await mkdir(WAYBILL_UPLOADS_DIR, { recursive: true });
+}
+
+function getAttachmentAbsolutePath(storagePath: string) {
+    return resolve(process.cwd(), storagePath);
 }
 
 export default async function waybillRoutes(app: FastifyInstance) {
@@ -158,6 +169,126 @@ export default async function waybillRoutes(app: FastifyInstance) {
         }
     });
 
+    app.get('/waybills/:id/attachments', {
+        schema: { tags: ['Attachments'], summary: 'List waybill attachments' },
+        preHandler: [app.authenticate, requireAbility('read', 'WaybillAttachment')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            await assertWaybillAccess(id, request.user as { userId: string; roles: string[] });
+
+            const rows = await db.select().from(waybillAttachments)
+                .where(eq(waybillAttachments.waybillId, id));
+
+            return { success: true, data: rows };
+        } catch (error: any) {
+            request.log.error(error);
+            const statusCode = error.statusCode || 500;
+            return reply.status(statusCode).send({ success: false, error: error.message || 'Failed to load attachments' });
+        }
+    });
+
+    app.post('/waybills/:id/attachments', {
+        schema: { tags: ['Attachments'], summary: 'Upload waybill attachment' },
+        preHandler: [app.authenticate, requireAbility('create', 'WaybillAttachment')],
+    }, async (request, reply) => {
+        try {
+            const user = request.user as { userId: string; roles: string[] };
+            const { id } = request.params as { id: string };
+            await assertWaybillAccess(id, user);
+
+            const [waybill] = await db.select({ id: waybills.id }).from(waybills).where(eq(waybills.id, id)).limit(1);
+            if (!waybill) {
+                return reply.status(404).send({ success: false, error: 'Waybill not found' });
+            }
+
+            const file = await request.file();
+            if (!file) {
+                return reply.status(400).send({ success: false, error: 'File is required' });
+            }
+
+            const buffer = await file.toBuffer();
+            const extension = extname(file.filename || '');
+            const storedFileName = randomUUID() + extension;
+            await ensureWaybillUploadsDir();
+            const absolutePath = join(WAYBILL_UPLOADS_DIR, storedFileName);
+            await writeFile(absolutePath, buffer);
+
+            const [created] = await db.insert(waybillAttachments).values({
+                waybillId: id,
+                fileName: storedFileName,
+                originalName: sanitizeFileName(file.filename || storedFileName),
+                mimeType: file.mimetype || 'application/octet-stream',
+                fileSize: buffer.length,
+                storagePath: join('uploads', 'waybills', storedFileName).replace(/\\/g, '/'),
+                uploadedBy: user.userId,
+            }).returning();
+
+            return reply.status(201).send({ success: true, data: created });
+        } catch (error: any) {
+            request.log.error(error);
+            const statusCode = error.statusCode || 500;
+            return reply.status(statusCode).send({ success: false, error: error.message || 'Failed to upload attachment' });
+        }
+    });
+
+    app.get('/waybills/:waybillId/attachments/:attachmentId/download', {
+        schema: { tags: ['Attachments'], summary: 'Download waybill attachment' },
+        preHandler: [app.authenticate, requireAbility('read', 'WaybillAttachment')],
+    }, async (request, reply) => {
+        try {
+            const { waybillId, attachmentId } = request.params as { waybillId: string; attachmentId: string };
+            await assertWaybillAccess(waybillId, request.user as { userId: string; roles: string[] });
+
+            const [attachment] = await db.select().from(waybillAttachments)
+                .where(and(eq(waybillAttachments.id, attachmentId), eq(waybillAttachments.waybillId, waybillId)))
+                .limit(1);
+            if (!attachment) {
+                return reply.status(404).send({ success: false, error: 'Attachment not found' });
+            }
+
+            const absolutePath = getAttachmentAbsolutePath(attachment.storagePath);
+            const fileBuffer = await readFile(absolutePath);
+            const fileStat = await stat(absolutePath);
+            reply.header('Content-Type', attachment.mimeType || 'application/octet-stream');
+            reply.header('Content-Disposition', 'attachment; filename="' + basename(attachment.originalName || attachment.fileName) + '"');
+            reply.header('Content-Length', fileStat.size);
+            return reply.send(fileBuffer);
+        } catch (error: any) {
+            request.log.error(error);
+            const statusCode = error.code === 'ENOENT' ? 404 : (error.statusCode || 500);
+            const message = error.code === 'ENOENT' ? 'Attachment file not found' : (error.message || 'Failed to download attachment');
+            return reply.status(statusCode).send({ success: false, error: message });
+        }
+    });
+
+    app.delete('/waybills/:waybillId/attachments/:attachmentId', {
+        schema: { tags: ['Attachments'], summary: 'Delete waybill attachment' },
+        preHandler: [app.authenticate, requireAbility('delete', 'WaybillAttachment')],
+    }, async (request, reply) => {
+        try {
+            const { waybillId, attachmentId } = request.params as { waybillId: string; attachmentId: string };
+            await assertWaybillAccess(waybillId, request.user as { userId: string; roles: string[] });
+
+            const [attachment] = await db.delete(waybillAttachments)
+                .where(and(eq(waybillAttachments.id, attachmentId), eq(waybillAttachments.waybillId, waybillId)))
+                .returning();
+            if (!attachment) {
+                return reply.status(404).send({ success: false, error: 'Attachment not found' });
+            }
+
+            const absolutePath = getAttachmentAbsolutePath(attachment.storagePath);
+            await unlink(absolutePath).catch((error: any) => {
+                if (error?.code !== 'ENOENT') throw error;
+            });
+
+            return { success: true, data: attachment };
+        } catch (error: any) {
+            request.log.error(error);
+            const statusCode = error.statusCode || 500;
+            return reply.status(statusCode).send({ success: false, error: error.message || 'Failed to delete attachment' });
+        }
+    });
     // ================================================================
     // PDF — Путевой лист
     // ================================================================
@@ -187,9 +318,9 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 }
             }
 
-            const { trips: tripsTable, orders: ordersTable, vehicles: vehiclesTable, contractors, techInspections, medInspections, users } = await import('../../db/schema.js');
+            const { trips: tripsTable, tripOrders, orders: ordersTable, vehicles: vehiclesTable, contractors, techInspections, medInspections, users } = await import('../../db/schema.js');
             const [trip] = await db.select().from(tripsTable).where(eq(tripsTable.id, waybill.tripId!)).limit(1);
-            const [order] = trip ? await db.select().from(ordersTable).where(eq(ordersTable.tripId, trip.id)).limit(1) : [null];
+            const [order] = trip ? await db.select({ order: ordersTable }).from(tripOrders).innerJoin(ordersTable, eq(tripOrders.orderId, ordersTable.id)).where(eq(tripOrders.tripId, trip.id)).limit(1) : [null];
             const [vehicle] = waybill.vehicleId ? await db.select({ make: vehiclesTable.make, model: vehiclesTable.model, plateNumber: vehiclesTable.plateNumber, vin: vehiclesTable.vin }).from(vehiclesTable).where(eq(vehiclesTable.id, waybill.vehicleId)).limit(1) : [null];
 
             // Get mechanic name via techInspection.mechanicId → users.fullName
@@ -225,7 +356,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             // Order numbers linked to the trip
             const orderNumbers: string[] = [];
             if (trip) {
-                const linkedOrders = await db.select({ number: ordersTable.number }).from(ordersTable).where(eq(ordersTable.tripId, trip.id));
+                const linkedOrders = await db.select({ number: ordersTable.number }).from(tripOrders).innerJoin(ordersTable, eq(tripOrders.orderId, ordersTable.id)).where(eq(tripOrders.tripId, trip.id));
                 orderNumbers.push(...linkedOrders.map(o => o.number));
             }
 
@@ -251,8 +382,8 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 medicDecision,
                 medicTime,
                 tripNumber: trip?.number,
-                loadingAddress: order?.loadingAddress,
-                unloadingAddress: order?.unloadingAddress,
+                loadingAddress: order?.order.loadingAddress,
+                unloadingAddress: order?.order.unloadingAddress,
                 orderNumbers,
                 status: waybill.status,
             });
@@ -289,11 +420,12 @@ export default async function waybillRoutes(app: FastifyInstance) {
             }
 
             // Assemble ETrNInput from DB
+            const { tripOrders } = await import('../../db/schema.js');
             const [trip] = await db.select().from(trips).where(eq(trips.id, waybill.tripId!)).limit(1);
-            const [order] = trip ? await db.select().from(orders).where(eq(orders.tripId, trip.id)).limit(1) : [null];
+            const [order] = trip ? await db.select({ order: orders }).from(tripOrders).innerJoin(orders, eq(tripOrders.orderId, orders.id)).where(eq(tripOrders.tripId, trip.id)).limit(1) : [null];
             const [vehicle] = waybill.vehicleId ? await db.select().from(vehiclesTable).where(eq(vehiclesTable.id, waybill.vehicleId)).limit(1) : [null];
             const [driver] = waybill.driverId ? await db.select().from(drivers).where(eq(drivers.id, waybill.driverId)).limit(1) : [null];
-            const [contractor] = order?.contractorId ? await db.select().from(contractors).where(eq(contractors.id, order.contractorId)).limit(1) : [null];
+            const [contractor] = order?.order.contractorId ? await db.select().from(contractors).where(eq(contractors.id, order.order.contractorId)).limit(1) : [null];
 
             const xml = generateETrN({
                 waybillNumber: waybill.number || id.slice(0, 8),
@@ -311,13 +443,13 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 carrierName: process.env.CARRIER_NAME || 'ООО «ТМС Логистик»',
                 carrierInn: process.env.CARRIER_INN || '0000000000',
                 carrierAddress: process.env.CARRIER_ADDRESS || 'г. Москва',
-                consigneeName: order?.unloadingAddress || '—',
+                consigneeName: order?.order.unloadingAddress || '—',
                 consigneeInn: '0000000000',
-                consigneeAddress: order?.unloadingAddress || '—',
-                cargoDescription: order?.cargoDescription || '—',
-                cargoWeight: order?.cargoWeightKg ? Number(order.cargoWeightKg) : undefined,
-                loadingAddress: order?.loadingAddress || '—',
-                unloadingAddress: order?.unloadingAddress || '—',
+                consigneeAddress: order?.order.unloadingAddress || '—',
+                cargoDescription: order?.order.cargoDescription || '—',
+                cargoWeight: order?.order.cargoWeightKg ? Number(order.order.cargoWeightKg) : undefined,
+                loadingAddress: order?.order.loadingAddress || '—',
+                unloadingAddress: order?.order.unloadingAddress || '—',
                 odometerOut: waybill.odometerOut ? Number(waybill.odometerOut) : undefined,
             });
 
@@ -347,8 +479,9 @@ export default async function waybillRoutes(app: FastifyInstance) {
 
             const [vehicle] = waybill.vehicleId ? await db.select().from(vehiclesTable).where(eq(vehiclesTable.id, waybill.vehicleId)).limit(1) : [null];
             const [driver] = waybill.driverId ? await db.select().from(drivers).where(eq(drivers.id, waybill.driverId)).limit(1) : [null];
+            const { tripOrders } = await import('../../db/schema.js');
             const [trip] = await db.select().from(trips).where(eq(trips.id, waybill.tripId!)).limit(1);
-            const [order] = trip ? await db.select().from(orders).where(eq(orders.tripId, trip.id)).limit(1) : [null];
+            const [order] = trip ? await db.select({ order: orders }).from(tripOrders).innerJoin(orders, eq(tripOrders.orderId, orders.id)).where(eq(tripOrders.tripId, trip.id)).limit(1) : [null];
 
             const xml = generateETrNTitle4({
                 waybillNumber: waybill.number || id.slice(0, 8),
@@ -364,9 +497,9 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 carrierInn: process.env.CARRIER_INN || '0000000000',
                 carrierAddress: process.env.CARRIER_ADDRESS || 'г. Москва',
                 consigneeName: '—', consigneeInn: '0000000000', consigneeAddress: '—',
-                cargoDescription: order?.cargoDescription || '—',
-                loadingAddress: order?.loadingAddress || '—',
-                unloadingAddress: order?.unloadingAddress || '—',
+                cargoDescription: order?.order.cargoDescription || '—',
+                loadingAddress: order?.order.loadingAddress || '—',
+                unloadingAddress: order?.order.unloadingAddress || '—',
                 odometerIn: waybill.odometerIn ? Number(waybill.odometerIn) : undefined,
             });
 

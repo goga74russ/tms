@@ -88,6 +88,12 @@ export const InspectionDecision = {
 } as const;
 export type InspectionDecision = (typeof InspectionDecision)[keyof typeof InspectionDecision];
 
+export const InspectionType = {
+    PRE_TRIP: 'pre_trip',
+    PERIODIC: 'periodic',
+} as const;
+export type InspectionType = (typeof InspectionType)[keyof typeof InspectionType];
+
 // --- Тип точки маршрута ---
 export const RoutePointType = {
     LOADING: 'loading',

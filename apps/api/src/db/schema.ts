@@ -45,6 +45,10 @@ export const inspectionDecisionEnum = pgEnum('inspection_decision', [
     'approved', 'rejected',
 ]);
 
+export const inspectionTypeEnum = pgEnum('inspection_type', [
+    'pre_trip', 'periodic',
+]);
+
 export const routePointTypeEnum = pgEnum('route_point_type', [
     'loading', 'unloading',
 ]);
@@ -324,6 +328,20 @@ export const trips = pgTable('trips', {
 // ================================================================
 // Route Points (Точки маршрута)
 // ================================================================
+export const tripOrders = pgTable('trip_orders', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tripId: uuid('trip_id').notNull().references(() => trips.id),
+    orderId: uuid('order_id').notNull().references(() => orders.id),
+    linkedAt: timestamp('linked_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('idx_trip_orders_unique').on(table.tripId, table.orderId),
+    index('idx_trip_orders_trip').on(table.tripId),
+    index('idx_trip_orders_order').on(table.orderId),
+]);
+
+// ================================================================
+// Route Points (?????????? ????????????????)
+// ================================================================
 export const routePoints = pgTable('route_points', {
     id: uuid('id').primaryKey().defaultRandom(),
     tripId: uuid('trip_id').notNull().references(() => trips.id),
@@ -354,6 +372,7 @@ export const techInspections = pgTable('tech_inspections', {
     vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id),
     mechanicId: uuid('mechanic_id').notNull().references(() => users.id),
     tripId: uuid('trip_id').references(() => trips.id),
+    inspectionType: inspectionTypeEnum('inspection_type').notNull().default('pre_trip'),
     checklistVersion: varchar('checklist_version', { length: 20 }).notNull(),
     items: jsonb('items').$type<Array<{
         name: string;
@@ -368,6 +387,7 @@ export const techInspections = pgTable('tech_inspections', {
 }, (table) => [
     index('idx_tech_inspections_vehicle').on(table.vehicleId),
     index('idx_tech_inspections_trip').on(table.tripId),
+    index('idx_tech_inspections_type').on(table.inspectionType),
 ]);
 
 // ================================================================
@@ -378,6 +398,7 @@ export const medInspections = pgTable('med_inspections', {
     driverId: uuid('driver_id').notNull().references(() => drivers.id),
     medicId: uuid('medic_id').notNull().references(() => users.id),
     tripId: uuid('trip_id').references(() => trips.id),
+    inspectionType: inspectionTypeEnum('inspection_type').notNull().default('pre_trip'),
     checklistVersion: varchar('checklist_version', { length: 20 }).notNull(),
     // Медданные (в production шифровать pgcrypto)
     systolicBp: integer('systolic_bp').notNull(),
@@ -394,6 +415,7 @@ export const medInspections = pgTable('med_inspections', {
 }, (table) => [
     index('idx_med_inspections_driver').on(table.driverId),
     index('idx_med_inspections_trip').on(table.tripId),
+    index('idx_med_inspections_type').on(table.inspectionType),
 ]);
 
 // ================================================================
@@ -425,6 +447,23 @@ export const waybills = pgTable('waybills', {
 
 // ================================================================
 // Repair Requests (Заявки на ремонт)
+// ================================================================
+export const waybillAttachments = pgTable('waybill_attachments', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    waybillId: uuid('waybill_id').notNull().references(() => waybills.id),
+    fileName: varchar('file_name', { length: 255 }).notNull(),
+    originalName: varchar('original_name', { length: 255 }).notNull(),
+    mimeType: varchar('mime_type', { length: 100 }).notNull(),
+    fileSize: integer('file_size').notNull(),
+    storagePath: text('storage_path').notNull(),
+    uploadedBy: uuid('uploaded_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_waybill_attachments_waybill').on(table.waybillId),
+]);
+
+// ================================================================
+// Repair Requests (???????????? ???? ????????????)
 // ================================================================
 export const repairRequests = pgTable('repair_requests', {
     id: uuid('id').primaryKey().defaultRandom(),

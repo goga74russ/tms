@@ -33,10 +33,14 @@ class ApiClient {
         body?: unknown,
         options?: { headers?: Record<string, string> },
     ): Promise<T> {
+        const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
         const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
             ...options?.headers,
         };
+
+        if (!isFormData) {
+            headers['Content-Type'] = 'application/json';
+        }
 
         // Add Bearer token if available
         const token = this.getToken();
@@ -47,7 +51,7 @@ class ApiClient {
         const response = await fetch(`${API_BASE}${path}`, {
             method,
             headers,
-            body: body ? JSON.stringify(body) : undefined,
+            body: body ? (isFormData ? body as FormData : JSON.stringify(body)) : undefined,
             credentials: 'include', // Still send cookies if available
         });
 

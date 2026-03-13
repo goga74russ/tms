@@ -5,6 +5,7 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import { registerAuthRoutes } from './auth/auth.js';
 import { testRedisConnection } from './integrations/redis.js';
 import { setupRepeatableJobs } from './integrations/queues.js';
@@ -35,6 +36,13 @@ await app.register(helmet, {
 
 // H-2: CORS — multi-origin support for production
 const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000').split(',').map(s => s.trim());
+await app.register(multipart, {
+    limits: {
+        fileSize: 15 * 1024 * 1024,
+        files: 5,
+    },
+});
+
 await app.register(cors, {
     origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     credentials: true, // Required for httpOnly cookies

@@ -3,7 +3,7 @@
 // ============================================================
 import { db } from '../../db/connection.js';
 import {
-    trips, orders, routePoints, vehicles, drivers, permits, incidents,
+    trips, orders, routePoints, vehicles, drivers, permits, incidents, tripOrders,
 } from '../../db/schema.js';
 import { eq, and, desc, sql, gte, lte, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';

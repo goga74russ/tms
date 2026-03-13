@@ -131,6 +131,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
             const body = request.body as {
                 vehicleId: string;
                 tripId?: string;
+                inspectionType?: 'pre_trip' | 'periodic';
                 checklistVersion: string;
                 items: Array<{
                     name: string;

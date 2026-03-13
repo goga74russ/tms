@@ -2,7 +2,7 @@
 // Orders Module — Business Logic (§3.1, §4.2, Приложение Б.2)
 // ============================================================
 import { db } from '../../db/connection.js';
-import { orders, contractors, trips } from '../../db/schema.js';
+import { orders, contractors, trips, tripOrders } from '../../db/schema.js';
 import { eq, and, desc, sql, gte, lte, ilike, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import { OrderStatus } from '@tms/shared';

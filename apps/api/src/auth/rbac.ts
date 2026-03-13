@@ -12,7 +12,7 @@ type Subjects =
     | 'Waybill' | 'RepairRequest' | 'Permit' | 'Fine'
     | 'Tariff' | 'Contract' | 'Invoice'
     | 'KPI' | 'Settings' | 'ChecklistTemplate'
-    | 'Incident' | 'Trailer' | 'WaybillExpense' | 'WaybillDriver'
+    | 'Incident' | 'Trailer' | 'WaybillExpense' | 'WaybillDriver' | 'WaybillAttachment'
     | 'all';
 
 export type AppAbility = MongoAbility<[Actions, Subjects]>;
@@ -41,6 +41,8 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('manage', 'Trailer');
                 can('read', 'WaybillExpense');
                 can('read', 'WaybillDriver');
+                can('read', 'WaybillAttachment');
+                can('manage', 'WaybillAttachment');
                 break;
 
             case 'dispatcher':
@@ -60,6 +62,7 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('read', 'Trailer');
                 can('manage', 'WaybillExpense');
                 can('manage', 'WaybillDriver');
+                can('manage', 'WaybillAttachment');
                 break;
 
             case 'manager':
@@ -82,6 +85,7 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('read', 'Trailer');
                 can('read', 'WaybillExpense');
                 can('read', 'WaybillDriver');
+                can('read', 'WaybillAttachment');
                 break;
 
             case 'mechanic':
@@ -128,6 +132,7 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('read', 'Incident');
                 can('read', 'WaybillDriver');
                 can('manage', 'WaybillExpense');
+                can('manage', 'WaybillAttachment');
                 break;
 
             case 'accountant':
