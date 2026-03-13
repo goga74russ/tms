@@ -102,6 +102,22 @@ async function getBlockingIncidents(params: {
     ));
 }
 
+async function getIncompleteRoutePoints(tripId: string) {
+    return db
+        .select({
+            id: routePoints.id,
+            type: routePoints.type,
+            status: routePoints.status,
+            sequenceNumber: routePoints.sequenceNumber,
+        })
+        .from(routePoints)
+        .where(and(
+            eq(routePoints.tripId, tripId),
+            sql`${routePoints.status} <> 'completed'`,
+        ))
+        .limit(1000);
+}
+
 // --- CRUD ---
 
 export async function createTrip(
@@ -441,6 +457,13 @@ export async function changeTripStatus(
         const [waybill] = await db.select().from(waybills).where(eq(waybills.tripId, id)).limit(1);
         if (!waybill || (waybill.status !== 'issued' && waybill.status !== 'closed')) {
             throw new Error('Оформленный путевой лист не найден');
+        }
+    }
+
+    if (newStatus === TripStatus.COMPLETED) {
+        const incompleteRoutePoints = await getIncompleteRoutePoints(id);
+        if (incompleteRoutePoints.length > 0) {
+            throw new Error('Нельзя завершить рейс, пока не завершены все маршрутные точки');
         }
     }
 

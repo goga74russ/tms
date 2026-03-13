@@ -1,8 +1,8 @@
-﻿// ============================================================
+// ============================================================
 // Waybills Service - lifecycle before inspections (Sprint 9)
 // ============================================================
 import { db } from '../../db/connection.js';
-import { waybills, trips, vehicles, drivers, techInspections, medInspections, incidents } from '../../db/schema.js';
+import { waybills, trips, vehicles, drivers, techInspections, medInspections, incidents, routePoints } from '../../db/schema.js';
 import { recordEvent } from '../../events/journal.js';
 import { eq, and, gte, lte, desc, count, sql, inArray } from 'drizzle-orm';
 import { getBusinessDayBounds } from '../../utils/timezone.js';
@@ -83,6 +83,22 @@ async function getTodayApprovedMedInspection(driverId: string) {
         .limit(1);
 
     return inspection ?? null;
+}
+
+async function getIncompleteRoutePointsForTrip(tripId: string) {
+    return db
+        .select({
+            id: routePoints.id,
+            type: routePoints.type,
+            status: routePoints.status,
+            sequenceNumber: routePoints.sequenceNumber,
+        })
+        .from(routePoints)
+        .where(and(
+            eq(routePoints.tripId, tripId),
+            sql`${routePoints.status} <> 'completed'`,
+        ))
+        .limit(1000);
 }
 
 async function getTripPreTripState(tripId: string) {
@@ -299,6 +315,15 @@ export async function closeWaybill(
 
     if (waybill.status !== 'issued') {
         throw new Error('Only issued waybills can be closed');
+    }
+
+    if (data.odometerIn < (waybill.odometerOut ?? 0)) {
+        throw new Error('Odometer in cannot be less than odometer out');
+    }
+
+    const incompleteRoutePoints = await getIncompleteRoutePointsForTrip(waybill.tripId);
+    if (incompleteRoutePoints.length > 0) {
+        throw new Error('Cannot close waybill until all route points are completed');
     }
 
     const returnTime = data.returnAt ? new Date(data.returnAt) : new Date();

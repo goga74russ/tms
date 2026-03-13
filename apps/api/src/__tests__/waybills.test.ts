@@ -211,13 +211,54 @@ describe('Waybills Service', () => {
             expect(mockDb.transaction).not.toHaveBeenCalled();
         });
 
-        it('should run in a transaction', async () => {
+        it('should reject if odometer goes backwards', async () => {
             mockDb.limit.mockResolvedValueOnce([{
-                id: 'wb-tx-close',
+                id: 'wb-odo-back',
                 status: 'issued',
-                tripId: 'trip-tx-close',
-                vehicleId: 'v-tx-close',
+                tripId: 'trip-odo-back',
+                vehicleId: 'v-odo-back',
+                odometerOut: 150000,
             }]);
+
+            await expect(
+                closeWaybill('wb-odo-back', {
+                    odometerIn: 149999,
+                }, TEST_USER.userId, TEST_USER.role)
+            ).rejects.toThrow('Odometer in cannot be less than odometer out');
+            expect(mockDb.transaction).not.toHaveBeenCalled();
+        });
+
+        it('should reject if route points are not completed', async () => {
+            mockDb.limit
+                .mockResolvedValueOnce([{
+                    id: 'wb-route-open',
+                    status: 'issued',
+                    tripId: 'trip-route-open',
+                    vehicleId: 'v-route-open',
+                    odometerOut: 100000,
+                }])
+                .mockResolvedValueOnce([{
+                    id: 'pt-open',
+                    status: 'pending',
+                    sequenceNumber: 2,
+                }]);
+
+            await expect(
+                closeWaybill('wb-route-open', {
+                    odometerIn: 100100,
+                }, TEST_USER.userId, TEST_USER.role)
+            ).rejects.toThrow('Cannot close waybill until all route points are completed');
+            expect(mockDb.transaction).not.toHaveBeenCalled();
+        });
+        it('should run in a transaction', async () => {
+            mockDb.limit
+                .mockResolvedValueOnce([{
+                    id: 'wb-tx-close',
+                    status: 'issued',
+                    tripId: 'trip-tx-close',
+                    vehicleId: 'v-tx-close',
+                }])
+                .mockResolvedValueOnce([]);
 
             mockDb.transaction.mockImplementation(async (cb: any) => {
                 const txMock = {

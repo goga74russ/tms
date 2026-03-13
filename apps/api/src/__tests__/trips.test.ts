@@ -182,5 +182,34 @@ describe('Trips Service', () => {
             )).toBe(true);
         });
     });
+    describe('completion validations', () => {
+        it('should reject completed status when route points are not finished', async () => {
+            mockDb.select
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockResolvedValue([{ id: 'trip-complete-blocked', status: 'in_transit', vehicleId: 'veh-001', driverId: 'drv-001' }]),
+                }))
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    orderBy: vi.fn().mockResolvedValue([]),
+                }))
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    innerJoin: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockResolvedValue([{ order: { id: 'ord-001', status: 'in_transit' } }]),
+                }))
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockResolvedValue([{ id: 'pt-001', status: 'pending', sequenceNumber: 1 }]),
+                }));
+
+            await expect(
+                changeTripStatus('trip-complete-blocked', 'completed', TEST_USER)
+            ).rejects.toThrow('Нельзя завершить рейс, пока не завершены все маршрутные точки');
+        });
+    });
 });
 
