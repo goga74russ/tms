@@ -221,6 +221,10 @@ export async function createTechInspection(
     mechanicId: string,
     mechanicRole: string,
 ) {
+    if (input.inspectionType !== 'periodic' && !input.tripId) {
+        throw new Error('Для предрейсового техосмотра необходимо указать рейс (tripId)');
+    }
+
     // H-8 FIX: Wrap in transaction for atomicity
     return await db.transaction(async (tx: any) => {
         // Record start event
@@ -464,6 +468,10 @@ export async function createMedInspection(
     medicId: string,
     medicRole: string,
 ) {
+    if (input.inspectionType !== 'periodic' && !input.tripId) {
+        throw new Error('Для предрейсового медосмотра необходимо указать рейс (tripId)');
+    }
+
     // Check personal data consent (152-ФЗ)
     const [driver] = await db
         .select({

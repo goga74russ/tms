@@ -225,7 +225,7 @@ describe('E2E: Full Business Cycle', () => {
             mockDb.select.mockReturnThis();
             mockDb.from.mockReturnThis();
             mockDb.where.mockReturnThis();
-            mockDb.limit.mockResolvedValue([{ id: 'wb-e2e-001', status: 'active', tripId: 'trip-e2e-001' }]);
+            mockDb.limit.mockResolvedValue([{ id: 'wb-e2e-001', status: 'issued', tripId: 'trip-e2e-001' }]);
 
             mockDb.transaction.mockImplementation(async (cb: any) => {
                 const txMock = {

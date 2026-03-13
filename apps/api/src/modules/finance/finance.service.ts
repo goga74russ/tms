@@ -1,5 +1,5 @@
 import { db } from '../../db/connection.js';
-import { trips, invoices, vehicles, fines, repairRequests, tachographRecords, orders, users } from '../../db/schema.js';
+import { trips, invoices, vehicles, fines, repairRequests, tachographRecords, orders, users, tripOrders } from '../../db/schema.js';
 import { eq, and, gt, gte, lte, inArray, sql, desc } from 'drizzle-orm';
 import { tarificationService } from './tarification.service.js';
 import { InvoiceCreate } from './schemas.js';
@@ -55,12 +55,13 @@ export class FinanceService {
         // FIX: Move unbilled trips query inside tx to prevent race condition
         const newInvoice = await db.transaction(async (tx: any) => {
             // FIX: Use DISTINCT to avoid duplicating trips when trip has multiple orders
-            const unbilledTripsQuery = await tx.selectDistinct({ id: trips.id }).from(trips).innerJoin(
-                orders,
-                eq(trips.id, orders.tripId)
-            ).where(
+            const unbilledTripsQuery = await tx.selectDistinct({ id: trips.id }).from(trips)
+                .innerJoin(tripOrders, eq(trips.id, tripOrders.tripId))
+                .innerJoin(orders, eq(tripOrders.orderId, orders.id))
+            .where(
                 and(
                     eq(trips.status, 'completed'),
+                    eq(trips.originalDocumentsReceived, true),
                     eq(orders.contractorId, params.contractorId),
                     gte(trips.actualCompletionAt, new Date(params.periodStart)),
                     lte(trips.actualCompletionAt, new Date(params.periodEnd))

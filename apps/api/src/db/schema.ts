@@ -315,6 +315,7 @@ export const trips = pgTable('trips', {
     fuelStart: doublePrecision('fuel_start'),
     fuelEnd: doublePrecision('fuel_end'),
     notes: text('notes'),
+    originalDocumentsReceived: boolean('original_documents_received').notNull().default(false),
     createdBy: uuid('created_by').notNull().references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

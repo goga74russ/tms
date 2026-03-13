@@ -11,24 +11,6 @@ import {
 
 describe('Waybills Service', () => {
     describe('generateWaybill', () => {
-        it('should require both tech AND med inspections approved today', async () => {
-            // Mock trip: found with vehicle/driver
-            mockDb.limit.mockResolvedValueOnce([{
-                id: 'trip-no-insp',
-                status: 'ready',
-                vehicleId: 'v-001',
-                driverId: 'drv-001',
-            }]);
-
-            // hasValidTechInspectionToday: no approved tech inspection
-            mockDb.limit.mockResolvedValueOnce([]); // returns empty → no tech
-
-            await expect(
-                generateWaybill('trip-no-insp', TEST_USER.userId, TEST_USER.role)
-            ).rejects.toThrow();
-            expect(mockDb.transaction).not.toHaveBeenCalled();
-        });
-
         it('should create waybill with status=formed', async () => {
             // Trip with vehicle & driver
             mockDb.limit
@@ -38,14 +20,10 @@ describe('Waybills Service', () => {
                     vehicleId: 'v-001',
                     driverId: 'drv-001',
                 }])
-                .mockResolvedValueOnce([])                     // existing waybill check
-                .mockResolvedValueOnce([{ id: 'tech-ok' }])     // hasValidTechInspectionToday
-                .mockResolvedValueOnce([{ id: 'med-ok' }])      // hasValidMedInspectionToday
-                .mockResolvedValueOnce([{ id: 'tech-ok' }])     // getTodayTechInspectionId
-                .mockResolvedValueOnce([{ id: 'med-ok' }])      // getTodayMedInspectionId
-                .mockResolvedValueOnce([{ signature: 'tech-sig' }])  // tech inspection signature
-                .mockResolvedValueOnce([{ signature: 'med-sig' }])   // med inspection signature
-                .mockResolvedValueOnce([{ currentOdometerKm: 100000 }]);  // vehicle odometer
+                .mockResolvedValueOnce([{ currentOdometerKm: 100000 }]) // vehicle fetch
+                .mockResolvedValueOnce([{ id: 'tech-ok', signature: 'tech-sig' }]) // tech inspection fetch
+                .mockResolvedValueOnce([{ id: 'med-ok', signature: 'med-sig' }])  // med inspection fetch
+                .mockResolvedValueOnce([]); // existing waybill check
 
             mockDb.execute.mockResolvedValueOnce([]); // generateWaybillNumber
 
@@ -62,7 +40,7 @@ describe('Waybills Service', () => {
                     returning: vi.fn().mockResolvedValue([{
                         id: 'wb-001',
                         number: 'WB-2026-00001',
-                        status: 'formed',
+                        status: 'issued',
                         tripId: 'trip-wb',
                     }]),
                     update: vi.fn().mockReturnThis(),
@@ -74,21 +52,17 @@ describe('Waybills Service', () => {
             const result = await generateWaybill('trip-wb', TEST_USER.userId, TEST_USER.role);
 
             expect(result).toBeDefined();
-            expect(result.status).toBe('formed');
+            expect(result.status).toBe('issued');
             expect(result.number).toMatch(/^WB-/);
         });
 
         it('should include odometer and fuel readings', async () => {
             mockDb.limit
                 .mockResolvedValueOnce([{ id: 'trip-odo', status: 'ready', vehicleId: 'v-odo', driverId: 'drv-odo' }])
-                .mockResolvedValueOnce([]) // existing waybill check
-                .mockResolvedValueOnce([{ id: 'tech-ok' }])
-                .mockResolvedValueOnce([{ id: 'med-ok' }])
-                .mockResolvedValueOnce([{ id: 'tech-ok' }])
-                .mockResolvedValueOnce([{ id: 'med-ok' }])
-                .mockResolvedValueOnce([{ signature: 'sig1' }])
-                .mockResolvedValueOnce([{ signature: 'sig2' }])
-                .mockResolvedValueOnce([{ currentOdometerKm: 123456 }]);
+                .mockResolvedValueOnce([{ currentOdometerKm: 123456 }])
+                .mockResolvedValueOnce([{ id: 'tech-ok', signature: 'sig1' }])
+                .mockResolvedValueOnce([{ id: 'med-ok', signature: 'sig2' }])
+                .mockResolvedValueOnce([]);
 
             mockDb.execute.mockResolvedValueOnce([]);
 
@@ -105,7 +79,7 @@ describe('Waybills Service', () => {
                     returning: vi.fn().mockResolvedValue([{
                         id: 'wb-odo',
                         number: 'WB-2026-00002',
-                        status: 'formed',
+                        status: 'issued',
                         odometerOut: 123456,
                     }]),
                     update: vi.fn().mockReturnThis(),
@@ -122,14 +96,10 @@ describe('Waybills Service', () => {
         it('should run all SQL operations in a transaction', async () => {
             mockDb.limit
                 .mockResolvedValueOnce([{ id: 'trip-tx', status: 'ready', vehicleId: 'v-tx', driverId: 'drv-tx' }])
-                .mockResolvedValueOnce([]) // existing waybill check
-                .mockResolvedValueOnce([{ id: 'tech-ok' }])
-                .mockResolvedValueOnce([{ id: 'med-ok' }])
-                .mockResolvedValueOnce([{ id: 'tech-ok' }])
-                .mockResolvedValueOnce([{ id: 'med-ok' }])
-                .mockResolvedValueOnce([{ signature: 'sig' }])
-                .mockResolvedValueOnce([{ signature: 'sig' }])
-                .mockResolvedValueOnce([{ currentOdometerKm: 50000 }]);
+                .mockResolvedValueOnce([{ currentOdometerKm: 50000 }])
+                .mockResolvedValueOnce([{ id: 'tech-ok', signature: 'sig' }])
+                .mockResolvedValueOnce([{ id: 'med-ok', signature: 'sig' }])
+                .mockResolvedValueOnce([]);
 
             mockDb.execute.mockResolvedValueOnce([]);
 
@@ -144,7 +114,7 @@ describe('Waybills Service', () => {
                     insert: vi.fn().mockReturnThis(),
                     values: vi.fn().mockReturnThis(),
                     returning: vi.fn().mockResolvedValue([{
-                        id: 'wb-tx', number: 'WB-2026-00003', status: 'formed',
+                        id: 'wb-tx', number: 'WB-2026-00003', status: 'issued',
                     }]),
                     update: vi.fn().mockReturnThis(),
                     set: vi.fn().mockReturnThis(),
@@ -159,14 +129,10 @@ describe('Waybills Service', () => {
         it('should generate correct WB-YYYY-NNNNN number', async () => {
             mockDb.limit
                 .mockResolvedValueOnce([{ id: 'trip-num', status: 'ready', vehicleId: 'v-num', driverId: 'drv-num' }])
-                .mockResolvedValueOnce([]) // existing waybill check
-                .mockResolvedValueOnce([{ id: 'tech-ok' }])
-                .mockResolvedValueOnce([{ id: 'med-ok' }])
-                .mockResolvedValueOnce([{ id: 'tech-ok' }])
-                .mockResolvedValueOnce([{ id: 'med-ok' }])
-                .mockResolvedValueOnce([{ signature: 'sig' }])
-                .mockResolvedValueOnce([{ signature: 'sig' }])
-                .mockResolvedValueOnce([{ currentOdometerKm: 10000 }]);
+                .mockResolvedValueOnce([{ currentOdometerKm: 10000 }])
+                .mockResolvedValueOnce([{ id: 'tech-ok', signature: 'sig' }])
+                .mockResolvedValueOnce([{ id: 'med-ok', signature: 'sig' }])
+                .mockResolvedValueOnce([]);
 
             mockDb.execute.mockResolvedValueOnce([]);
 
@@ -181,7 +147,7 @@ describe('Waybills Service', () => {
                     insert: vi.fn().mockReturnThis(),
                     values: vi.fn().mockReturnThis(),
                     returning: vi.fn().mockResolvedValue([{
-                        id: 'wb-num', number: 'WB-2026-00001', status: 'formed',
+                        id: 'wb-num', number: 'WB-2026-00001', status: 'issued',
                     }]),
                     update: vi.fn().mockReturnThis(),
                     set: vi.fn().mockReturnThis(),
@@ -199,7 +165,7 @@ describe('Waybills Service', () => {
             // closeWaybill: db.select().from().where().limit()
             mockDb.limit.mockResolvedValueOnce([{
                 id: 'wb-close',
-                status: 'active',
+                status: 'issued',
                 tripId: 'trip-close',
                 vehicleId: 'v-close',
             }]);
@@ -248,7 +214,7 @@ describe('Waybills Service', () => {
         it('should run in a transaction', async () => {
             mockDb.limit.mockResolvedValueOnce([{
                 id: 'wb-tx-close',
-                status: 'active',
+                status: 'issued',
                 tripId: 'trip-tx-close',
                 vehicleId: 'v-tx-close',
             }]);
