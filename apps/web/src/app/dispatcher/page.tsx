@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Map as MapIcon, ArrowLeftRight, Clock, Loader2, Info, Truck, User, MapPin, Wifi, WifiOff } from 'lucide-react';
+import { Map as MapIcon, ArrowLeftRight, Clock, Loader2, Info, Truck, User, MapPin, Wifi, WifiOff, Search } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { AssignmentPanel } from './components/AssignmentPanel';
 import { VehicleTimeline } from './components/VehicleTimeline';
 import { Card, CardContent } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/Combobox';
 import { api } from '@/lib/api';
 import { useVehiclePositions } from '@/hooks/useVehiclePositions';
 import type { RoutePoint } from './components/TripRouteLayer';
@@ -71,6 +72,14 @@ type ActiveTripDetails = {
     completedPoints: number;
 };
 
+type CitySearchResult = {
+    value: string;
+    city: string;
+    fiasId: string;
+    lat: number;
+    lon: number;
+};
+
 // Build timeline rows from real trip data
 function buildTimelineData(vehicles: Vehicle[], trips: TripForTimeline[]) {
     return vehicles.slice(0, 15).map(v => {
@@ -106,6 +115,7 @@ export default function DispatcherPage() {
     const [loading, setLoading] = useState(true);
     const [tripRoutePoints, setTripRoutePoints] = useState<RoutePoint[]>([]);
     const [activeTripDetails, setActiveTripDetails] = useState<ActiveTripDetails | null>(null);
+    const [mapInstance, setMapInstance] = useState<any>(null);
 
     // Real-time vehicle positions via WebSocket
     const { positions: wsPositions, isConnected: wsConnected } = useVehiclePositions();
@@ -278,28 +288,59 @@ export default function DispatcherPage() {
                 </Card>
             </div>
 
-            {/* Tab switcher */}
-            <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
-                <button
-                    onClick={() => setActiveTab('map')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'map'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                >
-                    <MapIcon className="w-4 h-4" />
-                    Карта
-                </button>
-                <button
-                    onClick={() => setActiveTab('timeline')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'timeline'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                >
-                    <Clock className="w-4 h-4" />
-                    Таймлайн
-                </button>
+            {/* Tab switcher + map search */}
+            <div className="flex items-center gap-3">
+                <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+                    <button
+                        onClick={() => setActiveTab('map')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'map'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        <MapIcon className="w-4 h-4" />
+                        Карта
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('timeline')}
+                        className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-all ${activeTab === 'timeline'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                    >
+                        <Clock className="w-4 h-4" />
+                        Таймлайн
+                    </button>
+                </div>
+
+                {activeTab === 'map' && (
+                    <Combobox<CitySearchResult>
+                        placeholder="Перейти к городу..."
+                        icon={<Search className="w-4 h-4" />}
+                        className="w-64"
+                        minChars={3}
+                        onSearch={async (q) => {
+                            try {
+                                const res = await api.get<any>(`/integrations/dadata/suggest-address?query=${encodeURIComponent(q)}`);
+                                return res.data || [];
+                            } catch { return []; }
+                        }}
+                        onSelect={(item) => {
+                            if (item && mapInstance) {
+                                mapInstance.flyTo([item.lat, item.lon], 12, { duration: 1.5 });
+                            }
+                        }}
+                        getKey={(s) => s.fiasId}
+                        getLabel={(s) => s.city}
+                        emptyMessage="Город не найден"
+                        renderOption={(s) => (
+                            <div className="flex items-center gap-2">
+                                <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                <span>{s.value}</span>
+                            </div>
+                        )}
+                    />
+                )}
             </div>
 
             {/* Route info banner */}
@@ -320,6 +361,7 @@ export default function DispatcherPage() {
                             selectedVehicle={selectedVehicle}
                             onSelectVehicle={setSelectedVehicle}
                             tripRoutePoints={tripRoutePoints}
+                            onMapReady={setMapInstance}
                         />
                     ) : (
                         <VehicleTimeline data={timelineData} />

@@ -26,6 +26,7 @@ interface DispatcherMapProps {
     selectedVehicle: string | null;
     onSelectVehicle: (id: string | null) => void;
     tripRoutePoints?: RoutePoint[];
+    onMapReady?: (map: any) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -71,7 +72,7 @@ function createVehicleIcon(status: string, isSelected: boolean) {
     });
 }
 
-export function DispatcherMap({ vehicles, selectedVehicle, onSelectVehicle, tripRoutePoints = [] }: DispatcherMapProps) {
+export function DispatcherMap({ vehicles, selectedVehicle, onSelectVehicle, tripRoutePoints = [], onMapReady }: DispatcherMapProps) {
     const mapRef = useRef<L.Map | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const markersRef = useRef<L.Marker[]>([]);
@@ -89,6 +90,8 @@ export function DispatcherMap({ vehicles, selectedVehicle, onSelectVehicle, trip
             attribution: '© OpenStreetMap',
             maxZoom: 18,
         }).addTo(mapRef.current);
+
+        if (onMapReady) onMapReady(mapRef.current);
 
         return () => {
             mapRef.current?.remove();
