@@ -142,8 +142,12 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             const user = request.user as { userId: string; roles: string[] };
             const body = request.body as any;
 
-            // Extract orderIds before Zod strips it (not a DB/schema field)
-            const orderIds = body.orderIds as string[] | undefined;
+            // Accept both the new orderIds field and the legacy orders alias from the dispatcher UI.
+            const orderIds = Array.isArray(body.orderIds)
+                ? body.orderIds
+                : Array.isArray(body.orders)
+                    ? body.orders
+                    : undefined;
 
             // H-4: Zod validation for trip creation
             const parsed = TripCreateSchema.safeParse({

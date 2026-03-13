@@ -457,7 +457,7 @@ export default function DispatcherPage() {
 
                             await api.post('/trips', {
                                 vehicleId,
-                                orders: [orderId],
+                                orderIds: [orderId],
                                 routePoints: [
                                     { type: 'loading', address: order.loadingAddress, sequenceNumber: 1 },
                                     { type: 'unloading', address: order.unloadingAddress, sequenceNumber: 2 }
