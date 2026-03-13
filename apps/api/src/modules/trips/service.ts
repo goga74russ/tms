@@ -3,7 +3,7 @@
 // ============================================================
 import { db } from '../../db/connection.js';
 import {
-    trips, orders, routePoints, vehicles, drivers, permits,
+    trips, orders, routePoints, vehicles, drivers, permits, incidents,
 } from '../../db/schema.js';
 import { eq, and, desc, sql, gte, lte, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
@@ -72,6 +72,34 @@ export interface AssignmentWarning {
     type: 'hard' | 'soft';
     code: string;
     message: string;
+}
+
+async function getBlockingIncidents(params: {
+    tripId?: string;
+    vehicleId?: string;
+    driverId?: string;
+}) {
+    const scopes = [];
+    if (params.tripId) scopes.push(eq(incidents.tripId, params.tripId));
+    if (params.vehicleId) scopes.push(eq(incidents.vehicleId, params.vehicleId));
+    if (params.driverId) scopes.push(eq(incidents.driverId, params.driverId));
+
+    if (scopes.length === 0) return [];
+
+    const scopeCondition = scopes.length === 1
+        ? scopes[0]
+        : sql`(${sql.join(scopes, sql` OR `)})`;
+
+    return db.select({
+        id: incidents.id,
+        type: incidents.type,
+        description: incidents.description,
+        status: incidents.status,
+    }).from(incidents).where(and(
+        eq(incidents.blocksRelease, true),
+        inArray(incidents.status, ['open', 'investigating']),
+        scopeCondition,
+    ));
 }
 
 // --- CRUD ---
@@ -328,6 +356,19 @@ export async function assignTrip(
             type: 'soft',
             code: 'MED_CERTIFICATE_EXPIRED',
             message: `Медсправка водителя ${driver.fullName} просрочена`,
+        });
+    }
+
+    const blockingIncidents = await getBlockingIncidents({
+        tripId,
+        vehicleId,
+        driverId,
+    });
+    for (const incident of blockingIncidents) {
+        warnings.push({
+            type: 'hard',
+            code: 'BLOCKING_INCIDENT',
+            message: `Blocking incident (${incident.type}, ${incident.status}): ${incident.description}`,
         });
     }
 
@@ -672,3 +713,4 @@ export async function getAvailableDrivers() {
         .where(and(...conditions))
         .orderBy(drivers.fullName);
 }
+

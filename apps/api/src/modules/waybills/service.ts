@@ -2,9 +2,9 @@
 // Waybills Service — Путевые листы (§3.5)
 // ============================================================
 import { db } from '../../db/connection.js';
-import { waybills, trips, vehicles, drivers, techInspections, medInspections } from '../../db/schema.js';
+import { waybills, trips, vehicles, drivers, techInspections, medInspections, incidents } from '../../db/schema.js';
 import { recordEvent } from '../../events/journal.js';
-import { eq, and, gte, lte, desc, count, sql } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, count, sql, inArray } from 'drizzle-orm';
 import {
     hasValidTechInspectionToday,
     hasValidMedInspectionToday,
@@ -44,6 +44,27 @@ async function generateWaybillNumber(tx: any): Promise<string> {
  * Generate waybill. Requires BOTH tech and med approvals for today.
  * Returns the created waybill or throws if conditions not met.
  */
+async function getBlockingIncidentsForWaybill(params: {
+    tripId: string;
+    vehicleId: string;
+    driverId: string;
+}) {
+    return db.select({
+        id: incidents.id,
+        type: incidents.type,
+        description: incidents.description,
+        status: incidents.status,
+    }).from(incidents).where(and(
+        eq(incidents.blocksRelease, true),
+        inArray(incidents.status, ['open', 'investigating']),
+        sql`(
+            ${incidents.tripId} = ${params.tripId}
+            OR ${incidents.vehicleId} = ${params.vehicleId}
+            OR ${incidents.driverId} = ${params.driverId}
+        )`,
+    ));
+}
+
 export async function generateWaybill(
     tripId: string,
     authorId: string,
@@ -75,7 +96,21 @@ export async function generateWaybill(
     }
 
     if (!trip.vehicleId || !trip.driverId) {
-        throw new Error('Рейсу не назначены ТС и/или водитель');
+        throw new Error('Trip has no assigned vehicle or driver');
+    }
+
+    const blockingIncidents = await getBlockingIncidentsForWaybill({
+        tripId,
+        vehicleId: trip.vehicleId,
+        driverId: trip.driverId,
+    });
+    if (blockingIncidents.length > 0) {
+        const summary = blockingIncidents
+            .map((incident) => `${incident.type}/${incident.status}: ${incident.description}`)
+            .join('; ');
+        throw Object.assign(new Error(`Blocking incidents prevent waybill issuance: ${summary}`), {
+            statusCode: 409,
+        });
     }
 
     // Check tech inspection for vehicle today
@@ -365,3 +400,4 @@ export async function getWaybillById(id: string) {
         trip,
     };
 }
+
