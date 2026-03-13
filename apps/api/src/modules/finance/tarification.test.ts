@@ -4,10 +4,46 @@ import { db } from '../../db/connection.js';
 
 // Mock DB
 vi.mock('../../db/connection.js', () => {
+    let currentTable: unknown = null;
     const selectChain = {
-        from: vi.fn().mockReturnThis(),
+        from: vi.fn((table) => {
+            currentTable = table;
+            return selectChain;
+        }),
+        innerJoin: vi.fn().mockReturnThis(),
+        leftJoin: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue([{ fuelNormPer100Km: 30 }]),
+        limit: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        then: async function(resolve: (value: unknown) => void) {
+            let trip: any;
+            let routePointsMock: any[];
+            const { db } = await import('../../db/connection.js');
+            const schema = await import('../../db/schema.js');
+            try {
+                trip = await db.query.trips.findFirst() || {};
+                routePointsMock = await db.query.routePoints.findMany() || [];
+            } catch (e) {
+                trip = {};
+                routePointsMock = [];
+            }
+
+            if (currentTable === schema.trips) {
+                resolve([{ ...trip, vehicleId: 'v1' }]);
+            } else if (currentTable === schema.tripOrders) {
+                // Return orders with a contractId to pass validation
+                resolve([{ order: { ...trip.order, contractId: 'c1' } }]);
+            } else if (currentTable === schema.routePoints) {
+                resolve(routePointsMock);
+            } else if (currentTable === schema.vehicles) {
+                resolve([{ fuelNormPer100Km: 30 }]);
+            } else if (currentTable === schema.tariffs) {
+                // If calculateBatchTripCosts fetches tariffs explicitly
+                resolve(trip.order?.contract?.tariffs || []);
+            } else {
+                resolve([]);
+            }
+        },
     };
     return {
         db: {
@@ -19,7 +55,6 @@ vi.mock('../../db/connection.js', () => {
         }
     };
 });
-
 const baseTariff = {
     type: 'per_km',
     ratePerKm: 100,
@@ -32,9 +67,9 @@ const baseTariff = {
     idleFreeLimitMinutes: 60,
     idleRatePerHour: 500,
     extraPointRate: 1000,
-    nightMultiplier: 1.5,
-    urgentMultiplier: 1.3,
-    weekendMultiplier: 1.2,
+    nightCoefficient: 1.5,
+    urgentCoefficient: 1.3,
+    weekendCoefficient: 1.2,
     cancellationFee: 3000,
     minTripCost: 0,
     roundingPrecision: 1,
@@ -158,10 +193,10 @@ describe('Tarification Service', () => {
                 order: {
                     cargoWeightKg: 5000,
                     createdAt: new Date('2026-03-02T09:00:00Z'),
+                    unloadingWindowEnd: new Date('2026-03-02T11:00:00Z'), // 2h lead time
                     returnRequired: false,
                     contract: { tariffs: [baseTariff] }
                 },
-                plannedCompletionAt: new Date('2026-03-02T11:00:00Z'), // 2h lead time
             })
         );
 

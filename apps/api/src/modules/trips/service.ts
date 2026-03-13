@@ -3,7 +3,7 @@
 // ============================================================
 import { db } from '../../db/connection.js';
 import {
-    trips, orders, routePoints, vehicles, drivers, permits, incidents, tripOrders,
+    trips, orders, routePoints, vehicles, drivers, permits, incidents, tripOrders, waybills,
 } from '../../db/schema.js';
 import { eq, and, desc, sql, gte, lte, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
@@ -204,14 +204,18 @@ export async function getTripById(id: string) {
         .from(routePoints)
         .where(eq(routePoints.tripId, id))
         .orderBy(routePoints.sequenceNumber);
-
-    // Fetch linked orders
+    // Fetch linked orders via normalized trip_orders relation
     const linkedOrders = await db
-        .select()
-        .from(orders)
-        .where(eq(orders.tripId, id));
+        .select({ order: orders })
+        .from(tripOrders)
+        .innerJoin(orders, eq(tripOrders.orderId, orders.id))
+        .where(eq(tripOrders.tripId, id));
 
-    return { ...trip, routePoints: points, orders: linkedOrders };
+    return {
+        ...trip,
+        routePoints: points,
+        orders: linkedOrders.map((row: any) => row.order),
+    };
 }
 
 export async function updateTrip(
@@ -433,6 +437,13 @@ export async function changeTripStatus(
         throw new Error(`Невозможен переход: ${tripData.status} → ${newStatus}`);
     }
 
+    if (newStatus === TripStatus.WAYBILL_ISSUED) {
+        const [waybill] = await db.select().from(waybills).where(eq(waybills.tripId, id)).limit(1);
+        if (!waybill || (waybill.status !== 'issued' && waybill.status !== 'closed')) {
+            throw new Error('Оформленный путевой лист не найден');
+        }
+    }
+
     const updateFields: Record<string, any> = {
         status: newStatus,
         updatedAt: new Date(),
@@ -457,8 +468,8 @@ export async function changeTripStatus(
             .where(eq(trips.id, id))
             .returning();
 
-        // Update vehicle status on completion
-        if (newStatus === TripStatus.COMPLETED && tripData.vehicleId) {
+        // Update vehicle status on completion or cancellation
+        if ((newStatus === TripStatus.COMPLETED || newStatus === TripStatus.CANCELLED) && tripData.vehicleId) {
             await tx
                 .update(vehicles)
                 .set({ status: 'available' as any, updatedAt: new Date() })
@@ -466,12 +477,22 @@ export async function changeTripStatus(
         }
 
         // Update linked orders on certain transitions
-        if (newStatus === TripStatus.IN_TRANSIT && tripData.orders?.length) {
+        if (tripData.orders?.length) {
             for (const order of tripData.orders) {
-                if (order.status === OrderStatus.ASSIGNED) {
+                if (newStatus === TripStatus.IN_TRANSIT && order.status === OrderStatus.ASSIGNED) {
                     await tx
                         .update(orders)
                         .set({ status: 'in_transit' as any, updatedAt: new Date() })
+                        .where(eq(orders.id, order.id));
+                } else if (newStatus === TripStatus.COMPLETED && order.status === 'in_transit') {
+                    await tx
+                        .update(orders)
+                        .set({ status: 'delivered' as any, updatedAt: new Date() })
+                        .where(eq(orders.id, order.id));
+                } else if (newStatus === TripStatus.CANCELLED) {
+                    await tx
+                        .update(orders)
+                        .set({ status: 'confirmed' as any, tripId: null, updatedAt: new Date() })
                         .where(eq(orders.id, order.id));
                 }
             }

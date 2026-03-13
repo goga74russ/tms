@@ -256,8 +256,10 @@ describe('RBAC — defineAbilitiesFor', () => {
     describe('client', () => {
         const ability = defineAbilitiesFor(['client'], 'user-client');
 
-        it('should manage own Orders', () => {
-            expect(ability.can('manage', 'Order')).toBe(true);
+        it('should only read own Orders', () => {
+            expect(ability.can('create', 'Order')).toBe(false);
+            expect(ability.can('read', 'Order')).toBe(true);
+            expect(ability.can('manage', 'Order')).toBe(false);
         });
 
         it('should read Trip, Invoice, Contract, Tariff', () => {

@@ -158,11 +158,12 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
                 can('manage', 'all');
                 // §А.3 restrictions — медданные остаются закрытыми
                 cannot('read', 'MedInspectionDetails');
+                cannot('read', 'KPI');
                 break;
 
             case 'client':
                 // Только свои данные — фильтрация на уровне contractor_id
-                can('manage', 'Order');
+                can('read', 'Order');
                 can('read', 'Trip');
                 can('read', 'Invoice');
                 can('read', 'Contract');

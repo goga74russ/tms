@@ -1,5 +1,5 @@
 import { db } from '../../db/connection.js';
-import { trips, routePoints, vehicles, tariffs, contracts, invoices } from '../../db/schema.js';
+import { trips, routePoints, vehicles, tariffs, contracts, invoices, tripOrders, orders } from '../../db/schema.js';
 import { eq, and, gt, desc, inArray } from 'drizzle-orm';
 import { TariffType, RoutePointType } from '@tms/shared';
 
@@ -85,32 +85,38 @@ export class TarificationService {
      * Включает все 7 модификаторов, НДС и расчёт себестоимости.
      */
     async calculateTripCost(tripId: string): Promise<TripCostBreakdown> {
-        // 1. Получаем рейс с вложениями
-        const tripRecord = await db.query.trips.findFirst({
-            where: eq(trips.id, tripId),
-            with: {
-                order: {
-                    with: {
-                        contractor: true,
-                        contract: {
-                            with: { tariffs: true }
-                        }
-                    }
-                }
-            }
-        }) as any;
+        // 1. Получаем рейс
+        const [tripRecord] = await db.select().from(trips).where(eq(trips.id, tripId)).limit(1) as any[];
 
         if (!tripRecord) throw new Error('Trip not found');
-        if (!tripRecord.order) throw new Error('Trip has no associated order');
-        if (!tripRecord.order.contract) throw new Error('No active contract for this order');
 
-        const tariff = tripRecord.order.contract.tariffs[0];
+        // Получаем связанные заявки
+        const tripOrderRecords = await db.select({ order: orders })
+            .from(tripOrders)
+            .innerJoin(orders, eq(tripOrders.orderId, orders.id))
+            .where(eq(tripOrders.tripId, tripId));
+
+        if (tripOrderRecords.length === 0) throw new Error('Trip has no associated order');
+        const linkedOrders = tripOrderRecords.map(r => r.order);
+        
+        const firstOrder = linkedOrders[0];
+        if (!firstOrder.contractId) throw new Error('No active contract for this order');
+
+        // Получаем тариф
+        const [tariff] = await db.select()
+            .from(tariffs)
+            .where(eq(tariffs.contractId, firstOrder.contractId))
+            .limit(1);
+        
         if (!tariff) throw new Error('No tariff found for this contract');
 
-        const points = await db.query.routePoints.findMany({
-            where: eq(routePoints.tripId, tripId),
-            orderBy: routePoints.sequenceNumber
-        });
+        // Суммируем вес
+        const totalWeight = linkedOrders.reduce((sum, o) => sum + (o.cargoWeightKg || 0), 0);
+        tripRecord.order = { ...firstOrder, cargoWeightKg: totalWeight };
+
+        const points = await db.select().from(routePoints)
+            .where(eq(routePoints.tripId, tripId))
+            .orderBy(routePoints.sequenceNumber);
 
         // ——— 2. Базовый расчёт по типу тарифа ———
         let baseCost = 0;
@@ -187,7 +193,7 @@ export class TarificationService {
                 tripRecord.actualCompletionAt
             );
             if (nightFraction > 0) {
-                const nightSurchargeRate = tariff.nightMultiplier ?? 1.5;
+                const nightSurchargeRate = tariff.nightCoefficient ?? 1.5;
                 nightCost = baseCost * nightFraction * (nightSurchargeRate - 1);
             }
         }
@@ -195,11 +201,11 @@ export class TarificationService {
         // 3.4 Срочная доставка (<4 часа от создания заявки до плановой доставки)
         let urgentCost = 0;
         const orderCreatedAt = tripRecord.order?.createdAt;
-        const plannedDelivery = tripRecord.plannedCompletionAt;
+        const plannedDelivery = points.find(p => p.type === 'unloading')?.windowEnd ?? tripRecord.order?.unloadingWindowEnd;
         if (orderCreatedAt && plannedDelivery) {
             const leadTimeHours = (plannedDelivery.getTime() - orderCreatedAt.getTime()) / (1000 * 60 * 60);
             if (leadTimeHours < 4) {
-                const urgentRate = tariff.urgentMultiplier ?? 1.3;
+                const urgentRate = tariff.urgentCoefficient ?? 1.3;
                 urgentCost = baseCost * (urgentRate - 1);
             }
         }
@@ -207,16 +213,13 @@ export class TarificationService {
         // 3.5 Выходные
         let weekendCost = 0;
         if (tripRecord.actualDepartureAt && isWeekend(tripRecord.actualDepartureAt)) {
-            const weekendRate = tariff.weekendMultiplier ?? 1.2;
+            const weekendRate = tariff.weekendCoefficient ?? 1.2;
             weekendCost = baseCost * (weekendRate - 1);
         }
 
-        // 3.6 Возврат (placeholder — зависит от флага в заявке)
-        let returnCost = 0;
-        if (tripRecord.order?.returnRequired) {
-            returnCost = baseCost * 0.5; // 50% от базовой стоимости
-        }
-
+        // 3.6 Возврат
+        // Return leg modifier stays disabled until the order model gets an explicit return flag.
+        const returnCost = 0;
         // 3.7 Отмена (если рейс отменён после назначения ТС)
         let cancellationCost = 0;
         if (tripRecord.status === 'cancelled' && tripRecord.vehicleId) {
@@ -251,7 +254,7 @@ export class TarificationService {
         }
 
         // Округление (настраиваемое)
-        const roundingPrecision: RoundingPrecision = (tariff.roundingPrecision as RoundingPrecision) || 1;
+        const roundingPrecision: RoundingPrecision = 1;
         subtotal = roundAmount(subtotal, roundingPrecision);
 
         // НДС
@@ -304,26 +307,25 @@ export class TarificationService {
     async calculateBatchTripCosts(tripIds: string[]): Promise<Map<string, TripCostBreakdown>> {
         if (tripIds.length === 0) return new Map();
 
-        // Bulk load all trips with nested relations
-        const allTrips = await db.query.trips.findMany({
-            where: inArray(trips.id, tripIds),
-            with: {
-                order: {
-                    with: {
-                        contractor: true,
-                        contract: {
-                            with: { tariffs: true }
-                        }
-                    }
-                }
-            }
-        }) as any[];
+        // Bulk load all trips
+        const allTrips = await db.select().from(trips).where(inArray(trips.id, tripIds)) as any[];
 
-        // Bulk load all route points for all trips
-        const allPoints = await db.query.routePoints.findMany({
-            where: inArray(routePoints.tripId, tripIds),
-            orderBy: routePoints.sequenceNumber,
-        });
+        // Bulk load all orders via tripOrders
+        const allTripOrders = await db.select({ tripId: tripOrders.tripId, order: orders })
+            .from(tripOrders)
+            .innerJoin(orders, eq(tripOrders.orderId, orders.id))
+            .where(inArray(tripOrders.tripId, tripIds));
+
+        // Extract contract IDs to load tariffs
+        const contractIds = [...new Set(allTripOrders.map(to => to.order.contractId).filter(id => id))] as string[];
+        const allTariffs = contractIds.length > 0
+            ? await db.select().from(tariffs).where(inArray(tariffs.contractId, contractIds))
+            : [];
+
+        // Bulk load all route points
+        const allPoints = await db.select().from(routePoints)
+            .where(inArray(routePoints.tripId, tripIds))
+            .orderBy(routePoints.sequenceNumber);
 
         // Group points by tripId
         const pointsByTrip = new Map<string, typeof allPoints>();
@@ -338,16 +340,24 @@ export class TarificationService {
 
         for (const tripRecord of allTrips) {
             try {
-                if (!tripRecord.order?.contract?.tariffs?.[0]) {
-                    // Skip trips without tariff — avoid error
-                    continue;
-                }
+                const linked = allTripOrders.filter(to => to.tripId === tripRecord.id).map(to => to.order);
+                if (linked.length === 0 || !linked[0].contractId) continue;
 
-                const tariff = tripRecord.order.contract.tariffs[0];
+                const totalWeight = linked.reduce((sum, o) => sum + (o.cargoWeightKg || 0), 0);
+                const firstOrder = linked[0];
+                const trf = allTariffs.find(t => t.contractId === firstOrder.contractId);
+                
+                if (!trf) continue;
+                
+                tripRecord.order = { 
+                   ...firstOrder, 
+                   cargoWeightKg: totalWeight
+                };
+
                 const points = pointsByTrip.get(tripRecord.id) || [];
 
                 // Reuse in-memory calculation logic (same as calculateTripCost)
-                const cost = await this.computeTripCost(tripRecord, tariff, points);
+                const cost = await this.computeTripCost(tripRecord, trf, points);
                 results.set(tripRecord.id, cost);
             } catch {
                 // Skip trips that fail calculation
@@ -424,26 +434,28 @@ export class TarificationService {
         if (tripRecord.actualDepartureAt && tripRecord.actualCompletionAt) {
             const nightFraction = calculateNightFraction(tripRecord.actualDepartureAt, tripRecord.actualCompletionAt);
             if (nightFraction > 0) {
-                nightCost = baseCost * nightFraction * ((tariff.nightMultiplier ?? 1.5) - 1);
+                nightCost = baseCost * nightFraction * ((tariff.nightCoefficient ?? 1.5) - 1);
             }
         }
 
         let urgentCost = 0;
         const orderCreatedAt = tripRecord.order?.createdAt;
-        const plannedDelivery = tripRecord.plannedCompletionAt;
+        const plannedDelivery = points.find((p: any) => p.type === RoutePointType.UNLOADING || p.type === 'unloading')?.windowEnd ?? tripRecord.order?.unloadingWindowEnd;
         if (orderCreatedAt && plannedDelivery) {
             const leadTimeHours = (plannedDelivery.getTime() - orderCreatedAt.getTime()) / (1000 * 60 * 60);
             if (leadTimeHours < 4) {
-                urgentCost = baseCost * ((tariff.urgentMultiplier ?? 1.3) - 1);
+                urgentCost = baseCost * ((tariff.urgentCoefficient ?? 1.3) - 1);
             }
         }
 
         let weekendCost = 0;
         if (tripRecord.actualDepartureAt && isWeekend(tripRecord.actualDepartureAt)) {
-            weekendCost = baseCost * ((tariff.weekendMultiplier ?? 1.2) - 1);
+            weekendCost = baseCost * ((tariff.weekendCoefficient ?? 1.2) - 1);
         }
 
-        const returnCost = tripRecord.order?.returnRequired ? baseCost * 0.5 : 0;
+
+        // Return leg modifier stays disabled until the order model gets an explicit return flag.
+        const returnCost = 0;
         const cancellationCost = (tripRecord.status === 'cancelled' && tripRecord.vehicleId)
             ? ((tariff.cancellationFee ?? 0) || baseCost * 0.3) : 0;
 
