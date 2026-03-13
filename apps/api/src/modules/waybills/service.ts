@@ -181,6 +181,7 @@ export async function syncWaybillStateForTrip(
             medInspectionId: state.medInspection?.id ?? null,
             mechanicSignature: state.techInspection?.signature ?? null,
             medicSignature: state.medInspection?.signature ?? null,
+            trailerId: state.trip.trailerId ?? null,
             departureAt,
             odometerOut: existingWaybill.odometerOut ?? state.vehicle?.currentOdometerKm ?? 0,
         })
@@ -244,6 +245,7 @@ export async function generateWaybill(
             number,
             tripId,
             vehicleId: state.trip.vehicleId!,
+            trailerId: state.trip.trailerId ?? null,
             driverId: state.trip.driverId!,
             status: state.status,
             techInspectionId: state.techInspection?.id ?? null,

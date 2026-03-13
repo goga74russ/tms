@@ -18,6 +18,7 @@ describe('Waybills Service', () => {
                     id: 'trip-wb',
                     status: 'ready',
                     vehicleId: 'v-001',
+                    trailerId: 'trl-001',
                     driverId: 'drv-001',
                 }])
                 .mockResolvedValueOnce([{ currentOdometerKm: 100000 }]) // vehicle fetch
@@ -42,6 +43,7 @@ describe('Waybills Service', () => {
                         number: 'WB-2026-00001',
                         status: 'issued',
                         tripId: 'trip-wb',
+                        trailerId: 'trl-001',
                     }]),
                     update: vi.fn().mockReturnThis(),
                     set: vi.fn().mockReturnThis(),
@@ -54,6 +56,7 @@ describe('Waybills Service', () => {
             expect(result).toBeDefined();
             expect(result.status).toBe('issued');
             expect(result.number).toMatch(/^WB-/);
+            expect(result.trailerId).toBe('trl-001');
         });
 
         it('should include odometer and fuel readings', async () => {

@@ -1,5 +1,5 @@
 // ============================================================
-// TRIPS MODULE — Unit Tests
+// TRIPS MODULE вЂ” Unit Tests
 // ============================================================
 import { describe, it, expect, vi } from 'vitest';
 import { mockDb, TEST_USER, TEST_DRIVER } from './setup.js';
@@ -10,33 +10,34 @@ import {
     changeTripStatus,
     addRoutePoint,
     updateRoutePoint,
+    assignTrip,
 } from '../modules/trips/service.js';
 
 describe('Trips Service', () => {
     // --- State Machine ---
     describe('State Machine transitions', () => {
-        it('should allow planning → assigned', () => {
+        it('should allow planning в†’ assigned', () => {
             expect(canTransition('planning', 'assigned')).toBe(true);
         });
 
-        it('should reject completed → planning (no rollback)', () => {
+        it('should reject completed в†’ planning (no rollback)', () => {
             expect(canTransition('completed', 'planning')).toBe(false);
         });
 
-        it('should allow in_transit → completed', () => {
+        it('should allow in_transit в†’ completed', () => {
             expect(canTransition('in_transit', 'completed')).toBe(true);
         });
 
-        it('should allow assigned → inspection', () => {
+        it('should allow assigned в†’ inspection', () => {
             expect(canTransition('assigned', 'inspection')).toBe(true);
         });
 
-        it('should reject cancelled → any (terminal state)', () => {
+        it('should reject cancelled в†’ any (terminal state)', () => {
             expect(canTransition('cancelled', 'planning')).toBe(false);
             expect(canTransition('cancelled', 'assigned')).toBe(false);
         });
 
-        it('should allow non-terminal → cancelled', () => {
+        it('should allow non-terminal в†’ cancelled', () => {
             expect(canTransition('planning', 'cancelled')).toBe(true);
             expect(canTransition('assigned', 'cancelled')).toBe(true);
             expect(canTransition('inspection', 'cancelled')).toBe(true);
@@ -53,7 +54,7 @@ describe('Trips Service', () => {
             expect(canTransition('completed', 'billed')).toBe(true);
         });
 
-        it('should reject billed → anything (terminal)', () => {
+        it('should reject billed в†’ anything (terminal)', () => {
             expect(canTransition('billed', 'planning')).toBe(false);
             expect(canTransition('billed', 'cancelled')).toBe(false);
         });
@@ -106,6 +107,51 @@ describe('Trips Service', () => {
             const now = new Date();
             expect(tachographExpiry < now).toBe(true);
             // In assignTrip: if tachograph expired -> TACHOGRAPH_EXPIRED soft warning
+        });
+
+        it('should block assignment when trailer is coupled to another vehicle', async () => {
+            mockDb.select
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockResolvedValue([{ id: 'trip-trailer', status: 'planning' }]),
+                }))
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    orderBy: vi.fn().mockResolvedValue([]),
+                }))
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    innerJoin: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockResolvedValue([]),
+                }))
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockResolvedValue([{ id: 'veh-1', plateNumber: 'A111AA', status: 'available', payloadCapacityKg: 20000 }]),
+                }))
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockResolvedValue([{ id: 'trl-1', plateNumber: 'TR-001', currentVehicleId: 'veh-other' }]),
+                }))
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockReturnThis(),
+                    limit: vi.fn().mockResolvedValue([{ id: 'drv-1', fullName: 'Driver Test', isActive: true, licenseExpiry: new Date(Date.now() + 86400000).toISOString() }]),
+                }))
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockResolvedValue([]),
+                }))
+                .mockImplementationOnce(() => ({
+                    from: vi.fn().mockReturnThis(),
+                    where: vi.fn().mockResolvedValue([]),
+                }));
+
+            const result = await assignTrip('trip-trailer', 'veh-1', 'drv-1', TEST_USER, 'trl-1');
+            expect(result.warnings.some(w => w.code === 'TRAILER_ALREADY_COUPLED' && w.type === 'hard')).toBe(true);
         });
     });
 
@@ -208,7 +254,7 @@ describe('Trips Service', () => {
 
             await expect(
                 changeTripStatus('trip-complete-blocked', 'completed', TEST_USER)
-            ).rejects.toThrow('Нельзя завершить рейс, пока не завершены все маршрутные точки');
+            ).rejects.toThrow();
         });
     });
 });

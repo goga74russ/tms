@@ -198,7 +198,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         try {
             const { id } = request.params as { id: string };
             const user = request.user as { userId: string; roles: string[] };
-            const body = request.body as { vehicleId: string; driverId: string };
+            const body = request.body as { vehicleId: string; driverId: string; trailerId?: string };
 
             if (!body.vehicleId || !body.driverId) {
                 return reply.status(400).send({
@@ -210,7 +210,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             const result = await assignTrip(id, body.vehicleId, body.driverId, {
                 userId: user.userId,
                 role: user.roles[0],
-            });
+            }, body.trailerId);
 
             const hardBlocks = result.warnings.filter(w => w.type === 'hard');
             if (hardBlocks.length > 0) {

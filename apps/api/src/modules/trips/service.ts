@@ -1,15 +1,15 @@
 // ============================================================
-// Trips Module — Business Logic (§3.2, §4.2, Приложение Б.3)
+// Trips Module Р Р†Р вЂљРІР‚Сњ Business Logic (Р вЂ™Р’В§3.2, Р вЂ™Р’В§4.2, Р В РЎСџР РЋР вЂљР В РЎвЂР В Р’В»Р В РЎвЂўР В Р’В¶Р В Р’ВµР В Р вЂ¦Р В РЎвЂР В Р’Вµ Р В РІР‚В.3)
 // ============================================================
 import { db } from '../../db/connection.js';
 import {
-    trips, orders, routePoints, vehicles, drivers, permits, incidents, tripOrders, waybills,
+    trips, orders, routePoints, vehicles, drivers, permits, incidents, tripOrders, waybills, trailers,
 } from '../../db/schema.js';
 import { eq, and, desc, sql, gte, lte, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import { TripStatus, OrderStatus, VehicleStatus } from '@tms/shared';
 
-// --- State machine transitions (§4.2) ---
+// --- State machine transitions (Р вЂ™Р’В§4.2) ---
 const TRIP_TRANSITIONS: Record<string, string[]> = {
     [TripStatus.PLANNING]: [TripStatus.ASSIGNED, TripStatus.CANCELLED],
     [TripStatus.ASSIGNED]: [TripStatus.INSPECTION, TripStatus.CANCELLED],
@@ -49,17 +49,19 @@ async function generateTripNumber(tx: { execute: typeof db.execute }): Promise<s
 // --- Types ---
 export interface CreateTripInput {
     vehicleId?: string;
+    trailerId?: string;
     driverId?: string;
     plannedDistanceKm?: number;
     plannedDepartureAt?: string;
     notes?: string;
     createdBy: string;
-    orderIds?: string[]; // заявки для объединения в рейс
+    orderIds?: string[]; // Р В Р’В·Р В Р’В°Р РЋР РЏР В Р вЂ Р В РЎвЂќР В РЎвЂ Р В РўвЂР В Р’В»Р РЋР РЏ Р В РЎвЂўР В Р’В±Р РЋР вЂ°Р В Р’ВµР В РўвЂР В РЎвЂР В Р вЂ¦Р В Р’ВµР В Р вЂ¦Р В РЎвЂР РЋР РЏ Р В Р вЂ  Р РЋР вЂљР В Р’ВµР В РІвЂћвЂ“Р РЋР С“
 }
 
 export interface TripFilters {
     status?: string;
     vehicleId?: string;
+    trailerId?: string;
     driverId?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -133,6 +135,7 @@ export async function createTrip(
             number,
             status: 'planning',
             vehicleId: input.vehicleId,
+            trailerId: input.trailerId,
             driverId: input.driverId,
             plannedDistanceKm: input.plannedDistanceKm,
             plannedDepartureAt: input.plannedDepartureAt
@@ -252,18 +255,19 @@ export async function updateTrip(
     return trip ?? null;
 }
 
-// --- Assignment with Validation Checks (§3.2) ---
+// --- Assignment with Validation Checks (Р вЂ™Р’В§3.2) ---
 
 export async function assignTrip(
     tripId: string,
     vehicleId: string,
     driverId: string,
     author: { userId: string; role: string },
+    trailerId?: string,
 ): Promise<{ trip: any; warnings: AssignmentWarning[] }> {
     const trip = await getTripById(tripId);
-    if (!trip) throw new Error('Рейс не найден');
+    if (!trip) throw new Error('Р В Р’В Р В Р’ВµР В РІвЂћвЂ“Р РЋР С“ Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р В РІвЂћвЂ“Р В РўвЂР В Р’ВµР В Р вЂ¦');
     if (trip.status !== TripStatus.PLANNING) {
-        throw new Error('Назначение возможно только для рейсов в статусе "Планируется"');
+        throw new Error('Р В РЎСљР В Р’В°Р В Р’В·Р В Р вЂ¦Р В Р’В°Р РЋРІР‚РЋР В Р’ВµР В Р вЂ¦Р В РЎвЂР В Р’Вµ Р В Р вЂ Р В РЎвЂўР В Р’В·Р В РЎВР В РЎвЂўР В Р’В¶Р В Р вЂ¦Р В РЎвЂў Р РЋРІР‚С™Р В РЎвЂўР В Р’В»Р РЋР Р‰Р В РЎвЂќР В РЎвЂў Р В РўвЂР В Р’В»Р РЋР РЏ Р РЋР вЂљР В Р’ВµР В РІвЂћвЂ“Р РЋР С“Р В РЎвЂўР В Р вЂ  Р В Р вЂ  Р РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р РЋРЎвЂњР РЋР С“Р В Р’Вµ "Р В РЎСџР В Р’В»Р В Р’В°Р В Р вЂ¦Р В РЎвЂР РЋР вЂљР РЋРЎвЂњР В Р’ВµР РЋРІР‚С™Р РЋР С“Р РЋР РЏ"');
     }
 
     const warnings: AssignmentWarning[] = [];
@@ -274,7 +278,17 @@ export async function assignTrip(
         .from(vehicles)
         .where(eq(vehicles.id, vehicleId))
         .limit(1);
-    if (!vehicle) throw new Error('ТС не найдено');
+    if (!vehicle) throw new Error('Р В РЎС›Р В Р Р‹ Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р В РІвЂћвЂ“Р В РўвЂР В Р’ВµР В Р вЂ¦Р В РЎвЂў');
+
+    let trailer: any = null;
+    if (trailerId) {
+        [trailer] = await db
+            .select()
+            .from(trailers)
+            .where(eq(trailers.id, trailerId))
+            .limit(1);
+        if (!trailer) throw new Error('Р В РЎСџР РЋР вЂљР В РЎвЂР РЋРІР‚В Р В Р’ВµР В РЎвЂ” Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р В РІвЂћвЂ“Р В РўвЂР В Р’ВµР В Р вЂ¦');
+    }
 
     // 2. Load driver
     const [driver] = await db
@@ -282,7 +296,7 @@ export async function assignTrip(
         .from(drivers)
         .where(eq(drivers.id, driverId))
         .limit(1);
-    if (!driver) throw new Error('Водитель не найден');
+    if (!driver) throw new Error('Р В РІР‚в„ўР В РЎвЂўР В РўвЂР В РЎвЂР РЋРІР‚С™Р В Р’ВµР В Р’В»Р РЋР Р‰ Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р В РІвЂћвЂ“Р В РўвЂР В Р’ВµР В Р вЂ¦');
 
     // --- HARD BLOCKS ---
 
@@ -291,7 +305,7 @@ export async function assignTrip(
         warnings.push({
             type: 'hard',
             code: 'VEHICLE_NOT_AVAILABLE',
-            message: `ТС ${vehicle.plateNumber} недоступно (статус: ${vehicle.status})`,
+            message: `Р В РЎС›Р В Р Р‹ ${vehicle.plateNumber} Р В Р вЂ¦Р В Р’ВµР В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”Р В Р вЂ¦Р В РЎвЂў (Р РЋР С“Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚С™Р РЋРЎвЂњР РЋР С“: ${vehicle.status})`,
         });
     }
 
@@ -301,14 +315,14 @@ export async function assignTrip(
         warnings.push({
             type: 'hard',
             code: 'TECH_INSPECTION_EXPIRED',
-            message: `Техосмотр ТС ${vehicle.plateNumber} просрочен`,
+            message: `Р В РЎС›Р В Р’ВµР РЋРІР‚В¦Р В РЎвЂўР РЋР С“Р В РЎВР В РЎвЂўР РЋРІР‚С™Р РЋР вЂљ Р В РЎС›Р В Р Р‹ ${vehicle.plateNumber} Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋР С“Р РЋР вЂљР В РЎвЂўР РЋРІР‚РЋР В Р’ВµР В Р вЂ¦`,
         });
     }
     if (vehicle.osagoExpiry && new Date(vehicle.osagoExpiry) < now) {
         warnings.push({
             type: 'hard',
             code: 'OSAGO_EXPIRED',
-            message: `ОСАГО ТС ${vehicle.plateNumber} просрочено`,
+            message: `Р В РЎвЂєР В Р Р‹Р В РЎвЂ™Р В РІР‚СљР В РЎвЂє Р В РЎС›Р В Р Р‹ ${vehicle.plateNumber} Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋР С“Р РЋР вЂљР В РЎвЂўР РЋРІР‚РЋР В Р’ВµР В Р вЂ¦Р В РЎвЂў`,
         });
     }
 
@@ -321,23 +335,30 @@ export async function assignTrip(
         warnings.push({
             type: 'hard',
             code: 'OVERWEIGHT',
-            message: `Перевес: груз ${totalWeight} кг > грузоподъёмность ${vehicle.payloadCapacityKg} кг`,
+            message: `Р В РЎСџР В Р’ВµР РЋР вЂљР В Р’ВµР В Р вЂ Р В Р’ВµР РЋР С“: Р В РЎвЂ“Р РЋР вЂљР РЋРЎвЂњР В Р’В· ${totalWeight} Р В РЎвЂќР В РЎвЂ“ > Р В РЎвЂ“Р РЋР вЂљР РЋРЎвЂњР В Р’В·Р В РЎвЂўР В РЎвЂ”Р В РЎвЂўР В РўвЂР РЋР вЂ°Р РЋРІР‚ВР В РЎВР В Р вЂ¦Р В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋР Р‰ ${vehicle.payloadCapacityKg} Р В РЎвЂќР В РЎвЂ“`,
         });
     }
 
+    if (trailer && trailer.currentVehicleId && trailer.currentVehicleId !== vehicleId) {
+        warnings.push({
+            type: 'hard',
+            code: 'TRAILER_ALREADY_COUPLED',
+            message: `Trailer ${trailer.plateNumber} is already coupled to another vehicle`,
+        });
+    }
     // Check 4: Driver is active with valid license
     if (!driver.isActive) {
         warnings.push({
             type: 'hard',
             code: 'DRIVER_INACTIVE',
-            message: `Водитель ${driver.fullName} неактивен`,
+            message: `Р В РІР‚в„ўР В РЎвЂўР В РўвЂР В РЎвЂР РЋРІР‚С™Р В Р’ВµР В Р’В»Р РЋР Р‰ ${driver.fullName} Р В Р вЂ¦Р В Р’ВµР В Р’В°Р В РЎвЂќР РЋРІР‚С™Р В РЎвЂР В Р вЂ Р В Р’ВµР В Р вЂ¦`,
         });
     }
     if (new Date(driver.licenseExpiry) < now) {
         warnings.push({
             type: 'hard',
             code: 'LICENSE_EXPIRED',
-            message: `Водительское удостоверение ${driver.fullName} просрочено`,
+            message: `Р В РІР‚в„ўР В РЎвЂўР В РўвЂР В РЎвЂР РЋРІР‚С™Р В Р’ВµР В Р’В»Р РЋР Р‰Р РЋР С“Р В РЎвЂќР В РЎвЂўР В Р’Вµ Р РЋРЎвЂњР В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р В РЎвЂўР В Р вЂ Р В Р’ВµР РЋР вЂљР В Р’ВµР В Р вЂ¦Р В РЎвЂР В Р’Вµ ${driver.fullName} Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋР С“Р РЋР вЂљР В РЎвЂўР РЋРІР‚РЋР В Р’ВµР В Р вЂ¦Р В РЎвЂў`,
         });
     }
 
@@ -355,7 +376,7 @@ export async function assignTrip(
         warnings.push({
             type: 'soft',
             code: 'NO_PERMITS',
-            message: `У ТС ${vehicle.plateNumber} нет активных пропусков`,
+            message: `Р В Р в‚¬ Р В РЎС›Р В Р Р‹ ${vehicle.plateNumber} Р В Р вЂ¦Р В Р’ВµР РЋРІР‚С™ Р В Р’В°Р В РЎвЂќР РЋРІР‚С™Р В РЎвЂР В Р вЂ Р В Р вЂ¦Р РЋРІР‚в„–Р РЋРІР‚В¦ Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР В РЎвЂ”Р РЋРЎвЂњР РЋР С“Р В РЎвЂќР В РЎвЂўР В Р вЂ `,
         });
     }
 
@@ -365,7 +386,7 @@ export async function assignTrip(
         warnings.push({
             type: 'soft',
             code: 'TACHOGRAPH_EXPIRED',
-            message: `Калибровка тахографа ТС ${vehicle.plateNumber} просрочена`,
+            message: `Р В РЎв„ўР В Р’В°Р В Р’В»Р В РЎвЂР В Р’В±Р РЋР вЂљР В РЎвЂўР В Р вЂ Р В РЎвЂќР В Р’В° Р РЋРІР‚С™Р В Р’В°Р РЋРІР‚В¦Р В РЎвЂўР В РЎвЂ“Р РЋР вЂљР В Р’В°Р РЋРІР‚С›Р В Р’В° Р В РЎС›Р В Р Р‹ ${vehicle.plateNumber} Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋР С“Р РЋР вЂљР В РЎвЂўР РЋРІР‚РЋР В Р’ВµР В Р вЂ¦Р В Р’В°`,
         });
     }
 
@@ -375,7 +396,7 @@ export async function assignTrip(
         warnings.push({
             type: 'soft',
             code: 'MED_CERTIFICATE_EXPIRED',
-            message: `Медсправка водителя ${driver.fullName} просрочена`,
+            message: `Р В РЎС™Р В Р’ВµР В РўвЂР РЋР С“Р В РЎвЂ”Р РЋР вЂљР В Р’В°Р В Р вЂ Р В РЎвЂќР В Р’В° Р В Р вЂ Р В РЎвЂўР В РўвЂР В РЎвЂР РЋРІР‚С™Р В Р’ВµР В Р’В»Р РЋР РЏ ${driver.fullName} Р В РЎвЂ”Р РЋР вЂљР В РЎвЂўР РЋР С“Р РЋР вЂљР В РЎвЂўР РЋРІР‚РЋР В Р’ВµР В Р вЂ¦Р В Р’В°`,
         });
     }
 
@@ -404,6 +425,7 @@ export async function assignTrip(
             .update(trips)
             .set({
                 vehicleId,
+                trailerId: trailerId ?? null,
                 driverId,
                 status: 'assigned' as any,
                 updatedAt: new Date(),
@@ -417,6 +439,13 @@ export async function assignTrip(
             .set({ status: 'assigned' as any, updatedAt: new Date() })
             .where(eq(vehicles.id, vehicleId));
 
+        if (trailerId) {
+            await tx
+                .update(trailers)
+                .set({ currentVehicleId: vehicleId, updatedAt: new Date() })
+                .where(eq(trailers.id, trailerId));
+        }
+
         await recordEvent({
             authorId: author.userId,
             authorRole: author.role,
@@ -425,6 +454,7 @@ export async function assignTrip(
             entityId: tripId,
             data: {
                 vehicleId,
+                trailerId: trailerId ?? null,
                 driverId,
                 vehiclePlate: vehicle.plateNumber,
                 driverName: driver.fullName,
@@ -447,23 +477,23 @@ export async function changeTripStatus(
     data?: Record<string, unknown>,
 ) {
     const tripData = await getTripById(id);
-    if (!tripData) throw new Error('Рейс не найден');
+    if (!tripData) throw new Error('Р В Р’В Р В Р’ВµР В РІвЂћвЂ“Р РЋР С“ Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р В РІвЂћвЂ“Р В РўвЂР В Р’ВµР В Р вЂ¦');
 
     if (!canTransition(tripData.status, newStatus)) {
-        throw new Error(`Невозможен переход: ${tripData.status} → ${newStatus}`);
+        throw new Error(`Р В РЎСљР В Р’ВµР В Р вЂ Р В РЎвЂўР В Р’В·Р В РЎВР В РЎвЂўР В Р’В¶Р В Р’ВµР В Р вЂ¦ Р В РЎвЂ”Р В Р’ВµР РЋР вЂљР В Р’ВµР РЋРІР‚В¦Р В РЎвЂўР В РўвЂ: ${tripData.status} Р Р†РІР‚В РІР‚в„ў ${newStatus}`);
     }
 
     if (newStatus === TripStatus.WAYBILL_ISSUED) {
         const [waybill] = await db.select().from(waybills).where(eq(waybills.tripId, id)).limit(1);
         if (!waybill || (waybill.status !== 'issued' && waybill.status !== 'closed')) {
-            throw new Error('Оформленный путевой лист не найден');
+            throw new Error('Р В РЎвЂєР РЋРІР‚С›Р В РЎвЂўР РЋР вЂљР В РЎВР В Р’В»Р В Р’ВµР В Р вЂ¦Р В Р вЂ¦Р РЋРІР‚в„–Р В РІвЂћвЂ“ Р В РЎвЂ”Р РЋРЎвЂњР РЋРІР‚С™Р В Р’ВµР В Р вЂ Р В РЎвЂўР В РІвЂћвЂ“ Р В Р’В»Р В РЎвЂР РЋР С“Р РЋРІР‚С™ Р В Р вЂ¦Р В Р’Вµ Р В Р вЂ¦Р В Р’В°Р В РІвЂћвЂ“Р В РўвЂР В Р’ВµР В Р вЂ¦');
         }
     }
 
     if (newStatus === TripStatus.COMPLETED) {
         const incompleteRoutePoints = await getIncompleteRoutePoints(id);
         if (incompleteRoutePoints.length > 0) {
-            throw new Error('Нельзя завершить рейс, пока не завершены все маршрутные точки');
+            throw new Error('Р В РЎСљР В Р’ВµР В Р’В»Р РЋР Р‰Р В Р’В·Р РЋР РЏ Р В Р’В·Р В Р’В°Р В Р вЂ Р В Р’ВµР РЋР вЂљР РЋРІвЂљВ¬Р В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р РЋР вЂљР В Р’ВµР В РІвЂћвЂ“Р РЋР С“, Р В РЎвЂ”Р В РЎвЂўР В РЎвЂќР В Р’В° Р В Р вЂ¦Р В Р’Вµ Р В Р’В·Р В Р’В°Р В Р вЂ Р В Р’ВµР РЋР вЂљР РЋРІвЂљВ¬Р В Р’ВµР В Р вЂ¦Р РЋРІР‚в„– Р В Р вЂ Р РЋР С“Р В Р’Вµ Р В РЎВР В Р’В°Р РЋР вЂљР РЋРІвЂљВ¬Р РЋР вЂљР РЋРЎвЂњР РЋРІР‚С™Р В Р вЂ¦Р РЋРІР‚в„–Р В Р’Вµ Р РЋРІР‚С™Р В РЎвЂўР РЋРІР‚РЋР В РЎвЂќР В РЎвЂ');
         }
     }
 
@@ -497,6 +527,13 @@ export async function changeTripStatus(
                 .update(vehicles)
                 .set({ status: 'available' as any, updatedAt: new Date() })
                 .where(eq(vehicles.id, tripData.vehicleId));
+        }
+
+        if ((newStatus === TripStatus.COMPLETED || newStatus === TripStatus.CANCELLED) && tripData.trailerId) {
+            await tx
+                .update(trailers)
+                .set({ currentVehicleId: null, updatedAt: new Date() })
+                .where(eq(trailers.id, tripData.trailerId));
         }
 
         // Update linked orders on certain transitions

@@ -233,6 +233,7 @@ export const TripSchema = z.object({
     number: z.string(),
     status: z.nativeEnum(TripStatus).default('planning'),
     vehicleId: uuid.optional(),
+    trailerId: uuid.optional(),
     driverId: uuid.optional(),
     waybillId: uuid.optional(),
     // Маршрут
@@ -294,6 +295,7 @@ export const WaybillSchema = z.object({
     number: z.string(),
     tripId: uuid,
     vehicleId: uuid,
+    trailerId: uuid.optional(),
     driverId: uuid,
     status: z.nativeEnum(WaybillStatus).default('draft'),
     // Штампы

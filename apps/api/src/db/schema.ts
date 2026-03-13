@@ -303,6 +303,7 @@ export const trips = pgTable('trips', {
     number: varchar('number', { length: 50 }).notNull().unique(),
     status: tripStatusEnum('status').notNull().default('planning'),
     vehicleId: uuid('vehicle_id').references(() => vehicles.id),
+    trailerId: uuid('trailer_id').references(() => trailers.id),
     driverId: uuid('driver_id').references(() => drivers.id),
     waybillId: uuid('waybill_id'),
     plannedDistanceKm: doublePrecision('planned_distance_km'),
@@ -323,6 +324,7 @@ export const trips = pgTable('trips', {
     uniqueIndex('idx_trips_number').on(table.number),
     index('idx_trips_status').on(table.status),
     index('idx_trips_vehicle').on(table.vehicleId),
+    index('idx_trips_trailer').on(table.trailerId),
     index('idx_trips_driver').on(table.driverId),
 ]);
 
@@ -427,6 +429,7 @@ export const waybills = pgTable('waybills', {
     number: varchar('number', { length: 50 }).notNull().unique(),
     tripId: uuid('trip_id').notNull().references(() => trips.id),
     vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id),
+    trailerId: uuid('trailer_id').references(() => trailers.id),
     driverId: uuid('driver_id').notNull().references(() => drivers.id),
     status: waybillStatusEnum('status').notNull().default('draft'),
     techInspectionId: uuid('tech_inspection_id').references(() => techInspections.id),
@@ -444,6 +447,7 @@ export const waybills = pgTable('waybills', {
 }, (table) => [
     uniqueIndex('idx_waybills_number').on(table.number),
     index('idx_waybills_trip').on(table.tripId),
+    index('idx_waybills_trailer').on(table.trailerId),
 ]);
 
 // ================================================================
@@ -712,6 +716,7 @@ export const incidents = pgTable('incidents', {
     description: text('description').notNull(),
     // Связи
     vehicleId: uuid('vehicle_id').references(() => vehicles.id),
+    trailerId: uuid('trailer_id').references(() => trailers.id),
     driverId: uuid('driver_id').references(() => drivers.id),
     tripId: uuid('trip_id').references(() => trips.id),
     techInspectionId: uuid('tech_inspection_id').references(() => techInspections.id),
