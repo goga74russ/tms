@@ -75,8 +75,10 @@ export type FineStatus = (typeof FineStatus)[keyof typeof FineStatus];
 
 // --- Статусы путевого листа (§4.2) ---
 export const WaybillStatus = {
-    FORMED: 'formed',
-    OPEN: 'open',
+    DRAFT: 'draft',
+    MEDICAL_CHECK: 'medical_check',
+    TECHNICAL_CHECK: 'technical_check',
+    ISSUED: 'issued',
     CLOSED: 'closed',
 } as const;
 export type WaybillStatus = (typeof WaybillStatus)[keyof typeof WaybillStatus];

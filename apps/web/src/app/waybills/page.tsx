@@ -126,7 +126,7 @@ function StatusBadge({ status }: { status: string }) {
         },
     };
 
-    const c = config[status] || config.formed;
+    const c = config[status] || config.draft;
     return (
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${c.color}`}>
             {c.icon}
@@ -475,7 +475,7 @@ function DetailModal({
                         {waybill.closedAt && ' Closed: ' + new Date(waybill.closedAt).toLocaleString('ru-RU')}
                     </div>
                     {/* Close button if not yet closed */}
-                    {waybill.status !== 'closed' && (
+                    {waybill.status === 'issued' && (
                         <Button
                             className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white"
                             size="lg"
@@ -691,7 +691,7 @@ export default function WaybillsPage() {
                         className="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 cursor-pointer"
                     >
                         <option value="">Р’СЃРµ СЃС‚Р°С‚СѓСЃС‹</option>
-                        <option value="formed">РЎС„РѕСЂРјРёСЂРѕРІР°РЅ</option>
+                        <option value="draft">РЎС„РѕСЂРјРёСЂРѕРІР°РЅ</option>
                         <option value="issued">Р’С‹РґР°РЅ</option>
                         <option value="closed">Р—Р°РєСЂС‹С‚</option>
                     </select>

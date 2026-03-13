@@ -102,6 +102,7 @@ export default function MedicPage() {
     const [journal, setJournal] = useState<MedInspectionRecord[]>([]);
     const [driverMap, setDriverMap] = useState<Record<string, string>>({});
     const [activeTab, setActiveTab] = useState<'queue' | 'journal' | 'stats'>('queue');
+    const [inspectionType, setInspectionType] = useState<'pre_trip' | 'periodic'>('pre_trip');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     const loadQueue = useCallback(async () => {
@@ -174,6 +175,7 @@ export default function MedicPage() {
             alcoholTest: '', complaints: '',
         });
         setSignature('');
+        setInspectionType('pre_trip');
     };
 
     const updateForm = (field: keyof MedFormData, value: string) => {
@@ -198,7 +200,8 @@ export default function MedicPage() {
             setSubmitting(true);
             await api.post('/inspections/med', {
                 driverId: selectedDriver.driver.id,
-                tripId: selectedDriver.trip.id,
+                tripId: inspectionType === 'pre_trip' ? selectedDriver.trip.id : undefined,
+                inspectionType,
                 checklistVersion: '1.0',
                 systolicBp: parseInt(formData.systolicBp),
                 diastolicBp: parseInt(formData.diastolicBp),
@@ -356,7 +359,32 @@ export default function MedicPage() {
 
                         {/* Medical form */}
                         <div className="p-6">
-                            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
+                            <div className="flex items-center justify-between gap-3 mb-4">
+                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Inspection type</h3>
+                                
+                                <div className="flex bg-slate-100 rounded-xl p-1">
+                                    <button
+                                        onClick={() => setInspectionType('pre_trip')}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${inspectionType === 'pre_trip' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                                    >
+                                        Pre-trip
+                                    </button>
+                                    <button
+                                        onClick={() => setInspectionType('periodic')}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${inspectionType === 'periodic' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                                    >
+                                        Periodic
+                                    </button>
+                                </div>
+                            </div>
+
+                            <p className="text-xs text-slate-500 mb-4">
+                                {inspectionType === 'pre_trip'
+                                    ? 'Inspection is linked to the trip and can advance the waybill status.'
+                                    : 'Periodic exam is recorded without changing the trip or waybill.'}
+                            </p>
+
+                            <h3 className="sr-only">
                                 <Activity className="w-4 h-4 inline mr-1.5" />
                                 Показатели осмотра
                             </h3>

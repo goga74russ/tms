@@ -8,6 +8,7 @@ import {
 } from '../../db/schema.js';
 import { recordEvent } from '../../events/journal.js';
 import { getBusinessDayBounds } from '../../utils/timezone.js';
+import { syncWaybillStateForTrip } from '../waybills/service.js';
 import { eq, and, gte, lte, isNull, desc, sql, count, inArray } from 'drizzle-orm';
 
 // ================================================================

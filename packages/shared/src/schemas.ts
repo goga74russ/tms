@@ -295,7 +295,7 @@ export const WaybillSchema = z.object({
     tripId: uuid,
     vehicleId: uuid,
     driverId: uuid,
-    status: z.nativeEnum(WaybillStatus).default('formed'),
+    status: z.nativeEnum(WaybillStatus).default('draft'),
     // Штампы
     techInspectionId: uuid,
     medInspectionId: uuid,
@@ -306,7 +306,7 @@ export const WaybillSchema = z.object({
     odometerIn: z.number().optional(),
     fuelOut: z.number().optional(),
     fuelIn: z.number().optional(),
-    departureAt: dateStr,
+    departureAt: dateStr.optional(),
     returnAt: dateStr.optional(),
     issuedAt: dateStr,
     closedAt: dateStr.optional(),

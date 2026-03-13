@@ -115,6 +115,7 @@ export default function MechanicPage() {
     const [journal, setJournal] = useState<InspectionRecord[]>([]);
     const [vehicleMap, setVehicleMap] = useState<Record<string, string>>({});
     const [activeTab, setActiveTab] = useState<'queue' | 'journal'>('queue');
+    const [inspectionType, setInspectionType] = useState<'pre_trip' | 'periodic'>('pre_trip');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     // Load queue
@@ -166,6 +167,7 @@ export default function MechanicPage() {
             })),
         );
         setSignature('');
+        setInspectionType('pre_trip');
     };
 
     // Update checklist item
@@ -195,7 +197,8 @@ export default function MechanicPage() {
             setSubmitting(true);
             await api.post('/inspections/tech', {
                 vehicleId: selectedVehicle.vehicle.id,
-                tripId: selectedVehicle.trip.id,
+                tripId: inspectionType === 'pre_trip' ? selectedVehicle.trip.id : undefined,
+                inspectionType,
                 checklistVersion: '1.0',
                 items: checklistItems.map(i => ({
                     name: i.name,
@@ -340,7 +343,32 @@ export default function MechanicPage() {
 
                         {/* Checklist */}
                         <div className="p-6">
-                            <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
+                            <div className="flex items-center justify-between gap-3 mb-4">
+                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Inspection type</h3>
+                                
+                                <div className="flex bg-slate-100 rounded-xl p-1">
+                                    <button
+                                        onClick={() => setInspectionType('pre_trip')}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${inspectionType === 'pre_trip' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                                    >
+                                        Pre-trip
+                                    </button>
+                                    <button
+                                        onClick={() => setInspectionType('periodic')}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${inspectionType === 'periodic' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                                    >
+                                        Periodic
+                                    </button>
+                                </div>
+                            </div>
+
+                            <p className="text-xs text-slate-500 mb-4">
+                                {inspectionType === 'pre_trip'
+                                    ? 'Inspection is linked to the selected trip and can advance the waybill status.'
+                                    : 'Periodic inspection is recorded without affecting the trip or waybill.'}
+                            </p>
+
+                            <h3 className="sr-only">
                                 <ClipboardCheck className="w-4 h-4 inline mr-1.5" />
                                 Чек-лист осмотра
                             </h3>

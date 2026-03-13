@@ -38,7 +38,7 @@ export const fineStatusEnum = pgEnum('fine_status', [
 ]);
 
 export const waybillStatusEnum = pgEnum('waybill_status', [
-    'formed', 'open', 'closed',
+    'draft', 'medical_check', 'technical_check', 'issued', 'closed',
 ]);
 
 export const inspectionDecisionEnum = pgEnum('inspection_decision', [
@@ -427,16 +427,16 @@ export const waybills = pgTable('waybills', {
     tripId: uuid('trip_id').notNull().references(() => trips.id),
     vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id),
     driverId: uuid('driver_id').notNull().references(() => drivers.id),
-    status: waybillStatusEnum('status').notNull().default('formed'),
-    techInspectionId: uuid('tech_inspection_id').notNull().references(() => techInspections.id),
-    medInspectionId: uuid('med_inspection_id').notNull().references(() => medInspections.id),
+    status: waybillStatusEnum('status').notNull().default('draft'),
+    techInspectionId: uuid('tech_inspection_id').references(() => techInspections.id),
+    medInspectionId: uuid('med_inspection_id').references(() => medInspections.id),
     mechanicSignature: text('mechanic_signature'),
     medicSignature: text('medic_signature'),
     odometerOut: doublePrecision('odometer_out').notNull(),
     odometerIn: doublePrecision('odometer_in'),
     fuelOut: doublePrecision('fuel_out'),
     fuelIn: doublePrecision('fuel_in'),
-    departureAt: timestamp('departure_at', { withTimezone: true }).notNull(),
+    departureAt: timestamp('departure_at', { withTimezone: true }),
     returnAt: timestamp('return_at', { withTimezone: true }),
     issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
     closedAt: timestamp('closed_at', { withTimezone: true }),

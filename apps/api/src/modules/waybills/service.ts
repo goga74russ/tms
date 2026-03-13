@@ -1,25 +1,16 @@
-// ============================================================
-// Waybills Service — Путевые листы (§3.5)
+﻿// ============================================================
+// Waybills Service - lifecycle before inspections (Sprint 9)
 // ============================================================
 import { db } from '../../db/connection.js';
 import { waybills, trips, vehicles, drivers, techInspections, medInspections, incidents } from '../../db/schema.js';
 import { recordEvent } from '../../events/journal.js';
 import { eq, and, gte, lte, desc, count, sql, inArray } from 'drizzle-orm';
-import {
-    hasValidTechInspectionToday,
-    hasValidMedInspectionToday,
-    getTodayTechInspectionId,
-    getTodayMedInspectionId,
-} from '../inspections/service.js';
+import { getBusinessDayBounds } from '../../utils/timezone.js';
 
-// ================================================================
-// Waybill number generation: WB-YYYY-NNNNN
-// ================================================================
 async function generateWaybillNumber(tx: any): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `WB-${year}-`;
 
-    // Get the last waybill number for this year (lock for update to prevent duplicates)
     const [lastWaybill] = await tx
         .select({ number: waybills.number })
         .from(waybills)
@@ -37,13 +28,6 @@ async function generateWaybillNumber(tx: any): Promise<string> {
     return `${prefix}${String(nextNum).padStart(5, '0')}`;
 }
 
-// ================================================================
-// Generate waybill for a trip
-// ================================================================
-/**
- * Generate waybill. Requires BOTH tech and med approvals for today.
- * Returns the created waybill or throws if conditions not met.
- */
 async function getBlockingIncidentsForWaybill(params: {
     tripId: string;
     vehicleId: string;
@@ -65,12 +49,43 @@ async function getBlockingIncidentsForWaybill(params: {
     ));
 }
 
-export async function generateWaybill(
-    tripId: string,
-    authorId: string,
-    authorRole: string,
-) {
-    // Get trip
+async function getTodayApprovedTechInspection(vehicleId: string) {
+    const { todayStart, todayEnd } = getBusinessDayBounds();
+    const [inspection] = await db
+        .select({ id: techInspections.id, signature: techInspections.signature })
+        .from(techInspections)
+        .where(and(
+            eq(techInspections.vehicleId, vehicleId),
+            eq(techInspections.decision, 'approved'),
+            eq(techInspections.inspectionType, 'pre_trip'),
+            gte(techInspections.createdAt, todayStart),
+            lte(techInspections.createdAt, todayEnd),
+        ))
+        .orderBy(desc(techInspections.createdAt))
+        .limit(1);
+
+    return inspection ?? null;
+}
+
+async function getTodayApprovedMedInspection(driverId: string) {
+    const { todayStart, todayEnd } = getBusinessDayBounds();
+    const [inspection] = await db
+        .select({ id: medInspections.id, signature: medInspections.signature })
+        .from(medInspections)
+        .where(and(
+            eq(medInspections.driverId, driverId),
+            eq(medInspections.decision, 'approved'),
+            eq(medInspections.inspectionType, 'pre_trip'),
+            gte(medInspections.createdAt, todayStart),
+            lte(medInspections.createdAt, todayEnd),
+        ))
+        .orderBy(desc(medInspections.createdAt))
+        .limit(1);
+
+    return inspection ?? null;
+}
+
+async function getTripPreTripState(tripId: string) {
     const [trip] = await db
         .select()
         .from(trips)
@@ -78,144 +93,190 @@ export async function generateWaybill(
         .limit(1);
 
     if (!trip) {
-        throw new Error('Рейс не найден');
-    }
-
-    // FIX: Idempotency — prevent duplicate waybills for the same trip
-    const [existingWaybill] = await db
-        .select({ id: waybills.id, number: waybills.number })
-        .from(waybills)
-        .where(eq(waybills.tripId, tripId))
-        .limit(1);
-
-    if (existingWaybill) {
-        throw Object.assign(
-            new Error(`Путевой лист для этого рейса уже существует: ${existingWaybill.number}`),
-            { statusCode: 409 }
-        );
+        throw new Error('Trip not found');
     }
 
     if (!trip.vehicleId || !trip.driverId) {
         throw new Error('Trip has no assigned vehicle or driver');
     }
 
-    const blockingIncidents = await getBlockingIncidentsForWaybill({
-        tripId,
-        vehicleId: trip.vehicleId,
-        driverId: trip.driverId,
-    });
-    if (blockingIncidents.length > 0) {
-        const summary = blockingIncidents
-            .map((incident) => `${incident.type}/${incident.status}: ${incident.description}`)
-            .join('; ');
-        throw Object.assign(new Error(`Blocking incidents prevent waybill issuance: ${summary}`), {
-            statusCode: 409,
-        });
-    }
-
-    // Check tech inspection for vehicle today
-    const hasTechApproval = await hasValidTechInspectionToday(trip.vehicleId);
-    if (!hasTechApproval) {
-        throw new Error('Нет допуска механика. Путевой лист не может быть сформирован.');
-    }
-
-    // Check med inspection for driver today
-    const hasMedApproval = await hasValidMedInspectionToday(trip.driverId);
-    if (!hasMedApproval) {
-        throw new Error('Нет допуска медика. Путевой лист не может быть сформирован.');
-    }
-
-    // Get inspection IDs and signatures
-    const techInspectionId = await getTodayTechInspectionId(trip.vehicleId);
-    const medInspectionId = await getTodayMedInspectionId(trip.driverId);
-
-    if (!techInspectionId || !medInspectionId) {
-        throw new Error('Ошибка получения данных осмотров');
-    }
-
-    // Get signatures from inspections
-    const [techInsp] = await db
-        .select({ signature: techInspections.signature })
-        .from(techInspections)
-        .where(eq(techInspections.id, techInspectionId))
-        .limit(1);
-
-    const [medInsp] = await db
-        .select({ signature: medInspections.signature })
-        .from(medInspections)
-        .where(eq(medInspections.id, medInspectionId))
-        .limit(1);
-
-    // Get vehicle current odometer
     const [vehicle] = await db
         .select({ currentOdometerKm: vehicles.currentOdometerKm })
         .from(vehicles)
         .where(eq(vehicles.id, trip.vehicleId))
         .limit(1);
 
-    // H-10: Wrap all mutations in a single transaction
-    const waybill = await db.transaction(async (tx) => {
-        // Generate unique number inside transaction with FOR UPDATE
-        const number = await generateWaybillNumber(tx);
+    const [techInspection, medInspection, blockingIncidents] = await Promise.all([
+        getTodayApprovedTechInspection(trip.vehicleId),
+        getTodayApprovedMedInspection(trip.driverId),
+        getBlockingIncidentsForWaybill({ tripId, vehicleId: trip.vehicleId, driverId: trip.driverId }),
+    ]);
 
-        // Create waybill
-        const [wb] = await tx.insert(waybills).values({
-            number,
-            tripId,
-            vehicleId: trip.vehicleId,
-            driverId: trip.driverId,
-            techInspectionId,
-            medInspectionId,
-            mechanicSignature: techInsp?.signature,
-            medicSignature: medInsp?.signature,
-            odometerOut: vehicle?.currentOdometerKm || 0,
-            departureAt: new Date(),
-        } as any).returning();
+    const hasTechApproval = !!techInspection;
+    const hasMedApproval = !!medInspection;
+    const hasBlockingIncidents = blockingIncidents.length > 0;
 
-        // Update trip with waybill reference and status
-        await tx.update(trips)
+    let status: 'draft' | 'medical_check' | 'technical_check' | 'issued';
+    if (hasTechApproval && hasMedApproval && !hasBlockingIncidents) {
+        status = 'issued';
+    } else if (hasTechApproval) {
+        status = 'medical_check';
+    } else if (hasMedApproval) {
+        status = 'technical_check';
+    } else {
+        status = 'draft';
+    }
+
+    return {
+        trip,
+        vehicle,
+        techInspection,
+        medInspection,
+        blockingIncidents,
+        status,
+    };
+}
+
+export async function syncWaybillStateForTrip(
+    tripId: string,
+    authorId?: string,
+    authorRole?: string,
+) {
+    const state = await getTripPreTripState(tripId);
+
+    const [existingWaybill] = await db
+        .select()
+        .from(waybills)
+        .where(eq(waybills.tripId, tripId))
+        .limit(1);
+
+    if (!existingWaybill) {
+        return null;
+    }
+
+    const wasIssued = existingWaybill.status === 'issued';
+    const issueNow = state.status === 'issued';
+    const departureAt = issueNow ? (existingWaybill.departureAt ?? new Date()) : null;
+
+    const [updatedWaybill] = await db.update(waybills)
+        .set({
+            status: state.status,
+            techInspectionId: state.techInspection?.id ?? null,
+            medInspectionId: state.medInspection?.id ?? null,
+            mechanicSignature: state.techInspection?.signature ?? null,
+            medicSignature: state.medInspection?.signature ?? null,
+            departureAt,
+            odometerOut: existingWaybill.odometerOut ?? state.vehicle?.currentOdometerKm ?? 0,
+        })
+        .where(eq(waybills.id, existingWaybill.id))
+        .returning();
+
+    if (issueNow && !wasIssued) {
+        await db.update(trips)
             .set({
-                waybillId: wb.id,
+                waybillId: updatedWaybill.id,
                 status: 'waybill_issued',
-                odometerStart: vehicle?.currentOdometerKm || 0,
+                odometerStart: state.vehicle?.currentOdometerKm ?? 0,
                 updatedAt: new Date(),
             })
             .where(eq(trips.id, tripId));
 
-        // Record events inside transaction
+        if (authorId && authorRole) {
+            await recordEvent({
+                authorId,
+                authorRole,
+                eventType: 'trip.waybill_issued',
+                entityType: 'trip',
+                entityId: tripId,
+                data: { waybillId: updatedWaybill.id, number: updatedWaybill.number },
+            });
+        }
+    }
+
+    return updatedWaybill;
+}
+
+export async function generateWaybill(
+    tripId: string,
+    authorId: string,
+    authorRole: string,
+) {
+    const state = await getTripPreTripState(tripId);
+
+    const [existingWaybill] = await db
+        .select()
+        .from(waybills)
+        .where(eq(waybills.tripId, tripId))
+        .limit(1);
+
+    if (existingWaybill) {
+        if (existingWaybill.status === 'closed') {
+            throw Object.assign(new Error(`Waybill already closed: ${existingWaybill.number}`), { statusCode: 409 });
+        }
+
+        const synced = await syncWaybillStateForTrip(tripId, authorId, authorRole);
+        if (!synced) {
+            throw new Error('Failed to sync existing waybill');
+        }
+        return synced;
+    }
+
+    const created = await db.transaction(async (tx) => {
+        const number = await generateWaybillNumber(tx);
+        const issueNow = state.status === 'issued';
+        const [waybill] = await tx.insert(waybills).values({
+            number,
+            tripId,
+            vehicleId: state.trip.vehicleId!,
+            driverId: state.trip.driverId!,
+            status: state.status,
+            techInspectionId: state.techInspection?.id ?? null,
+            medInspectionId: state.medInspection?.id ?? null,
+            mechanicSignature: state.techInspection?.signature ?? null,
+            medicSignature: state.medInspection?.signature ?? null,
+            odometerOut: state.vehicle?.currentOdometerKm ?? 0,
+            departureAt: issueNow ? new Date() : null,
+        } as any).returning();
+
+        await tx.update(trips)
+            .set({
+                waybillId: waybill.id,
+                status: issueNow ? 'waybill_issued' : state.trip.status,
+                odometerStart: issueNow ? (state.vehicle?.currentOdometerKm ?? 0) : state.trip.odometerStart,
+                updatedAt: new Date(),
+            })
+            .where(eq(trips.id, tripId));
+
         await recordEvent({
             authorId,
             authorRole,
             eventType: 'document.created',
             entityType: 'waybill',
-            entityId: wb.id,
+            entityId: waybill.id,
             data: {
-                number: wb.number,
-                tripId: wb.tripId
-            }
+                number: waybill.number,
+                tripId: waybill.tripId,
+                status: waybill.status,
+            },
         }, tx);
 
-        return wb;
+        return waybill;
     });
 
-    await recordEvent({
-        authorId,
-        authorRole,
-        eventType: 'trip.waybill_issued',
-        entityType: 'trip',
-        entityId: tripId,
-        data: { waybillId: waybill.id, number: waybill.number },
-    });
+    if (created.status === 'issued') {
+        await recordEvent({
+            authorId,
+            authorRole,
+            eventType: 'trip.waybill_issued',
+            entityType: 'trip',
+            entityId: tripId,
+            data: { waybillId: created.id, number: created.number },
+        });
+    }
 
-    return waybill;
+    return created;
 }
 
-// ================================================================
-// Close waybill
-// ================================================================
-/**
- * Close waybill with return data.
- */
 export async function closeWaybill(
     waybillId: string,
     data: {
@@ -233,18 +294,16 @@ export async function closeWaybill(
         .limit(1);
 
     if (!waybill) {
-        throw new Error('Путевой лист не найден');
+        throw new Error('Waybill not found');
     }
 
-    if (waybill.status === 'closed') {
-        throw new Error('Путевой лист уже закрыт');
+    if (waybill.status !== 'issued') {
+        throw new Error('Only issued waybills can be closed');
     }
 
     const returnTime = data.returnAt ? new Date(data.returnAt) : new Date();
 
-    // H-10: Wrap all mutations in a single transaction
     const updated = await db.transaction(async (tx) => {
-        // Update waybill
         const [result] = await tx.update(waybills)
             .set({
                 status: 'closed',
@@ -256,7 +315,6 @@ export async function closeWaybill(
             .where(eq(waybills.id, waybillId))
             .returning();
 
-        // Update vehicle odometer
         await tx.update(vehicles)
             .set({
                 currentOdometerKm: data.odometerIn,
@@ -264,7 +322,6 @@ export async function closeWaybill(
             })
             .where(eq(vehicles.id, waybill.vehicleId));
 
-        // Update trip
         await tx.update(trips)
             .set({
                 odometerEnd: data.odometerIn,
@@ -274,7 +331,6 @@ export async function closeWaybill(
             })
             .where(eq(trips.id, waybill.tripId));
 
-        // Record event inside transaction
         await recordEvent({
             authorId,
             authorRole,
@@ -295,14 +351,6 @@ export async function closeWaybill(
     return updated;
 }
 
-// ================================================================
-// List & Get
-// ================================================================
-
-/**
- * List waybills with pagination.
- * H-3: Optional driverId filter for RLS (drivers see only their own).
- */
 export async function listWaybills(page = 1, limit = 20, driverId?: string) {
     const offset = (page - 1) * limit;
     const conditions = driverId ? eq(waybills.driverId, driverId) : undefined;
@@ -350,9 +398,6 @@ export async function listWaybills(page = 1, limit = 20, driverId?: string) {
     };
 }
 
-/**
- * Get single waybill with related data.
- */
 export async function getWaybillById(id: string) {
     const [waybill] = await db
         .select()
@@ -362,7 +407,6 @@ export async function getWaybillById(id: string) {
 
     if (!waybill) return null;
 
-    // Get related vehicle info
     const [vehicle] = await db
         .select({
             plateNumber: vehicles.plateNumber,
@@ -373,7 +417,6 @@ export async function getWaybillById(id: string) {
         .where(eq(vehicles.id, waybill.vehicleId))
         .limit(1);
 
-    // Get related driver info
     const [driver] = await db
         .select({
             fullName: drivers.fullName,
@@ -383,7 +426,6 @@ export async function getWaybillById(id: string) {
         .where(eq(drivers.id, waybill.driverId))
         .limit(1);
 
-    // Get related trip info
     const [trip] = await db
         .select({
             number: trips.number,
@@ -400,4 +442,3 @@ export async function getWaybillById(id: string) {
         trip,
     };
 }
-
