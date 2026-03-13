@@ -415,7 +415,6 @@ export default function DispatcherPage() {
 
                             await api.post('/trips', {
                                 vehicleId,
-                                // Send minimal required to form a trip out of an order
                                 orders: [orderId],
                                 routePoints: [
                                     { type: 'loading', address: order.loadingAddress, sequenceNumber: 1 },
@@ -423,7 +422,6 @@ export default function DispatcherPage() {
                                 ]
                             });
 
-                            // refresh dashboard
                             loadData();
                         }}
                     />
