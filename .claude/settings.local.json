@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls -1 /d/Ai/TMS/apps/web/src/app/*/components/)"
+      "Bash(ls -1 /d/Ai/TMS/apps/web/src/app/*/components/)",
+      "Bash(ls -la /d/Ai/TMS/apps/web/src/app/*/page.tsx)",
+      "Bash(wc -l /d/Ai/TMS/apps/api/src/__tests__/*.test.ts)",
+      "Bash(npm install pdfkit @types/pdfkit --workspace=apps/api)",
+      "Bash(pnpm --filter @tms/api add pdfkit)",
+      "Bash(pnpm --filter @tms/api add -D @types/pdfkit)",
+      "Bash(curl -L -o Roboto-Regular.ttf \"https://github.com/google/fonts/raw/main/apache/roboto/Roboto%5Bwdth%2Cwght%5D.ttf\")",
+      "Bash(ls -la *.ttf)",
+      "Bash(curl -L -o Roboto-Regular.ttf \"https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Regular.ttf\")",
+      "Bash(ls -lh *.ttf)",
+      "Bash(curl -L -o Roboto-Bold.ttf \"https://github.com/google/fonts/raw/main/apache/roboto/static/Roboto-Bold.ttf\")",
+      "Bash(npx tsc --noEmit)"
     ]
   }
 }
