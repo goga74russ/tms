@@ -19,9 +19,11 @@ export default async function fleetRoutes(app: FastifyInstance) {
         preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
     }, async (request, reply) => {
         const { page, limit, status, search, archived } = request.query as any;
+        const parsedPage = page ? Number(page) : undefined;
+        const parsedLimit = limit ? Number(limit) : undefined;
         const result = await fleetService.listVehicles(
             { status, search, isArchived: archived === 'true' },
-            { page: Number(page), limit: Number(limit) },
+            { page: Number.isFinite(parsedPage) ? parsedPage : undefined, limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined },
         );
         return { success: true, data: result.data, ...result.pagination };
     });

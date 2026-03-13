@@ -117,6 +117,7 @@ export default function DispatcherPage() {
     const [activeTripDetails, setActiveTripDetails] = useState<ActiveTripDetails | null>(null);
     const [mapInstance, setMapInstance] = useState<any>(null);
 
+    const [selectedCity, setSelectedCity] = useState<CitySearchResult | null>(null);
     // Real-time vehicle positions via WebSocket
     const { positions: wsPositions, isConnected: wsConnected } = useVehiclePositions();
 
@@ -136,17 +137,29 @@ export default function DispatcherPage() {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [vehiclesData, ordersData, tripsData] = await Promise.all([
+            const [vehiclesResult, ordersResult, tripsResult] = await Promise.allSettled([
                 api.get('/fleet/vehicles?limit=100'),
                 api.get('/orders?status=confirmed&limit=50'),
                 api.get('/trips?limit=100'),
             ]);
 
-            if ((vehiclesData as any).success) setVehicles((vehiclesData as any).data ?? []);
-            if ((ordersData as any).success) setOrders((ordersData as any).data ?? []);
-            if ((tripsData as any).success) setTrips((tripsData as any).data ?? []);
-        } catch (error) {
-            console.error('Failed to load dispatcher data', error);
+            if (vehiclesResult.status === 'fulfilled' && (vehiclesResult.value as any).success) {
+                setVehicles(Array.isArray((vehiclesResult.value as any).data) ? (vehiclesResult.value as any).data : []);
+            } else if (vehiclesResult.status === 'rejected') {
+                console.error('Failed to load vehicles for dispatcher', vehiclesResult.reason);
+            }
+
+            if (ordersResult.status === 'fulfilled' && (ordersResult.value as any).success) {
+                setOrders(Array.isArray((ordersResult.value as any).data) ? (ordersResult.value as any).data : []);
+            } else if (ordersResult.status === 'rejected') {
+                console.error('Failed to load orders for dispatcher', ordersResult.reason);
+            }
+
+            if (tripsResult.status === 'fulfilled' && (tripsResult.value as any).success) {
+                setTrips(Array.isArray((tripsResult.value as any).data) ? (tripsResult.value as any).data : []);
+            } else if (tripsResult.status === 'rejected') {
+                console.error('Failed to load trips for dispatcher', tripsResult.reason);
+            }
         } finally {
             setLoading(false);
         }
@@ -208,6 +221,14 @@ export default function DispatcherPage() {
 
         loadRoutePoints();
     }, [selectedVehicle, vehicles]);
+
+
+    useEffect(() => {
+        if (!selectedCity || !mapInstance) return;
+
+        mapInstance.invalidateSize?.();
+        mapInstance.flyTo([selectedCity.lat, selectedCity.lon], 12, { duration: 1.5 });
+    }, [selectedCity, mapInstance]);
 
     // Build timeline from real data
     const timelineData = buildTimelineData(vehicles, trips);
@@ -326,9 +347,7 @@ export default function DispatcherPage() {
                             } catch { return []; }
                         }}
                         onSelect={(item) => {
-                            if (item && mapInstance) {
-                                mapInstance.flyTo([item.lat, item.lon], 12, { duration: 1.5 });
-                            }
+                            setSelectedCity(item);
                         }}
                         getKey={(s) => s.fiasId}
                         getLabel={(s) => s.city}
