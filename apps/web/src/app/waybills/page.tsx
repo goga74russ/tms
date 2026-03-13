@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
@@ -17,7 +17,7 @@ async function downloadPdfAuth(apiPath: string, filename: string) {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: 'include',
     });
-    if (!res.ok) throw new Error('РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё PDF');
+    if (!res.ok) throw new Error('Ошибка загрузки PDF');
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -111,17 +111,17 @@ function StatusBadge({ status }: { status: string }) {
     const config: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
         formed: {
             color: 'bg-slate-100 text-slate-600 border-slate-200',
-            label: 'РЎС„РѕСЂРјРёСЂРѕРІР°РЅ',
+            label: 'Сформирован',
             icon: <Clock className="w-3.5 h-3.5" />,
         },
         issued: {
             color: 'bg-blue-100 text-blue-700 border-blue-200',
-            label: 'Р’С‹РґР°РЅ',
+            label: 'Выдан',
             icon: <FileText className="w-3.5 h-3.5" />,
         },
         closed: {
             color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-            label: 'Р—Р°РєСЂС‹С‚',
+            label: 'Закрыт',
             icon: <CheckCircle2 className="w-3.5 h-3.5" />,
         },
     };
@@ -154,13 +154,13 @@ function CloseWaybillModal({
 
     const handleSubmit = async () => {
         if (!odometerIn) {
-            setError('РЈРєР°Р¶РёС‚Рµ РїРѕРєР°Р·Р°РЅРёСЏ РѕРґРѕРјРµС‚СЂР°');
+            setError('Укажите показания одометра');
             return;
         }
 
         const odoValue = parseInt(odometerIn);
         if (odoValue < waybill.odometerOut) {
-            setError(`РћРґРѕРјРµС‚СЂ РІРѕР·РІСЂР°С‚Р° (${odoValue}) РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РјРµРЅСЊС€Рµ РѕРґРѕРјРµС‚СЂР° РІС‹РµР·РґР° (${waybill.odometerOut})`);
+            setError(`Одометр возврата (${odoValue}) не может быть меньше одометра выезда (${waybill.odometerOut})`);
             return;
         }
 
@@ -173,7 +173,7 @@ function CloseWaybillModal({
             });
             onSuccess();
         } catch (err: any) {
-            setError(err.message || 'РћС€РёР±РєР° РїСЂРё Р·Р°РєСЂС‹С‚РёРё');
+            setError(err.message || 'Ошибка при закрытии');
         } finally {
             setSubmitting(false);
         }
@@ -186,28 +186,28 @@ function CloseWaybillModal({
                     <div className="flex items-center justify-between">
                         <CardTitle className="flex items-center gap-2">
                             <Lock className="w-5 h-5 text-emerald-600" />
-                            Р—Р°РєСЂС‹С‚РёРµ РїСѓС‚РµРІРѕРіРѕ Р»РёСЃС‚Р°
+                            Закрытие путевого листа
                         </CardTitle>
                         <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100">
                             <X className="w-5 h-5 text-slate-400" />
                         </button>
                     </div>
                     <p className="text-sm text-slate-500 mt-1">
-                        {waybill.number} вЂў {waybill.vehicle?.plateNumber}
+                        {waybill.number} • {waybill.vehicle?.plateNumber}
                     </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
-                        РћРґРѕРјРµС‚СЂ РїСЂРё РІС‹РµР·РґРµ: <strong>{waybill.odometerOut.toLocaleString()} РєРј</strong>
+                        Одометр при выезде: <strong>{waybill.odometerOut.toLocaleString()} км</strong>
                     </div>
 
                     <div className="space-y-2">
                         <label className="block text-sm font-semibold text-slate-700">
-                            РћРґРѕРјРµС‚СЂ РїСЂРё РІРѕР·РІСЂР°С‚Рµ (РєРј) *
+                            Одометр при возврате (км) *
                         </label>
                         <input
                             type="number"
-                            placeholder="РџСЂРѕР±РµРі РїСЂРё РІРѕР·РІСЂР°С‚Рµ"
+                            placeholder="Пробег при возврате"
                             value={odometerIn}
                             onChange={e => setOdometerIn(e.target.value)}
                             className="w-full px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
@@ -217,12 +217,12 @@ function CloseWaybillModal({
 
                     <div className="space-y-2">
                         <label className="block text-sm font-semibold text-slate-700">
-                            РћСЃС‚Р°С‚РѕРє С‚РѕРїР»РёРІР° (Р»)
+                            Остаток топлива (л)
                         </label>
                         <input
                             type="number"
                             step="0.1"
-                            placeholder="РќРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕРµ РїРѕР»Рµ"
+                            placeholder="Необязательное поле"
                             value={fuelIn}
                             onChange={e => setFuelIn(e.target.value)}
                             className="w-full px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
@@ -235,14 +235,14 @@ function CloseWaybillModal({
 
                     <div className="flex gap-3 pt-2">
                         <Button variant="outline" className="flex-1" onClick={onClose}>
-                            РћС‚РјРµРЅР°
+                            Отмена
                         </Button>
                         <Button
                             className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
                             onClick={handleSubmit}
                             disabled={submitting}
                         >
-                            {submitting ? 'Р—Р°РєСЂС‹РІР°СЋ...' : 'Р—Р°РєСЂС‹С‚СЊ РџР›'}
+                            {submitting ? 'Закрываю...' : 'Закрыть ПЛ'}
                         </Button>
                     </div>
                 </CardContent>
@@ -278,7 +278,7 @@ function DetailModal({
                     <div className="flex items-center justify-between">
                         <CardTitle className="flex items-center gap-2">
                             <FileText className="w-5 h-5 text-blue-600" />
-                            РџСѓС‚РµРІРѕР№ Р»РёСЃС‚ {waybill.number}
+                            Путевой лист {waybill.number}
                         </CardTitle>
                         <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100">
                             <X className="w-5 h-5 text-slate-400" />
@@ -304,7 +304,7 @@ function DetailModal({
                             <User className="w-5 h-5 text-slate-500" />
                             <div>
                                 <p className="text-sm font-semibold text-slate-800">{waybill.driver.fullName}</p>
-                                <p className="text-xs text-slate-500">Р’РЈ: {waybill.driver.licenseNumber}</p>
+                                <p className="text-xs text-slate-500">ВУ: {waybill.driver.licenseNumber}</p>
                             </div>
                         </div>
                     )}
@@ -313,7 +313,7 @@ function DetailModal({
                     {waybill.trip && (
                         <div className="p-3 bg-slate-50 rounded-xl">
                             <p className="text-sm text-slate-600">
-                                Р РµР№СЃ: <strong>{waybill.trip.number}</strong>
+                                Рейс: <strong>{waybill.trip.number}</strong>
                                 <span className="ml-2 text-xs text-slate-400">({waybill.trip.status})</span>
                             </p>
                         </div>
@@ -322,69 +322,69 @@ function DetailModal({
                     {/* Data grid */}
                     <div className="grid grid-cols-2 gap-3">
                         <div className="p-3 bg-blue-50 rounded-xl">
-                            <p className="text-xs text-blue-500 mb-1">РћРґРѕРјРµС‚СЂ РІС‹РµР·РґР°</p>
-                            <p className="text-lg font-bold text-blue-700">{waybill.odometerOut.toLocaleString()} РєРј</p>
+                            <p className="text-xs text-blue-500 mb-1">Одометр выезда</p>
+                            <p className="text-lg font-bold text-blue-700">{waybill.odometerOut.toLocaleString()} км</p>
                         </div>
                         <div className="p-3 bg-emerald-50 rounded-xl">
-                            <p className="text-xs text-emerald-500 mb-1">РћРґРѕРјРµС‚СЂ РІРѕР·РІСЂР°С‚Р°</p>
+                            <p className="text-xs text-emerald-500 mb-1">Одометр возврата</p>
                             <p className="text-lg font-bold text-emerald-700">
-                                {waybill.odometerIn ? `${waybill.odometerIn.toLocaleString()} РєРј` : 'вЂ”'}
+                                {waybill.odometerIn ? `${waybill.odometerIn.toLocaleString()} км` : '—'}
                             </p>
                         </div>
                         <div className="p-3 bg-slate-50 rounded-xl">
-                            <p className="text-xs text-slate-400 mb-1">Р’С‹РµР·Рґ</p>
+                            <p className="text-xs text-slate-400 mb-1">Выезд</p>
                             <p className="text-sm font-medium text-slate-700">
-                                {waybill.departureAt ? new Date(waybill.departureAt).toLocaleString('ru-RU') : 'вЂ”'}
+                                {waybill.departureAt ? new Date(waybill.departureAt).toLocaleString('ru-RU') : '—'}
                             </p>
                         </div>
                         <div className="p-3 bg-slate-50 rounded-xl">
-                            <p className="text-xs text-slate-400 mb-1">Р’РѕР·РІСЂР°С‚</p>
+                            <p className="text-xs text-slate-400 mb-1">Возврат</p>
                             <p className="text-sm font-medium text-slate-700">
-                                {waybill.returnAt ? new Date(waybill.returnAt).toLocaleString('ru-RU') : 'вЂ”'}
+                                {waybill.returnAt ? new Date(waybill.returnAt).toLocaleString('ru-RU') : '—'}
                             </p>
                         </div>
                     </div>
 
                     {waybill.fuelIn !== null && waybill.fuelIn !== undefined && (
                         <div className="p-3 bg-amber-50 rounded-xl">
-                            <p className="text-xs text-amber-500 mb-1">РћСЃС‚Р°С‚РѕРє С‚РѕРїР»РёРІР°</p>
-                            <p className="text-lg font-bold text-amber-700">{waybill.fuelIn} Р»</p>
+                            <p className="text-xs text-amber-500 mb-1">Остаток топлива</p>
+                            <p className="text-lg font-bold text-amber-700">{waybill.fuelIn} л</p>
                         </div>
                     )}
 
                     {/* Signatures */}
                     <div className="grid grid-cols-2 gap-3">
                         <div className="p-3 bg-orange-50 rounded-xl">
-                            <p className="text-xs text-orange-500 mb-1">РџРѕРґРїРёСЃСЊ РјРµС…Р°РЅРёРєР°</p>
+                            <p className="text-xs text-orange-500 mb-1">Подпись механика</p>
                             <p className="text-sm font-medium text-orange-700">
-                                {waybill.mechanicSignature ? 'вњ“ РџР­Рџ' : 'вЂ”'}
+                                {waybill.mechanicSignature ? '✓ ПЭП' : '—'}
                             </p>
                         </div>
                         <div className="p-3 bg-rose-50 rounded-xl">
-                            <p className="text-xs text-rose-500 mb-1">РџРѕРґРїРёСЃСЊ РјРµРґРёРєР°</p>
+                            <p className="text-xs text-rose-500 mb-1">Подпись медика</p>
                             <p className="text-sm font-medium text-rose-700">
-                                {waybill.medicSignature ? 'вњ“ РџР­Рџ' : 'вЂ”'}
+                                {waybill.medicSignature ? '✓ ПЭП' : '—'}
                             </p>
                         </div>
                     </div>
 
                     {waybill.drivers && waybill.drivers.length > 0 && (
                         <div className="p-3 bg-slate-50 rounded-xl space-y-2">
-                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Р’РѕРґРёС‚РµР»Рё РЅР° РїСѓС‚РµРІРѕРј</p>
+                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Водители на путевом</p>
                             <div className="space-y-2">
                                 {waybill.drivers.map((link) => (
                                     <div key={link.id} className="flex items-center justify-between gap-3 text-sm">
                                         <div>
                                             <p className="font-medium text-slate-800">{link.driverName}</p>
-                                            <p className="text-xs text-slate-500">Р’РЈ: {link.licenseNumber}</p>
+                                            <p className="text-xs text-slate-500">ВУ: {link.licenseNumber}</p>
                                         </div>
                                         <div className="text-right text-xs text-slate-500">
-                                            {link.isPrimary && <p className="text-emerald-600 font-semibold">РћСЃРЅРѕРІРЅРѕР№</p>}
+                                            {link.isPrimary && <p className="text-emerald-600 font-semibold">Основной</p>}
                                             {(link.shiftStart || link.shiftEnd) && (
                                                 <p>
-                                                    {link.shiftStart ? new Date(link.shiftStart).toLocaleString('ru-RU') : 'вЂ”'}
-                                                    {' в†’ '}
-                                                    {link.shiftEnd ? new Date(link.shiftEnd).toLocaleString('ru-RU') : 'вЂ”'}
+                                                    {link.shiftStart ? new Date(link.shiftStart).toLocaleString('ru-RU') : '—'}
+                                                    {' → '}
+                                                    {link.shiftEnd ? new Date(link.shiftEnd).toLocaleString('ru-RU') : '—'}
                                                 </p>
                                             )}
                                         </div>
@@ -396,17 +396,17 @@ function DetailModal({
 
                     {waybill.expenses && waybill.expenses.length > 0 && (
                         <div className="p-3 bg-slate-50 rounded-xl space-y-2">
-                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Р Р°СЃС…РѕРґС‹ РїРѕ РїСѓС‚РµРІРѕРјСѓ</p>
+                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Расходы по путевому</p>
                             <div className="space-y-2">
                                 {waybill.expenses.map((expense) => (
                                     <div key={expense.id} className="flex items-center justify-between gap-3 text-sm border-b border-slate-200 pb-2 last:border-b-0 last:pb-0">
                                         <div>
                                             <p className="font-medium text-slate-800">{expense.category}</p>
-                                            <p className="text-xs text-slate-500">{expense.description || 'Р‘РµР· РѕРїРёСЃР°РЅРёСЏ'}</p>
+                                            <p className="text-xs text-slate-500">{expense.description || 'Без описания'}</p>
                                         </div>
                                         <div className="text-right text-xs text-slate-600">
-                                            <p>РџР»Р°РЅ: {expense.plannedAmount ?? 0} в‚Ѕ</p>
-                                            <p>Р¤Р°РєС‚: {expense.actualAmount ?? 0} в‚Ѕ</p>
+                                            <p>План: {expense.plannedAmount ?? 0} ₽</p>
+                                            <p>Факт: {expense.actualAmount ?? 0} ₽</p>
                                         </div>
                                     </div>
                                 ))}
@@ -482,7 +482,7 @@ function DetailModal({
                             onClick={onCloseWaybill}
                         >
                             <Lock className="w-4 h-4 mr-2" />
-                            Р—Р°РєСЂС‹С‚СЊ РїСѓС‚РµРІРѕР№ Р»РёСЃС‚
+                            Закрыть путевой лист
                         </Button>
                     )}
                 </CardContent>
@@ -621,7 +621,7 @@ export default function WaybillsPage() {
     const handleCloseSuccess = () => {
         setCloseWaybill(null);
         setDetailWaybill(null);
-        setToast({ message: 'вњ… РџСѓС‚РµРІРѕР№ Р»РёСЃС‚ Р·Р°РєСЂС‹С‚', type: 'success' });
+        setToast({ message: '✅ Путевой лист закрыт', type: 'success' });
         loadWaybills();
     };
 
@@ -651,13 +651,13 @@ export default function WaybillsPage() {
                             <FileText className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900">РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹</h1>
-                            <p className="text-sm text-slate-500">РЈРїСЂР°РІР»РµРЅРёРµ РїСѓС‚РµРІС‹РјРё Р»РёСЃС‚Р°РјРё</p>
+                            <h1 className="text-xl font-bold text-slate-900">Путевые листы</h1>
+                            <p className="text-sm text-slate-500">Управление путевыми листами</p>
                         </div>
                     </div>
                     <Button variant="outline" size="sm" onClick={loadWaybills}>
                         <RotateCcw className="w-4 h-4 mr-1.5" />
-                        РћР±РЅРѕРІРёС‚СЊ
+                        Обновить
                     </Button>
                 </div>
             </header>
@@ -676,7 +676,7 @@ export default function WaybillsPage() {
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="РџРѕРёСЃРє РїРѕ РЅРѕРјРµСЂСѓ (WB-...)"
+                        placeholder="Поиск по номеру (WB-...)"
                         value={searchFilter}
                         onChange={e => setSearchFilter(e.target.value)}
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
@@ -690,10 +690,10 @@ export default function WaybillsPage() {
                         onChange={e => setStatusFilter(e.target.value)}
                         className="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 cursor-pointer"
                     >
-                        <option value="">Р’СЃРµ СЃС‚Р°С‚СѓСЃС‹</option>
-                        <option value="draft">РЎС„РѕСЂРјРёСЂРѕРІР°РЅ</option>
-                        <option value="issued">Р’С‹РґР°РЅ</option>
-                        <option value="closed">Р—Р°РєСЂС‹С‚</option>
+                        <option value="">Все статусы</option>
+                        <option value="draft">Сформирован</option>
+                        <option value="issued">Выдан</option>
+                        <option value="closed">Закрыт</option>
                     </select>
                     <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
@@ -706,7 +706,7 @@ export default function WaybillsPage() {
                         className="text-slate-500"
                     >
                         <X className="w-4 h-4 mr-1" />
-                        РЎР±СЂРѕСЃРёС‚СЊ
+                        Сбросить
                     </Button>
                 )}
             </div>
@@ -717,13 +717,13 @@ export default function WaybillsPage() {
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-slate-100 bg-slate-50">
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">РќРѕРјРµСЂ</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">РЎС‚Р°С‚СѓСЃ</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">РўРЎ</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Р’РѕРґРёС‚РµР»СЊ</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Р’С‹РµР·Рґ</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">РћРґРѕРјРµС‚СЂ</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Р”Р°С‚Р° РІС‹РґР°С‡Рё</th>
+                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Номер</th>
+                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Статус</th>
+                                <th className="text-left px-4 py-3 font-semibold text-slate-600">ТС</th>
+                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Водитель</th>
+                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Выезд</th>
+                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Одометр</th>
+                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Дата выдачи</th>
                                 <th className="text-left px-4 py-3 font-semibold text-slate-600 w-10"></th>
                             </tr>
                         </thead>
@@ -737,7 +737,7 @@ export default function WaybillsPage() {
                             ) : filteredWaybills.length === 0 ? (
                                 <tr>
                                     <td colSpan={8} className="text-center py-16 text-slate-400">
-                                        {waybills.length === 0 ? 'РќРµС‚ РїСѓС‚РµРІС‹С… Р»РёСЃС‚РѕРІ' : 'РќРёС‡РµРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ'}
+                                        {waybills.length === 0 ? 'Нет путевых листов' : 'Ничего не найдено'}
                                     </td>
                                 </tr>
                             ) : (
@@ -758,10 +758,10 @@ export default function WaybillsPage() {
                                         <td className="px-4 py-3 text-slate-600 text-xs">
                                             {wb.departureAt ? new Date(wb.departureAt).toLocaleString('ru-RU', {
                                                 day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-                                            }) : 'вЂ”'}
+                                            }) : '—'}
                                         </td>
                                         <td className="px-4 py-3 text-slate-600 text-xs">
-                                            {wb.odometerOut.toLocaleString()} в†’{' '}
+                                            {wb.odometerOut.toLocaleString()} →{' '}
                                             {wb.odometerIn ? wb.odometerIn.toLocaleString() : '...'}
                                         </td>
                                         <td className="px-4 py-3 text-slate-500 text-xs">
@@ -771,7 +771,7 @@ export default function WaybillsPage() {
                                             <div className="flex items-center gap-1">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); openDetail(wb.id); }}
-                                                    className="p-1 rounded hover:bg-blue-100 transition-colors" title="РџРѕРґСЂРѕР±РЅРѕСЃС‚Рё"
+                                                    className="p-1 rounded hover:bg-blue-100 transition-colors" title="Подробности"
                                                 >
                                                     <Eye className="w-4 h-4 text-slate-400" />
                                                 </button>
@@ -780,19 +780,19 @@ export default function WaybillsPage() {
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     onClick={(e) => e.stopPropagation()}
-                                                    className="p-1 rounded hover:bg-emerald-100 transition-colors" title="РЎРєР°С‡Р°С‚СЊ Р­РўСЂРќ XML"
+                                                    className="p-1 rounded hover:bg-emerald-100 transition-colors" title="Скачать ЭТрН XML"
                                                 >
                                                     <Download className="w-4 h-4 text-emerald-600" />
                                                 </a>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); downloadPdfAuth(`/api/waybills/${wb.id}/pdf`, `waybill_${wb.number}.pdf`); }}
-                                                    className="p-1 rounded hover:bg-red-100 transition-colors" title="РЎРєР°С‡Р°С‚СЊ PDF (РџСѓС‚РµРІРѕР№ Р»РёСЃС‚)"
+                                                    className="p-1 rounded hover:bg-red-100 transition-colors" title="Скачать PDF (Путевой лист)"
                                                 >
                                                     <FileDown className="w-4 h-4 text-red-500" />
                                                 </button>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); window.open(`/print/waybill/${wb.id}`, '_blank'); }}
-                                                    className="p-1 rounded hover:bg-purple-100 transition-colors" title="РџРµС‡Р°С‚СЊ РїСѓС‚РµРІРѕРіРѕ Р»РёСЃС‚Р°"
+                                                    className="p-1 rounded hover:bg-purple-100 transition-colors" title="Печать путевого листа"
                                                 >
                                                     <Printer className="w-4 h-4 text-purple-500" />
                                                 </button>
@@ -809,7 +809,7 @@ export default function WaybillsPage() {
                 {totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
                         <p className="text-xs text-slate-500">
-                            РџРѕРєР°Р·Р°РЅРѕ {((page - 1) * limit) + 1}вЂ“{Math.min(page * limit, total)} РёР· {total}
+                            Показано {((page - 1) * limit) + 1}–{Math.min(page * limit, total)} из {total}
                         </p>
                         <div className="flex gap-1">
                             <Button
@@ -818,7 +818,7 @@ export default function WaybillsPage() {
                                 disabled={page === 1}
                                 onClick={() => setPage(p => p - 1)}
                             >
-                                в†ђ РќР°Р·Р°Рґ
+                                ← Назад
                             </Button>
                             <Button
                                 variant="outline"
@@ -826,7 +826,7 @@ export default function WaybillsPage() {
                                 disabled={page >= totalPages}
                                 onClick={() => setPage(p => p + 1)}
                             >
-                                Р’РїРµСЂС‘Рґ в†’
+                                Вперёд →
                             </Button>
                         </div>
                     </div>
