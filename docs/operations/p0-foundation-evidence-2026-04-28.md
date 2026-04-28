@@ -9,6 +9,7 @@ Scope: free foundation hardening for the v2 box: CI/static gates, local release 
 | `.github/workflows/p0-gate.yml` | GitHub Actions build/typecheck/compose-config gate for push and PR to `main` |
 | `scripts/p0-local.ps1` | Local P0 release-gate runner |
 | `scripts/multi-tenant-smoke.ps1` | API-level organization isolation smoke |
+| `scripts/web-role-smoke.ps1` | Web login/page smoke for main roles |
 | `scripts/backup-restore-drill.ps1` | PostgreSQL schema backup and scratch restore drill |
 
 ## Static / Build Gates
@@ -29,6 +30,16 @@ Scope: free foundation hardening for the v2 box: CI/static gates, local release 
 | `GET http://localhost/api/health` | `status=ok` |
 | `GET http://localhost/api/health/ready` | `status=ok`, `db=true`, `redis=true` |
 | `scripts/db-integrity-check.sql` | 10 checks, all `violation_count = 0` |
+
+## Web Role Gate
+
+Command:
+
+```powershell
+D:\Ai\TMS-prod\scripts\web-role-smoke.ps1
+```
+
+Result: 7 roles passed login, `/api/auth/me`, and page HTTP 200 checks: admin, dispatcher, logist, mechanic, medic, accountant, manager.
 
 ## Mobile Gate
 
@@ -74,5 +85,5 @@ Result: schema dump created, scratch restore succeeded, restored table count = 4
 ## Remaining P0-Class Risk
 
 - GitHub Actions has been added but still needs its first remote run result after push.
-- Web role UAT still needs browser-level evidence, not only build/runtime API evidence.
+- Web role smoke has HTTP evidence; browser-level screenshots remain useful before pilot.
 - Android device/emulator gate remains mandatory before any mobile pilot/release.
