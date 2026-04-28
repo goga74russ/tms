@@ -1,0 +1,42 @@
+﻿name: P0 Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-static-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.2 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared
+        run: pnpm --filter @tms/shared build
+
+      - name: Build API
+        run: pnpm --filter @tms/api build
+
+      - name: Build web
+        run: pnpm --filter @tms/web build
+
+      - name: Mobile typecheck
+        run: pnpm --filter @tms/mobile typecheck
+
+      - name: Validate compose config
+        run: docker compose --env-file .env.example -f docker-compose.prod.yml config --quiet

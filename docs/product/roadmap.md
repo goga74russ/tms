@@ -10,6 +10,7 @@ Updated: 2026-04-28
 - Fix visible mojibake in user-facing strings.
 - Recreate a minimal test and smoke evidence pack.
 - Document env vars, deploy, rollback, and release gates.
+- Add free P0 automation: GitHub Actions, local P0 runner, multi-tenant smoke, and backup/restore drill.
 
 ## P1. Bring Mobile Into v2
 

@@ -8,6 +8,7 @@ Updated: 2026-04-28
 - Web build passes.
 - Shared package build passes when contracts change.
 - Relevant API regression tests pass.
+- GitHub Actions P0 gate passes on the target branch.
 - Web smoke passes for the main roles.
 - Database migrations apply on a clean database.
 - Database migrations apply on an upgraded database.
@@ -15,6 +16,8 @@ Updated: 2026-04-28
 - `/api/health` returns OK.
 - `/api/health/ready` returns OK.
 - Backup exists before any migration.
+- `scripts/backup-restore-drill.ps1` passes against a scratch database.
+- `scripts/multi-tenant-smoke.ps1` passes.
 - Rollback path is verified.
 
 ## Required Before Pilot
