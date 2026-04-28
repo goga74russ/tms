@@ -38,6 +38,7 @@ Updated: 2026-04-28
 - * Vehicle/cargo compatibility matrix: payload, volume, body type, trailer, temperature/special conditions, loading method, and restrictions.
 - * Document dossier enforcement: required docs, EPD receipts, paper exceptions, signed scans, return control, and close blockers.
 - * Claims and penalties module: delays, no-show, downtime, shortage, damage, rejected documents, responsible party, and settlement impact.
+- * Operational edge-case backlog: multi-order trips, multi-stop, переадресация, возвраты, простой, dangerous/perishable/oversized cargo, offline driver flow, tachograph/rest risk.
 
 ## P4. Operational Fleet Track
 
