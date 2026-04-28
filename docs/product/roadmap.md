@@ -17,6 +17,7 @@ Updated: 2026-04-28
 - Align package versions with v2 workspace policy.
 - Verify auth against `/api/auth/mobile/login`.
 - Verify trip list, trip detail, checkpoints, delivery confirmation, mechanic inspection, uploads, and offline queue.
+- **Mandatory before pilot/release:** run the app on a real Android device or emulator against a LAN API URL and save UI evidence for login, trip list, checkpoint, and completion.
 - Decide whether mobile is shipped as part of v2 production or kept as pilot-only.
 
 ## P2. Compliance-First Track
@@ -44,4 +45,3 @@ Updated: 2026-04-28
 - Add integration guides for 1C, SAP, WMS, GPS, and EDO.
 - Add observability, alerting, CI/CD release enforcement, and backup monitoring.
 - Prepare Russian software registry and sales/support packaging if needed.
-

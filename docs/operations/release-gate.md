@@ -31,6 +31,7 @@ Updated: 2026-04-28
   - documents
   - billing
 - Mobile scope is decided and verified if included in pilot.
+- If mobile is included, Android device/emulator test against LAN API URL is mandatory, with UI evidence for login, trip list, checkpoint photo/signature, offline/sync, and completion.
 
 ## Required Before Market-Ready
 
@@ -39,4 +40,3 @@ Updated: 2026-04-28
 - Support and incident response process exists.
 - Customer-facing documentation exists.
 - Demo environment and demo data are prepared.
-

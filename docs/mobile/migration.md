@@ -68,9 +68,15 @@ Verified:
 - `/api/sync/events` accepts `route_point_completed` and `trip_status_changed` events
 - prepared smoke trip reaches `completed` and its route point reaches `completed`
 
+## Required Device Gate
+
+Before any mobile pilot or release, run the app on a real Android device or Android emulator against a LAN API URL, not only localhost contract smoke. Capture UI evidence for login, trip list, checkpoint photo/signature, offline/sync behavior, and trip completion.
+
+This is mandatory because camera, signature canvas, SecureStore, WatermelonDB, network addressing, and Expo runtime behavior can differ from API-level smoke tests.
+
 ## Remaining Mobile Debt
 
-- Run the app on a real Android device or emulator against a LAN API URL.
+- Complete the required Android device/emulator gate.
 - Add mobile UI evidence/screenshots for login, trip list, checkpoint, and completion.
 - Decide whether mobile should keep mechanic/medic flows in the same app or split driver/mechanic builds.
 - Add EAS build profile and pilot installation notes.
