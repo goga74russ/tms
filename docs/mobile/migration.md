@@ -46,11 +46,13 @@ apps/mobile/index.ts -> apps/mobile/App.tsx -> src/navigation/AppNavigator.tsx
 3. Triggered WatermelonDB sync after login and after stored-token restoration.
 4. Aligned trip status API client with backend `POST /trips/:id/status`.
 5. Aligned checkpoint confirmation helper with backend `/sync/events` contract.
-6. Added repeatable smoke script:
+6. Added repeatable full mobile smoke script:
 
 ```powershell
 D:\Ai\TMS-prod\scripts\mobile-smoke.ps1
 ```
+
+The smoke script prepares an idempotent trip `MOB-SMOKE-DRIVER1`, verifies non-empty pull, pushes checkpoint completion, then pushes trip completion.
 
 ## Verification
 
@@ -62,13 +64,14 @@ Verified:
 - mobile mojibake scan: `files 0`
 - mobile login smoke for `driver1@tms.local`
 - `/api/auth/me` returns driver role and `driverId`
-- `/api/sync/pull` returns `success=true`
+- `/api/sync/pull` returns `success=true` with one prepared smoke trip and one route point
+- `/api/sync/events` accepts `route_point_completed` and `trip_status_changed` events
+- prepared smoke trip reaches `completed` and its route point reaches `completed`
 
 ## Remaining Mobile Debt
 
-- Run on a real Android device or emulator against LAN API URL, not only localhost contract smoke.
-- Add a seeded assigned trip for `driver1@tms.local` so `/sync/pull` evidence includes non-empty trips and route points.
-- Add an automated sync push test for `route_point_completed` and `trip_status_changed` against real trip data.
+- Run the app on a real Android device or emulator against a LAN API URL.
+- Add mobile UI evidence/screenshots for login, trip list, checkpoint, and completion.
 - Decide whether mobile should keep mechanic/medic flows in the same app or split driver/mechanic builds.
-- Add EAS build profile and release notes for pilot installation.
+- Add EAS build profile and pilot installation notes.
 - Add UI pass for Russian texts, empty states, offline banners, and sync status indicators.
