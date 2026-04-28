@@ -278,13 +278,13 @@ export async function assertTrailerAccess(trailerId: string, user: GuardUser): P
         .where(eq(trailers.id, trailerId))
         .limit(1);
 
-    if (!trailer) throw new EntityNotFoundError('РџСЂРёС†РµРї РЅРµ РЅР°Р№РґРµРЅ');
+    if (!trailer) throw new EntityNotFoundError('Прицеп не найден');
 
     assertOrganizationScope([trailer.organizationId], user);
 
     if (hasStaffAccess(user)) return;
 
-    throw new AccessDeniedError('РќРµС‚ РґРѕСЃС‚СѓРїР°');
+    throw new AccessDeniedError('Нет доступа');
 }
 
 /**

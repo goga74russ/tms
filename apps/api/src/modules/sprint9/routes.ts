@@ -72,7 +72,7 @@ function toPagination(query: unknown) {
 
 export default async function sprint9Routes(app: FastifyInstance) {
     app.get('/fleet/trailers', {
-        schema: { tags: ['РђРІС‚РѕРїР°СЂРє'], summary: 'РЎРїРёСЃРѕРє РїСЂРёС†РµРїРѕРІ', description: 'РЎРїРёСЃРѕРє РїСЂРёС†РµРїРѕРІ СЃ РїРѕРёСЃРєРѕРј Рё С„РёР»СЊС‚СЂР°С†РёРµР№.' },
+        schema: { tags: ['Автопарк'], summary: 'Список прицепов', description: 'Список прицепов с поиском Рё фильтрацией.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trailer')],
     }, async (request) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
@@ -98,7 +98,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
     });
 
     app.post('/fleet/trailers', {
-        schema: { tags: ['РђРІС‚РѕРїР°СЂРє'], summary: 'Р”РѕР±Р°РІРёС‚СЊ РїСЂРёС†РµРї', description: 'РЎРѕР·РґР°РЅРёРµ РЅРѕРІРѕРіРѕ РїСЂРёС†РµРїР°.' },
+        schema: { tags: ['Автопарк'], summary: 'Добавить прицеп', description: 'Создание нового прицепа.' },
         preHandler: [app.authenticate, requireAbility('create', 'Trailer')],
     }, async (request, reply) => {
         const parsed = trailerCreateSchema.safeParse(request.body);
@@ -122,7 +122,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
     });
 
     app.put('/fleet/trailers/:id', {
-        schema: { tags: ['РђРІС‚РѕРїР°СЂРє'], summary: 'РћР±РЅРѕРІРёС‚СЊ РїСЂРёС†РµРї', description: 'РћР±РЅРѕРІР»РµРЅРёРµ РґР°РЅРЅС‹С… РїСЂРёС†РµРїР°.' },
+        schema: { tags: ['Автопарк'], summary: 'Обновить прицеп', description: 'Обновление данных прицепа.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trailer')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -145,12 +145,12 @@ export default async function sprint9Routes(app: FastifyInstance) {
             ? and(eq(trailers.id, id), eq(trailers.organizationId, user.organizationId))
             : eq(trailers.id, id)).returning();
 
-        if (!updated) return reply.status(404).send({ success: false, error: 'РџСЂРёС†РµРї РЅРµ РЅР°Р№РґРµРЅ' });
+        if (!updated) return reply.status(404).send({ success: false, error: 'Прицеп не найден' });
         return { success: true, data: updated };
     });
 
     app.get('/incidents', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЎРїРёСЃРѕРє РёРЅС†РёРґРµРЅС‚РѕРІ', description: 'РЎРїРёСЃРѕРє РёРЅС†РёРґРµРЅС‚РѕРІ РїРѕ РјРµРґ/С‚РµС…РѕСЃРјРѕС‚СЂР°Рј, РўРЎ, РІРѕРґРёС‚РµР»СЏРј Рё СЂРµР№СЃР°Рј.' },
+        schema: { tags: ['Рейсы'], summary: 'Список инцидентов', description: 'Список инцидентов по мед/техосмотрам, ТС, водителям Рё рейсам.' },
         preHandler: [app.authenticate, requireAbility('read', 'Incident')],
     }, async (request) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string };
@@ -189,7 +189,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
     });
 
     app.post('/incidents', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЎРѕР·РґР°С‚СЊ РёРЅС†РёРґРµРЅС‚', description: 'РЎРѕР·РґР°РЅРёРµ РёРЅС†РёРґРµРЅС‚Р° СЃ РїСЂРёРІСЏР·РєРѕР№ Рє РўРЎ/РІРѕРґРёС‚РµР»СЋ/СЂРµР№СЃСѓ.' },
+        schema: { tags: ['Рейсы'], summary: 'Создать инцидент', description: 'Создание инцидента с привязкой к ТС/водителю/рейсу.' },
         preHandler: [app.authenticate, requireAbility('create', 'Incident')],
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[] };
@@ -208,7 +208,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
     });
 
     app.put('/incidents/:id', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РћР±РЅРѕРІРёС‚СЊ РёРЅС†РёРґРµРЅС‚', description: 'РћР±РЅРѕРІР»РµРЅРёРµ СЃС‚Р°С‚СѓСЃР°, resolution Рё Р±Р»РѕРєРёСЂРѕРІРєРё РІС‹РїСѓСЃРєР°.' },
+        schema: { tags: ['Рейсы'], summary: 'Обновить инцидент', description: 'Обновление статуса, resolution Рё блокировки выпуска.' },
         preHandler: [app.authenticate, requireAbility('update', 'Incident')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -224,12 +224,12 @@ export default async function sprint9Routes(app: FastifyInstance) {
             updatedAt: new Date(),
         }).where(eq(incidents.id, id)).returning();
 
-        if (!updated) return reply.status(404).send({ success: false, error: 'РРЅС†РёРґРµРЅС‚ РЅРµ РЅР°Р№РґРµРЅ' });
+        if (!updated) return reply.status(404).send({ success: false, error: 'Инцидент не найден' });
         return { success: true, data: updated };
     });
 
     app.get('/waybills/:id/drivers', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'Р’РѕРґРёС‚РµР»Рё РїСѓС‚РµРІРѕРіРѕ Р»РёСЃС‚Р°', description: 'РЎРїРёСЃРѕРє РІРѕРґРёС‚РµР»РµР№, РїСЂРёРІСЏР·Р°РЅРЅС‹С… Рє РїСѓС‚РµРІРѕРјСѓ Р»РёСЃС‚Сѓ.' },
+        schema: { tags: ['Путевые листы'], summary: 'Водители путевого листа', description: 'Список водителей, привязанных к путевому листу.' },
         preHandler: [app.authenticate, requireAbility('read', 'WaybillDriver')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -254,7 +254,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
     });
 
     app.post('/waybills/:id/drivers', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'Р”РѕР±Р°РІРёС‚СЊ РІРѕРґРёС‚РµР»СЏ РІ РїСѓС‚РµРІРѕР№', description: 'РџСЂРёРІСЏР·РєР° РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕРіРѕ РІРѕРґРёС‚РµР»СЏ Рє РїСѓС‚РµРІРѕРјСѓ Р»РёСЃС‚Сѓ.' },
+        schema: { tags: ['Путевые листы'], summary: 'Добавить водителя в путевой', description: 'Привязка дополнительного водителя к путевому листу.' },
         preHandler: [app.authenticate, requireAbility('create', 'WaybillDriver')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -265,15 +265,15 @@ export default async function sprint9Routes(app: FastifyInstance) {
         }
 
         const [waybill] = await db.select({ id: waybills.id }).from(waybills).where(eq(waybills.id, id)).limit(1);
-        if (!waybill) return reply.status(404).send({ success: false, error: 'РџСѓС‚РµРІРѕР№ Р»РёСЃС‚ РЅРµ РЅР°Р№РґРµРЅ' });
+        if (!waybill) return reply.status(404).send({ success: false, error: 'Путевой лист не найден' });
 
         const [driver] = await db.select({ id: drivers.id }).from(drivers).where(eq(drivers.id, parsed.data.driverId)).limit(1);
-        if (!driver) return reply.status(404).send({ success: false, error: 'Р’РѕРґРёС‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ' });
+        if (!driver) return reply.status(404).send({ success: false, error: 'Водитель не найден' });
 
         const existing = await db.select({ id: waybillDrivers.id }).from(waybillDrivers)
             .where(and(eq(waybillDrivers.waybillId, id), eq(waybillDrivers.driverId, parsed.data.driverId))).limit(1);
         if (existing[0]) {
-            return reply.status(409).send({ success: false, error: 'Р’РѕРґРёС‚РµР»СЊ СѓР¶Рµ РїСЂРёРІСЏР·Р°РЅ Рє РїСѓС‚РµРІРѕРјСѓ Р»РёСЃС‚Сѓ' });
+            return reply.status(409).send({ success: false, error: 'Водитель уже привязан к путевому листу' });
         }
 
         if (parsed.data.isPrimary) {
@@ -292,7 +292,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
     });
 
     app.delete('/waybills/:waybillId/drivers/:driverLinkId', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'РЈРґР°Р»РёС‚СЊ РІРѕРґРёС‚РµР»СЏ РёР· РїСѓС‚РµРІРѕРіРѕ', description: 'РЈРґР°Р»РµРЅРёРµ СЃРІСЏР·Рё РІРѕРґРёС‚РµР»СЊ-РїСѓС‚РµРІРѕР№ Р»РёСЃС‚.' },
+        schema: { tags: ['Путевые листы'], summary: 'Удалить водителя из путевого', description: 'Удаление связи водитель-путевой лист.' },
         preHandler: [app.authenticate, requireAbility('delete', 'WaybillDriver')],
     }, async (request, reply) => {
         const { waybillId, driverLinkId } = request.params as { waybillId: string; driverLinkId: string };
@@ -301,12 +301,12 @@ export default async function sprint9Routes(app: FastifyInstance) {
         const [deleted] = await db.delete(waybillDrivers)
             .where(and(eq(waybillDrivers.id, driverLinkId), eq(waybillDrivers.waybillId, waybillId)))
             .returning();
-        if (!deleted) return reply.status(404).send({ success: false, error: 'РЎРІСЏР·СЊ РЅРµ РЅР°Р№РґРµРЅР°' });
+        if (!deleted) return reply.status(404).send({ success: false, error: 'Связь не найдена' });
         return { success: true, data: deleted };
     });
 
     app.get('/waybills/:id/expenses', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'Р Р°СЃС…РѕРґС‹ РїСѓС‚РµРІРѕРіРѕ Р»РёСЃС‚Р°', description: 'РЎРїРёСЃРѕРє СЂР°СЃС…РѕРґРѕРІ РїРѕ РїСѓС‚РµРІРѕРјСѓ Р»РёСЃС‚Сѓ.' },
+        schema: { tags: ['Путевые листы'], summary: 'Расходы путевого листа', description: 'Список расходов по путевому листу.' },
         preHandler: [app.authenticate, requireAbility('read', 'WaybillExpense')],
     }, async (request) => {
         const { id } = request.params as { id: string };
@@ -320,7 +320,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
     });
 
     app.post('/waybills/:id/expenses', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'Р”РѕР±Р°РІРёС‚СЊ СЂР°СЃС…РѕРґ', description: 'Р”РѕР±Р°РІР»РµРЅРёРµ СЂР°СЃС…РѕРґР° Рє РїСѓС‚РµРІРѕРјСѓ Р»РёСЃС‚Сѓ.' },
+        schema: { tags: ['Путевые листы'], summary: 'Добавить расход', description: 'Добавление расхода к путевому листу.' },
         preHandler: [app.authenticate, requireAbility('create', 'WaybillExpense')],
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[] };
@@ -345,7 +345,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
     });
 
     app.put('/waybills/:waybillId/expenses/:expenseId', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'РћР±РЅРѕРІРёС‚СЊ СЂР°СЃС…РѕРґ', description: 'Р РµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ СЂР°СЃС…РѕРґР° РїСѓС‚РµРІРѕРіРѕ Р»РёСЃС‚Р°.' },
+        schema: { tags: ['Путевые листы'], summary: 'Обновить расход', description: 'Редактирование расхода путевого листа.' },
         preHandler: [app.authenticate, requireAbility('update', 'WaybillExpense')],
     }, async (request, reply) => {
         const { waybillId, expenseId } = request.params as { waybillId: string; expenseId: string };
@@ -358,12 +358,12 @@ export default async function sprint9Routes(app: FastifyInstance) {
         const [updated] = await db.update(waybillExpenses).set(parsed.data)
             .where(and(eq(waybillExpenses.id, expenseId), eq(waybillExpenses.waybillId, waybillId)))
             .returning();
-        if (!updated) return reply.status(404).send({ success: false, error: 'Р Р°СЃС…РѕРґ РЅРµ РЅР°Р№РґРµРЅ' });
+        if (!updated) return reply.status(404).send({ success: false, error: 'Расход не найден' });
         return { success: true, data: updated };
     });
 
     app.delete('/waybills/:waybillId/expenses/:expenseId', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'РЈРґР°Р»РёС‚СЊ СЂР°СЃС…РѕРґ', description: 'РЈРґР°Р»РµРЅРёРµ СЂР°СЃС…РѕРґР° РїСѓС‚РµРІРѕРіРѕ Р»РёСЃС‚Р°.' },
+        schema: { tags: ['Путевые листы'], summary: 'Удалить расход', description: 'Удаление расхода путевого листа.' },
         preHandler: [app.authenticate, requireAbility('delete', 'WaybillExpense')],
     }, async (request, reply) => {
         const { waybillId, expenseId } = request.params as { waybillId: string; expenseId: string };
@@ -371,7 +371,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
         const [deleted] = await db.delete(waybillExpenses)
             .where(and(eq(waybillExpenses.id, expenseId), eq(waybillExpenses.waybillId, waybillId)))
             .returning();
-        if (!deleted) return reply.status(404).send({ success: false, error: 'Р Р°СЃС…РѕРґ РЅРµ РЅР°Р№РґРµРЅ' });
+        if (!deleted) return reply.status(404).send({ success: false, error: 'Расход не найден' });
         return { success: true, data: deleted };
     });
 }

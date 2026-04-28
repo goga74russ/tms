@@ -382,7 +382,7 @@ export default function MechanicPage() {
                                         <h2 className="text-lg font-bold">{selectedVehicle.vehicle.plateNumber}</h2>
                                         {selectedVehicle.vehicle.bodyType && (
                                             <p className="text-xs text-indigo-300">
-                                                Ð’Ð¸Ð´ Ð¢Ð¡: {getVehicleProfile(selectedVehicle.vehicle.bodyType).displayLabel}
+                                                Вид ТС: {getVehicleProfile(selectedVehicle.vehicle.bodyType).displayLabel}
                                             </p>
                                         )}
                                         <p className="text-slate-300 text-sm">
@@ -582,7 +582,7 @@ export default function MechanicPage() {
                                             </div>
                                             {item.vehicle.bodyType && (
                                                 <p className="text-xs text-indigo-600 mb-1">
-                                                    Ð’Ð¸Ð´ Ð¢Ð¡: {getVehicleProfile(item.vehicle.bodyType).displayLabel}
+                                                    Вид ТС: {getVehicleProfile(item.vehicle.bodyType).displayLabel}
                                                 </p>
                                             )}
 

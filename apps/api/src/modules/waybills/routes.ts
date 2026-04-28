@@ -1,5 +1,5 @@
 ﻿// ============================================================
-// Waybills Routes вЂ” РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹ (В§3.5)
+// Waybills Routes вЂ” Путевые листы (В§3.5)
 // ============================================================
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
@@ -57,7 +57,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
      * List waybills (paginated, H-3: driver RLS)
      */
     app.get('/waybills', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'РЎРїРёСЃРѕРє РїСѓС‚РµРІС‹С… Р»РёСЃС‚РѕРІ', description: 'Р’СЃРµ РїСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹ СЃ РїР°РіРёРЅР°С†РёРµР№.' },
+        schema: { tags: ['Путевые листы'], summary: 'Список путевых листов', description: 'Все путевые листы с пагинацией.' },
         preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -71,7 +71,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 if (!myDriverId) {
                     return reply.status(403).send({
                         success: false,
-                        error: 'РћС‚РєР°Р·Р°РЅРѕ РІ РґРѕСЃС‚СѓРїРµ (РїСЂРѕС„РёР»СЊ РІРѕРґРёС‚РµР»СЏ РЅРµ РїСЂРёРІСЏР·Р°РЅ)',
+                        error: 'Отказано в доступе (профиль водителя не привязан)',
                     });
                 }
                 rlsDriverId = myDriverId;
@@ -83,7 +83,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             request.log.error(error);
             return reply.status(error.statusCode || 500).send({
                 success: false,
-                error: error.message || 'РћС€РёР±РєР°',
+                error: error.message || 'Ошибка',
             });
         }
     });
@@ -93,7 +93,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
      * Single waybill with related data
      */
     app.get('/waybills/:id', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'РџРѕР»СѓС‡РёС‚СЊ РїСѓС‚РµРІРѕР№ Р»РёСЃС‚', description: 'Р”РµС‚Р°Р»СЊРЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ Рѕ РїСѓС‚РµРІРѕРј Р»РёСЃС‚Рµ СЃ РґР°РЅРЅС‹РјРё СЂРµР№СЃР°, РўРЎ Рё РІРѕРґРёС‚РµР»СЏ.' },
+        schema: { tags: ['Путевые листы'], summary: 'Получить путевой лист', description: 'Детальная информация о путевом листе с данными рейса, ТС Рё водителя.' },
         preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -112,7 +112,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             request.log.error(error);
             return reply.status(500).send({
                 success: false,
-                error: error.message || 'РћС€РёР±РєР°',
+                error: error.message || 'Ошибка',
             });
         }
     });
@@ -122,7 +122,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
      * Generate waybill for a trip (requires both approvals)
      */
     app.post('/waybills/generate/:tripId', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'РЎС„РѕСЂРјРёСЂРѕРІР°С‚СЊ РїСѓС‚РµРІРѕР№ Р»РёСЃС‚', description: 'РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРѕРµ С„РѕСЂРјРёСЂРѕРІР°РЅРёРµ РїСѓС‚РµРІРѕРіРѕ Р»РёСЃС‚Р° РґР»СЏ СЂРµР№СЃР°. РџСЂРѕРІРµСЂРєР° РЅР°Р»РёС‡РёСЏ С‚РµС…РѕСЃРјРѕС‚СЂР° Рё РјРµРґРѕСЃРјРѕС‚СЂР°.' },
+        schema: { tags: ['Путевые листы'], summary: 'Сформировать путевой лист', description: 'Автоматическое формирование путевого листа для рейса. Проверка наличия техосмотра Рё медосмотра.' },
         preHandler: [app.authenticate, requireAbility('create', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -134,10 +134,10 @@ export default async function waybillRoutes(app: FastifyInstance) {
             return reply.status(201).send({ success: true, data: waybill });
         } catch (error: any) {
             request.log.error(error);
-            const statusCode = error.statusCode || (error.message.includes('РќРµС‚ РґРѕРїСѓСЃРєР°') ? 409 : 500);
+            const statusCode = error.statusCode || (error.message.includes('Нет допуска') ? 409 : 500);
             return reply.status(statusCode).send({
                 success: false,
-                error: error.message || 'РћС€РёР±РєР° РїСЂРё С„РѕСЂРјРёСЂРѕРІР°РЅРёРё РїСѓС‚РµРІРѕРіРѕ Р»РёСЃС‚Р°',
+                error: error.message || 'Ошибка при формировании путевого листа',
             });
         }
     });
@@ -147,7 +147,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
      * Close waybill (odometer, fuel, return time)
      */
     app.post('/waybills/:id/close', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'Р—Р°РєСЂС‹С‚СЊ РїСѓС‚РµРІРѕР№ Р»РёСЃС‚', description: 'Р—Р°РєСЂС‹С‚РёРµ РїСѓС‚РµРІРѕРіРѕ Р»РёСЃС‚Р° СЃ С„РёРЅР°Р»СЊРЅС‹РјРё РґР°РЅРЅС‹РјРё РѕРґРѕРјРµС‚СЂР° Рё Р“РЎРњ.' },
+        schema: { tags: ['Путевые листы'], summary: 'Р—акрыть путевой лист', description: 'Р—акрытие путевого листа с финальными данными одометра Рё ГСМ.' },
         preHandler: [app.authenticate, requireAbility('update', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -163,7 +163,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             if (!body.odometerIn && body.odometerIn !== 0) {
                 return reply.status(400).send({
                     success: false,
-                    error: 'РћР±СЏР·Р°С‚РµР»СЊРЅРѕРµ РїРѕР»Рµ: odometerIn',
+                    error: 'Обязательное поле: odometerIn',
                 });
             }
 
@@ -171,10 +171,10 @@ export default async function waybillRoutes(app: FastifyInstance) {
             return { success: true, data: waybill };
         } catch (error: any) {
             request.log.error(error);
-            const statusCode = error.statusCode || (error.message.includes('СѓР¶Рµ Р·Р°РєСЂС‹С‚') ? 400 : error.message.includes('РЅРµ РЅР°Р№РґРµРЅ') ? 404 : 500);
+            const statusCode = error.statusCode || (error.message.includes('уже закрыт') ? 400 : error.message.includes('не найден') ? 404 : 500);
             return reply.status(statusCode).send({
                 success: false,
-                error: error.message || 'РћС€РёР±РєР° РїСЂРё Р·Р°РєСЂС‹С‚РёРё РїСѓС‚РµРІРѕРіРѕ Р»РёСЃС‚Р°',
+                error: error.message || 'Ошибка при закрытии путевого листа',
             });
         }
     });
@@ -309,16 +309,16 @@ export default async function waybillRoutes(app: FastifyInstance) {
         }
     });
     // ================================================================
-    // PDF вЂ” РџСѓС‚РµРІРѕР№ Р»РёСЃС‚
+    // PDF вЂ” Путевой лист
     // ================================================================
     const { generateWaybillPdf } = await import('../documents/waybill-pdf.js');
 
     /**
      * GET /api/waybills/:id/pdf
-     * Download waybill as PDF (Р¤.4-Рџ)
+     * Download waybill as PDF (Ф.4-П)
      */
     app.get('/waybills/:id/pdf', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'PDF РїСѓС‚РµРІРѕРіРѕ Р»РёСЃС‚Р°', description: 'РЎРєР°С‡Р°С‚СЊ РїСѓС‚РµРІРѕР№ Р»РёСЃС‚ РІ С„РѕСЂРјР°С‚Рµ PDF (С„РѕСЂРјР° Р¤.4-Рџ).' },
+        schema: { tags: ['Путевые листы'], summary: 'PDF путевого листа', description: 'Скачать путевой лист в формате PDF (форма Ф.4-П).' },
         preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -327,7 +327,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             await assertWaybillAccess(id, user);
             const waybill = await getWaybillById(id);
             if (!waybill) {
-                return reply.status(404).send({ success: false, error: 'РџСѓС‚РµРІРѕР№ Р»РёСЃС‚ РЅРµ РЅР°Р№РґРµРЅ' });
+                return reply.status(404).send({ success: false, error: 'Путевой лист не найден' });
             }
 
             const { trips: tripsTable, tripOrders, orders: ordersTable, vehicles: vehiclesTable, contractors, techInspections, medInspections, users, drivers: driversTable } = await import('../../db/schema.js');
@@ -426,17 +426,17 @@ export default async function waybillRoutes(app: FastifyInstance) {
     });
 
     // ================================================================
-    // Р­РџР” / Р­РўСЂРќ вЂ” Р­Р»РµРєС‚СЂРѕРЅРЅР°СЏ С‚СЂР°РЅСЃРїРѕСЂС‚РЅР°СЏ РЅР°РєР»Р°РґРЅР°СЏ (Sprint 6)
+    // ЭПД / ЭТрН вЂ” Электронная транспортная накладная (Sprint 6)
     // ================================================================
     const { generateETrN, generateETrNTitle4, encodeWindows1251 } = await import('./etrn-generator.js');
     const { trips, orders, vehicles: vehiclesTable, contractors } = await import('../../db/schema.js');
 
     /**
      * GET /api/waybills/:id/etrn
-     * Generate Р­РўСЂРќ РўРёС‚СѓР» 1 XML for a waybill
+     * Generate ЭТрН Титул 1 XML for a waybill
      */
     app.get('/waybills/:id/etrn', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'XML Р­РўСЂРќ', description: 'Р­Р»РµРєС‚СЂРѕРЅРЅР°СЏ С‚СЂР°РЅСЃРїРѕСЂС‚РЅР°СЏ РЅР°РєР»Р°РґРЅР°СЏ РІ С„РѕСЂРјР°С‚Рµ XML РґР»СЏ Р“РРЎ Р­РџР”.' },
+        schema: { tags: ['Путевые листы'], summary: 'XML ЭТрН', description: 'Электронная транспортная накладная в формате XML для ГИС ЭПД.' },
         preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -444,7 +444,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             await assertWaybillAccess(id, request.user as { userId: string; roles: string[]; organizationId?: string | null });
             const waybill = await getWaybillById(id);
             if (!waybill) {
-                return reply.status(404).send({ success: false, error: 'РџСѓС‚РµРІРѕР№ Р»РёСЃС‚ РЅРµ РЅР°Р№РґРµРЅ' });
+                return reply.status(404).send({ success: false, error: 'Путевой лист не найден' });
             }
 
             // Assemble ETrNInput from DB
@@ -474,9 +474,9 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 shipperName: contractor?.name || 'вЂ”',
                 shipperInn: contractor?.inn || '0000000000',
                 shipperAddress: contractor?.legalAddress || 'вЂ”',
-                carrierName: process.env.CARRIER_NAME || 'РћРћРћ В«РўРњРЎ Р›РѕРіРёСЃС‚РёРєВ»',
+                carrierName: process.env.CARRIER_NAME || 'ООО «ТМС Логистик»',
                 carrierInn: process.env.CARRIER_INN || '0000000000',
-                carrierAddress: process.env.CARRIER_ADDRESS || 'Рі. РњРѕСЃРєРІР°',
+                carrierAddress: process.env.CARRIER_ADDRESS || 'г. Москва',
                 consigneeName: consigneeContractor?.name || order?.order.unloadingAddress || 'вЂ”',
                 consigneeInn: consigneeContractor?.inn || '0000000000',
                 consigneeKpp: consigneeContractor?.kpp || undefined,
@@ -501,10 +501,10 @@ export default async function waybillRoutes(app: FastifyInstance) {
 
     /**
      * GET /api/waybills/:id/etrn-title4
-     * Generate Р­РўСЂРќ РўРёС‚СѓР» 4 XML (completion) for a waybill
+     * Generate ЭТрН Титул 4 XML (completion) for a waybill
      */
     app.get('/waybills/:id/etrn-title4', {
-        schema: { tags: ['РџСѓС‚РµРІС‹Рµ Р»РёСЃС‚С‹'], summary: 'XML Р­РўСЂРќ РўРёС‚СѓР» 4', description: 'РўРёС‚СѓР» 4 (РїСЂРёС‘РјРєР° РіСЂСѓР·Р°) Р­РўСЂРќ РІ XML.' },
+        schema: { tags: ['Путевые листы'], summary: 'XML ЭТрН Титул 4', description: 'Титул 4 (приёмка груза) ЭТрН в XML.' },
         preHandler: [app.authenticate, requireAbility('read', 'Waybill')],
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
@@ -512,7 +512,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             await assertWaybillAccess(id, request.user as { userId: string; roles: string[]; organizationId?: string | null });
             const waybill = await getWaybillById(id);
             if (!waybill) {
-                return reply.status(404).send({ success: false, error: 'РџСѓС‚РµРІРѕР№ Р»РёСЃС‚ РЅРµ РЅР°Р№РґРµРЅ' });
+                return reply.status(404).send({ success: false, error: 'Путевой лист не найден' });
             }
 
             const [vehicle] = waybill.vehicleId ? await db.select().from(vehiclesTable).where(eq(vehiclesTable.id, waybill.vehicleId)).limit(1) : [null];
@@ -544,9 +544,9 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 shipperName: contractor?.name || 'вЂ”',
                 shipperInn: contractor?.inn || '0000000000',
                 shipperAddress: contractor?.legalAddress || 'вЂ”',
-                carrierName: process.env.CARRIER_NAME || 'РћРћРћ В«РўРњРЎ Р›РѕРіРёСЃС‚РёРєВ»',
+                carrierName: process.env.CARRIER_NAME || 'ООО «ТМС Логистик»',
                 carrierInn: process.env.CARRIER_INN || '0000000000',
-                carrierAddress: process.env.CARRIER_ADDRESS || 'Рі. РњРѕСЃРєРІР°',
+                carrierAddress: process.env.CARRIER_ADDRESS || 'г. Москва',
                 consigneeName: consigneeContractor?.name || order?.order.unloadingAddress || 'вЂ”',
                 consigneeInn: consigneeContractor?.inn || '0000000000',
                 consigneeKpp: consigneeContractor?.kpp || undefined,

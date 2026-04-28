@@ -37,16 +37,16 @@ interface TrailerInfo {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-    planning: 'РџР»Р°РЅРёСЂРѕРІР°РЅРёРµ',
-    assigned: 'РќР°Р·РЅР°С‡РµРЅ',
-    waybill_draft: 'РџР› С‡РµСЂРЅРѕРІРёРє',
-    inspection: 'РћСЃРјРѕС‚СЂ',
-    waybill_issued: 'РџР› РІС‹РґР°РЅ',
-    loading: 'РџРѕРіСЂСѓР·РєР°',
-    in_transit: 'Р’ РїСѓС‚Рё',
-    completed: 'Р—Р°РІРµСЂС€С‘РЅ',
-    billed: 'РћРїР»Р°С‡РµРЅ',
-    cancelled: 'РћС‚РјРµРЅС‘РЅ',
+    planning: 'Планирование',
+    assigned: 'Назначен',
+    waybill_draft: 'ПЛ черновик',
+    inspection: 'Осмотр',
+    waybill_issued: 'ПЛ выдан',
+    loading: 'Погрузка',
+    in_transit: 'В пути',
+    completed: 'Р—авершён',
+    billed: 'Оплачен',
+    cancelled: 'Отменён',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -706,7 +706,7 @@ export default function TripsPage() {
             const result = await api.get<any>(`/trips/${tripId}/dossier`);
             setDossier(result.data || null);
         } catch (err: any) {
-            setDossierError(err?.message || 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґРѕСЃСЊРµ СЂРµР№СЃР°');
+            setDossierError(err?.message || 'Не удалось загрузить досье рейса');
         } finally {
             setDossierLoading(false);
         }
@@ -747,28 +747,28 @@ export default function TripsPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Р РµР№СЃС‹</h1>
+                    <h1 className="text-2xl font-bold text-slate-900">Рейсы</h1>
                     <p className="text-sm text-slate-500 mt-1">
-                        Р’СЃРµ СЂРµР№СЃС‹ вЂў {trips.length} Р·Р°РїРёСЃРµР№
+                        Все рейсы вЂў {trips.length} записей
                     </p>
                 </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Р’СЃРµРіРѕ СЂРµР№СЃРѕРІ</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Всего рейсов</p>
                     <p className="mt-2 text-2xl font-bold text-slate-900">{trips.length}</p>
                 </div>
                 <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-indigo-500">РЎР±РѕСЂРЅС‹С… СЂРµР№СЃРѕРІ</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-indigo-500">Сборных рейсов</p>
                     <p className="mt-2 text-2xl font-bold text-indigo-700">{multiOrderTripsCount}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">РЎ РўРЎ</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">С ТС</p>
                     <p className="mt-2 text-2xl font-bold text-slate-900">{withVehicleCount}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">РЎ РїСЂРёС†РµРїРѕРј</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">С прицепом</p>
                     <p className="mt-2 text-2xl font-bold text-slate-900">{withTrailerCount}</p>
                 </div>
             </div>
@@ -780,7 +780,7 @@ export default function TripsPage() {
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all
                         ${!statusFilter ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
-                    Р’СЃРµ ({trips.length})
+                    Все ({trips.length})
                 </button>
                 {Object.entries(STATUS_LABELS).map(([key, label]) => (
                     <button
@@ -802,7 +802,7 @@ export default function TripsPage() {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="РџРѕРёСЃРє РїРѕ РЅРѕРјРµСЂСѓ СЂРµР№СЃР°..."
+                            placeholder="Поиск по номеру рейса..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm
@@ -819,22 +819,22 @@ export default function TripsPage() {
                 ) : trips.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                         <Map className="w-12 h-12 mb-3" />
-                        <p className="text-sm">Р РµР№СЃС‹ РЅРµ РЅР°Р№РґРµРЅС‹</p>
+                        <p className="text-sm">Рейсы не найдены</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="bg-slate-50 text-slate-500 text-left">
-                                    <th className="px-4 py-3 font-medium">в„– Р РµР№СЃР°</th>
-                                    <th className="px-4 py-3 font-medium">РЎС‚Р°С‚СѓСЃ</th>
-                                    <th className="px-4 py-3 font-medium">РўРЎ</th>
-                                    <th className="px-4 py-3 font-medium">Р—Р°СЏРІРєРё</th>
-                                    <th className="px-4 py-3 font-medium">Р”РёСЃС‚Р°РЅС†РёСЏ</th>
-                                    <th className="px-4 py-3 font-medium">Р’С‹РµР·Рґ (РїР»Р°РЅ)</th>
-                                    <th className="px-4 py-3 font-medium">Р’С‹РµР·Рґ (С„Р°РєС‚)</th>
-                                    <th className="px-4 py-3 font-medium">Р—Р°РІРµСЂС€С‘РЅ</th>
-                                    <th className="px-4 py-3 font-medium">РЎРѕР·РґР°РЅ</th>
+                                    <th className="px-4 py-3 font-medium">в„– Рейса</th>
+                                    <th className="px-4 py-3 font-medium">Статус</th>
+                                    <th className="px-4 py-3 font-medium">ТС</th>
+                                    <th className="px-4 py-3 font-medium">Р—аявки</th>
+                                    <th className="px-4 py-3 font-medium">Дистанция</th>
+                                    <th className="px-4 py-3 font-medium">Выезд (план)</th>
+                                    <th className="px-4 py-3 font-medium">Выезд (факт)</th>
+                                    <th className="px-4 py-3 font-medium">Р—авершён</th>
+                                    <th className="px-4 py-3 font-medium">Создан</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -851,7 +851,7 @@ export default function TripsPage() {
                                                 </span>
                                                 {(tripOrderNumbers[t.id] || []).length > 1 && (
                                                     <span className="inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700">
-                                                        РЎР±РѕСЂРЅС‹Р№ СЂРµР№СЃ вЂў {(tripOrderNumbers[t.id] || []).length} Р·Р°СЏРІРѕРє
+                                                        Сборный рейс вЂў {(tripOrderNumbers[t.id] || []).length} заявок
                                                     </span>
                                                 )}
                                             </div>
@@ -867,7 +867,7 @@ export default function TripsPage() {
                                                     </span>
                                                     {vehicleMap[t.vehicleId]?.bodyType && (
                                                         <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
-                                                            РџР›: {getVehicleProfile(vehicleMap[t.vehicleId].bodyType).displayLabel}
+                                                            ПЛ: {getVehicleProfile(vehicleMap[t.vehicleId].bodyType).displayLabel}
                                                         </span>
                                                     )}
                                                     {vehicleMap[t.vehicleId]?.bodyType && (
@@ -891,7 +891,7 @@ export default function TripsPage() {
                                                     )}
                                                     {trailerMap[t.vehicleId] && (
                                                         <span className="text-xs text-slate-400">
-                                                            + РїСЂРёС†РµРї {trailerMap[t.vehicleId].plateNumber}
+                                                            + прицеп {trailerMap[t.vehicleId].plateNumber}
                                                         </span>
                                                     )}
                                                 </div>
@@ -917,11 +917,11 @@ export default function TripsPage() {
                                             ) : 'вЂ”'}
                                         </td>
                                         <td className="px-4 py-3 text-slate-600">
-                                            {t.plannedDistanceKm ? `${t.plannedDistanceKm} РєРј` : 'вЂ”'}
+                                            {t.plannedDistanceKm ? `${t.plannedDistanceKm} км` : 'вЂ”'}
                                             {t.actualDistanceKm ? (
                                                 <span className="text-emerald-600 ml-1">
                                                     <ArrowRight className="w-3 h-3 inline" />
-                                                    {t.actualDistanceKm} РєРј
+                                                    {t.actualDistanceKm} км
                                                 </span>
                                             ) : null}
                                         </td>
@@ -937,7 +937,7 @@ export default function TripsPage() {
                                                     className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
                                                 >
                                                     <FileText className="w-3.5 h-3.5" />
-                                                    Р”РѕСЃСЊРµ
+                                                    Досье
                                                 </button>
                                             </div>
                                         </td>
@@ -955,7 +955,7 @@ export default function TripsPage() {
                     <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200">
                         <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
                             <div>
-                                <h2 className="text-lg font-bold text-slate-900">Р”РѕСЃСЊРµ СЂРµР№СЃР°</h2>
+                                <h2 className="text-lg font-bold text-slate-900">Досье рейса</h2>
                                 <p className="text-sm text-slate-500">{dossier?.trip?.number || dossierTripId}</p>
                             </div>
                             <button
@@ -979,26 +979,26 @@ export default function TripsPage() {
                                 <div className="space-y-6">
                                     <div className="grid gap-4 md:grid-cols-3">
                                         <div className="rounded-2xl border border-slate-200 p-4">
-                                            <div className="text-xs uppercase tracking-wide text-slate-400">Р РµР№СЃ</div>
+                                            <div className="text-xs uppercase tracking-wide text-slate-400">Рейс</div>
                                             <div className="mt-2 text-lg font-bold text-slate-900">{dossier.trip?.number}</div>
                                             <div className="mt-1 text-sm text-slate-500">{dossier.trip?.status}</div>
                                         </div>
                                         <div className="rounded-2xl border border-slate-200 p-4">
-                                            <div className="text-xs uppercase tracking-wide text-slate-400">РўРЎ / РїСЂРёС†РµРї</div>
+                                            <div className="text-xs uppercase tracking-wide text-slate-400">ТС / прицеп</div>
                                             <div className="mt-2 text-sm font-medium text-slate-900">
-                                                {dossier.vehicle?.plateNumber || 'РќРµС‚ РўРЎ'}
+                                                {dossier.vehicle?.plateNumber || 'Нет ТС'}
                                             </div>
                                             <div className="text-sm text-slate-500">
-                                                {dossier.trailer?.plateNumber ? `РџСЂРёС†РµРї: ${dossier.trailer.plateNumber}` : 'РџСЂРёС†РµРї РЅРµ РЅР°Р·РЅР°С‡РµРЅ'}
+                                                {dossier.trailer?.plateNumber ? `Прицеп: ${dossier.trailer.plateNumber}` : 'Прицеп не назначен'}
                                             </div>
                                         </div>
                                         <div className="rounded-2xl border border-slate-200 p-4">
-                                            <div className="text-xs uppercase tracking-wide text-slate-400">РџР›</div>
+                                            <div className="text-xs uppercase tracking-wide text-slate-400">ПЛ</div>
                                             <div className="mt-2 text-sm font-medium text-slate-900">
-                                                {dossier.waybill?.number || 'РќРµ РѕС„РѕСЂРјР»РµРЅ'}
+                                                {dossier.waybill?.number || 'Не оформлен'}
                                             </div>
                                             <div className="text-sm text-slate-500">
-                                                {dossier.summary?.orderCount || 0} Р·Р°СЏРІРѕРє РІ СЂРµР№СЃРµ
+                                                {dossier.summary?.orderCount || 0} заявок в рейсе
                                             </div>
                                         </div>
                                     </div>
@@ -1047,7 +1047,7 @@ export default function TripsPage() {
                                     <div className="grid gap-6 lg:grid-cols-2">
                                         <div className="rounded-2xl border border-slate-200">
                                             <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 font-semibold text-slate-900">
-                                                Р—Р°СЏРІРєРё
+                                                Р—аявки
                                             </div>
                                             <div className="divide-y divide-slate-100">
                                                 {(dossier.orders || []).map((order: any) => (
@@ -1055,9 +1055,9 @@ export default function TripsPage() {
                                                         <div className="flex items-start justify-between gap-3">
                                                             <div>
                                                                 <div className="text-sm font-semibold text-slate-900">{order.number}</div>
-                                                                <div className="text-xs text-slate-500">{order.cargoDescription || 'Р‘РµР· РѕРїРёСЃР°РЅРёСЏ РіСЂСѓР·Р°'}</div>
+                                                                <div className="text-xs text-slate-500">{order.cargoDescription || 'Без описания груза'}</div>
                                                                 <div className="mt-2 text-xs text-slate-500">
-                                                                    РљРѕРЅС‚СЂР°РіРµРЅС‚: {order.contractor?.name || 'РќРµ СѓРєР°Р·Р°РЅ'}
+                                                                    Контрагент: {order.contractor?.name || 'Не указан'}
                                                                 </div>
                                                             </div>
                                                             <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
@@ -1067,11 +1067,11 @@ export default function TripsPage() {
                                                         <div className="mt-3 grid gap-2 text-xs text-slate-500">
                                                             <div className="flex items-start gap-2">
                                                                 <MapPin className="mt-0.5 w-3.5 h-3.5 text-slate-400" />
-                                                                <span>РџРѕРіСЂСѓР·РєР°: {order.loadingAddress || 'вЂ”'}</span>
+                                                                <span>Погрузка: {order.loadingAddress || 'вЂ”'}</span>
                                                             </div>
                                                             <div className="flex items-start gap-2">
                                                                 <MapPin className="mt-0.5 w-3.5 h-3.5 text-slate-400" />
-                                                                <span>Р’С‹РіСЂСѓР·РєР°: {order.unloadingAddress || 'вЂ”'}</span>
+                                                                <span>Выгрузка: {order.unloadingAddress || 'вЂ”'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1082,7 +1082,7 @@ export default function TripsPage() {
                                         <div className="space-y-4">
                                             <div className="rounded-2xl border border-slate-200">
                                                 <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 font-semibold text-slate-900">
-                                                    РЈС‡Р°СЃС‚РЅРёРєРё
+                                                    Участники
                                                 </div>
                                                 <div className="divide-y divide-slate-100">
                                                     {(dossier.parties || []).map((party: any) => (
@@ -1096,12 +1096,12 @@ export default function TripsPage() {
                                             </div>
 
                                             <div className="rounded-2xl border border-slate-200 p-4">
-                                                <div className="text-sm font-semibold text-slate-900 mb-3">РЎРІРѕРґРєР°</div>
+                                                <div className="text-sm font-semibold text-slate-900 mb-3">Сводка</div>
                                                 <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
-                                                    <div>Р—Р°СЏРІРѕРє: {dossier.summary?.orderCount ?? 0}</div>
-                                                    <div>РџР›: {dossier.summary?.hasWaybill ? 'РґР°' : 'РЅРµС‚'}</div>
-                                                    <div>РўРЎ: {dossier.summary?.hasVehicle ? 'РґР°' : 'РЅРµС‚'}</div>
-                                                    <div>РџСЂРёС†РµРї: {dossier.summary?.hasTrailer ? 'РґР°' : 'РЅРµС‚'}</div>
+                                                    <div>Р—аявок: {dossier.summary?.orderCount ?? 0}</div>
+                                                    <div>ПЛ: {dossier.summary?.hasWaybill ? 'да' : 'нет'}</div>
+                                                    <div>ТС: {dossier.summary?.hasVehicle ? 'да' : 'нет'}</div>
+                                                    <div>Прицеп: {dossier.summary?.hasTrailer ? 'да' : 'нет'}</div>
                                                 </div>
                                             </div>
                                         </div>

@@ -52,7 +52,7 @@ async function resolveDriverId(userId: string): Promise<string | null> {
 const tripsRoutes: FastifyPluginAsync = async (app) => {
     // --- GET /trips вЂ” list with pagination & filters (RLS: driver sees own, client sees own) ---
     app.get('/trips', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЎРїРёСЃРѕРє СЂРµР№СЃРѕРІ', description: 'РџРѕР»СѓС‡РёС‚СЊ РІСЃРµ СЂРµР№СЃС‹ СЃ С„РёР»СЊС‚СЂР°С†РёРµР№ РїРѕ СЃС‚Р°С‚СѓСЃСѓ, РўРЎ, РІРѕРґРёС‚РµР»СЋ, РґР°С‚Рµ. РџР°РіРёРЅР°С†РёСЏ. RLS РґР»СЏ РІРѕРґРёС‚РµР»РµР№/РєР»РёРµРЅС‚РѕРІ.' },
+        schema: { tags: ['Рейсы'], summary: 'Список рейсов', description: 'Получить все рейсы с фильтрацией по статусу, ТС, водителю, дате. Пагинация. RLS для водителей/клиентов.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
     }, async (request) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string };
@@ -103,7 +103,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- GET /trips/available-vehicles ---
     app.get('/trips/available-vehicles', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р”РѕСЃС‚СѓРїРЅС‹Рµ РўРЎ', description: 'РЎРїРёСЃРѕРє РўРЎ СЃРѕ СЃС‚Р°С‚СѓСЃРѕРј available РґР»СЏ РЅР°Р·РЅР°С‡РµРЅРёСЏ РЅР° СЂРµР№СЃ.' },
+        schema: { tags: ['Рейсы'], summary: 'Доступные ТС', description: 'Список ТС со статусом available для назначения на рейс.' },
         preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
     }, async (request) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
@@ -113,7 +113,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- GET /trips/available-drivers ---
     app.get('/trips/available-drivers', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р”РѕСЃС‚СѓРїРЅС‹Рµ РІРѕРґРёС‚РµР»Рё', description: 'РЎРїРёСЃРѕРє Р°РєС‚РёРІРЅС‹С… РІРѕРґРёС‚РµР»РµР№ РґР»СЏ РЅР°Р·РЅР°С‡РµРЅРёСЏ РЅР° СЂРµР№СЃ.' },
+        schema: { tags: ['Рейсы'], summary: 'Доступные водители', description: 'Список активных водителей для назначения на рейс.' },
         preHandler: [app.authenticate, requireAbility('read', 'Driver')],
     }, async (request) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
@@ -123,7 +123,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- GET /trips/:id ---
     app.get('/trips/:id', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РџРѕР»СѓС‡РёС‚СЊ СЂРµР№СЃ', description: 'Р”РµС‚Р°Р»СЊРЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ Рѕ СЂРµР№СЃРµ РїРѕ ID СЃ РїСЂРёРІСЏР·Р°РЅРЅС‹РјРё Р·Р°СЏРІРєР°РјРё.' },
+        schema: { tags: ['Рейсы'], summary: 'Получить рейс', description: 'Детальная информация о рейсе по ID с привязанными заявками.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -132,7 +132,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         const trip = await getTripById(id);
 
         if (!trip) {
-            return reply.status(404).send({ success: false, error: 'Р РµР№СЃ РЅРµ РЅР°Р№РґРµРЅ' });
+            return reply.status(404).send({ success: false, error: 'Рейс не найден' });
         }
 
         return { success: true, data: trip };
@@ -140,7 +140,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /trips вЂ” create ---
     app.post('/trips', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЎРѕР·РґР°С‚СЊ СЂРµР№СЃ', description: 'РЎРѕР·РґР°РЅРёРµ РЅРѕРІРѕРіРѕ СЂРµР№СЃР°. РђРІС‚РѕРіРµРЅРµСЂР°С†РёСЏ РЅРѕРјРµСЂР°. Р’Р°Р»РёРґР°С†РёСЏ Zod.' },
+        schema: { tags: ['Рейсы'], summary: 'Создать рейс', description: 'Создание нового рейса. Автогенерация номера. Валидация Zod.' },
         preHandler: [app.authenticate, requireAbility('create', 'Trip')],
     }, async (request, reply) => {
         try {
@@ -180,7 +180,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- PUT /trips/:id вЂ” update ---
     app.put('/trips/:id', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РћР±РЅРѕРІРёС‚СЊ СЂРµР№СЃ', description: 'Р§Р°СЃС‚РёС‡РЅРѕРµ РѕР±РЅРѕРІР»РµРЅРёРµ СЂРµР№СЃР° (РјР°СЂС€СЂСѓС‚, РїР»Р°РЅРѕРІС‹Рµ РґР°РЅРЅС‹Рµ).' },
+        schema: { tags: ['Рейсы'], summary: 'Обновить рейс', description: 'Частичное обновление рейса (маршрут, плановые данные).' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -190,7 +190,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         if (!parseResult.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё',
+                error: 'Ошибка валидации',
                 details: parseResult.error.flatten().fieldErrors,
             });
         }
@@ -200,7 +200,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const trip = await updateTrip(id, parseResult.data);
         if (!trip) {
-            return reply.status(404).send({ success: false, error: 'Р РµР№СЃ РЅРµ РЅР°Р№РґРµРЅ' });
+            return reply.status(404).send({ success: false, error: 'Рейс не найден' });
         }
 
         return { success: true, data: trip };
@@ -208,7 +208,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /trips/:id/assign вЂ” assign vehicle + driver ---
     app.post('/trips/:id/assign', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РќР°Р·РЅР°С‡РёС‚СЊ РўРЎ/РІРѕРґРёС‚РµР»СЏ', description: 'РџСЂРёРІСЏР·РєР° С‚СЂР°РЅСЃРїРѕСЂС‚РЅРѕРіРѕ СЃСЂРµРґСЃС‚РІР° Рё РІРѕРґРёС‚РµР»СЏ Рє СЂРµР№СЃСѓ. РџСЂРѕРІРµСЂРєР° РґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё.' },
+        schema: { tags: ['Рейсы'], summary: 'Назначить ТС/водителя', description: 'Привязка транспортного средства Рё водителя к рейсу. Проверка доступности.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         try {
@@ -220,7 +220,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             if (!body.vehicleId || !body.driverId) {
                 return reply.status(400).send({
                     success: false,
-                    error: 'vehicleId Рё driverId РѕР±СЏР·Р°С‚РµР»СЊРЅС‹',
+                    error: 'vehicleId Рё driverId обязательны',
                 });
             }
             await assertVehicleAccess(body.vehicleId, user);
@@ -237,7 +237,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             if (hardBlocks.length > 0) {
                 return reply.status(409).send({
                     success: false,
-                    error: 'РќР°Р·РЅР°С‡РµРЅРёРµ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅРѕ',
+                    error: 'Назначение заблокировано',
                     data: { warnings: result.warnings },
                 });
             }
@@ -254,7 +254,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /trips/:id/status вЂ” advance status ---
     app.post('/trips/:id/status', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЎРјРµРЅРёС‚СЊ СЃС‚Р°С‚СѓСЃ', description: 'РџРµСЂРµС…РѕРґ РїРѕ state machine СЂРµР№СЃР° (planningв†’assignedв†’inspectionв†’вЂ¦в†’completed). Р’Р°Р»РёРґР°С†РёСЏ РїРµСЂРµС…РѕРґРѕРІ.' },
+        schema: { tags: ['Рейсы'], summary: 'Сменить статус', description: 'Переход по state machine рейса (planningв†’assignedв†’inspectionв†’вЂ¦в†’completed). Валидация переходов.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         try {
@@ -271,7 +271,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             if (!body.status) {
                 return reply.status(400).send({
                     success: false,
-                    error: 'status РѕР±СЏР·Р°С‚РµР»РµРЅ',
+                    error: 'status обязателен',
                 });
             }
 
@@ -289,7 +289,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /trips/:id/cancel ---
     app.post('/trips/:id/cancel', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РћС‚РјРµРЅРёС‚СЊ СЂРµР№СЃ', description: 'РћС‚РјРµРЅР° СЂРµР№СЃР° СЃ СѓРєР°Р·Р°РЅРёРµРј РїСЂРёС‡РёРЅС‹. РћСЃРІРѕР±РѕР¶РґРµРЅРёРµ РўРЎ Рё РІРѕРґРёС‚РµР»СЏ.' },
+        schema: { tags: ['Рейсы'], summary: 'Отменить рейс', description: 'Отмена рейса с указанием причины. Освобождение ТС Рё водителя.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         try {
@@ -314,7 +314,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- GET /trips/:id/points ---
     app.get('/trips/:id/points', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РўРѕС‡РєРё РјР°СЂС€СЂСѓС‚Р°', description: 'РЎРїРёСЃРѕРє С‚РѕС‡РµРє РјР°СЂС€СЂСѓС‚Р° СЂРµР№СЃР° (РїРѕРіСЂСѓР·РєР°/СЂР°Р·РіСЂСѓР·РєР°) СЃ РєРѕРѕСЂРґРёРЅР°С‚Р°РјРё Рё СЃС‚Р°С‚СѓСЃР°РјРё.' },
+        schema: { tags: ['Рейсы'], summary: 'Точки маршрута', description: 'Список точек маршрута рейса (погрузка/разгрузка) с координатами Рё статусами.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -326,7 +326,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- POST /trips/:id/points ---
     app.post('/trips/:id/points', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р”РѕР±Р°РІРёС‚СЊ С‚РѕС‡РєСѓ', description: 'Р”РѕР±Р°РІР»РµРЅРёРµ РЅРѕРІРѕР№ С‚РѕС‡РєРё РјР°СЂС€СЂСѓС‚Р° Рє СЂРµР№СЃСѓ.' },
+        schema: { tags: ['Рейсы'], summary: 'Добавить точку', description: 'Добавление новой точки маршрута к рейсу.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -348,7 +348,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- PUT /trips/:id/points/:pointId ---
     app.put('/trips/:id/points/:pointId', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РћР±РЅРѕРІРёС‚СЊ С‚РѕС‡РєСѓ', description: 'РћР±РЅРѕРІР»РµРЅРёРµ С‚РѕС‡РєРё РјР°СЂС€СЂСѓС‚Р° (РєРѕРѕСЂРґРёРЅР°С‚С‹, РІСЂРµРјСЏ РїСЂРёР±С‹С‚РёСЏ, СЃС‚Р°С‚СѓСЃ).' },
+        schema: { tags: ['Рейсы'], summary: 'Обновить точку', description: 'Обновление точки маршрута (координаты, время прибытия, статус).' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         const { id, pointId } = request.params as { id: string; pointId: string };
@@ -358,14 +358,14 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         if (!parseResult.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё',
+                error: 'Ошибка валидации',
                 details: parseResult.error.flatten().fieldErrors,
             });
         }
 
         const point = await updateRoutePoint(id, pointId, parseResult.data);
         if (!point) {
-            return reply.status(404).send({ success: false, error: 'РўРѕС‡РєР° РЅРµ РЅР°Р№РґРµРЅР°' });
+            return reply.status(404).send({ success: false, error: 'Точка не найдена' });
         }
 
         return { success: true, data: point };
@@ -373,7 +373,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
     // --- DELETE /trips/:id/points/:pointId ---
     app.delete('/trips/:id/points/:pointId', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЈРґР°Р»РёС‚СЊ С‚РѕС‡РєСѓ', description: 'РЈРґР°Р»РµРЅРёРµ С‚РѕС‡РєРё РјР°СЂС€СЂСѓС‚Р° РёР· СЂРµР№СЃР°.' },
+        schema: { tags: ['Рейсы'], summary: 'Удалить точку', description: 'Удаление точки маршрута из рейса.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         const { id, pointId } = request.params as { id: string; pointId: string };
@@ -381,7 +381,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const point = await deleteRoutePoint(id, pointId);
         if (!point) {
-            return reply.status(404).send({ success: false, error: 'РўРѕС‡РєР° РЅРµ РЅР°Р№РґРµРЅР°' });
+            return reply.status(404).send({ success: false, error: 'Точка не найдена' });
         }
 
         return { success: true, data: point };
@@ -391,23 +391,23 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
     // Sprint 13: Delivery Confirmation
     // ================================================================
 
-    // GET /trips/:id/delivery-confirmation вЂ” РїРѕР»СѓС‡РёС‚СЊ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РґРѕСЃС‚Р°РІРєРё
+    // GET /trips/:id/delivery-confirmation вЂ” получить подтверждение доставки
     app.get('/trips/:id/delivery-confirmation', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РґРѕСЃС‚Р°РІРєРё', description: 'РџРѕР»СѓС‡РёС‚СЊ РґР°РЅРЅС‹Рµ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РґРѕСЃС‚Р°РІРєРё РѕС‚ РїРѕР»СѓС‡Р°С‚РµР»СЏ.' },
+        schema: { tags: ['Рейсы'], summary: 'Подтверждение доставки', description: 'Получить данные подтверждения доставки от получателя.' },
         preHandler: [app.authenticate, requireAbility('read', 'DeliveryConfirmation')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
         await assertTripAccess(id, request.user as { userId: string; roles: string[] });
         const confirmation = await getDeliveryConfirmation(id);
         if (!confirmation) {
-            return reply.status(404).send({ success: false, error: 'РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РЅРµ РЅР°Р№РґРµРЅРѕ' });
+            return reply.status(404).send({ success: false, error: 'Подтверждение не найдено' });
         }
         return { success: true, data: confirmation };
     });
 
-    // POST /trips/:id/delivery-confirmation вЂ” СЃРѕР·РґР°С‚СЊ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ Рё Р·Р°РІРµСЂС€РёС‚СЊ СЂРµР№СЃ
+    // POST /trips/:id/delivery-confirmation вЂ” создать подтверждение Рё завершить рейс
     app.post('/trips/:id/delivery-confirmation', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РџРѕРґС‚РІРµСЂРґРёС‚СЊ РґРѕСЃС‚Р°РІРєСѓ', description: 'Р’РѕРґРёС‚РµР»СЊ РёР»Рё РґРёСЃРїРµС‚С‡РµСЂ С„РёРєСЃРёСЂСѓРµС‚ С„Р°РєС‚ РґРѕСЃС‚Р°РІРєРё. РџСЂРё confirmationMode=required вЂ” РµРґРёРЅСЃС‚РІРµРЅРЅС‹Р№ СЃРїРѕСЃРѕР± Р·Р°РІРµСЂС€РёС‚СЊ СЂРµР№СЃ. Р”РёСЃРїРµС‚С‡РµСЂ РјРѕР¶РµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ forcedByDispatcher=true.' },
+        schema: { tags: ['Рейсы'], summary: 'Подтвердить доставку', description: 'Водитель или диспетчер фиксирует факт доставки. При confirmationMode=required вЂ” единственный способ завершить рейс. Диспетчер может использовать forcedByDispatcher=true.' },
         preHandler: [app.authenticate, requireAbility('create', 'DeliveryConfirmation')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -416,12 +416,12 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const body = DeliveryConfirmationCreateSchema.safeParse(request.body);
         if (!body.success) {
-            return reply.status(400).send({ success: false, error: 'РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё', details: body.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации', details: body.error.flatten() });
         }
 
         // Only dispatchers can use forcedByDispatcher
         if (body.data.forcedByDispatcher && !user.roles.includes('dispatcher') && !user.roles.includes('admin')) {
-            return reply.status(403).send({ success: false, error: 'РўРѕР»СЊРєРѕ РґРёСЃРїРµС‚С‡РµСЂ РјРѕР¶РµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РїСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕРµ Р·Р°РІРµСЂС€РµРЅРёРµ' });
+            return reply.status(403).send({ success: false, error: 'Только диспетчер может использовать принудительное завершение' });
         }
 
         try {
@@ -436,7 +436,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
     });
 
     // ================================================================
-    // Sprint 11: Document Returns (СЂРµРµСЃС‚СЂ РѕСЂРёРіРёРЅР°Р»РѕРІ)
+    // Sprint 11: Document Returns (реестр оригиналов)
     // ================================================================
 
     const DocumentReturnUpsertSchema = z.object({
@@ -446,9 +446,9 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         notes: z.string().max(500).optional().nullable(),
     });
 
-    // GET /trips/:id/document-returns вЂ” СЃРїРёСЃРѕРє СЃС‚Р°С‚СѓСЃРѕРІ РґРѕРєСѓРјРµРЅС‚РѕРІ РїРѕ СЂРµР№СЃСѓ
+    // GET /trips/:id/document-returns вЂ” список статусов документов по рейсу
     app.get('/trips/:id/document-returns', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р РµРµСЃС‚СЂ РѕСЂРёРіРёРЅР°Р»РѕРІ РґРѕРєСѓРјРµРЅС‚РѕРІ', description: 'РЎРїРёСЃРѕРє СЃС‚Р°С‚СѓСЃРѕРІ РІРѕР·РІСЂР°С‚Р° РѕСЂРёРіРёРЅР°Р»РѕРІ (РўРўРќ, РЈРџР”, РђРєС‚) РїРѕ СЂРµР№СЃСѓ.' },
+        schema: { tags: ['Рейсы'], summary: 'Реестр оригиналов документов', description: 'Список статусов возврата оригиналов (ТТН, УПД, Акт) по рейсу.' },
         preHandler: [app.authenticate, requireAbility('read', 'DocumentReturn')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -457,9 +457,9 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         return { success: true, data: rows };
     });
 
-    // POST /trips/:id/document-returns вЂ” СЃРѕР·РґР°С‚СЊ/РѕР±РЅРѕРІРёС‚СЊ Р·Р°РїРёСЃСЊ РїРѕ (tripId, docType)
+    // POST /trips/:id/document-returns вЂ” создать/обновить запись по (tripId, docType)
     app.post('/trips/:id/document-returns', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЈС‚РѕС‡РЅРёС‚СЊ СЃС‚Р°С‚СѓСЃ РґРѕРєСѓРјРµРЅС‚Р°', description: 'Upsert РїРѕ (tripId, docType). Р”РёСЃРїРµС‚С‡РµСЂ/Р±СѓС…РіР°Р»С‚РµСЂ С„РёРєСЃРёСЂСѓСЋС‚ РїРѕР»СѓС‡РµРЅРёРµ РѕСЂРёРіРёРЅР°Р»РѕРІ.' },
+        schema: { tags: ['Рейсы'], summary: 'Уточнить статус документа', description: 'Upsert по (tripId, docType). Диспетчер/бухгалтер фиксируют получение оригиналов.' },
         preHandler: [app.authenticate, requireAbility('manage', 'DocumentReturn')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -498,7 +498,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
     });
 
     app.get('/trips/:id/transport-documents', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р”РѕРєСѓРјРµРЅС‚С‹ РїРµСЂРµРІРѕР·РєРё', description: 'Runtime transport document layer: waybill, delivery confirmations, and document returns.' },
+        schema: { tags: ['Рейсы'], summary: 'Документы перевозки', description: 'Runtime transport document layer: waybill, delivery confirmations, and document returns.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -514,7 +514,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
     });
 
     app.get('/trips/:id/transport-documents/:documentId', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р”РѕРєСѓРјРµРЅС‚ РїРµСЂРµРІРѕР·РєРё', description: 'Preview a single runtime transport document by composite id.' },
+        schema: { tags: ['Рейсы'], summary: 'Документ перевозки', description: 'Preview a single runtime transport document by composite id.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
     }, async (request, reply) => {
         const { id, documentId } = request.params as { id: string; documentId: string };
@@ -531,7 +531,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
     });
 
     app.get('/trips/:id/transport-documents/:documentId/exchange', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Transport document exchange', description: 'Persisted outbound/inbound exchange state for a transport document.' },
+        schema: { tags: ['Рейсы'], summary: 'Transport document exchange', description: 'Persisted outbound/inbound exchange state for a transport document.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
     }, async (request, reply) => {
         const { id, documentId } = request.params as { id: string; documentId: string };
@@ -819,7 +819,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
     });
 
     app.get('/trips/:id/etrn-workflow', {
-        schema: { tags: ['Р РµР№СЃС‹'], summary: 'ETRN workflow', description: 'Runtime official ETRN title workflow derived from trip, waybill, confirmations, and returns.' },
+        schema: { tags: ['Рейсы'], summary: 'ETRN workflow', description: 'Runtime official ETRN title workflow derived from trip, waybill, confirmations, and returns.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };

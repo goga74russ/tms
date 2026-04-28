@@ -322,18 +322,18 @@ export default function AnalyticsPage() {
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Fleet readiness</p>
                             <p className="text-sm font-medium text-slate-800">
-                                Ð“Ð¾Ñ‚Ð¾Ð²Ð½Ð¾ÑÑ‚ÑŒ Ð¿Ð°Ñ€ÐºÐ° Ð¿Ð¾ Ð¸Ð·Ð²ÐµÑÑ‚Ð½Ñ‹Ð¼ Ð¾Ð³Ñ€Ð°Ð½Ð¸Ñ‡ÐµÐ½Ð¸ÑÐ¼
+                                Готовность парка по известным ограничениям
                             </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
                             <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                                Ð“Ð¾Ñ‚Ð¾Ð²Ñ‹: {fleetHealth.readiness.readyCount}
+                                Готовы: {fleetHealth.readiness.readyCount}
                             </span>
                             <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                                Ð—Ð¾Ð½Ð° Ð²Ð½Ð¸Ð¼Ð°Ð½Ð¸Ñ: {fleetHealth.readiness.attentionCount}
+                                Ð—она внимания: {fleetHealth.readiness.attentionCount}
                             </span>
                             <span className="inline-flex rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
-                                Ð‘Ð»Ð¾ÐºÐ¸Ñ€Ð¾Ð²ÐºÐ¸: {fleetHealth.readiness.blockedCount}
+                                Блокировки: {fleetHealth.readiness.blockedCount}
                             </span>
                         </div>
                     </div>

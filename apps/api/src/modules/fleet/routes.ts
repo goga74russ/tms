@@ -248,7 +248,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.post('/fleet/contractors/:id/addresses', {
-        schema: { tags: ['Ð Ñ’Ð Ð†Ð¡â€šÐ Ñ•Ð Ñ—Ð Â°Ð¡Ð‚Ð Ñ”'], summary: 'Ð â€Ð Ñ•Ð Â±Ð Â°Ð Ð†Ð Ñ‘Ð¡â€šÐ¡ÐŠ Ð°Ð´Ñ€ÐµÑ�', description: 'Ð¢Ð¾Ð²Ð°Ñ€ Ð½Ð¾Ð²Ð¾Ð³Ð¾ Ð°Ð´Ñ€ÐµÑ�Ð° ÐºÐ¾Ð½Ñ‚Ñ€Ð°Ð³ÐµÐ½Ñ‚Ð°.' },
+        schema: { tags: ['Автопарк'], summary: 'Добавить адрес', description: 'Добавление нового адреса контрагента.' },
         preHandler: [app.authenticate, requireAbility('create', 'Contractor')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
@@ -267,7 +267,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.put('/fleet/contractors/:id/addresses/:addressId', {
-        schema: { tags: ['Ð Ñ’Ð Ð†Ð¡â€šÐ Ñ•Ð Ñ—Ð Â°Ð¡Ð‚Ð Ñ”'], summary: 'Ð Ñ›Ð Â±Ð Ð…Ð Ñ•Ð Ð†Ð Ñ‘Ð¡â€šÐ¡ÐŠ Ð°Ð´Ñ€ÐµÑ�', description: 'ÐžÐ±Ð½Ð¾Ð²Ð»ÐµÐ½Ð¸Ðµ Ð°Ð´Ñ€ÐµÑ�Ð° ÐºÐ¾Ð½Ñ‚Ñ€Ð°Ð³ÐµÐ½Ñ‚Ð°.' },
+        schema: { tags: ['Автопарк'], summary: 'Обновить адрес', description: 'Обновление адреса контрагента.' },
         preHandler: [app.authenticate, requireAbility('update', 'Contractor')],
     }, async (request, reply) => {
         const { id, addressId } = request.params as { id: string; addressId: string };
@@ -286,7 +286,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     });
 
     app.delete('/fleet/contractors/:id/addresses/:addressId', {
-        schema: { tags: ['Ð Ñ’Ð Ð†Ð¡â€šÐ Ñ•Ð Ñ—Ð Â°Ð¡Ð‚Ð Ñ”'], summary: 'Ð£Ð´Ð°Ð»Ð¸Ñ‚ÑŒ Ð°Ð´Ñ€ÐµÑ�', description: 'Ð£Ð´Ð°Ð»ÐµÐ½Ð¸Ðµ Ð°Ð´Ñ€ÐµÑ�Ð° ÐºÐ¾Ð½Ñ‚Ñ€Ð°Ð³ÐµÐ½Ñ‚Ð°.' },
+        schema: { tags: ['Автопарк'], summary: 'Удалить адрес', description: 'Удаление адреса контрагента.' },
         preHandler: [app.authenticate, requireAbility('delete', 'Contractor')],
     }, async (request, reply) => {
         const { id, addressId } = request.params as { id: string; addressId: string };
