@@ -31,7 +31,15 @@ Updated: 2026-04-28
 - Add provider callback verification and idempotency.
 - Add QR/offline document availability for drivers.
 
-## P3. Operational Fleet Track
+## P3. Operational Process Track
+
+- * Order splitting / partial shipment model: one customer order can become multiple shipment lots, trips, vehicles, actual deliveries, and billing lines.
+- * Partial loading/delivery and discrepancy acts: planned vs actual weight/quantity, shortages, damage, photos, signatures, and claim hooks.
+- * Vehicle/cargo compatibility matrix: payload, volume, body type, trailer, temperature/special conditions, loading method, and restrictions.
+- * Document dossier enforcement: required docs, EPD receipts, paper exceptions, signed scans, return control, and close blockers.
+- * Claims and penalties module: delays, no-show, downtime, shortage, damage, rejected documents, responsible party, and settlement impact.
+
+## P4. Operational Fleet Track
 
 - Integrate real GPS/Wialon/GLONASS data.
 - Add route plan/fact and deviation events.
@@ -39,7 +47,7 @@ Updated: 2026-04-28
 - Expand fleet health, KTG, downtime, and maintenance analytics.
 - Add repair stock, receipts, write-offs, suppliers, and procurement.
 
-## P4. Market Readiness
+## P5. Market Readiness
 
 - * UX polish by role: dispatcher cockpit, clear next actions, empty/error states, Russian copy, and browser screenshot evidence.
 - Create demo environment and demo data.
