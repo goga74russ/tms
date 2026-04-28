@@ -2,6 +2,7 @@
 // Trips API Client — Mobile App
 // Fetches driver's trips from server, handles status transitions
 // ============================================================
+import { v4 as uuidv4 } from 'uuid';
 import { getToken } from './auth';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
@@ -69,7 +70,7 @@ export async function getTripById(id: string): Promise<TripSummary> {
  */
 export async function updateTripStatus(tripId: string, newStatus: string): Promise<any> {
     return authFetch(`/trips/${tripId}/status`, {
-        method: 'PATCH',
+        method: 'POST',
         body: JSON.stringify({ status: newStatus }),
     });
 }
@@ -85,11 +86,27 @@ export async function confirmRoutePoint(
         lon?: number;
         photo?: string;
         notes?: string;
+        signatureUrl?: string;
     }
 ): Promise<any> {
-    return authFetch(`/trips/${tripId}/route-points/${routePointId}/confirm`, {
+    return authFetch('/sync/events', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+            events: [{
+                id: uuidv4(),
+                type: 'route_point_completed',
+                timestamp: new Date().toISOString(),
+                payload: {
+                    tripId,
+                    pointId: routePointId,
+                    photoUrls: data.photo ? [data.photo] : [],
+                    signatureUrl: data.signatureUrl,
+                    notes: data.notes,
+                    lat: data.lat,
+                    lon: data.lon,
+                },
+            }],
+        }),
     });
 }
 

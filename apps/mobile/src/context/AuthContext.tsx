@@ -1,9 +1,12 @@
-﻿import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getToken, login as apiLogin, logout as apiLogout, getMe } from '../api/auth';
+import { syncDatabase } from '../api/sync';
 
 type User = {
     id: string;
     email: string;
+    fullName?: string;
+    roles: string[];
     role: string;
     driverId?: string;
 };
@@ -18,6 +21,20 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function normalizeUser(raw: any): User {
+    const roles = Array.isArray(raw?.roles) ? raw.roles : raw?.role ? [raw.role] : [];
+    return {
+        ...raw,
+        roles,
+        role: roles[0] ?? raw?.role ?? 'driver',
+    };
+}
+
+async function hydrateUser(token: string): Promise<User> {
+    const meResponse = await getMe(token);
+    return normalizeUser(meResponse.data);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
@@ -28,24 +45,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
                 const storedToken = await getToken();
                 if (storedToken) {
-                    const meResponse = await getMe(storedToken);
-                    setUser(meResponse.data);
+                    const hydratedUser = await hydrateUser(storedToken);
+                    setUser(hydratedUser);
                     setToken(storedToken);
+                    void syncDatabase(storedToken);
                 }
-            } catch (err) {
+            } catch {
                 await apiLogout();
             } finally {
                 setIsLoading(false);
             }
         }
-        initAuth();
+        void initAuth();
     }, []);
 
     const login = async (email: string, pass: string) => {
-        const token = await apiLogin(email, pass);
-        const meResponse = await getMe(token);
-        setUser(meResponse.data);
-        setToken(token);
+        const nextToken = await apiLogin(email, pass);
+        const hydratedUser = await hydrateUser(nextToken);
+        setUser(hydratedUser);
+        setToken(nextToken);
+        void syncDatabase(nextToken);
     };
 
     const logout = async () => {
@@ -68,4 +87,3 @@ export function useAuth() {
     }
     return context;
 }
-

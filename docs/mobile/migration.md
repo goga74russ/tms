@@ -4,7 +4,7 @@ Updated: 2026-04-28
 
 ## Current State
 
-The mobile app has been copied into the v2 workspace:
+The mobile app is now part of the v2 workspace as a first-class package:
 
 ```text
 D:\Ai\TMS-prod\apps\mobile
@@ -16,59 +16,59 @@ The archive source remains available for comparison:
 D:\Ai\TMS\apps\mobile
 ```
 
-## Archived Mobile Capabilities
+## Runtime Entrypoint
 
-The archived app is an Expo / React Native app with:
-
-- Expo Router entrypoint
-- React Navigation
-- auth context
-- mobile login API
-- trip list
-- trip details
-- checkpoint screen
-- delivery confirmation screen
-- trip completion screen
-- mechanic inspection screen
-- upload API
-- sync API
-- offline queue replay
-- WatermelonDB local database models for trips, route points, and app events
-
-## Migration Goal
-
-Bring mobile into v2 as a first-class workspace package:
+The active mobile entrypoint is the React Navigation driver/mechanic flow:
 
 ```text
-apps/mobile
+apps/mobile/index.ts -> apps/mobile/App.tsx -> src/navigation/AppNavigator.tsx
 ```
 
-## Migration Steps
+`package.json` uses `main: "index.ts"`. This avoids starting the older Expo Router demo screens that were copied with the archive.
 
-1. Copied `D:\Ai\TMS\apps\mobile` into `D:\Ai\TMS-prod\apps\mobile`.
-2. Removed copied `node_modules` and local `.env` from the v2 copy; workspace-managed `node_modules` was recreated by `corepack pnpm install --offline`.
-3. Added `.env.example`.
-4. Update root workspace metadata if needed.
-5. Verify package versions against the v2 lockfile.
-6. Reinstall dependencies only after reviewing lockfile impact.
-7. Verify TypeScript with `pnpm --filter @tms/mobile typecheck`.
-8. Verify API compatibility:
-   - `/api/auth/mobile/login`
-   - `/api/auth/me`
-   - trip list and details
-   - checkpoints
-   - delivery confirmation
-   - inspections
-   - uploads
-   - sync/offline replay
-9. Decide release scope:
-   - pilot-only mobile app
-   - production mobile app
-   - compliance-driver app for EPD/ETRN documents
+## Available Mobile Capabilities
 
-## Open Questions
+- bearer-token mobile login through `/api/auth/mobile/login`
+- `/api/auth/me` profile hydration with `driverId`
+- driver trip list and trip details from local WatermelonDB sync tables
+- route point checkpoint screen with photo/signature event capture
+- trip completion offline event capture
+- delivery confirmation with recipient, photo, signature, online submit, and offline queue fallback
+- mechanic inspection flow
+- upload API integration
+- WatermelonDB sync through `/api/sync/pull` and `/api/sync/events`
+- offline queue replay when connectivity returns
 
-- Does v2 mobile need offline document access for EPD/ETRN QR checks?
-- Should mobile use the existing driver role only, or also support mechanic, medic, and recipient flows?
-- Should signatures be implemented inside the app or delegated to an operator/Goskey flow?
+## P1 Changes Applied
 
+1. Switched mobile package entrypoint from `expo-router/entry` to `index.ts`.
+2. Normalized backend `roles[]` into the mobile `role` field so mechanic/driver routing works.
+3. Triggered WatermelonDB sync after login and after stored-token restoration.
+4. Aligned trip status API client with backend `POST /trips/:id/status`.
+5. Aligned checkpoint confirmation helper with backend `/sync/events` contract.
+6. Added repeatable smoke script:
+
+```powershell
+D:\Ai\TMS-prod\scripts\mobile-smoke.ps1
+```
+
+## Verification
+
+Latest evidence: `docs/operations/mobile-smoke-evidence-2026-04-28.md`.
+
+Verified:
+
+- `corepack pnpm --filter @tms/mobile typecheck`
+- mobile mojibake scan: `files 0`
+- mobile login smoke for `driver1@tms.local`
+- `/api/auth/me` returns driver role and `driverId`
+- `/api/sync/pull` returns `success=true`
+
+## Remaining Mobile Debt
+
+- Run on a real Android device or emulator against LAN API URL, not only localhost contract smoke.
+- Add a seeded assigned trip for `driver1@tms.local` so `/sync/pull` evidence includes non-empty trips and route points.
+- Add an automated sync push test for `route_point_completed` and `trip_status_changed` against real trip data.
+- Decide whether mobile should keep mechanic/medic flows in the same app or split driver/mechanic builds.
+- Add EAS build profile and release notes for pilot installation.
+- Add UI pass for Russian texts, empty states, offline banners, and sync status indicators.
