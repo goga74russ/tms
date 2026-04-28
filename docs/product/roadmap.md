@@ -41,6 +41,7 @@ Updated: 2026-04-28
 
 ## P4. Market Readiness
 
+- * UX polish by role: dispatcher cockpit, clear next actions, empty/error states, Russian copy, and browser screenshot evidence.
 - Create demo environment and demo data.
 - Add customer-facing product docs.
 - Add integration guides for 1C, SAP, WMS, GPS, and EDO.

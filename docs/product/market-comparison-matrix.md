@@ -18,7 +18,7 @@ This matrix captures strategic market-facing gaps for TMS v2. Items marked with 
 | Integrations | Mocks/services, API, storage, 1C/XML export | AXELOT, 1C, Saby, Yandex | Modern API-first architecture | * Ready connectors: 1C, SAP, WMS, EDO, DaData, GPS, fuel cards |
 | Multi-tenant | Organization scope, guards, migrations | Enterprise TMS | Hardening and checks already exist | Full security audit and final multi-org evidence pack |
 | Deploy / Operations | Docker, nginx, MinIO, backup, rollback, health checks | Enterprise/on-prem products | Good production skeleton | Observability, alerting, SLA, CI/CD release enforcement |
-| UI / UX | Next.js web app with roles and main screens | 1C, Saby, AXELOT, Yandex | Can be more modern than classic boxed systems | Polish texts, encoding, complex-operation UX |
+| UI / UX | Next.js web app with roles and main screens | 1C, Saby, AXELOT, Yandex | Can be more modern than classic boxed systems | * Role-based UX polish: dispatcher cockpit, next actions, empty/error states, Russian copy, browser screenshot evidence |
 | Analytics | KPI, finance, fleet analytics | AXELOT, ANTOR, 1C | Analytics is already embedded | * Report builder, forecasts, plan/fact, scenario profitability |
 | Market packaging | Currently closer to custom/internal product | AXELOT/1C/Saby sell mature products | Flexibility and modern stack | * Pricing, sales docs, demo stand, support, cases, Russian software registry |
 

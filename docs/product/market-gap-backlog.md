@@ -14,6 +14,7 @@ Updated: 2026-04-28
 | ETRN / EPD | Internal foundation and XML/export | Saby, Kontur, Taxcom | Accredited operator, KEP/MChD, GIS EPD, QR, roaming |
 | Integrations | API and some mocks/foundations | Enterprise TMS market | Ready connectors for 1C, SAP, WMS, GPS, EDO |
 | Operations | Docker, nginx, backup, rollback | Enterprise/on-prem products | Observability, alerting, CI/CD, SLA playbooks |
+| UI / UX | Functional role screens and web smoke evidence | Saby, AXELOT, Yandex, 1C:TMS | * Role-based UX polish, dispatcher cockpit, better texts, empty/error states, browser screenshots |
 
 ## Recommended First Market Track
 
