@@ -1,0 +1,897 @@
+﻿import { FastifyPluginAsync } from 'fastify';
+import { requireAbility } from '../../auth/rbac.js';
+import { assertDriverAccess, assertOrderAccess, assertTrailerAccess, assertTripAccess, assertVehicleAccess, resolveContractorId } from '../../auth/guards.js';
+import {
+    createTrip,
+    getTrips,
+    getTripById,
+    getTransportDossier,
+    updateTrip,
+    assignTrip,
+    changeTripStatus,
+    getRoutePoints,
+    addRoutePoint,
+    updateRoutePoint,
+    deleteRoutePoint,
+    getAvailableVehicles,
+    getAvailableDrivers,
+    createDeliveryConfirmation,
+    getDeliveryConfirmation,
+} from './service.js';
+import {
+    getPersistedTransportDocumentById,
+    registerTransportDocumentProviderCallback,
+    retryTransportDocument,
+    sendTransportDocumentToProvider,
+    syncTransportDocumentsForTrip,
+    updatePersistedTransportDocumentStatus,
+} from './transport-documents-store.js';
+import { db } from '../../db/connection.js';
+import { drivers, orders, documentReturns } from '../../db/schema.js';
+import { eq, inArray } from 'drizzle-orm';
+import { z } from 'zod';
+import {
+    TripCreateSchema,
+    TripUpdateSchema,
+    RoutePointSchema,
+    DeliveryConfirmationCreateSchema,
+    TransportDocumentExchangeDirection,
+    TransportDocumentExchangeStatus,
+    TransportDocumentReceiptType,
+    TransportDocumentStatus,
+    hasPrivilege,
+} from '@tms/shared';
+
+// H-3: Resolve driverId from JWT userId (for RLS)
+async function resolveDriverId(userId: string): Promise<string | null> {
+    const [driver] = await db.select({ id: drivers.id })
+        .from(drivers).where(eq(drivers.userId, userId)).limit(1);
+    return driver?.id ?? null;
+}
+
+const tripsRoutes: FastifyPluginAsync = async (app) => {
+    // --- GET /trips вЂ” list with pagination & filters (RLS: driver sees own, client sees own) ---
+    app.get('/trips', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЎРїРёСЃРѕРє СЂРµР№СЃРѕРІ', description: 'РџРѕР»СѓС‡РёС‚СЊ РІСЃРµ СЂРµР№СЃС‹ СЃ С„РёР»СЊС‚СЂР°С†РёРµР№ РїРѕ СЃС‚Р°С‚СѓСЃСѓ, РўРЎ, РІРѕРґРёС‚РµР»СЋ, РґР°С‚Рµ. РџР°РіРёРЅР°С†РёСЏ. RLS РґР»СЏ РІРѕРґРёС‚РµР»РµР№/РєР»РёРµРЅС‚РѕРІ.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request) => {
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+        const query = request.query as {
+            status?: string;
+            vehicleId?: string;
+            driverId?: string;
+            dateFrom?: string;
+            dateTo?: string;
+            page?: string;
+            limit?: string;
+        };
+
+        const privileged = hasPrivilege(user.roles);
+
+        // H-3: RLS вЂ” drivers can only see their own trips
+        let rlsDriverId = query.driverId;
+        if (!privileged && user.roles.includes('driver')) {
+            const myDriverId = await resolveDriverId(user.userId);
+            if (myDriverId) rlsDriverId = myDriverId;
+        }
+
+        // RLS: client can only see trips linked to their orders
+        let rlsTripIds: string[] | undefined;
+        if (!privileged && user.roles.includes('client')) {
+            const myContractorId = await resolveContractorId(user.userId);
+            if (!myContractorId) return { success: true, data: [], total: 0, page: 1, limit: 20 };
+            const clientOrders = await db.select({ tripId: orders.tripId })
+                .from(orders).where(eq(orders.contractorId, myContractorId));
+            rlsTripIds = clientOrders.map((o: any) => o.tripId).filter(Boolean);
+            if ((rlsTripIds?.length ?? 0) === 0) return { success: true, data: [], total: 0, page: 1, limit: 20 };
+        }
+
+        const result = await getTrips({
+            status: query.status,
+            vehicleId: query.vehicleId,
+            driverId: rlsDriverId,
+            dateFrom: query.dateFrom,
+            dateTo: query.dateTo,
+            page: query.page ? parseInt(query.page, 10) : undefined,
+            limit: query.limit ? parseInt(query.limit, 10) : undefined,
+            tripIds: rlsTripIds,
+            organizationId: user.organizationId,
+        });
+
+        return { success: true, ...result };
+    });
+
+    // --- GET /trips/available-vehicles ---
+    app.get('/trips/available-vehicles', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р”РѕСЃС‚СѓРїРЅС‹Рµ РўРЎ', description: 'РЎРїРёСЃРѕРє РўРЎ СЃРѕ СЃС‚Р°С‚СѓСЃРѕРј available РґР»СЏ РЅР°Р·РЅР°С‡РµРЅРёСЏ РЅР° СЂРµР№СЃ.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
+    }, async (request) => {
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const vehicles = await getAvailableVehicles(user.organizationId);
+        return { success: true, data: vehicles };
+    });
+
+    // --- GET /trips/available-drivers ---
+    app.get('/trips/available-drivers', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р”РѕСЃС‚СѓРїРЅС‹Рµ РІРѕРґРёС‚РµР»Рё', description: 'РЎРїРёСЃРѕРє Р°РєС‚РёРІРЅС‹С… РІРѕРґРёС‚РµР»РµР№ РґР»СЏ РЅР°Р·РЅР°С‡РµРЅРёСЏ РЅР° СЂРµР№СЃ.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Driver')],
+    }, async (request) => {
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const drivers = await getAvailableDrivers(user.organizationId);
+        return { success: true, data: drivers };
+    });
+
+    // --- GET /trips/:id ---
+    app.get('/trips/:id', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РџРѕР»СѓС‡РёС‚СЊ СЂРµР№СЃ', description: 'Р”РµС‚Р°Р»СЊРЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ Рѕ СЂРµР№СЃРµ РїРѕ ID СЃ РїСЂРёРІСЏР·Р°РЅРЅС‹РјРё Р·Р°СЏРІРєР°РјРё.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+        const trip = await getTripById(id);
+
+        if (!trip) {
+            return reply.status(404).send({ success: false, error: 'Р РµР№СЃ РЅРµ РЅР°Р№РґРµРЅ' });
+        }
+
+        return { success: true, data: trip };
+    });
+
+    // --- POST /trips вЂ” create ---
+    app.post('/trips', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЎРѕР·РґР°С‚СЊ СЂРµР№СЃ', description: 'РЎРѕР·РґР°РЅРёРµ РЅРѕРІРѕРіРѕ СЂРµР№СЃР°. РђРІС‚РѕРіРµРЅРµСЂР°С†РёСЏ РЅРѕРјРµСЂР°. Р’Р°Р»РёРґР°С†РёСЏ Zod.' },
+        preHandler: [app.authenticate, requireAbility('create', 'Trip')],
+    }, async (request, reply) => {
+        try {
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            const body = request.body as { orderIds?: string[]; orders?: string[]; [key: string]: unknown };
+
+            // Accept both the new orderIds field and the legacy orders alias from the dispatcher UI.
+            const orderIds = Array.isArray(body.orderIds)
+                ? body.orderIds
+                : Array.isArray(body.orders)
+                    ? body.orders
+                    : undefined;
+
+            // H-4: Zod validation for trip creation
+            const parsed = TripCreateSchema.safeParse({
+                ...body,
+                createdBy: user.userId,
+            });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (parsed.data.vehicleId) await assertVehicleAccess(parsed.data.vehicleId, user);
+            if (parsed.data.driverId) await assertDriverAccess(parsed.data.driverId, user);
+            if (parsed.data.trailerId) await assertTrailerAccess(parsed.data.trailerId, user);
+            for (const orderId of orderIds ?? []) {
+                await assertOrderAccess(orderId, user);
+            }
+
+            const trip = await createTrip(
+                { ...(parsed.data as z.infer<typeof TripCreateSchema>), orderIds },
+                { userId: user.userId, role: user.roles[0], organizationId: user.organizationId },
+            );
+
+            return reply.status(201).send({ success: true, data: trip });
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
+    // --- PUT /trips/:id вЂ” update ---
+    app.put('/trips/:id', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РћР±РЅРѕРІРёС‚СЊ СЂРµР№СЃ', description: 'Р§Р°СЃС‚РёС‡РЅРѕРµ РѕР±РЅРѕРІР»РµРЅРёРµ СЂРµР№СЃР° (РјР°СЂС€СЂСѓС‚, РїР»Р°РЅРѕРІС‹Рµ РґР°РЅРЅС‹Рµ).' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+        const parseResult = TripUpdateSchema.safeParse(request.body);
+        if (!parseResult.success) {
+            return reply.status(400).send({
+                success: false,
+                error: 'РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё',
+                details: parseResult.error.flatten().fieldErrors,
+            });
+        }
+        if (parseResult.data.vehicleId) await assertVehicleAccess(parseResult.data.vehicleId, user);
+        if (parseResult.data.driverId) await assertDriverAccess(parseResult.data.driverId, user);
+        if (parseResult.data.trailerId) await assertTrailerAccess(parseResult.data.trailerId, user);
+
+        const trip = await updateTrip(id, parseResult.data);
+        if (!trip) {
+            return reply.status(404).send({ success: false, error: 'Р РµР№СЃ РЅРµ РЅР°Р№РґРµРЅ' });
+        }
+
+        return { success: true, data: trip };
+    });
+
+    // --- POST /trips/:id/assign вЂ” assign vehicle + driver ---
+    app.post('/trips/:id/assign', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РќР°Р·РЅР°С‡РёС‚СЊ РўРЎ/РІРѕРґРёС‚РµР»СЏ', description: 'РџСЂРёРІСЏР·РєР° С‚СЂР°РЅСЃРїРѕСЂС‚РЅРѕРіРѕ СЃСЂРµРґСЃС‚РІР° Рё РІРѕРґРёС‚РµР»СЏ Рє СЂРµР№СЃСѓ. РџСЂРѕРІРµСЂРєР° РґРѕСЃС‚СѓРїРЅРѕСЃС‚Рё.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            await assertTripAccess(id, user);
+            const body = request.body as { vehicleId: string; driverId: string; trailerId?: string };
+
+            if (!body.vehicleId || !body.driverId) {
+                return reply.status(400).send({
+                    success: false,
+                    error: 'vehicleId Рё driverId РѕР±СЏР·Р°С‚РµР»СЊРЅС‹',
+                });
+            }
+            await assertVehicleAccess(body.vehicleId, user);
+            await assertDriverAccess(body.driverId, user);
+            if (body.trailerId) await assertTrailerAccess(body.trailerId, user);
+
+            const result = await assignTrip(id, body.vehicleId, body.driverId, {
+                userId: user.userId,
+                role: user.roles[0],
+                organizationId: user.organizationId,
+            }, body.trailerId);
+
+            const hardBlocks = result.warnings.filter(w => w.type === 'hard');
+            if (hardBlocks.length > 0) {
+                return reply.status(409).send({
+                    success: false,
+                    error: 'РќР°Р·РЅР°С‡РµРЅРёРµ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅРѕ',
+                    data: { warnings: result.warnings },
+                });
+            }
+
+            return {
+                success: true,
+                data: result.trip,
+                warnings: result.warnings.filter(w => w.type === 'soft'),
+            };
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
+    // --- POST /trips/:id/status вЂ” advance status ---
+    app.post('/trips/:id/status', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЎРјРµРЅРёС‚СЊ СЃС‚Р°С‚СѓСЃ', description: 'РџРµСЂРµС…РѕРґ РїРѕ state machine СЂРµР№СЃР° (planningв†’assignedв†’inspectionв†’вЂ¦в†’completed). Р’Р°Р»РёРґР°С†РёСЏ РїРµСЂРµС…РѕРґРѕРІ.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            await assertTripAccess(id, user);
+            const body = request.body as {
+                status: string;
+                odometerStart?: number;
+                odometerEnd?: number;
+                fuelEnd?: number;
+            };
+
+            if (!body.status) {
+                return reply.status(400).send({
+                    success: false,
+                    error: 'status РѕР±СЏР·Р°С‚РµР»РµРЅ',
+                });
+            }
+
+            const trip = await changeTripStatus(id, body.status, {
+                userId: user.userId,
+                role: user.roles[0],
+                organizationId: user.organizationId,
+            }, body);
+
+            return { success: true, data: trip };
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
+    // --- POST /trips/:id/cancel ---
+    app.post('/trips/:id/cancel', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РћС‚РјРµРЅРёС‚СЊ СЂРµР№СЃ', description: 'РћС‚РјРµРЅР° СЂРµР№СЃР° СЃ СѓРєР°Р·Р°РЅРёРµРј РїСЂРёС‡РёРЅС‹. РћСЃРІРѕР±РѕР¶РґРµРЅРёРµ РўРЎ Рё РІРѕРґРёС‚РµР»СЏ.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            await assertTripAccess(id, user);
+            const body = request.body as { reason?: string };
+
+            const trip = await changeTripStatus(id, 'cancelled', {
+                userId: user.userId,
+                role: user.roles[0],
+                organizationId: user.organizationId,
+            }, { reason: body?.reason });
+
+            return { success: true, data: trip };
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
+    // === Route Points sub-routes ===
+
+    // --- GET /trips/:id/points ---
+    app.get('/trips/:id/points', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РўРѕС‡РєРё РјР°СЂС€СЂСѓС‚Р°', description: 'РЎРїРёСЃРѕРє С‚РѕС‡РµРє РјР°СЂС€СЂСѓС‚Р° СЂРµР№СЃР° (РїРѕРіСЂСѓР·РєР°/СЂР°Р·РіСЂСѓР·РєР°) СЃ РєРѕРѕСЂРґРёРЅР°С‚Р°РјРё Рё СЃС‚Р°С‚СѓСЃР°РјРё.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+        const points = await getRoutePoints(id);
+        return { success: true, data: points };
+    });
+
+    // --- POST /trips/:id/points ---
+    app.post('/trips/:id/points', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р”РѕР±Р°РІРёС‚СЊ С‚РѕС‡РєСѓ', description: 'Р”РѕР±Р°РІР»РµРЅРёРµ РЅРѕРІРѕР№ С‚РѕС‡РєРё РјР°СЂС€СЂСѓС‚Р° Рє СЂРµР№СЃСѓ.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        await assertTripAccess(id, request.user as { userId: string; roles: string[]; organizationId?: string | null });
+        const body = request.body as {
+            orderId?: string;
+            type: 'loading' | 'unloading';
+            address: string;
+            lat?: number;
+            lon?: number;
+            windowStart?: string;
+            windowEnd?: string;
+            notes?: string;
+        };
+
+        const point = await addRoutePoint(id, body);
+        return reply.status(201).send({ success: true, data: point });
+    });
+
+    // --- PUT /trips/:id/points/:pointId ---
+    app.put('/trips/:id/points/:pointId', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РћР±РЅРѕРІРёС‚СЊ С‚РѕС‡РєСѓ', description: 'РћР±РЅРѕРІР»РµРЅРёРµ С‚РѕС‡РєРё РјР°СЂС€СЂСѓС‚Р° (РєРѕРѕСЂРґРёРЅР°С‚С‹, РІСЂРµРјСЏ РїСЂРёР±С‹С‚РёСЏ, СЃС‚Р°С‚СѓСЃ).' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, pointId } = request.params as { id: string; pointId: string };
+        await assertTripAccess(id, request.user as { userId: string; roles: string[]; organizationId?: string | null });
+
+        const parseResult = RoutePointSchema.partial().safeParse(request.body);
+        if (!parseResult.success) {
+            return reply.status(400).send({
+                success: false,
+                error: 'РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё',
+                details: parseResult.error.flatten().fieldErrors,
+            });
+        }
+
+        const point = await updateRoutePoint(id, pointId, parseResult.data);
+        if (!point) {
+            return reply.status(404).send({ success: false, error: 'РўРѕС‡РєР° РЅРµ РЅР°Р№РґРµРЅР°' });
+        }
+
+        return { success: true, data: point };
+    });
+
+    // --- DELETE /trips/:id/points/:pointId ---
+    app.delete('/trips/:id/points/:pointId', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЈРґР°Р»РёС‚СЊ С‚РѕС‡РєСѓ', description: 'РЈРґР°Р»РµРЅРёРµ С‚РѕС‡РєРё РјР°СЂС€СЂСѓС‚Р° РёР· СЂРµР№СЃР°.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, pointId } = request.params as { id: string; pointId: string };
+        await assertTripAccess(id, request.user as { userId: string; roles: string[]; organizationId?: string | null });
+
+        const point = await deleteRoutePoint(id, pointId);
+        if (!point) {
+            return reply.status(404).send({ success: false, error: 'РўРѕС‡РєР° РЅРµ РЅР°Р№РґРµРЅР°' });
+        }
+
+        return { success: true, data: point };
+    });
+
+    // ================================================================
+    // Sprint 13: Delivery Confirmation
+    // ================================================================
+
+    // GET /trips/:id/delivery-confirmation вЂ” РїРѕР»СѓС‡РёС‚СЊ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РґРѕСЃС‚Р°РІРєРё
+    app.get('/trips/:id/delivery-confirmation', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РґРѕСЃС‚Р°РІРєРё', description: 'РџРѕР»СѓС‡РёС‚СЊ РґР°РЅРЅС‹Рµ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ РґРѕСЃС‚Р°РІРєРё РѕС‚ РїРѕР»СѓС‡Р°С‚РµР»СЏ.' },
+        preHandler: [app.authenticate, requireAbility('read', 'DeliveryConfirmation')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        await assertTripAccess(id, request.user as { userId: string; roles: string[] });
+        const confirmation = await getDeliveryConfirmation(id);
+        if (!confirmation) {
+            return reply.status(404).send({ success: false, error: 'РџРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ РЅРµ РЅР°Р№РґРµРЅРѕ' });
+        }
+        return { success: true, data: confirmation };
+    });
+
+    // POST /trips/:id/delivery-confirmation вЂ” СЃРѕР·РґР°С‚СЊ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ Рё Р·Р°РІРµСЂС€РёС‚СЊ СЂРµР№СЃ
+    app.post('/trips/:id/delivery-confirmation', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РџРѕРґС‚РІРµСЂРґРёС‚СЊ РґРѕСЃС‚Р°РІРєСѓ', description: 'Р’РѕРґРёС‚РµР»СЊ РёР»Рё РґРёСЃРїРµС‚С‡РµСЂ С„РёРєСЃРёСЂСѓРµС‚ С„Р°РєС‚ РґРѕСЃС‚Р°РІРєРё. РџСЂРё confirmationMode=required вЂ” РµРґРёРЅСЃС‚РІРµРЅРЅС‹Р№ СЃРїРѕСЃРѕР± Р·Р°РІРµСЂС€РёС‚СЊ СЂРµР№СЃ. Р”РёСЃРїРµС‚С‡РµСЂ РјРѕР¶РµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ forcedByDispatcher=true.' },
+        preHandler: [app.authenticate, requireAbility('create', 'DeliveryConfirmation')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const body = DeliveryConfirmationCreateSchema.safeParse(request.body);
+        if (!body.success) {
+            return reply.status(400).send({ success: false, error: 'РћС€РёР±РєР° РІР°Р»РёРґР°С†РёРё', details: body.error.flatten() });
+        }
+
+        // Only dispatchers can use forcedByDispatcher
+        if (body.data.forcedByDispatcher && !user.roles.includes('dispatcher') && !user.roles.includes('admin')) {
+            return reply.status(403).send({ success: false, error: 'РўРѕР»СЊРєРѕ РґРёСЃРїРµС‚С‡РµСЂ РјРѕР¶РµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РїСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕРµ Р·Р°РІРµСЂС€РµРЅРёРµ' });
+        }
+
+        try {
+            const confirmation = await createDeliveryConfirmation(id, body.data, {
+                userId: user.userId,
+                role: user.roles[0] ?? 'driver',
+            });
+            return reply.status(201).send({ success: true, data: confirmation });
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
+    // ================================================================
+    // Sprint 11: Document Returns (СЂРµРµСЃС‚СЂ РѕСЂРёРіРёРЅР°Р»РѕРІ)
+    // ================================================================
+
+    const DocumentReturnUpsertSchema = z.object({
+        docType: z.enum(['ttn', 'upd', 'act', 'other']),
+        status: z.enum(['pending', 'received', 'overdue']),
+        receivedAt: z.string().datetime().optional().nullable(),
+        notes: z.string().max(500).optional().nullable(),
+    });
+
+    // GET /trips/:id/document-returns вЂ” СЃРїРёСЃРѕРє СЃС‚Р°С‚СѓСЃРѕРІ РґРѕРєСѓРјРµРЅС‚РѕРІ РїРѕ СЂРµР№СЃСѓ
+    app.get('/trips/:id/document-returns', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р РµРµСЃС‚СЂ РѕСЂРёРіРёРЅР°Р»РѕРІ РґРѕРєСѓРјРµРЅС‚РѕРІ', description: 'РЎРїРёСЃРѕРє СЃС‚Р°С‚СѓСЃРѕРІ РІРѕР·РІСЂР°С‚Р° РѕСЂРёРіРёРЅР°Р»РѕРІ (РўРўРќ, РЈРџР”, РђРєС‚) РїРѕ СЂРµР№СЃСѓ.' },
+        preHandler: [app.authenticate, requireAbility('read', 'DocumentReturn')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        await assertTripAccess(id, request.user as { userId: string; roles: string[] });
+        const rows = await db.select().from(documentReturns).where(eq(documentReturns.tripId, id));
+        return { success: true, data: rows };
+    });
+
+    // POST /trips/:id/document-returns вЂ” СЃРѕР·РґР°С‚СЊ/РѕР±РЅРѕРІРёС‚СЊ Р·Р°РїРёСЃСЊ РїРѕ (tripId, docType)
+    app.post('/trips/:id/document-returns', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'РЈС‚РѕС‡РЅРёС‚СЊ СЃС‚Р°С‚СѓСЃ РґРѕРєСѓРјРµРЅС‚Р°', description: 'Upsert РїРѕ (tripId, docType). Р”РёСЃРїРµС‚С‡РµСЂ/Р±СѓС…РіР°Р»С‚РµСЂ С„РёРєСЃРёСЂСѓСЋС‚ РїРѕР»СѓС‡РµРЅРёРµ РѕСЂРёРіРёРЅР°Р»РѕРІ.' },
+        preHandler: [app.authenticate, requireAbility('manage', 'DocumentReturn')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+        const parsed = DocumentReturnUpsertSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(422).send({ success: false, error: parsed.error.flatten() });
+        }
+
+        const { docType, status, receivedAt, notes } = parsed.data;
+
+        const [row] = await db
+            .insert(documentReturns)
+            .values({
+                tripId: id,
+                docType,
+                status,
+                receivedAt: receivedAt ? new Date(receivedAt) : null,
+                notes: notes ?? null,
+            })
+            .onConflictDoUpdate({
+                target: [documentReturns.tripId, documentReturns.docType],
+                set: {
+                    status,
+                    receivedAt: receivedAt ? new Date(receivedAt) : null,
+                    notes: notes ?? null,
+                    updatedAt: new Date(),
+                },
+            })
+            .returning();
+
+        await syncTransportDocumentsForTrip(id, user.userId);
+
+        return reply.status(201).send({ success: true, data: row });
+    });
+
+    app.get('/trips/:id/transport-documents', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р”РѕРєСѓРјРµРЅС‚С‹ РїРµСЂРµРІРѕР·РєРё', description: 'Runtime transport document layer: waybill, delivery confirmations, and document returns.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const bundle = await syncTransportDocumentsForTrip(id, user.userId);
+        if (!bundle) {
+            return reply.status(404).send({ success: false, error: 'Trip not found' });
+        }
+
+        return { success: true, data: bundle };
+    });
+
+    app.get('/trips/:id/transport-documents/:documentId', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Р”РѕРєСѓРјРµРЅС‚ РїРµСЂРµРІРѕР·РєРё', description: 'Preview a single runtime transport document by composite id.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id, documentId } = request.params as { id: string; documentId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+        await syncTransportDocumentsForTrip(id, user.userId);
+
+        const document = await getPersistedTransportDocumentById(id, documentId);
+        if (!document) {
+            return reply.status(404).send({ success: false, error: 'Document not found' });
+        }
+
+        return { success: true, data: document };
+    });
+
+    app.get('/trips/:id/transport-documents/:documentId/exchange', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'Transport document exchange', description: 'Persisted outbound/inbound exchange state for a transport document.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id, documentId } = request.params as { id: string; documentId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+        await syncTransportDocumentsForTrip(id, user.userId);
+
+        const document = await getPersistedTransportDocumentById(id, documentId);
+        if (!document) {
+            return reply.status(404).send({ success: false, error: 'Document not found' });
+        }
+
+        return {
+            success: true,
+            data: {
+                document,
+                exchange: document.exchange ?? null,
+                attempts: document.exchanges ?? [],
+                receipts: document.receipts ?? [],
+            },
+        };
+    });
+
+    app.post('/trips/:id/transport-documents/:documentId/retry', {
+        schema: { tags: ['Trips'], summary: 'Retry transport document', description: 'Increment retry counter and append a retry history event for the persisted document.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, documentId } = request.params as { id: string; documentId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+        await syncTransportDocumentsForTrip(id, user.userId);
+
+        const document = await retryTransportDocument(id, documentId, user.userId);
+        if (!document) {
+            return reply.status(404).send({ success: false, error: 'Document not found' });
+        }
+
+        return { success: true, data: document };
+    });
+
+    app.post('/trips/:id/transport-documents/:documentId/exchange/attempts', {
+        schema: { tags: ['Trips'], summary: 'Create exchange attempt', description: 'Create an outbound exchange attempt and persist provider metadata for a transport document.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, documentId } = request.params as { id: string; documentId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const bodySchema = z.object({
+            providerName: z.string().optional(),
+            direction: z.nativeEnum(TransportDocumentExchangeDirection).optional(),
+            operation: z.string().min(1).default('submit'),
+            status: z.nativeEnum(TransportDocumentExchangeStatus).optional(),
+            requestId: z.string().optional(),
+            providerDocumentId: z.string().optional(),
+            providerMessageId: z.string().optional(),
+            providerEventId: z.string().optional(),
+            providerStatus: z.string().optional(),
+            requestPayload: z.record(z.string(), z.unknown()).optional(),
+            responsePayload: z.record(z.string(), z.unknown()).optional(),
+            errorCode: z.string().optional(),
+            errorMessage: z.string().optional(),
+            nextRetryAt: z.string().datetime().optional(),
+        });
+
+        await assertTripAccess(id, user);
+
+        const parsed = bodySchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+
+        await syncTransportDocumentsForTrip(id, user.userId);
+
+        const document = await sendTransportDocumentToProvider({
+            tripId: id,
+            documentId,
+            createdBy: user.userId,
+            ...parsed.data,
+        });
+        if (!document) {
+            return reply.status(404).send({ success: false, error: 'Document not found' });
+        }
+
+        return {
+            success: true,
+            data: {
+                document,
+                exchange: document.exchange ?? null,
+                attempts: document.exchanges ?? [],
+                receipts: document.receipts ?? [],
+            },
+        };
+    });
+
+    app.post('/trips/:id/transport-documents/:documentId/exchange/receipts', {
+        schema: { tags: ['Trips'], summary: 'Record exchange receipt', description: 'Persist a provider receipt/callback for a transport document exchange.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, documentId } = request.params as { id: string; documentId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const bodySchema = z.object({
+            receiptType: z.nativeEnum(TransportDocumentReceiptType),
+            title: z.string().min(1).optional(),
+            message: z.string().optional(),
+            providerStatus: z.string().optional(),
+            providerReceiptId: z.string().optional(),
+            providerEventId: z.string().optional(),
+            providerDocumentId: z.string().optional(),
+            providerMessageId: z.string().optional(),
+            payload: z.record(z.string(), z.unknown()).optional(),
+        });
+
+        await assertTripAccess(id, user);
+
+        const parsed = bodySchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+
+        await syncTransportDocumentsForTrip(id, user.userId);
+
+        const receipt = await registerTransportDocumentProviderCallback({
+            tripId: id,
+            documentId,
+            createdBy: user.userId,
+            ...parsed.data,
+            title: parsed.data.title ?? 'Provider receipt recorded',
+        });
+        if (!receipt) {
+            return reply.status(404).send({ success: false, error: 'Document not found' });
+        }
+
+        const document = await getPersistedTransportDocumentById(id, documentId);
+        return { success: true, data: { receipt, document } };
+    });
+
+    app.post('/trips/:id/transport-documents/:documentId/provider-status', {
+        schema: { tags: ['Trips'], summary: 'Update provider status', description: 'Manual provider/status update that also persists a callback-style receipt.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, documentId } = request.params as { id: string; documentId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const bodySchema = z.object({
+            status: z.nativeEnum(TransportDocumentStatus),
+            message: z.string().optional(),
+            providerStatus: z.string().optional(),
+            providerDocumentId: z.string().optional(),
+            providerMessageId: z.string().optional(),
+            externalId: z.string().optional(),
+            nextRetryAt: z.string().datetime().optional(),
+            error: z.string().optional(),
+        });
+
+        await assertTripAccess(id, user);
+
+        const parsed = bodySchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+
+        await syncTransportDocumentsForTrip(id, user.userId);
+
+        const result = await updatePersistedTransportDocumentStatus({
+            tripId: id,
+            documentId,
+            createdBy: user.userId,
+            ...parsed.data,
+        });
+        if (!result) {
+            return reply.status(404).send({ success: false, error: 'Document not found' });
+        }
+
+        return { success: true, data: result };
+    });
+
+    app.post('/trips/:id/transport-documents/:documentId/send', {
+        schema: { tags: ['Trips'], summary: 'Send transport document to provider', description: 'Create outbound external compliance exchange attempt for a persisted transport document.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, documentId } = request.params as { id: string; documentId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const bodySchema = z.object({
+            providerName: z.string().optional(),
+            requestPayload: z.record(z.string(), z.unknown()).optional(),
+        });
+
+        await assertTripAccess(id, user);
+
+        const parsed = bodySchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+
+        await syncTransportDocumentsForTrip(id, user.userId);
+
+        const document = await sendTransportDocumentToProvider({
+            tripId: id,
+            documentId,
+            createdBy: user.userId,
+            ...parsed.data,
+        });
+        if (!document) {
+            return reply.status(404).send({ success: false, error: 'Document not found' });
+        }
+
+        return { success: true, data: document };
+    });
+
+    app.post('/trips/:id/transport-documents/:documentId/status', {
+        schema: { tags: ['Trips'], summary: 'Update transport document status', description: 'Manual provider/status update for a persisted transport document.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, documentId } = request.params as { id: string; documentId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const bodySchema = z.object({
+            status: z.nativeEnum(TransportDocumentStatus),
+            message: z.string().optional(),
+            providerStatus: z.string().optional(),
+            providerDocumentId: z.string().optional(),
+            providerMessageId: z.string().optional(),
+            externalId: z.string().optional(),
+            nextRetryAt: z.string().datetime().optional(),
+            error: z.string().optional(),
+        });
+
+        await assertTripAccess(id, user);
+
+        const parsed = bodySchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+
+        await syncTransportDocumentsForTrip(id, user.userId);
+
+        const document = await updatePersistedTransportDocumentStatus({
+            tripId: id,
+            documentId,
+            createdBy: user.userId,
+            ...parsed.data,
+        });
+        if (!document) {
+            return reply.status(404).send({ success: false, error: 'Document not found' });
+        }
+
+        return { success: true, data: document };
+    });
+
+    app.post('/trips/:id/transport-documents/:documentId/provider-callback', {
+        schema: { tags: ['Trips'], summary: 'Register provider callback', description: 'Persist an inbound provider event/receipt for a transport document and update external compliance state.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, documentId } = request.params as { id: string; documentId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const bodySchema = z.object({
+            receiptType: z.nativeEnum(TransportDocumentReceiptType),
+            title: z.string().optional(),
+            message: z.string().optional(),
+            providerStatus: z.string().optional(),
+            providerReceiptId: z.string().optional(),
+            providerEventId: z.string().optional(),
+            providerDocumentId: z.string().optional(),
+            providerMessageId: z.string().optional(),
+            payload: z.record(z.string(), z.unknown()).optional(),
+        });
+
+        await assertTripAccess(id, user);
+
+        const parsed = bodySchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+
+        await syncTransportDocumentsForTrip(id, user.userId);
+
+        const document = await registerTransportDocumentProviderCallback({
+            tripId: id,
+            documentId,
+            createdBy: user.userId,
+            ...parsed.data,
+        });
+        if (!document) {
+            return reply.status(404).send({ success: false, error: 'Document not found' });
+        }
+
+        return { success: true, data: document };
+    });
+
+    app.get('/trips/:id/etrn-workflow', {
+        schema: { tags: ['Р РµР№СЃС‹'], summary: 'ETRN workflow', description: 'Runtime official ETRN title workflow derived from trip, waybill, confirmations, and returns.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const bundle = await syncTransportDocumentsForTrip(id, user.userId);
+        if (!bundle) {
+            return reply.status(404).send({ success: false, error: 'Trip not found' });
+        }
+
+        return { success: true, data: bundle.etrn };
+    });
+
+    app.get('/trips/:id/etrn-workflow/:titleType', {
+        schema: { tags: ['Trips'], summary: 'ETRN title', description: 'Runtime official ETRN title detail by title type.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id, titleType } = request.params as { id: string; titleType: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const bundle = await syncTransportDocumentsForTrip(id, user.userId);
+        if (!bundle) {
+            return reply.status(404).send({ success: false, error: 'Trip not found' });
+        }
+
+        const title = bundle.etrn.titles.find((item) => item.titleType === titleType);
+        if (!title) {
+            return reply.status(404).send({ success: false, error: 'Title not found' });
+        }
+
+        return { success: true, data: title };
+    });
+
+    app.get('/trips/:id/compliance-panel', {
+        schema: { tags: ['Trips'], summary: 'Compliance panel', description: 'Runtime transport compliance bundle for the UI: documents, lifecycle, timeline, problems, and summary.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const bundle = await syncTransportDocumentsForTrip(id, user.userId);
+        if (!bundle) {
+            return reply.status(404).send({ success: false, error: 'Trip not found' });
+        }
+
+        return { success: true, data: bundle };
+    });
+
+    app.get('/trips/:id/dossier', {
+        schema: { tags: ['Trips'], summary: 'Transport dossier', description: 'Read-only dossier for a trip: trip, orders, waybill, vehicle, trailer, and parties.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const dossier = await getTransportDossier(id);
+        if (!dossier) {
+            return reply.status(404).send({ success: false, error: 'Trip not found' });
+        }
+
+        const transportDocuments = await syncTransportDocumentsForTrip(id, user.userId);
+
+        return { success: true, data: { ...dossier, transportDocuments } };
+    });
+};
+
+export default tripsRoutes;
+
+
+
+
