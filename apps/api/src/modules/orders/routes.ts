@@ -18,6 +18,7 @@ import { db } from '../../db/connection.js';
 import { drivers, users, trips } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { getOrderFulfillment } from '../operational-core/service.js';
+import { splitOrderIntoLots } from '../operational-core/write-service.js';
 
 function sendAccessError(reply: any, err: unknown) {
     if (err instanceof AccessDeniedError) {
@@ -115,6 +116,22 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
         });
 
         return { success: true, data: kanban };
+    });
+
+    // --- POST /orders/:id/lots/split — split one order into transportable lots ---
+    app.post('/orders/:id/lots/split', {
+        schema: { tags: ['Заявки'], summary: 'Разбить заявку на партии' },
+        preHandler: [app.authenticate, requireAbility('update', 'Order')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            await assertOrderAccess(id, user);
+            const lots = await splitOrderIntoLots(id, request.body as { maxWeightKg?: number; lotCount?: number }, { userId: user.userId, role: user.roles[0], organizationId: user.organizationId });
+            return reply.status(201).send({ success: true, data: lots });
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
     });
 
     // --- GET /orders/:id/fulfillment — Operational Core v2 read model ---

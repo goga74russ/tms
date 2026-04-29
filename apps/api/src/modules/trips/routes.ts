@@ -1,4 +1,4 @@
-﻿import { FastifyPluginAsync } from 'fastify';
+import { FastifyPluginAsync } from 'fastify';
 import { requireAbility } from '../../auth/rbac.js';
 import { assertDriverAccess, assertOrderAccess, assertTrailerAccess, assertTripAccess, assertVehicleAccess, resolveContractorId } from '../../auth/guards.js';
 import {
@@ -27,10 +27,11 @@ import {
     updatePersistedTransportDocumentStatus,
 } from './transport-documents-store.js';
 import { db } from '../../db/connection.js';
-import { drivers, orders, documentReturns } from '../../db/schema.js';
-import { eq, inArray } from 'drizzle-orm';
+import { drivers, orders, documentReturns, documentDossierItems } from '../../db/schema.js';
+import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { getTripLoadPlan } from '../operational-core/service.js';
+import { assignLotToTrip, captureShipmentFact } from '../operational-core/write-service.js';
 import {
     TripCreateSchema,
     TripUpdateSchema,
@@ -120,6 +121,38 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
         const drivers = await getAvailableDrivers(user.organizationId);
         return { success: true, data: drivers };
+    });
+
+    // --- POST /trips/:id/lot-assignments — assign a shipment lot or partial quantity to a trip ---
+    app.post('/trips/:id/lot-assignments', {
+        schema: { tags: ['Рейсы'], summary: 'Назначить партию в рейс' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            await assertTripAccess(id, user);
+            const result = await assignLotToTrip(id, request.body as { shipmentLotId: string; assignedWeightKg?: number; assignedVolumeM3?: number; assignedPlaces?: number; allowOverCapacity?: boolean }, { userId: user.userId, role: user.roles[0], organizationId: user.organizationId });
+            return reply.status(201).send({ success: true, data: result });
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
+    // --- POST /trips/:id/shipment-facts — loading/unloading/discrepancy evidence ---
+    app.post('/trips/:id/shipment-facts', {
+        schema: { tags: ['Рейсы'], summary: 'Зафиксировать факт по партии' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            await assertTripAccess(id, user);
+            const result = await captureShipmentFact(id, request.body as any, { userId: user.userId, role: user.roles[0], organizationId: user.organizationId });
+            return reply.status(201).send({ success: true, data: result });
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
     });
 
     // --- GET /trips/:id/load-plan — Operational Core v2 read model ---
@@ -889,6 +922,25 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         return { success: true, data: bundle };
     });
 
+    app.post('/trips/:id/dossier/items/:itemId/exception', {
+        schema: { tags: ['Trips'], summary: 'Exception a dossier item', description: 'Mark a required dossier item as exceptioned with a reason. ETRN/provider lifecycle remains in transport_documents.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, itemId } = request.params as { id: string; itemId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+        const body = request.body as { reason?: string; metadata?: Record<string, unknown> };
+        const [item] = await db.update(documentDossierItems).set({
+            status: 'exceptioned',
+            blockedReason: body.reason ?? 'Manual exception',
+            metadata: body.metadata ?? {},
+            completedAt: new Date(),
+            updatedAt: new Date(),
+        }).where(eq(documentDossierItems.id, itemId)).returning();
+        if (!item) return reply.status(404).send({ success: false, error: 'Dossier item not found' });
+        return { success: true, data: item };
+    });
+
     app.get('/trips/:id/dossier', {
         schema: { tags: ['Trips'], summary: 'Transport dossier', description: 'Read-only dossier for a trip: trip, orders, waybill, vehicle, trailer, and parties.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
@@ -904,7 +956,11 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const transportDocuments = await syncTransportDocumentsForTrip(id, user.userId);
 
-        return { success: true, data: { ...dossier, transportDocuments } };
+        const dossierItemConditions = [eq(documentDossierItems.scopeType, 'trip' as any), eq(documentDossierItems.scopeId, id)];
+        if (user.organizationId) dossierItemConditions.push(eq(documentDossierItems.organizationId, user.organizationId));
+        const dossierItems = await db.select().from(documentDossierItems).where(and(...dossierItemConditions));
+
+        return { success: true, data: { ...dossier, transportDocuments, dossierItems } };
     });
 };
 

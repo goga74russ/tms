@@ -1,4 +1,4 @@
-﻿param(
+param(
     [switch]$SkipBuild,
     [switch]$SkipDockerDrills
 )
@@ -18,6 +18,7 @@ Invoke-RestMethod -Method Get -Uri http://localhost/api/health/ready | ConvertTo
 Get-Content -Raw D:\Ai\TMS-prod\scripts\db-integrity-check.sql | docker compose -f D:\Ai\TMS-prod\docker-compose.prod.yml exec -T postgres psql -U tms -d tms -v ON_ERROR_STOP=1
 D:\Ai\TMS-prod\scripts\mobile-smoke.ps1
 D:\Ai\TMS-prod\scripts\multi-tenant-smoke.ps1
+D:\Ai\TMS-prod\scripts\operational-core-smoke.ps1
 Start-Sleep -Seconds 60
 D:\Ai\TMS-prod\scripts\web-role-smoke.ps1
 
