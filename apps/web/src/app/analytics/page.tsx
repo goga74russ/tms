@@ -330,7 +330,7 @@ export default function AnalyticsPage() {
                                 Готовы: {fleetHealth.readiness.readyCount}
                             </span>
                             <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                                Ð—она внимания: {fleetHealth.readiness.attentionCount}
+                                Зона внимания: {fleetHealth.readiness.attentionCount}
                             </span>
                             <span className="inline-flex rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
                                 Блокировки: {fleetHealth.readiness.blockedCount}

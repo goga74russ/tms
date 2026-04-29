@@ -5,9 +5,11 @@
 ## UI coverage update 2026-04-29
 
 - Done: web trip dossier now includes an operational actions panel for downtime, readdressing, cancellation after arrival, breakdown, post-trip return, resource replacement, and crew/rest planning.
+- Done: trip dossier close gate now exposes a lightweight document queue for missing, overdue, and exceptioned documents with owner/action hints and safe print links for signature-refusal evidence.
+- Done: added printable signature-refusal act at `/print/signature-refusal/:tripId?documentId=...`, based on existing persisted transport document refusal metadata and dossier data.
 - Done: claims page has a printable claim act at `/print/claim-act/:id` for damage/shortage/delay/downtime/refusal evidence and settlement.
 - Done: finance invoice modal includes a free additional-service calculator for loading, unloading, permits, wash, downtime, and forwarding before posting invoice adjustments.
-- Checked: `corepack pnpm --filter @tms/web lint`, `scripts/ui-workflow-smoke.ps1`.
+- Checked: `corepack pnpm --filter @tms/web lint`, `scripts/ui-workflow-smoke.ps1`; document queue smoke also validates `closeGate.documentQueue` and `/print/signature-refusal/:tripId`.
 - Still later: printed acts, tariff rule engine, real ETRN provider/KEP/MChD integration, and richer approval workflows.
 
 Этот список нужен, чтобы TMS v2 не стала системой только для happy path `одна заявка -> одна машина -> одна доставка`. Реальные перевозки часто ломают такую модель: груз делится, консолидируется, меняется по факту, требует особых условий, документов, разрешений или претензионного контура.
@@ -55,9 +57,9 @@
 | Подписание разными сторонами | Нужны роли подписантов, КЭП/УКЭП/МЧД, полномочия и история подписания | Сделано, проверено 2026-04-29: transport-document signatures API, роли подписантов, authority/cert/MЧД metadata, history events; UI подписания добавлен; нужен реальный КЭП-провайдер |
 | Отказ от подписи | Нужно фиксировать отказ, причину, акт/доказательства и дальнейший статус | Сделано, проверено 2026-04-29: signature-refusal API, reason/evidence, rejected status, receipt/history; UI отказа добавлен; печатная форма акта позже |
 | Потерянные бумажные документы | Missing docs queue, ответственный, дедлайн, финансовая блокировка | Сделано бесплатно, проверено 2026-04-29: `document_dossier_items`, due/blocking, exception endpoint, close gate; dispatcher cockpit показывает blocker/next action; отдельная очередь документов позже |
-| ЭПД callback/retry | Идемпотентность, квитанции, отклонения, повторная отправка, сверка финального статуса | Сделано бесплатно, проверено 2026-04-29: `transport_document_exchanges/receipts`, retry, provider callback/status, refusal receipt; реальный оператор ЭПД позже |
+| ЭПД callback/retry | Идемпотентность, квитанции, отклонения, повторная отправка, сверка финального статуса | Сделано бесплатно, проверено 2026-04-29: `transport_document_exchanges/receipts`, retry, provider callback/status, refusal receipt; Newton 2026-04-29: `internal_mock_etrn` provider adapter returns providerDocumentId/providerMessageId/status and ACK-like receipt; реальный оператор ЭПД позже |
 | Архив документов | Сроки хранения, неизменяемость, поиск по заказу/рейсу/контрагенту | Сделано бесплатно, проверено 2026-04-29: persisted transport documents/history/receipts + MinIO skeleton; юридический WORM/КЭП-архив позже |
-| ЭТРН source package | Реализация должна опираться на локальные XSD и описание формата | Сделано 2026-04-29: `docs/architecture/etrn-source-map.md` |
+| ЭТРН source package | Реализация должна опираться на локальные XSD и описание формата | Сделано 2026-04-29: `docs/architecture/etrn-source-map.md`; Newton 2026-04-29: `etrn-xsd-manifest.ts` + `pnpm --filter @tms/api etrn:xsd-check` фиксируют used/skipped XSD без новых зависимостей |
 | ЭТРН dossier projection | В досье рейса должен быть виден обязательный ЭТРН-контур | Сделано 2026-04-29: `dossierItems`, placeholder `etrn`, close gate по missing/exceptioned |
 
 ## P4. Исполнение, контроль и мобильное приложение

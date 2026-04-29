@@ -35,12 +35,27 @@ type DossierCloseGateItem = {
     reason: string;
 };
 
+type DossierDocumentQueueItem = {
+    id: string;
+    documentType: string;
+    status: DossierItemStatus;
+    bucket: 'missing' | 'overdue' | 'exceptioned';
+    severity: DossierCloseGateSeverity;
+    dueAt: Date | null;
+    responsibleRole: 'dispatcher' | 'driver' | 'accounting';
+    action: string;
+    printUrl: string | null;
+    printLabel: string | null;
+    reason: string;
+};
+
 export type DossierCloseGate = {
     tripId: string;
     canClose: boolean;
     generatedAt: string;
     blockingItems: DossierCloseGateItem[];
     warningItems: DossierCloseGateItem[];
+    documentQueue: DossierDocumentQueueItem[];
     etrn: {
         required: boolean;
         present: boolean;
@@ -166,6 +181,67 @@ function toCloseGateItem(item: DossierItem, severity: DossierCloseGateSeverity):
     };
 }
 
+function queueBucket(item: DossierItem): DossierDocumentQueueItem['bucket'] | null {
+    if (item.status === 'exceptioned' || item.status === 'rejected') return 'exceptioned';
+    if (item.dueAt && item.dueAt.getTime() < Date.now() && !COMPLETED_DOSSIER_STATUSES.has(item.status)) return 'overdue';
+    if (item.status === 'missing') return 'missing';
+    return null;
+}
+
+function queueAction(item: DossierItem, bucket: DossierDocumentQueueItem['bucket']): string {
+    if (bucket === 'overdue') return 'Escalate owner and request original document';
+    if (bucket === 'exceptioned' && item.sourceDocumentKind === 'transport_document') return 'Review refusal/rejection evidence and attach paper act';
+    if (bucket === 'exceptioned') return 'Review exception reason and close paper trail';
+    if (item.documentType.toLowerCase() === 'etrn') return 'Create ETRN or register paper exception';
+    if (item.documentType.toLowerCase() === 'waybill') return 'Issue waybill before close';
+    return 'Request or upload missing document';
+}
+
+function queueResponsibleRole(item: DossierItem): DossierDocumentQueueItem['responsibleRole'] {
+    const type = item.documentType.toLowerCase();
+    if (type === 'upd' || type === 'invoice') return 'accounting';
+    if (type === 'delivery_confirmation') return 'driver';
+    return 'dispatcher';
+}
+
+function queuePrintLink(item: DossierItem) {
+    if (
+        item.sourceDocumentId
+        && item.sourceDocumentKind === 'transport_document'
+        && (item.status === 'rejected' || item.status === 'exceptioned')
+    ) {
+        return {
+            printUrl: `/print/signature-refusal/${item.scopeId}?documentId=${item.sourceDocumentId}`,
+            printLabel: 'Signature refusal act',
+        };
+    }
+
+    return { printUrl: null, printLabel: null };
+}
+
+function buildDocumentQueue(items: DossierItem[]): DossierDocumentQueueItem[] {
+    return items
+        .map((item) => {
+            const bucket = queueBucket(item);
+            if (!bucket) return null;
+            const print = queuePrintLink(item);
+            const severity: DossierCloseGateSeverity = bucket === 'missing' || bucket === 'overdue' ? 'blocking' : 'warning';
+            return {
+                id: item.id,
+                documentType: item.documentType,
+                status: item.status,
+                bucket,
+                severity,
+                dueAt: item.dueAt ?? null,
+                responsibleRole: queueResponsibleRole(item),
+                action: queueAction(item, bucket),
+                ...print,
+                reason: closeGateReason(item, severity),
+            };
+        })
+        .filter(Boolean) as DossierDocumentQueueItem[];
+}
+
 export async function getDossierItemsForTrip(params: {
     tripId: string;
     organizationId?: string | null;
@@ -218,6 +294,7 @@ export function evaluateDossierCloseGate(params: {
         generatedAt: new Date().toISOString(),
         blockingItems: hardBlockingItems,
         warningItems: softWarningItems,
+        documentQueue: buildDocumentQueue(effectiveItems),
         etrn: {
             required: true,
             present: etrnPresent,

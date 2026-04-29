@@ -57,6 +57,19 @@ type DossierCloseGate = {
     generatedAt?: string | null;
     blockingItems?: CloseGateItem[];
     warningItems?: CloseGateItem[];
+    documentQueue?: Array<{
+        id: string;
+        documentType: string;
+        status: string;
+        bucket: 'missing' | 'overdue' | 'exceptioned';
+        severity: CloseGateSeverity;
+        dueAt?: string | null;
+        responsibleRole: 'dispatcher' | 'driver' | 'accounting';
+        action: string;
+        printUrl?: string | null;
+        printLabel?: string | null;
+        reason: string;
+    }>;
     etrn?: {
         required: boolean;
         present: boolean;
@@ -113,7 +126,7 @@ const STATUS_LABELS: Record<string, string> = {
     waybill_issued: 'ПЛ выдан',
     loading: 'Погрузка',
     in_transit: 'В пути',
-    completed: 'Р—авершён',
+    completed: 'Завершён',
     billed: 'Оплачен',
     cancelled: 'Отменён',
 };
@@ -352,9 +365,20 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
 
     const blockingItems = closeGate.blockingItems || [];
     const warningItems = closeGate.warningItems || [];
+    const documentQueue = closeGate.documentQueue || [];
     const allItems = [...blockingItems, ...warningItems];
     const hasItems = allItems.length > 0;
     const canClose = closeGate.canClose && blockingItems.length === 0;
+    const bucketClass: Record<string, string> = {
+        missing: 'bg-rose-100 text-rose-700',
+        overdue: 'bg-red-100 text-red-700',
+        exceptioned: 'bg-amber-100 text-amber-700',
+    };
+    const roleLabel: Record<string, string> = {
+        dispatcher: 'dispatcher',
+        driver: 'driver',
+        accounting: 'accounting',
+    };
 
     const renderItem = (item: CloseGateItem) => (
         <div key={item.id} className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
@@ -443,6 +467,55 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                     </div>
                 )}
             </div>
+
+            {documentQueue.length > 0 && (
+                <div className="mt-4 rounded-2xl border border-white bg-white p-4 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Document queue</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">Missing, overdue and exceptioned documents</p>
+                        </div>
+                        <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                            {documentQueue.length} actions
+                        </span>
+                    </div>
+                    <div className="mt-3 grid gap-2">
+                        {documentQueue.map((item) => (
+                            <div key={item.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <p className="text-sm font-semibold text-slate-900">{transportDocumentLabel(item.documentType)}</p>
+                                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${bucketClass[item.bucket] || 'bg-slate-100 text-slate-600'}`}>
+                                                {item.bucket}
+                                            </span>
+                                            <span className="inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                                owner: {roleLabel[item.responsibleRole] || item.responsibleRole}
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 text-xs text-slate-600">{item.action}</p>
+                                        <p className="mt-1 text-[11px] text-slate-500">
+                                            {dossierItemStatusLabel(item.status)}
+                                            {item.dueAt ? ` · due ${formatTimelineDate(item.dueAt)}` : ''}
+                                            {item.reason ? ` · ${item.reason}` : ''}
+                                        </p>
+                                    </div>
+                                    {item.printUrl && (
+                                        <button
+                                            type="button"
+                                            onClick={() => window.open(item.printUrl || '#', '_blank', 'noopener,noreferrer')}
+                                            className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
+                                        >
+                                            <FileText className="h-3.5 w-3.5" />
+                                            {item.printLabel || 'Print act'}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -1595,11 +1668,11 @@ export default function TripsPage() {
                                     <th className="px-4 py-3 font-medium">в„– Рейса</th>
                                     <th className="px-4 py-3 font-medium">Статус</th>
                                     <th className="px-4 py-3 font-medium">ТС</th>
-                                    <th className="px-4 py-3 font-medium">Р—аявки</th>
+                                    <th className="px-4 py-3 font-medium">Заявки</th>
                                     <th className="px-4 py-3 font-medium">Дистанция</th>
                                     <th className="px-4 py-3 font-medium">Выезд (план)</th>
                                     <th className="px-4 py-3 font-medium">Выезд (факт)</th>
-                                    <th className="px-4 py-3 font-medium">Р—авершён</th>
+                                    <th className="px-4 py-3 font-medium">Завершён</th>
                                     <th className="px-4 py-3 font-medium">Создан</th>
                                 </tr>
                             </thead>
@@ -1821,7 +1894,7 @@ export default function TripsPage() {
                                     <div className="grid gap-6 lg:grid-cols-2">
                                         <div className="rounded-2xl border border-slate-200">
                                             <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 font-semibold text-slate-900">
-                                                Р—аявки
+                                                Заявки
                                             </div>
                                             <div className="divide-y divide-slate-100">
                                                 {(dossier.orders || []).map((order: any) => (
@@ -1872,7 +1945,7 @@ export default function TripsPage() {
                                             <div className="rounded-2xl border border-slate-200 p-4">
                                                 <div className="text-sm font-semibold text-slate-900 mb-3">Сводка</div>
                                                 <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
-                                                    <div>Р—аявок: {dossier.summary?.orderCount ?? 0}</div>
+                                                    <div>Заявок: {dossier.summary?.orderCount ?? 0}</div>
                                                     <div>ПЛ: {dossier.summary?.hasWaybill ? 'да' : 'нет'}</div>
                                                     <div>ТС: {dossier.summary?.hasVehicle ? 'да' : 'нет'}</div>
                                                     <div>Прицеп: {dossier.summary?.hasTrailer ? 'да' : 'нет'}</div>

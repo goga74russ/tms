@@ -78,6 +78,8 @@ Before any mobile pilot or release, run the app on a real Android device or Andr
 
 This is mandatory because camera, signature canvas, SecureStore, WatermelonDB, network addressing, and Expo runtime behavior can differ from API-level smoke tests.
 
+Runbook: `docs/mobile/pilot-evidence.md`.
+
 ## Remaining Mobile Debt
 
 - Complete the required Android device/emulator gate.

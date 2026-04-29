@@ -52,15 +52,36 @@ Optional exchange files become mandatory when the corresponding business event h
 - `apps/api/src/modules/trips/transport-documents.ts` already models `TITLE_01` through `TITLE_08`, but the next code pass must rename labels/descriptions to match this source map.
 - Current `TransportDocumentType` only has `waybill`, `delivery_confirmation`, and `document_return`. Real ETRN files are currently projected as workflow titles, not as persisted per-title XML artifacts.
 - `transport_documents` persistence exists now, but it stores the transport document bundle projection. A complete ETRN implementation needs per-title artifact rows with `artifactKind`/`documentType`/`titleType` tied to the XSD source file and version.
-- XML generation/validation must use the local XSD package, especially `ON_TRNPUDPER_1_973_07_05_01_03.xsd` for Title 07.
+- `apps/api/src/modules/trips/etrn-provider.ts` defines the provider boundary. The current free adapter is `internal_mock_etrn`: it accepts a persisted transport document, returns provider document/message/event IDs, stores a sent exchange, and writes an ACK-like receipt. It is intentionally shaped so a real EDO/GIS EPD operator can replace only the adapter.
+- `apps/api/src/modules/trips/etrn-xsd-manifest.ts` is the code manifest for local XSD usage. `corepack pnpm --filter @tms/api etrn:xsd-check` reads `D:\Ai\TMS\docs\etrn` by default, parses every manifest XSD, prints used/skipped files and reasons, and fails if a used baseline cannot be read or does not expose the expected `Файл` root element.
+- Full XML generation/validation must still use the local XSD package, especially `ON_TRNPUDPER_1_973_07_05_01_03.xsd` for Title 07. The current checker is a fixture/skeleton gate, not a legal XSD validation engine.
 - MChD/power-of-attorney, signer role, refusal/rejection, callback receipt, retry, and archive rules must be implemented against `pril1.md` and the specific XSD constraints.
+
+## Mock provider and XSD checker scope
+
+Used by the current checker/provider metadata:
+
+- Title 01: `ON_TRNACLGROT_1_973_01_05_01_02.xsd`
+- Title 02: `ON_TRNACLPPRIN_1_973_02_05_01_01.xsd`
+- Title 03: `ON_TRNPEREADR_1_973_03_05_01_01.xsd`
+- Title 04: `ON_TRNZAMEN_1_973_04_05_01_01.xsd`
+- Title 05: `ON_TRNACLGRPO_1_973_05_05_01_01.xsd`
+- Title 06: `ON_TRNACLPVYN_1_973_06_05_01_01.xsd`
+- Title 07 current baseline: `ON_TRNPUDPER_1_973_07_05_01_03.xsd`
+- Title 08: `ON_TRNPUDGO_1_973_08_05_01_01.xsd`
+
+Skipped by the checker, with reasons fixed in `etrn-xsd-manifest.ts`:
+
+- `ON_TRNPUDPER_1_973_07_05_01_02.xsd`: older Title 07 version, retained only for version-diff checks.
+- `ON_SOPVEDPER_1_974_01_05_01_01.xsd`, `ON_SOPVEDGO_1_974_02_05_01_01.xsd`, `ON_SOPVEDGP_1_974_03_05_01_01.xsd`: accompanying statements are not first-class artifacts yet.
+- `ON_ZAKAZNAR_1_975_01_05_01_01.xsd`, `ON_ZAKAZNARSOG_1_975_02_05_01_01.xsd`, `ON_ZAKAZNARPOD_1_975_03_05_01_01.xsd`, `ON_ZAKAZNARVOZ_1_975_04_05_01_01.xsd`: electronic order/job request package is not modeled as first-class documents yet.
 
 ## Product debt created from the source package
 
 | Debt | Why it matters |
 |---|---|
 | Add first-class ETRN title artifacts | Operators and providers exchange title XML files, not just a generic dossier status. |
-| Add XSD validation gate | Without schema validation, we can generate legally invalid XML. |
+| Replace fixture/skeleton XSD checker with real validation | The free checker proves source package wiring and records skipped files, but it does not validate generated XML against XSD/Schematron. |
 | Add signer/MChD model | ETRN titles are signed by different parties and sometimes by representatives. |
 | Add optional title triggers | Readdressing, replacement, PUD, accompanying statements, and order/job request files must appear only when the business event requires them. |
 | Add provider callback idempotency per title | Provider receipts/rejections must update the exact title artifact, not only the trip-level bundle. |

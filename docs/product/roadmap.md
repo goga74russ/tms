@@ -2,6 +2,15 @@
 
 Updated: 2026-04-29
 
+## Active Free Hardening Batch - 2026-04-29
+
+- ETRN mock/provider layer plus XSD/fixture gate for local validation without paid operator access.
+- High-traffic UI copy and encoding cleanup, especially finance, tariffs, claims, print forms, and admin tariff screens.
+- UI copy cleanup started: priority finance/tariffs/claims/print/admin tariff screens audited, with obvious mojibake fixes applied where safe.
+- Document queue / close-gate improvements and printable exception forms for refusal or cancellation-after-arrival.
+- Mobile pilot evidence runbook for Android/emulator LAN testing with repeatable screenshots/checklist.
+- Integration owner: keep Docker localhost current and rerun web/API/mobile smoke after merging agent work.
+
 ## P0. Make v2 A Clean Working Base
 
 - Keep `D:\Ai\TMS-prod` as the active workspace.

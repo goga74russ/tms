@@ -21,6 +21,7 @@ import {
     transportDocuments,
 } from '../../db/schema.js';
 import { buildTransportDocumentBundleFromDocuments, getTransportDocumentsForDossier } from './transport-documents.js';
+import { resolveEtrnProviderAdapter } from './etrn-provider.js';
 import { getTransportDossier } from './service.js';
 
 type PersistedDocumentRow = typeof transportDocuments.$inferSelect;
@@ -622,16 +623,40 @@ export async function sendTransportDocumentToProvider(params: {
 
     const now = new Date();
     const requestId = params.requestId ?? `req-${row.id.slice(0, 8)}-${now.getTime()}`;
-    const providerMessageId = params.providerMessageId ?? `msg-${row.id.slice(0, 8)}-${now.getTime()}`;
+    const attemptNumber = Math.max((row.retryCount ?? 0) + 1, 1);
+    const payload = params.requestPayload ?? (row.payload as Record<string, unknown> | null) ?? {};
+    const shouldUseMockProvider = !params.providerDocumentId
+        && !params.providerMessageId
+        && !params.providerEventId
+        && !params.providerStatus
+        && !params.responsePayload
+        && !params.errorCode
+        && !params.errorMessage;
+    const providerResult = shouldUseMockProvider
+        ? await resolveEtrnProviderAdapter(params.providerName ?? row.providerName).submitDocument({
+            tripId: params.tripId,
+            document: row as unknown as TransportDocument,
+            requestId,
+            attemptNumber,
+            payload,
+            providerName: params.providerName ?? row.providerName,
+            submittedAt: now,
+        })
+        : null;
+    const providerMessageId = params.providerMessageId ?? providerResult?.providerMessageId ?? `msg-${row.id.slice(0, 8)}-${now.getTime()}`;
+    const providerDocumentId = params.providerDocumentId ?? providerResult?.providerDocumentId ?? row.providerDocumentId ?? null;
+    const providerEventId = params.providerEventId ?? providerResult?.providerEventId ?? null;
+    const providerStatus = params.providerStatus ?? providerResult?.providerStatus ?? 'sent_to_provider';
+    const providerName = providerResult?.providerName ?? params.providerName ?? row.providerName ?? 'sandbox_edo';
     const nextRetryAt = params.nextRetryAt ?? new Date(now.getTime() + 15 * 60 * 1000).toISOString();
-    const exchangeStatus = params.status ?? TransportDocumentExchangeStatus.SENT;
+    const exchangeStatus = params.status ?? providerResult?.exchangeStatus ?? TransportDocumentExchangeStatus.SENT;
     const documentStatus = exchangeStatusToDocumentStatus(exchangeStatus);
 
     const patch: Partial<typeof transportDocuments.$inferInsert> = {
         status: documentStatus,
-        providerName: params.providerName ?? row.providerName ?? 'sandbox_edo',
-        providerStatus: params.providerStatus ?? 'sent_to_provider',
-        providerDocumentId: params.providerDocumentId ?? row.providerDocumentId ?? null,
+        providerName,
+        providerStatus,
+        providerDocumentId,
         providerMessageId,
         lastAttemptAt: now,
         updatedAt: now,
@@ -650,40 +675,58 @@ export async function sendTransportDocumentToProvider(params: {
     const exchange = await appendExchangeRecord({
         documentId: row.id,
         tripId: params.tripId,
-        providerName: params.providerName ?? row.providerName ?? 'sandbox_edo',
+        providerName,
         direction: params.direction ?? TransportDocumentExchangeDirection.OUTBOUND,
         operation: row.retryCount > 0 ? 'resubmit' : 'submit',
         status: exchangeStatus,
         requestId,
-        providerDocumentId: params.providerDocumentId ?? row.providerDocumentId ?? null,
+        providerDocumentId,
         providerMessageId,
-        providerEventId: params.providerEventId ?? null,
-        providerStatus: params.providerStatus ?? 'sent_to_provider',
-        attemptNumber: Math.max((row.retryCount ?? 0) + 1, 1),
-        requestPayload: params.requestPayload ?? (row.payload as Record<string, unknown> | null) ?? {},
-        responsePayload: params.responsePayload ?? { acceptedForProcessing: true },
+        providerEventId,
+        providerStatus,
+        attemptNumber,
+        requestPayload: payload,
+        responsePayload: params.responsePayload ?? providerResult?.responsePayload ?? { acceptedForProcessing: true },
         initiatedBy: params.createdBy ?? null,
         nextRetryAt,
         errorCode: params.errorCode ?? null,
         errorMessage: params.errorMessage ?? null,
     });
 
+    const receipt = providerResult
+        ? await appendReceiptRecord({
+            documentId: row.id,
+            tripId: params.tripId,
+            exchangeId: exchange.id,
+            receiptType: providerResult.receipt.receiptType,
+            providerReceiptId: providerResult.receipt.providerReceiptId,
+            providerEventId: providerResult.receipt.providerEventId,
+            providerStatus: providerResult.receipt.providerStatus,
+            title: providerResult.receipt.title,
+            message: providerResult.receipt.message,
+            payload: providerResult.receipt.payload,
+            createdBy: params.createdBy ?? null,
+        })
+        : null;
+
     await appendHistoryEvent({
         documentId: row.id,
         eventType: 'provider_send',
-        title: 'Document sent to external provider',
+        title: providerResult ? 'Document sent to mock ETRN provider' : 'Document sent to external provider',
         fromStatus: row.status,
         toStatus: documentStatus,
         severity: exchangeStatus === TransportDocumentExchangeStatus.REJECTED || exchangeStatus === TransportDocumentExchangeStatus.FAILED ? 'critical' : 'info',
-        message: params.errorMessage ?? `Outbound exchange ${exchange.id} created`,
+        message: params.errorMessage ?? (providerResult ? providerResult.receipt.message : `Outbound exchange ${exchange.id} created`),
         createdBy: params.createdBy ?? null,
         payload: {
             exchangeId: exchange.id,
+            receiptId: receipt?.id ?? null,
             requestId,
             providerMessageId,
-            providerDocumentId: params.providerDocumentId ?? null,
-            providerEventId: params.providerEventId ?? null,
-            providerStatus: params.providerStatus ?? null,
+            providerDocumentId,
+            providerEventId,
+            providerStatus,
+            providerName,
         },
     });
 

@@ -398,6 +398,12 @@ if ($dossier.data.closeGate.etrn.missing -ne $true) { throw 'Expected missing ET
 
 $transportDocument = @($dossier.data.transportDocuments.documents | Select-Object -First 1)
 if (-not $transportDocument) { throw 'Expected transport document for signing smoke' }
+$mockProviderSend = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/transport-documents/$($transportDocument.id)/send" -Headers $headers -ContentType 'application/json' -Body '{}'
+if ($mockProviderSend.data.providerName -ne 'internal_mock_etrn') { throw 'Expected internal mock ETRN provider name' }
+if (-not $mockProviderSend.data.providerDocumentId) { throw 'Expected mock provider document id' }
+if (-not $mockProviderSend.data.providerMessageId) { throw 'Expected mock provider message id' }
+if (-not @($mockProviderSend.data.receipts | Where-Object { $_.receiptType -eq 'ack' -and $_.providerStatus -eq 'mock:ack' })) { throw 'Expected mock ETRN ACK receipt' }
+
 $shipperSignatureBody = @{
     signerRole = 'shipper'
     signerName = 'Smoke Shipper Signer'
