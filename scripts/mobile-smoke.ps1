@@ -128,9 +128,11 @@ if (-not $SkipPrepare) {
             type = 'route_point_completed'
             timestamp = (Get-Date).ToUniversalTime().ToString('o')
             payload = @{
+                tripId = [string]$smoke.tripId
                 pointId = [string]$smoke.routePointId
                 photoUrls = @('smoke://route-point-photo.jpg')
                 signatureUrl = 'smoke://recipient-signature.png'
+                notes = 'mobile smoke checkpoint'
             }
         })
     } | ConvertTo-Json -Depth 8

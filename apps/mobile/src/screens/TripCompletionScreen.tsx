@@ -30,9 +30,17 @@ export default function TripCompletionScreen({ route, navigation }: Props) {
         }
 
         const body = {
-            status: 'completed',
-            odometerEnd,
-            fuelEnd,
+            events: [{
+                id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                type: 'trip_status_changed',
+                timestamp: new Date().toISOString(),
+                payload: {
+                    tripId,
+                    status: 'completed',
+                    odometer: odometerEnd,
+                    fuel: fuelEnd,
+                },
+            }],
         };
 
         setLoading(true);
@@ -43,7 +51,7 @@ export default function TripCompletionScreen({ route, navigation }: Props) {
             if (!isOnline) {
                 await enqueueAction({
                     type: 'trip_status',
-                    endpoint: `/trips/${tripId}/status`,
+                    endpoint: '/sync/events',
                     method: 'POST',
                     body,
                 });
@@ -52,7 +60,7 @@ export default function TripCompletionScreen({ route, navigation }: Props) {
                 return;
             }
 
-            const res = await fetch(`${API_URL}/trips/${tripId}/status`, {
+            const res = await fetch(`${API_URL}/sync/events`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -70,7 +78,7 @@ export default function TripCompletionScreen({ route, navigation }: Props) {
         } catch (error: any) {
             await enqueueAction({
                 type: 'trip_status',
-                endpoint: `/trips/${tripId}/status`,
+                endpoint: '/sync/events',
                 method: 'POST',
                 body,
             });

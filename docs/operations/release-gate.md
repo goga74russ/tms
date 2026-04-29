@@ -10,11 +10,14 @@ Updated: 2026-04-28
 - Relevant API regression tests pass.
 - GitHub Actions P0 gate passes on the target branch.
 - Web smoke passes for the main roles.
+- UI workflow smoke passes for logist/trips/claims/finance/dispatcher pages and the close-gate/claims/exceptions APIs.
+- Mobile smoke uses the same delivery/checkpoint/completion endpoints as the app, including `/sync/events` for driver checkpoint and completion events.
 - Database migrations apply on a clean database.
 - Database migrations apply on an upgraded database.
 - `scripts/db-integrity-check.sql` has zero violations.
 - `/api/health` returns OK.
 - `/api/health/ready` returns OK.
+- Demo/staging credentials are reset from `SEED_PASSWORD` before smoke checks.
 - Backup exists before any migration.
 - `scripts/backup-restore-drill.ps1` passes against a scratch database.
 - `scripts/multi-tenant-smoke.ps1` passes.
