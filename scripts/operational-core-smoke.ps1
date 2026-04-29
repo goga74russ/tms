@@ -152,6 +152,11 @@ $closeGate = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared.trip
 if ($closeGate.data.tripId -ne $prepared.trip2Id) { throw 'Close gate tripId mismatch' }
 if (-not @($closeGate.data.blockingItems | Where-Object { $_.documentType -eq 'etrn' })) { throw 'Expected ETRN blocking close gate item' }
 
+$exceptions = Invoke-RestMethod -Method Get -Uri "$BaseUrl/operations/exceptions?tripId=$($prepared.trip2Id)&includeInfo=true" -Headers $headers
+if ([int]$exceptions.data.summary.total -lt 1) { throw 'Expected operational exceptions for trip2' }
+if (-not @($exceptions.data.exceptions | Where-Object { $_.type -eq 'etrn_blocking' -and $_.severity -eq 'blocking' })) { throw 'Expected ETRN blocking operational exception' }
+if (-not @($exceptions.data.exceptions | Where-Object { $_.type -eq 'open_claim' -or $_.type -eq 'shipment_discrepancy' })) { throw 'Expected claim or shipment discrepancy operational exception' }
+
 $result = [ordered]@{
     orderId = $prepared.orderId
     lots = $lots.Count
@@ -164,6 +169,8 @@ $result = [ordered]@{
     executionEventId = $execution.data.event.id
     closeGateCanClose = $closeGate.data.canClose
     closeGateBlockingItems = @($closeGate.data.blockingItems).Count
+    operationalExceptions = $exceptions.data.summary.total
+    operationalBlockingExceptions = $exceptions.data.summary.blocking
     trip1AssignedWeightKg = $plan1.data.summary.totalAssignedWeightKg
     trip2AssignedWeightKg = $plan2.data.summary.totalAssignedWeightKg
     trip1CompatibilityStatus = $compatibility1.data.status
