@@ -270,22 +270,62 @@ $executionBody = @{
 $execution = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip1Id)/execution-events" -Headers $headers -ContentType 'application/json' -Body $executionBody
 if ($execution.data.event.eventType -ne 'trip.execution.delay') { throw 'execution event type mismatch' }
 if ($execution.data.event.data.type -ne 'delay') { throw 'execution event payload mismatch' }
+$executionDuplicate = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip1Id)/execution-events" -Headers $headers -ContentType 'application/json' -Body $executionBody
+if ($executionDuplicate.data.duplicate -ne $true) { throw 'Expected duplicate execution event for offline idempotency' }
 
 foreach ($pair in @(@{ trip = $prepared.trip1Id; assignment = $assign1.data.assignment.id; weight = 60000 }, @{ trip = $prepared.trip2Id; assignment = $assign2.data.assignment.id; weight = 40000 })) {
-    $loadBody = @{ tripLotAssignmentId = $pair.assignment; factType = 'loading'; weightKg = $pair.weight; cargoCondition = 'intact'; source = 'smoke' } | ConvertTo-Json
-    Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($pair.trip)/shipment-facts" -Headers $headers -ContentType 'application/json' -Body $loadBody | Out-Null
+    $loadBody = @{
+        tripLotAssignmentId = $pair.assignment
+        factType = 'loading'
+        weightKg = $pair.weight
+        volumeM3 = 10
+        places = 10
+        palletCount = 10
+        cargoCondition = 'intact'
+        photoUrls = @('s3://smoke/loading-photo-1.jpg')
+        signatureUrl = 's3://smoke/loading-signature.png'
+        gpsLat = 55.7558
+        gpsLon = 37.6173
+        source = 'smoke'
+    } | ConvertTo-Json -Depth 4
+    $loadFact = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($pair.trip)/shipment-facts" -Headers $headers -ContentType 'application/json' -Body $loadBody
+    if ([int]$loadFact.data.fact.attachments.Count -lt 2) { throw 'Expected loading evidence attachments' }
     $unloadWeight = $pair.weight
     $condition = 'intact'
     $discrepancy = $null
     $notes = $null
+    $reserveAmount = $null
+    $estimatedAmount = $null
     if ($pair.weight -eq 40000) {
         $unloadWeight = 39000
         $condition = 'partial'
         $discrepancy = 'shortage'
         $notes = 'Operational smoke shortage: delivered 39000 of 40000 kg'
+        $reserveAmount = 15000
+        $estimatedAmount = 25000
     }
-    $unloadBody = @{ tripLotAssignmentId = $pair.assignment; factType = 'unloading'; weightKg = $unloadWeight; cargoCondition = $condition; discrepancyCode = $discrepancy; notes = $notes; source = 'smoke' } | ConvertTo-Json
-    Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($pair.trip)/shipment-facts" -Headers $headers -ContentType 'application/json' -Body $unloadBody | Out-Null
+    $unloadBody = @{
+        tripLotAssignmentId = $pair.assignment
+        factType = 'unloading'
+        weightKg = $unloadWeight
+        volumeM3 = 9
+        places = 9
+        palletCount = 9
+        cargoCondition = $condition
+        discrepancyCode = $discrepancy
+        notes = $notes
+        reserveAmount = $reserveAmount
+        estimatedAmount = $estimatedAmount
+        photoUrls = @('s3://smoke/unloading-photo-1.jpg')
+        signatureUrl = 's3://smoke/unloading-signature.png'
+        actUrl = $(if ($discrepancy) { 's3://smoke/shortage-act.pdf' } else { $null })
+        gpsLat = 55.8304
+        gpsLon = 49.0661
+        source = 'smoke'
+    } | ConvertTo-Json -Depth 4
+    $unloadFact = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($pair.trip)/shipment-facts" -Headers $headers -ContentType 'application/json' -Body $unloadBody
+    if ([int]$unloadFact.data.fact.attachments.Count -lt 2) { throw 'Expected unloading evidence attachments' }
+    if ($discrepancy -and -not $unloadFact.data.claim) { throw 'Expected claim with evidence for discrepancy' }
 }
 
 $fulfillment = Invoke-RestMethod -Method Get -Uri "$BaseUrl/orders/$($prepared.orderId)/fulfillment" -Headers $headers

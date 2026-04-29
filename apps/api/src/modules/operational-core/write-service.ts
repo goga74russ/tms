@@ -186,6 +186,9 @@ async function createClaimForDiscrepancy(tx: any, params: {
     discrepancyCode?: string | null;
     cargoCondition?: string | null;
     notes?: string | null;
+    reserveAmount?: number | null;
+    estimatedAmount?: number | null;
+    evidence?: Record<string, unknown>;
     actor: Actor;
 }) {
     if (!params.discrepancyCode && params.cargoCondition !== 'damaged') return null;
@@ -210,11 +213,18 @@ async function createClaimForDiscrepancy(tx: any, params: {
         contractorId: order.contractorId,
         type: claimType,
         status: 'open',
+        amount: params.estimatedAmount != null ? String(params.estimatedAmount) : null,
         description: params.notes || `Auto-created from shipment discrepancy. shipmentFactId=${params.factId}; shipmentLotId=${params.shipmentLotId}; assignmentId=${params.tripLotAssignmentId}; discrepancyCode=${params.discrepancyCode ?? ''}; cargoCondition=${params.cargoCondition ?? ''}; order=${order.number}`,
         attachments: [
             { kind: 'shipment_fact', id: params.factId },
             { kind: 'shipment_lot', id: params.shipmentLotId },
             { kind: 'trip_lot_assignment', id: params.tripLotAssignmentId },
+            {
+                kind: 'claim_evidence',
+                reserveAmount: params.reserveAmount ?? null,
+                estimatedAmount: params.estimatedAmount ?? null,
+                ...(params.evidence ?? {}),
+            },
         ],
         createdBy: params.actor.userId,
     }).returning();
@@ -225,7 +235,14 @@ async function createClaimForDiscrepancy(tx: any, params: {
         eventType: 'claim_created',
         entityType: 'claim',
         entityId: claim.id,
-        data: { source: 'shipment_fact', factId: params.factId, discrepancyCode: params.discrepancyCode, cargoCondition: params.cargoCondition },
+        data: {
+            source: 'shipment_fact',
+            factId: params.factId,
+            discrepancyCode: params.discrepancyCode,
+            cargoCondition: params.cargoCondition,
+            reserveAmount: params.reserveAmount ?? null,
+            estimatedAmount: params.estimatedAmount ?? null,
+        },
     }, tx);
 
     return claim;
@@ -286,6 +303,12 @@ export async function captureShipmentFact(tripId: string, input: {
     discrepancyCode?: 'shortage' | 'overage' | 'damage' | 'refusal' | 'wrong_docs' | 'other' | null;
     notes?: string | null;
     attachments?: string[];
+    photoUrls?: string[];
+    signatureUrl?: string | null;
+    actUrl?: string | null;
+    palletCount?: number | null;
+    reserveAmount?: number | null;
+    estimatedAmount?: number | null;
     gpsLat?: number | null;
     gpsLon?: number | null;
     source?: string;
@@ -295,6 +318,13 @@ export async function captureShipmentFact(tripId: string, input: {
             .where(and(eq(tripLotAssignments.id, input.tripLotAssignmentId), eq(tripLotAssignments.tripId, tripId))).limit(1);
         if (!assignment) throw new Error('Trip lot assignment not found');
         assertOrg(assignment.organizationId, actor, 'Trip lot assignment');
+
+        const evidenceAttachments = [
+            ...(input.attachments ?? []),
+            ...(input.photoUrls ?? []).map((url) => `photo:${url}`),
+            ...(input.signatureUrl ? [`signature:${input.signatureUrl}`] : []),
+            ...(input.actUrl ? [`act:${input.actUrl}`] : []),
+        ];
 
         const [fact] = await tx.insert(shipmentFacts).values({
             organizationId: assignment.organizationId ?? actor.organizationId ?? null,
@@ -310,7 +340,7 @@ export async function captureShipmentFact(tripId: string, input: {
             cargoCondition: input.cargoCondition ?? null,
             discrepancyCode: input.discrepancyCode ?? null,
             notes: input.notes ?? null,
-            attachments: input.attachments ?? [],
+            attachments: evidenceAttachments,
             gpsLat: input.gpsLat ?? null,
             gpsLon: input.gpsLon ?? null,
             capturedBy: actor.userId,
@@ -325,8 +355,44 @@ export async function captureShipmentFact(tripId: string, input: {
 
         await tx.update(tripLotAssignments).set({ status, updatedAt: new Date() }).where(eq(tripLotAssignments.id, assignment.id));
         const lot = await recalcLot(tx, assignment.shipmentLotId);
-        const claim = await createClaimForDiscrepancy(tx, { tripId, orderId: assignment.orderId, factId: fact.id, shipmentLotId: assignment.shipmentLotId, tripLotAssignmentId: assignment.id, discrepancyCode: input.discrepancyCode, cargoCondition: input.cargoCondition, notes: input.notes, actor });
-        await recordEvent({ authorId: actor.userId, authorRole: actor.role, eventType: `shipment_fact.${input.factType}`, entityType: 'shipment_fact', entityId: fact.id, data: { tripId, orderId: assignment.orderId, shipmentLotId: assignment.shipmentLotId, assignmentId: assignment.id } }, tx);
+        const evidence = {
+            attachmentCount: evidenceAttachments.length,
+            photoUrls: input.photoUrls ?? [],
+            signatureUrl: input.signatureUrl ?? null,
+            actUrl: input.actUrl ?? null,
+            palletCount: input.palletCount ?? null,
+            gps: input.gpsLat != null && input.gpsLon != null ? { lat: input.gpsLat, lon: input.gpsLon } : null,
+        };
+        const claim = await createClaimForDiscrepancy(tx, {
+            tripId,
+            orderId: assignment.orderId,
+            factId: fact.id,
+            shipmentLotId: assignment.shipmentLotId,
+            tripLotAssignmentId: assignment.id,
+            discrepancyCode: input.discrepancyCode,
+            cargoCondition: input.cargoCondition,
+            notes: input.notes,
+            reserveAmount: n(input.reserveAmount),
+            estimatedAmount: n(input.estimatedAmount),
+            evidence,
+            actor,
+        });
+        await recordEvent({
+            authorId: actor.userId,
+            authorRole: actor.role,
+            eventType: `shipment_fact.${input.factType}`,
+            entityType: 'shipment_fact',
+            entityId: fact.id,
+            data: {
+                tripId,
+                orderId: assignment.orderId,
+                shipmentLotId: assignment.shipmentLotId,
+                assignmentId: assignment.id,
+                evidence,
+                reserveAmount: input.reserveAmount ?? null,
+                estimatedAmount: input.estimatedAmount ?? null,
+            },
+        }, tx);
         return { fact, assignment: { ...assignment, status }, lot, claim };
     });
 }
