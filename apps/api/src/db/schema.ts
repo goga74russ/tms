@@ -57,6 +57,30 @@ export const routePointStatusEnum = pgEnum('route_point_status', [
     'pending', 'arrived', 'completed', 'skipped',
 ]);
 
+export const shipmentLotStatusEnum = pgEnum('shipment_lot_status', [
+    'planned', 'assigned', 'loading', 'in_transit', 'delivered', 'partially_delivered', 'returned', 'cancelled',
+]);
+
+export const tripLotAssignmentStatusEnum = pgEnum('trip_lot_assignment_status', [
+    'planned', 'loaded', 'in_transit', 'delivered', 'short', 'damaged', 'returned', 'cancelled',
+]);
+
+export const shipmentFactTypeEnum = pgEnum('shipment_fact_type', [
+    'loading', 'unloading', 'return', 'correction', 'discrepancy',
+]);
+
+export const shipmentDiscrepancyCodeEnum = pgEnum('shipment_discrepancy_code', [
+    'shortage', 'overage', 'damage', 'refusal', 'wrong_docs', 'other',
+]);
+
+export const documentDossierScopeEnum = pgEnum('document_dossier_scope', [
+    'order', 'trip', 'shipment_lot', 'trip_lot_assignment',
+]);
+
+export const documentDossierStatusEnum = pgEnum('document_dossier_status', [
+    'missing', 'draft', 'sent', 'signed', 'received', 'accepted', 'rejected', 'exceptioned',
+]);
+
 // Sprint 9 — Incidents
 export const incidentSeverityEnum = pgEnum('incident_severity', [
     'low', 'medium', 'critical',
@@ -393,6 +417,44 @@ export const tripOrders = pgTable('trip_orders', {
     index('idx_trip_orders_order').on(table.orderId),
 ]);
 
+export const shipmentLots = pgTable('shipment_lots', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id),
+    orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull().default(1),
+    status: shipmentLotStatusEnum('status').notNull().default('planned'),
+    plannedWeightKg: doublePrecision('planned_weight_kg'),
+    plannedVolumeM3: doublePrecision('planned_volume_m3'),
+    plannedPlaces: integer('planned_places'),
+    loadedWeightKg: doublePrecision('loaded_weight_kg'),
+    loadedVolumeM3: doublePrecision('loaded_volume_m3'),
+    loadedPlaces: integer('loaded_places'),
+    deliveredWeightKg: doublePrecision('delivered_weight_kg'),
+    deliveredVolumeM3: doublePrecision('delivered_volume_m3'),
+    deliveredPlaces: integer('delivered_places'),
+    remainingWeightKg: doublePrecision('remaining_weight_kg'),
+    remainingVolumeM3: doublePrecision('remaining_volume_m3'),
+    remainingPlaces: integer('remaining_places'),
+    cargoDescription: text('cargo_description'),
+    cargoType: varchar('cargo_type', { length: 100 }),
+    loadingAddress: text('loading_address'),
+    loadingDate: timestamp('loading_date', { withTimezone: true }),
+    loadingWindowStart: timestamp('loading_window_start', { withTimezone: true }),
+    loadingWindowEnd: timestamp('loading_window_end', { withTimezone: true }),
+    unloadingAddress: text('unloading_address'),
+    unloadingDate: timestamp('unloading_date', { withTimezone: true }),
+    unloadingWindowStart: timestamp('unloading_window_start', { withTimezone: true }),
+    unloadingWindowEnd: timestamp('unloading_window_end', { withTimezone: true }),
+    requirementsSnapshot: jsonb('requirements_snapshot').$type<Record<string, unknown>>().notNull().default({}),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_shipment_lots_order').on(table.orderId),
+    index('idx_shipment_lots_org').on(table.organizationId),
+    index('idx_shipment_lots_status').on(table.status),
+]);
+
 // ================================================================
 // Route Points (Точки маршрута)
 // ================================================================
@@ -425,10 +487,66 @@ export const routePoints = pgTable('route_points', {
     index('idx_route_points_trip').on(table.tripId),
 ]);
 
+export const tripLotAssignments = pgTable('trip_lot_assignments', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id),
+    tripId: uuid('trip_id').notNull().references(() => trips.id, { onDelete: 'cascade' }),
+    orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+    shipmentLotId: uuid('shipment_lot_id').notNull().references(() => shipmentLots.id, { onDelete: 'cascade' }),
+    assignedWeightKg: doublePrecision('assigned_weight_kg'),
+    assignedVolumeM3: doublePrecision('assigned_volume_m3'),
+    assignedPlaces: integer('assigned_places'),
+    status: tripLotAssignmentStatusEnum('status').notNull().default('planned'),
+    loadingRoutePointId: uuid('loading_route_point_id').references(() => routePoints.id, { onDelete: 'set null' }),
+    unloadingRoutePointId: uuid('unloading_route_point_id').references(() => routePoints.id, { onDelete: 'set null' }),
+    documentGroupId: uuid('document_group_id'),
+    createdBy: uuid('created_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('idx_trip_lot_assignments_unique').on(table.tripId, table.shipmentLotId),
+    index('idx_trip_lot_assignments_trip').on(table.tripId),
+    index('idx_trip_lot_assignments_lot').on(table.shipmentLotId),
+    index('idx_trip_lot_assignments_order').on(table.orderId),
+    index('idx_trip_lot_assignments_org').on(table.organizationId),
+    index('idx_trip_lot_assignments_status').on(table.status),
+]);
+
 // ================================================================
 // Delivery Confirmations (Sprint 13 — Подтверждение доставки)
 // Данные для ЭТрН Титул 3 (Информация грузополучателя)
 // ================================================================
+export const shipmentFacts = pgTable('shipment_facts', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id),
+    tripId: uuid('trip_id').notNull().references(() => trips.id, { onDelete: 'cascade' }),
+    orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
+    shipmentLotId: uuid('shipment_lot_id').notNull().references(() => shipmentLots.id, { onDelete: 'cascade' }),
+    tripLotAssignmentId: uuid('trip_lot_assignment_id').references(() => tripLotAssignments.id, { onDelete: 'set null' }),
+    routePointId: uuid('route_point_id').references(() => routePoints.id, { onDelete: 'set null' }),
+    factType: shipmentFactTypeEnum('fact_type').notNull(),
+    weightKg: doublePrecision('weight_kg'),
+    volumeM3: doublePrecision('volume_m3'),
+    places: integer('places'),
+    cargoCondition: cargoConditionEnum('cargo_condition'),
+    discrepancyCode: shipmentDiscrepancyCodeEnum('discrepancy_code'),
+    notes: text('notes'),
+    attachments: jsonb('attachments').$type<string[]>().notNull().default([]),
+    gpsLat: doublePrecision('gps_lat'),
+    gpsLon: doublePrecision('gps_lon'),
+    capturedAt: timestamp('captured_at', { withTimezone: true }).notNull().defaultNow(),
+    capturedBy: uuid('captured_by').references(() => users.id),
+    source: varchar('source', { length: 50 }).notNull().default('web'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_shipment_facts_trip').on(table.tripId),
+    index('idx_shipment_facts_order').on(table.orderId),
+    index('idx_shipment_facts_lot').on(table.shipmentLotId),
+    index('idx_shipment_facts_assignment').on(table.tripLotAssignmentId),
+    index('idx_shipment_facts_route_point').on(table.routePointId),
+    index('idx_shipment_facts_org').on(table.organizationId),
+]);
+
 export const deliveryConfirmations = pgTable('delivery_confirmations', {
     id: uuid('id').primaryKey().defaultRandom(),
     tripId: uuid('trip_id').notNull().references(() => trips.id),
@@ -965,6 +1083,28 @@ export const documentReturns = pgTable('document_returns', {
 }, (table) => [
     uniqueIndex('idx_doc_returns_trip_type').on(table.tripId, table.docType),
     index('idx_doc_returns_trip').on(table.tripId),
+]);
+
+export const documentDossierItems = pgTable('document_dossier_items', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id),
+    scopeType: documentDossierScopeEnum('scope_type').notNull(),
+    scopeId: uuid('scope_id').notNull(),
+    documentType: varchar('document_type', { length: 50 }).notNull(),
+    required: boolean('required').notNull().default(true),
+    status: documentDossierStatusEnum('status').notNull().default('missing'),
+    sourceDocumentId: uuid('source_document_id'),
+    sourceDocumentKind: varchar('source_document_kind', { length: 50 }),
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    blockedReason: text('blocked_reason'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_document_dossier_scope').on(table.scopeType, table.scopeId),
+    index('idx_document_dossier_org').on(table.organizationId),
+    index('idx_document_dossier_status').on(table.status),
 ]);
 
 // ================================================================

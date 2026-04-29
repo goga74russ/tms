@@ -30,6 +30,7 @@ import { db } from '../../db/connection.js';
 import { drivers, orders, documentReturns } from '../../db/schema.js';
 import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
+import { getTripLoadPlan } from '../operational-core/service.js';
 import {
     TripCreateSchema,
     TripUpdateSchema,
@@ -119,6 +120,23 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
         const drivers = await getAvailableDrivers(user.organizationId);
         return { success: true, data: drivers };
+    });
+
+    // --- GET /trips/:id/load-plan — Operational Core v2 read model ---
+    app.get('/trips/:id/load-plan', {
+        schema: { tags: ['Рейсы'], summary: 'План загрузки рейса', description: 'Партии/назначения рейса, остатки и capacity summary.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const loadPlan = await getTripLoadPlan(id, user.organizationId);
+        if (!loadPlan) {
+            return reply.status(404).send({ success: false, error: 'Рейс не найден' });
+        }
+
+        return { success: true, data: loadPlan };
     });
 
     // --- GET /trips/:id ---

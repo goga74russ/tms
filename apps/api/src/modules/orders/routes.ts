@@ -17,6 +17,7 @@ import { OrderCreateSchema, OrderUpdateSchema, PRIVILEGED_ROLES, hasPrivilege } 
 import { db } from '../../db/connection.js';
 import { drivers, users, trips } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
+import { getOrderFulfillment } from '../operational-core/service.js';
 
 function sendAccessError(reply: any, err: unknown) {
     if (err instanceof AccessDeniedError) {
@@ -114,6 +115,27 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
         });
 
         return { success: true, data: kanban };
+    });
+
+    // --- GET /orders/:id/fulfillment — Operational Core v2 read model ---
+    app.get('/orders/:id/fulfillment', {
+        schema: { tags: ['Заявки'], summary: 'Фулфилмент заявки', description: 'Партии, назначения, факты и остатки по заявке.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Order')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        try {
+            await assertOrderAccess(id, user);
+        } catch (err) {
+            return sendAccessError(reply, err);
+        }
+
+        const fulfillment = await getOrderFulfillment(id, user.organizationId);
+        if (!fulfillment) {
+            return reply.status(404).send({ success: false, error: 'Заявка не найдена' });
+        }
+
+        return { success: true, data: fulfillment };
     });
 
     // --- GET /orders/:id ---
