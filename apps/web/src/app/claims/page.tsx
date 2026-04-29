@@ -696,6 +696,13 @@ export default function ClaimsPage() {
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex gap-1">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => window.open(`/print/claim-act/${claim.id}`, '_blank', 'noopener,noreferrer')}
+                                            >
+                                                Акт
+                                            </Button>
                                             {claim.status === 'open' && (
                                                 <Button
                                                     size="sm"

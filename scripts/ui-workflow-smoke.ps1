@@ -52,6 +52,7 @@ $claims = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/claims?limit=10" -Web
 Assert-Success $claims 'claims list'
 
 $claimExposureResult = 'skipped'
+$claimPrintActResult = 'skipped'
 $firstClaim = @($claims.data | Select-Object -First 1)
 if ($firstClaim.Count -gt 0) {
     $claim = $firstClaim[0]
@@ -68,6 +69,14 @@ if ($firstClaim.Count -gt 0) {
         $claimExposure = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/claims/exposure?$claimScope" -WebSession $session
         Assert-Success $claimExposure 'claims exposure'
         $claimExposureResult = 'ok'
+    }
+
+    if ($claim.id) {
+        $claimPrintAct = Invoke-WebRequest -UseBasicParsing -Method Get -Uri "$BaseUrl/print/claim-act/$($claim.id)" -WebSession $session
+        if ($claimPrintAct.StatusCode -ne 200) {
+            throw "Claim print act failed: HTTP $($claimPrintAct.StatusCode)"
+        }
+        $claimPrintActResult = 'ok'
     }
 }
 
@@ -119,6 +128,7 @@ if ($firstTrip.Count -gt 0 -and $firstTrip[0].id) {
         trips = @($trips.data).Count
         claims = @($claims.data).Count
         claimExposure = $claimExposureResult
+        claimPrintAct = $claimPrintActResult
         operationsExceptions = @($exceptions.data.exceptions).Count
         tripDossier = $tripDossierResult
         tripCloseGate = $tripCloseGateResult
