@@ -80,6 +80,7 @@ if ($null -eq $exceptions.data.summary -or $null -eq $exceptions.data.exceptions
 $tripDossierResult = 'skipped'
 $tripCloseGateResult = 'skipped'
 $tripRoutePointsResult = 'skipped'
+$resourceOptionsResult = 'skipped'
 $firstTrip = @($trips.data | Select-Object -First 1)
 if ($firstTrip.Count -gt 0 -and $firstTrip[0].id) {
     $tripId = $firstTrip[0].id
@@ -100,6 +101,14 @@ if ($firstTrip.Count -gt 0 -and $firstTrip[0].id) {
     $routePoints = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/trips/$tripId/points" -WebSession $session
     Assert-Success $routePoints 'trip route points'
     $tripRoutePointsResult = @($routePoints.data).Count
+
+    $availableVehicles = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/trips/available-vehicles" -WebSession $session
+    Assert-Success $availableVehicles 'available vehicles'
+    $drivers = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/fleet/drivers?limit=5" -WebSession $session
+    Assert-Success $drivers 'fleet drivers'
+    $trailers = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/fleet/trailers?limit=5" -WebSession $session
+    Assert-Success $trailers 'fleet trailers'
+    $resourceOptionsResult = 'ok'
 }
 
 [ordered]@{
@@ -114,5 +123,6 @@ if ($firstTrip.Count -gt 0 -and $firstTrip[0].id) {
         tripDossier = $tripDossierResult
         tripCloseGate = $tripCloseGateResult
         tripRoutePoints = $tripRoutePointsResult
+        resourceOptions = $resourceOptionsResult
     }
 } | ConvertTo-Json -Depth 8

@@ -84,6 +84,27 @@ type RoutePoint = {
     actualArrivalAt?: string | null;
 };
 
+type VehicleOption = {
+    id: string;
+    plateNumber?: string | null;
+    make?: string | null;
+    model?: string | null;
+};
+
+type DriverOption = {
+    id: string;
+    fullName?: string | null;
+    phone?: string | null;
+};
+
+type TrailerOption = {
+    id: string;
+    plateNumber?: string | null;
+    currentVehicleId?: string | null;
+};
+
+type OperationalAction = 'downtime' | 'readdress' | 'cancel' | 'breakdown' | 'return' | 'replace' | 'crew';
+
 const STATUS_LABELS: Record<string, string> = {
     planning: 'Планирование',
     assigned: 'Назначен',
@@ -435,7 +456,10 @@ function OperationalActionsBlock({
     routePoints: RoutePoint[];
     onDone: () => Promise<void>;
 }) {
-    const [activeAction, setActiveAction] = useState<'downtime' | 'readdress' | 'cancel' | 'breakdown' | 'return'>('downtime');
+    const defaultShiftStart = () => new Date(Date.now() + 30 * 60 * 1000).toISOString().slice(0, 16);
+    const defaultShiftEnd = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 16);
+
+    const [activeAction, setActiveAction] = useState<OperationalAction>('downtime');
     const [routePointId, setRoutePointId] = useState(routePoints[0]?.id || '');
     const [reason, setReason] = useState('Операционное отклонение');
     const [notes, setNotes] = useState('');
@@ -449,12 +473,47 @@ function OperationalActionsBlock({
     const [originalDocumentsReceived, setOriginalDocumentsReceived] = useState(false);
     const [postTripInspectionStatus, setPostTripInspectionStatus] = useState<'pending' | 'passed' | 'failed'>('pending');
     const [blockNextTrip, setBlockNextTrip] = useState(false);
+    const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
+    const [drivers, setDrivers] = useState<DriverOption[]>([]);
+    const [trailers, setTrailers] = useState<TrailerOption[]>([]);
+    const [replacementVehicleId, setReplacementVehicleId] = useState('');
+    const [replacementDriverId, setReplacementDriverId] = useState('');
+    const [replacementTrailerId, setReplacementTrailerId] = useState('');
+    const [crewPrimaryDriverId, setCrewPrimaryDriverId] = useState('');
+    const [crewSecondaryDriverId, setCrewSecondaryDriverId] = useState('');
+    const [shiftStart, setShiftStart] = useState(defaultShiftStart);
+    const [shiftEnd, setShiftEnd] = useState(defaultShiftEnd);
+    const [maxShiftMinutes, setMaxShiftMinutes] = useState('540');
     const [loading, setLoading] = useState(false);
+    const [optionsLoading, setOptionsLoading] = useState(false);
     const [result, setResult] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
 
     useEffect(() => {
         if (activeAction === 'downtime' && !routePointId && routePoints[0]?.id) setRoutePointId(routePoints[0].id);
     }, [activeAction, routePointId, routePoints]);
+
+    useEffect(() => {
+        if (activeAction !== 'replace' && activeAction !== 'crew') return;
+
+        let cancelled = false;
+        setOptionsLoading(true);
+        Promise.all([
+            api.get<any>('/trips/available-vehicles').catch(() => ({ success: false, data: [] })),
+            api.get<any>('/fleet/drivers?limit=200').catch(() => ({ success: false, data: [] })),
+            api.get<any>('/fleet/trailers?limit=200').catch(() => ({ success: false, data: [] })),
+        ]).then(([vehicleResult, driverResult, trailerResult]) => {
+            if (cancelled) return;
+            setVehicles(vehicleResult.success ? (vehicleResult.data || []) : []);
+            setDrivers(driverResult.success ? (driverResult.data || []) : []);
+            setTrailers(trailerResult.success ? (trailerResult.data || []) : []);
+        }).finally(() => {
+            if (!cancelled) setOptionsLoading(false);
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeAction]);
 
     const selectedPoint = routePoints.find(point => point.id === routePointId) || null;
     const hasRoutePoints = routePoints.length > 0;
@@ -464,6 +523,8 @@ function OperationalActionsBlock({
         const parsed = Number(value);
         return Number.isFinite(parsed) ? parsed : undefined;
     };
+
+    const toIso = (value: string) => new Date(value).toISOString();
 
     const submit = async () => {
         setLoading(true);
@@ -509,7 +570,7 @@ function OperationalActionsBlock({
                     requiresReplacement,
                 });
                 setResult({ tone: 'success', message: 'Поломка записана как блокирующее событие.' });
-            } else {
+            } else if (activeAction === 'return') {
                 await api.post(`/trips/${tripId}/post-trip-return`, {
                     actualCompletionAt: new Date().toISOString(),
                     odometerEnd: numberOrUndefined(odometerEnd),
@@ -521,6 +582,40 @@ function OperationalActionsBlock({
                     notes: notes || null,
                 });
                 setResult({ tone: 'success', message: 'Возврат ТС после рейса зафиксирован.' });
+            } else if (activeAction === 'replace') {
+                if (!replacementVehicleId && !replacementDriverId && !replacementTrailerId) {
+                    throw new Error('Выберите ТС, водителя или прицеп для замены');
+                }
+                await api.post(`/trips/${tripId}/resource-replacements`, {
+                    vehicleId: replacementVehicleId || undefined,
+                    driverId: replacementDriverId || undefined,
+                    trailerId: replacementTrailerId || undefined,
+                    reason,
+                    notes: notes || null,
+                });
+                setResult({ tone: 'success', message: 'Замена ресурса записана, compatibility и ЭТРН Title 04 будут пересчитаны.' });
+            } else {
+                if (!crewPrimaryDriverId) throw new Error('Выберите основного водителя');
+                const crew = [{
+                    driverId: crewPrimaryDriverId,
+                    shiftStart: toIso(shiftStart),
+                    shiftEnd: toIso(shiftEnd),
+                    isPrimary: true,
+                }];
+                if (crewSecondaryDriverId && crewSecondaryDriverId !== crewPrimaryDriverId) {
+                    crew.push({
+                        driverId: crewSecondaryDriverId,
+                        shiftStart: toIso(shiftStart),
+                        shiftEnd: toIso(shiftEnd),
+                        isPrimary: false,
+                    });
+                }
+                await api.post(`/trips/${tripId}/crew-rest-plan`, {
+                    crew,
+                    maxShiftMinutes: numberOrUndefined(maxShiftMinutes),
+                    notes: notes || null,
+                });
+                setResult({ tone: 'success', message: 'Экипаж и риск режима труда записаны в cockpit.' });
             }
 
             await onDone();
@@ -537,6 +632,8 @@ function OperationalActionsBlock({
         { id: 'cancel', label: 'Отмена подачи', disabled: false },
         { id: 'breakdown', label: 'Поломка', disabled: false },
         { id: 'return', label: 'Возврат ТС', disabled: false },
+        { id: 'replace', label: 'Замена ресурса', disabled: false },
+        { id: 'crew', label: 'Экипаж/РТО', disabled: false },
     ] as const;
 
     return (
@@ -677,6 +774,118 @@ function OperationalActionsBlock({
                     </>
                 )}
 
+                {activeAction === 'replace' && (
+                    <>
+                        <label className="block">
+                            <span className="text-xs font-semibold text-slate-600">Новое ТС</span>
+                            <select
+                                value={replacementVehicleId}
+                                onChange={event => setReplacementVehicleId(event.target.value)}
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            >
+                                <option value="">Не менять ТС</option>
+                                {vehicles.map(vehicle => (
+                                    <option key={vehicle.id} value={vehicle.id}>
+                                        {vehicle.plateNumber || vehicle.id.slice(0, 8)} {vehicle.make || vehicle.model ? `· ${[vehicle.make, vehicle.model].filter(Boolean).join(' ')}` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="block">
+                            <span className="text-xs font-semibold text-slate-600">Новый водитель</span>
+                            <select
+                                value={replacementDriverId}
+                                onChange={event => setReplacementDriverId(event.target.value)}
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            >
+                                <option value="">Не менять водителя</option>
+                                {drivers.map(driver => (
+                                    <option key={driver.id} value={driver.id}>
+                                        {driver.fullName || driver.id.slice(0, 8)}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="block lg:col-span-2">
+                            <span className="text-xs font-semibold text-slate-600">Новый прицеп</span>
+                            <select
+                                value={replacementTrailerId}
+                                onChange={event => setReplacementTrailerId(event.target.value)}
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            >
+                                <option value="">Не менять прицеп</option>
+                                {trailers.map(trailer => (
+                                    <option key={trailer.id} value={trailer.id}>
+                                        {trailer.plateNumber || trailer.id.slice(0, 8)}{trailer.currentVehicleId ? ' · уже сцеплен' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    </>
+                )}
+
+                {activeAction === 'crew' && (
+                    <>
+                        <label className="block">
+                            <span className="text-xs font-semibold text-slate-600">Основной водитель</span>
+                            <select
+                                value={crewPrimaryDriverId}
+                                onChange={event => setCrewPrimaryDriverId(event.target.value)}
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            >
+                                <option value="">Выберите водителя</option>
+                                {drivers.map(driver => (
+                                    <option key={driver.id} value={driver.id}>
+                                        {driver.fullName || driver.id.slice(0, 8)}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="block">
+                            <span className="text-xs font-semibold text-slate-600">Второй водитель</span>
+                            <select
+                                value={crewSecondaryDriverId}
+                                onChange={event => setCrewSecondaryDriverId(event.target.value)}
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            >
+                                <option value="">Без второго водителя</option>
+                                {drivers.map(driver => (
+                                    <option key={driver.id} value={driver.id}>
+                                        {driver.fullName || driver.id.slice(0, 8)}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="block">
+                            <span className="text-xs font-semibold text-slate-600">Начало смены</span>
+                            <input
+                                type="datetime-local"
+                                value={shiftStart}
+                                onChange={event => setShiftStart(event.target.value)}
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        </label>
+                        <label className="block">
+                            <span className="text-xs font-semibold text-slate-600">Конец смены</span>
+                            <input
+                                type="datetime-local"
+                                value={shiftEnd}
+                                onChange={event => setShiftEnd(event.target.value)}
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        </label>
+                        <label className="block">
+                            <span className="text-xs font-semibold text-slate-600">Лимит смены, минут</span>
+                            <input
+                                value={maxShiftMinutes}
+                                onChange={event => setMaxShiftMinutes(event.target.value)}
+                                inputMode="numeric"
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        </label>
+                    </>
+                )}
+
                 <label className="block lg:col-span-2">
                     <span className="text-xs font-semibold text-slate-600">Комментарий</span>
                     <textarea
@@ -714,11 +923,23 @@ function OperationalActionsBlock({
                             </label>
                         </>
                     )}
+                    {(activeAction === 'replace' || activeAction === 'crew') && optionsLoading && (
+                        <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            Загружаем справочники
+                        </span>
+                    )}
                 </div>
                 <button
                     type="button"
                     onClick={submit}
-                    disabled={loading || !reason.trim() || (activeAction === 'downtime' && !routePointId)}
+                    disabled={
+                        loading
+                        || !reason.trim()
+                        || (activeAction === 'downtime' && !routePointId)
+                        || (activeAction === 'replace' && !replacementVehicleId && !replacementDriverId && !replacementTrailerId)
+                        || (activeAction === 'crew' && !crewPrimaryDriverId)
+                    }
                     className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     {loading && <Loader2 className="h-4 w-4 animate-spin" />}

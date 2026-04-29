@@ -4,9 +4,9 @@
 
 ## UI coverage update 2026-04-29
 
-- Done: web trip dossier now includes an operational actions panel for downtime, readdressing, cancellation after arrival, breakdown, and post-trip return.
+- Done: web trip dossier now includes an operational actions panel for downtime, readdressing, cancellation after arrival, breakdown, post-trip return, resource replacement, and crew/rest planning.
 - Checked: `corepack pnpm --filter @tms/web lint`, `scripts/ui-workflow-smoke.ps1`.
-- Still later: resource replacement selector UI, crew-rest UI, printed acts, tariff rule engine, and real ETRN provider/KEP/MChD integration.
+- Still later: printed acts, tariff rule engine, real ETRN provider/KEP/MChD integration, and richer approval workflows.
 
 Этот список нужен, чтобы TMS v2 не стала системой только для happy path `одна заявка -> одна машина -> одна доставка`. Реальные перевозки часто ломают такую модель: груз делится, консолидируется, меняется по факту, требует особых условий, документов, разрешений или претензионного контура.
 
