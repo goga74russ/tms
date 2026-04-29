@@ -24,7 +24,9 @@ export type OperationExceptionType =
     | 'resource_replacement'
     | 'downtime'
     | 'cancellation_after_arrival'
-    | 'breakdown';
+    | 'breakdown'
+    | 'post_trip_return'
+    | 'crew_rest';
 
 export type OperationException = {
     id: string;
@@ -62,6 +64,8 @@ const OPERATIONAL_EVENT_TYPES = [
     'trip.point.downtime_recorded',
     'trip.cancellation.after_arrival',
     'trip.disruption.breakdown',
+    'trip.post_trip.return_recorded',
+    'trip.crew.rest_plan_recorded',
 ] as const;
 
 function iso(value: Date | string | null | undefined) {
@@ -84,8 +88,19 @@ function matchesSeverity(item: OperationException, severity?: OperationException
     return !severity || item.severity === severity;
 }
 
-function eventSeverity(eventType: string): OperationExceptionSeverity {
+function eventSeverity(eventType: string, data?: Record<string, unknown>): OperationExceptionSeverity {
     if (eventType === 'trip.disruption.breakdown') return 'blocking';
+    if (eventType === 'trip.post_trip.return_recorded') {
+        if (data?.blockNextTrip === true || data?.postTripInspectionStatus === 'failed' || data?.originalDocumentsReceived === false) {
+            return 'blocking';
+        }
+        return 'info';
+    }
+    if (eventType === 'trip.crew.rest_plan_recorded') {
+        if (data?.riskLevel === 'blocking') return 'blocking';
+        if (data?.riskLevel === 'warning') return 'warning';
+        return 'info';
+    }
     if (eventType === 'trip.point.downtime_recorded' || eventType === 'trip.cancellation.after_arrival') return 'warning';
     if (eventType === 'trip.route.readdressed' || eventType === 'trip.resource.replaced') return 'warning';
     if (eventType.endsWith('.disruption')) return 'blocking';
@@ -95,6 +110,8 @@ function eventSeverity(eventType: string): OperationExceptionSeverity {
 
 function eventTitle(eventType: string) {
     if (eventType === 'trip.disruption.breakdown') return 'Trip breakdown';
+    if (eventType === 'trip.post_trip.return_recorded') return 'Post-trip vehicle return';
+    if (eventType === 'trip.crew.rest_plan_recorded') return 'Crew and rest plan';
     if (eventType === 'trip.point.downtime_recorded') return 'Route point downtime';
     if (eventType === 'trip.cancellation.after_arrival') return 'Cancellation after vehicle arrival';
     if (eventType === 'trip.route.readdressed') return 'Trip route changed';
@@ -276,7 +293,8 @@ export async function listOperationExceptions(params: ListOperationExceptionsPar
             .limit(limit);
 
         for (const event of eventRows.filter((row) => (OPERATIONAL_EVENT_TYPES as readonly string[]).includes(row.eventType))) {
-            const severity = eventSeverity(event.eventType);
+            const eventData = event.data as Record<string, unknown>;
+            const severity = eventSeverity(event.eventType, eventData);
             if (severity === 'info' && !params.includeInfo) continue;
             const type: OperationExceptionType = event.eventType === 'trip.route.readdressed'
                 ? 'route_change'
@@ -288,20 +306,24 @@ export async function listOperationExceptions(params: ListOperationExceptionsPar
                             ? 'cancellation_after_arrival'
                             : event.eventType === 'trip.disruption.breakdown'
                                 ? 'breakdown'
-                                : 'execution_event';
+                                : event.eventType === 'trip.post_trip.return_recorded'
+                                    ? 'post_trip_return'
+                                    : event.eventType === 'trip.crew.rest_plan_recorded'
+                                        ? 'crew_rest'
+                                        : 'execution_event';
             exceptions.push({
                 id: makeId(['execution', event.entityId, event.id]),
                 type,
                 severity,
                 title: eventTitle(event.eventType),
-                message: String((event.data as Record<string, unknown>)?.reason ?? (event.data as Record<string, unknown>)?.notes ?? event.eventType),
+                message: String(eventData?.reason ?? eventData?.notes ?? event.eventType),
                 tripId: event.entityId,
                 tripNumber: tripNumberById.get(event.entityId) ?? event.entityId,
-                orderId: ((event.data as Record<string, unknown>)?.orderId as string | null | undefined) ?? null,
+                orderId: (eventData?.orderId as string | null | undefined) ?? null,
                 source: 'events',
                 sourceId: event.id,
                 createdAt: iso(event.timestamp),
-                data: event.data as Record<string, unknown>,
+                data: eventData,
             });
         }
     }

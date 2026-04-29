@@ -78,7 +78,11 @@ SELECT json_build_object(
     'trip2Id', (SELECT id FROM trip2),
     'trip3Id', (SELECT id FROM trip3),
     'vehicleId', (SELECT id FROM vehicles WHERE (organization_id = (SELECT id FROM org) OR organization_id IS NULL) AND is_archived = false ORDER BY created_at LIMIT 1),
-    'driverId', (SELECT id FROM drivers WHERE (organization_id = (SELECT id FROM org) OR organization_id IS NULL) AND is_active = true ORDER BY created_at LIMIT 1)
+    'driverId', (SELECT id FROM drivers WHERE (organization_id = (SELECT id FROM org) OR organization_id IS NULL) AND is_active = true ORDER BY created_at LIMIT 1),
+    'driver2Id', COALESCE(
+        (SELECT id FROM drivers WHERE (organization_id = (SELECT id FROM org) OR organization_id IS NULL) AND is_active = true ORDER BY created_at OFFSET 1 LIMIT 1),
+        (SELECT id FROM drivers WHERE (organization_id = (SELECT id FROM org) OR organization_id IS NULL) AND is_active = true ORDER BY created_at LIMIT 1)
+    )
 )::text;
 "@
 
@@ -87,6 +91,7 @@ if ($LASTEXITCODE -ne 0) { throw "Failed to prepare operational core smoke data"
 $prepared = (($prepareOutput -join "`n").Trim() -split "`n" | Select-Object -Last 1).Trim() | ConvertFrom-Json
 if (-not $prepared.vehicleId) { throw 'Smoke requires at least one vehicle in seed data' }
 if (-not $prepared.driverId) { throw 'Smoke requires at least one driver in seed data' }
+if (-not $prepared.driver2Id) { throw 'Smoke requires a fallback second driver id' }
 if (-not $prepared.cargoOrderId) { throw 'Smoke requires cargo rules order' }
 
 $loginBody = @{ email = 'admin@tms.local'; password = $seedPassword } | ConvertTo-Json
@@ -168,6 +173,42 @@ $downtimeBody = @{
 $downtime = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/route-points/$($unloadingPoint.id)/downtime" -Headers $headers -ContentType 'application/json' -Body $downtimeBody
 if ($downtime.data.event.eventType -ne 'trip.point.downtime_recorded') { throw 'downtime event type mismatch' }
 if ([int]$downtime.data.billableMinutes -le 0) { throw 'Expected positive downtime billable minutes' }
+
+$postTripReturnBody = @{
+    actualCompletionAt = $nowUtc.ToString("o")
+    odometerEnd = 123456
+    fuelEnd = 75
+    originalDocumentsReceived = $false
+    postTripInspectionStatus = 'failed'
+    documentsReturned = $false
+    blockNextTrip = $true
+    notes = 'Smoke validates post-trip return blocker'
+} | ConvertTo-Json
+$postTripReturn = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/post-trip-return" -Headers $headers -ContentType 'application/json' -Body $postTripReturnBody
+if ($postTripReturn.data.event.eventType -ne 'trip.post_trip.return_recorded') { throw 'post-trip return event type mismatch' }
+if ($postTripReturn.data.event.data.blockNextTrip -ne $true) { throw 'Expected post-trip return next-trip blocker' }
+
+$crewRestBody = @{
+    maxShiftMinutes = 540
+    notes = 'Smoke validates crew and rest plan risks'
+    crew = @(
+        @{
+            driverId = $prepared.driverId
+            shiftStart = $nowUtc.AddHours(-12).ToString("o")
+            shiftEnd = $nowUtc.ToString("o")
+            isPrimary = $true
+        },
+        @{
+            driverId = $prepared.driver2Id
+            shiftStart = $nowUtc.AddHours(-6).ToString("o")
+            shiftEnd = $nowUtc.AddHours(1).ToString("o")
+            isPrimary = $false
+        }
+    )
+} | ConvertTo-Json -Depth 5
+$crewRest = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/crew-rest-plan" -Headers $headers -ContentType 'application/json' -Body $crewRestBody
+if ($crewRest.data.event.eventType -ne 'trip.crew.rest_plan_recorded') { throw 'crew rest event type mismatch' }
+if ($crewRest.data.event.data.riskLevel -ne 'blocking') { throw 'Expected blocking crew rest risk' }
 
 $breakdownBody = @{
     routePointId = $executionRoutePointId
@@ -259,6 +300,8 @@ if ([int]$exceptions.data.summary.total -lt 1) { throw 'Expected operational exc
 if (-not @($exceptions.data.exceptions | Where-Object { $_.type -eq 'etrn_blocking' -and $_.severity -eq 'blocking' })) { throw 'Expected ETRN blocking operational exception' }
 if (-not @($exceptions.data.exceptions | Where-Object { $_.type -eq 'open_claim' -or $_.type -eq 'shipment_discrepancy' })) { throw 'Expected claim or shipment discrepancy operational exception' }
 if (-not @($exceptions.data.exceptions | Where-Object { $_.type -eq 'route_change' })) { throw 'Expected route change operational exception' }
+if (-not @($exceptions.data.exceptions | Where-Object { $_.type -eq 'post_trip_return' -and $_.severity -eq 'blocking' })) { throw 'Expected blocking post-trip return operational exception' }
+if (-not @($exceptions.data.exceptions | Where-Object { $_.type -eq 'crew_rest' -and $_.severity -eq 'blocking' })) { throw 'Expected blocking crew rest operational exception' }
 
 $trip1Exceptions = Invoke-RestMethod -Method Get -Uri "$BaseUrl/operations/exceptions?tripId=$($prepared.trip1Id)&includeInfo=true" -Headers $headers
 if (-not @($trip1Exceptions.data.exceptions | Where-Object { $_.type -eq 'resource_replacement' })) { throw 'Expected resource replacement operational exception' }
@@ -292,6 +335,8 @@ $result = [ordered]@{
     resourceReplacementEventId = $replacement.data.event.id
     readdressEventId = $readdress.data.event.id
     downtimeEventId = $downtime.data.event.id
+    postTripReturnEventId = $postTripReturn.data.event.id
+    crewRestEventId = $crewRest.data.event.id
     breakdownEventId = $breakdown.data.event.id
     cancelAfterArrivalEventId = $cancelAfterArrival.data.event.id
     closeGateCanClose = $closeGate.data.canClose

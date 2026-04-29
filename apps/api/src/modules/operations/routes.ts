@@ -5,7 +5,9 @@ import { assertDriverAccess, assertOrderAccess, assertTrailerAccess, assertTripA
 import { listOperationExceptions } from './exceptions-service.js';
 import {
     cancelTripAfterArrival,
+    completePostTripReturn,
     readdressTrip,
+    recordCrewRestPlan,
     recordRoutePointDowntime,
     recordTripBreakdown,
     replaceTripResources,
@@ -69,6 +71,28 @@ const BreakdownSchema = z.object({
     lon: z.number().min(-180).max(180).nullable().optional(),
     requiresReplacement: z.boolean().optional(),
     repairRequestId: z.string().uuid().nullable().optional(),
+});
+
+const PostTripReturnSchema = z.object({
+    actualCompletionAt: z.string().datetime().nullable().optional(),
+    odometerEnd: z.number().nonnegative().nullable().optional(),
+    fuelEnd: z.number().nonnegative().nullable().optional(),
+    originalDocumentsReceived: z.boolean().optional(),
+    postTripInspectionStatus: z.enum(['pending', 'passed', 'failed']).optional(),
+    documentsReturned: z.boolean().optional(),
+    blockNextTrip: z.boolean().optional(),
+    notes: z.string().max(2000).nullable().optional(),
+});
+
+const CrewRestPlanSchema = z.object({
+    crew: z.array(z.object({
+        driverId: z.string().uuid(),
+        shiftStart: z.string().datetime(),
+        shiftEnd: z.string().datetime(),
+        isPrimary: z.boolean().optional(),
+    })).min(1).max(4),
+    maxShiftMinutes: z.number().int().positive().max(1440).nullable().optional(),
+    notes: z.string().max(2000).nullable().optional(),
 });
 
 export default async function operationsRoutes(app: FastifyInstance) {
@@ -143,6 +167,65 @@ export default async function operationsRoutes(app: FastifyInstance) {
         }
         try {
             const data = await recordTripBreakdown(id, parsed.data, {
+                userId: user.userId,
+                role: user.roles[0] ?? 'unknown',
+                organizationId: user.organizationId,
+            });
+            return reply.status(201).send({ success: true, data });
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
+    app.post('/trips/:id/post-trip-return', {
+        schema: {
+            tags: ['Operations'],
+            summary: 'Complete post-trip vehicle return',
+            description: 'Records post-trip vehicle return evidence, odometer/fuel values, original document receipt, and next-trip blocking flags.',
+        },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const parsed = PostTripReturnSchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+
+        try {
+            const data = await completePostTripReturn(id, parsed.data, {
+                userId: user.userId,
+                role: user.roles[0] ?? 'unknown',
+                organizationId: user.organizationId,
+            });
+            return reply.status(201).send({ success: true, data });
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
+    app.post('/trips/:id/crew-rest-plan', {
+        schema: {
+            tags: ['Operations'],
+            summary: 'Record trip crew and rest plan',
+            description: 'Records crew shifts, primary/secondary driver roles, and rest-mode risks before waybill or dispatch.',
+        },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const parsed = CrewRestPlanSchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+        for (const member of parsed.data.crew) await assertDriverAccess(member.driverId, user);
+
+        try {
+            const data = await recordCrewRestPlan(id, parsed.data, {
                 userId: user.userId,
                 role: user.roles[0] ?? 'unknown',
                 organizationId: user.organizationId,

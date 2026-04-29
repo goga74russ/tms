@@ -62,6 +62,28 @@ export type RecordBreakdownInput = {
     repairRequestId?: string | null;
 };
 
+export type CompletePostTripReturnInput = {
+    actualCompletionAt?: string | null;
+    odometerEnd?: number | null;
+    fuelEnd?: number | null;
+    originalDocumentsReceived?: boolean;
+    postTripInspectionStatus?: 'pending' | 'passed' | 'failed';
+    documentsReturned?: boolean;
+    blockNextTrip?: boolean;
+    notes?: string | null;
+};
+
+export type CrewRestPlanInput = {
+    crew: Array<{
+        driverId: string;
+        shiftStart: string;
+        shiftEnd: string;
+        isPrimary?: boolean;
+    }>;
+    maxShiftMinutes?: number | null;
+    notes?: string | null;
+};
+
 function maybeOrgCondition<T extends { organizationId: any }>(table: T, organizationId?: string | null) {
     return organizationId ? eq(table.organizationId, organizationId) : undefined;
 }
@@ -94,6 +116,12 @@ function diffMinutes(start?: Date | null, end?: Date | null) {
     if (!start || !end) return null;
     const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
     return Number.isFinite(minutes) ? Math.max(minutes, 0) : null;
+}
+
+function riskLevel(risks: Array<{ severity: 'blocking' | 'warning' }>) {
+    if (risks.some((risk) => risk.severity === 'blocking')) return 'blocking';
+    if (risks.some((risk) => risk.severity === 'warning')) return 'warning';
+    return 'ok';
 }
 
 export async function readdressTrip(tripId: string, input: ReaddressTripInput, actor: Actor) {
@@ -413,5 +441,164 @@ export async function recordTripBreakdown(tripId: string, input: RecordBreakdown
 
         await tx.update(trips).set({ updatedAt: new Date() }).where(eq(trips.id, tripId));
         return { event };
+    });
+}
+
+export async function completePostTripReturn(tripId: string, input: CompletePostTripReturnInput, actor: Actor) {
+    return db.transaction(async (tx) => {
+        const [trip] = await tx.select({
+            id: trips.id,
+            status: trips.status,
+            actualCompletionAt: trips.actualCompletionAt,
+            odometerEnd: trips.odometerEnd,
+            fuelEnd: trips.fuelEnd,
+            originalDocumentsReceived: trips.originalDocumentsReceived,
+        }).from(trips).where(and(
+            eq(trips.id, tripId),
+            maybeOrgCondition(trips, actor.organizationId),
+        )).limit(1);
+        if (!trip) throw new Error('Trip not found');
+
+        const postTripInspectionStatus = input.postTripInspectionStatus ?? 'pending';
+        const originalDocumentsReceived = input.originalDocumentsReceived ?? trip.originalDocumentsReceived ?? false;
+        const blockNextTrip = input.blockNextTrip ?? (postTripInspectionStatus === 'failed' || !originalDocumentsReceived);
+
+        const patch: Partial<typeof trips.$inferInsert> = {
+            actualCompletionAt: toDate(input.actualCompletionAt) ?? trip.actualCompletionAt ?? new Date(),
+            odometerEnd: input.odometerEnd ?? trip.odometerEnd,
+            fuelEnd: input.fuelEnd ?? trip.fuelEnd,
+            originalDocumentsReceived,
+            updatedAt: new Date(),
+        };
+
+        const [updatedTrip] = await tx.update(trips).set(patch).where(eq(trips.id, tripId)).returning();
+        const event = await recordEvent({
+            authorId: actor.userId,
+            authorRole: actor.role,
+            eventType: 'trip.post_trip.return_recorded',
+            entityType: 'trip',
+            entityId: tripId,
+            data: {
+                kind: 'post_trip_return',
+                previous: {
+                    actualCompletionAt: trip.actualCompletionAt,
+                    odometerEnd: trip.odometerEnd,
+                    fuelEnd: trip.fuelEnd,
+                    originalDocumentsReceived: trip.originalDocumentsReceived,
+                },
+                actualCompletionAt: updatedTrip.actualCompletionAt,
+                odometerEnd: updatedTrip.odometerEnd,
+                fuelEnd: updatedTrip.fuelEnd,
+                originalDocumentsReceived,
+                documentsReturned: input.documentsReturned ?? originalDocumentsReceived,
+                postTripInspectionStatus,
+                blockNextTrip,
+                notes: input.notes ?? null,
+                nextActions: {
+                    requireOriginalDocuments: !originalDocumentsReceived,
+                    requireFleetReview: postTripInspectionStatus === 'failed',
+                    releaseVehicleForNextTrip: !blockNextTrip,
+                },
+            },
+        }, tx);
+
+        return { trip: updatedTrip, event };
+    });
+}
+
+export async function recordCrewRestPlan(tripId: string, input: CrewRestPlanInput, actor: Actor) {
+    return db.transaction(async (tx) => {
+        const [trip] = await tx.select({ id: trips.id }).from(trips).where(and(
+            eq(trips.id, tripId),
+            maybeOrgCondition(trips, actor.organizationId),
+        )).limit(1);
+        if (!trip) throw new Error('Trip not found');
+
+        const maxShiftMinutes = input.maxShiftMinutes ?? 540;
+        const seenDriverIds = new Set<string>();
+        const crew = [];
+        const risks: Array<{ code: string; severity: 'blocking' | 'warning'; message: string; driverId?: string }> = [];
+
+        for (const member of input.crew) {
+            const [driver] = await tx.select({ id: drivers.id }).from(drivers).where(and(
+                eq(drivers.id, member.driverId),
+                maybeOrgCondition(drivers, actor.organizationId),
+            )).limit(1);
+            if (!driver) throw new Error(`Driver not found: ${member.driverId}`);
+
+            const shiftStart = new Date(member.shiftStart);
+            const shiftEnd = new Date(member.shiftEnd);
+            if (Number.isNaN(shiftStart.getTime()) || Number.isNaN(shiftEnd.getTime())) {
+                throw new Error('Invalid shift timestamps');
+            }
+            if (shiftEnd <= shiftStart) {
+                throw new Error('Crew shiftEnd must be later than shiftStart');
+            }
+
+            const shiftMinutes = diffMinutes(shiftStart, shiftEnd) ?? 0;
+            if (shiftMinutes > maxShiftMinutes) {
+                risks.push({
+                    code: 'shift_limit_exceeded',
+                    severity: 'blocking',
+                    message: `Driver shift exceeds ${maxShiftMinutes} minutes`,
+                    driverId: member.driverId,
+                });
+            }
+            if (seenDriverIds.has(member.driverId)) {
+                risks.push({
+                    code: 'duplicate_driver_in_crew',
+                    severity: 'warning',
+                    message: 'The same driver appears more than once in the crew plan',
+                    driverId: member.driverId,
+                });
+            }
+            seenDriverIds.add(member.driverId);
+            crew.push({
+                driverId: member.driverId,
+                shiftStart,
+                shiftEnd,
+                shiftMinutes,
+                isPrimary: member.isPrimary ?? crew.length === 0,
+            });
+        }
+
+        if (crew.length < 2) {
+            risks.push({
+                code: 'single_driver_long_route_risk',
+                severity: 'warning',
+                message: 'Crew has one driver; dispatcher should verify rest mode for long routes',
+            });
+        }
+        if (!crew.some((member) => member.isPrimary)) {
+            risks.push({
+                code: 'missing_primary_driver',
+                severity: 'warning',
+                message: 'Crew plan has no primary driver',
+            });
+        }
+
+        const event = await recordEvent({
+            authorId: actor.userId,
+            authorRole: actor.role,
+            eventType: 'trip.crew.rest_plan_recorded',
+            entityType: 'trip',
+            entityId: tripId,
+            data: {
+                kind: 'crew_rest',
+                crew,
+                crewSize: crew.length,
+                maxShiftMinutes,
+                riskLevel: riskLevel(risks),
+                risks,
+                notes: input.notes ?? null,
+                nextActions: {
+                    requireDispatcherReview: risks.length > 0,
+                    readyForWaybillCrewSection: risks.every((risk) => risk.severity !== 'blocking'),
+                },
+            },
+        }, tx);
+
+        await tx.update(trips).set({ updatedAt: new Date() }).where(eq(trips.id, tripId));
+        return { event, crew, risks };
     });
 }
