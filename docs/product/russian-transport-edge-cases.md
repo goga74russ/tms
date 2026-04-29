@@ -44,9 +44,9 @@
 |---|---|---|
 | Бумажное исключение после 2026-09-01 | Система должна явно знать, почему документ оформлен на бумаге, а не в ЭПД | Сделано бесплатно, проверено 2026-04-29: dossier item exception, closeGate `paperException`, reason/metadata; официальный справочник оснований позже |
 | Несколько участников | Грузоотправитель, грузополучатель, перевозчик, экспедитор, плательщик, фактический склад могут различаться | Сделано бесплатно, проверено 2026-04-29: dossier собирает стороны, signature API хранит signer roles; операторский ЭТРН-маппинг позже |
-| Подписание разными сторонами | Нужны роли подписантов, КЭП/УКЭП/МЧД, полномочия и история подписания | Сделано, проверено 2026-04-29: transport-document signatures API, роли подписантов, authority/cert/MЧД metadata, history events; нужен реальный КЭП-провайдер |
-| Отказ от подписи | Нужно фиксировать отказ, причину, акт/доказательства и дальнейший статус | Сделано, проверено 2026-04-29: signature-refusal API, reason/evidence, rejected status, receipt/history; нужен UI акта отказа |
-| Потерянные бумажные документы | Missing docs queue, ответственный, дедлайн, финансовая блокировка | Сделано бесплатно, проверено 2026-04-29: `document_dossier_items`, due/blocking, exception endpoint, close gate; UI очереди позже |
+| Подписание разными сторонами | Нужны роли подписантов, КЭП/УКЭП/МЧД, полномочия и история подписания | Сделано, проверено 2026-04-29: transport-document signatures API, роли подписантов, authority/cert/MЧД metadata, history events; UI подписания добавлен; нужен реальный КЭП-провайдер |
+| Отказ от подписи | Нужно фиксировать отказ, причину, акт/доказательства и дальнейший статус | Сделано, проверено 2026-04-29: signature-refusal API, reason/evidence, rejected status, receipt/history; UI отказа добавлен; печатная форма акта позже |
+| Потерянные бумажные документы | Missing docs queue, ответственный, дедлайн, финансовая блокировка | Сделано бесплатно, проверено 2026-04-29: `document_dossier_items`, due/blocking, exception endpoint, close gate; dispatcher cockpit показывает blocker/next action; отдельная очередь документов позже |
 | ЭПД callback/retry | Идемпотентность, квитанции, отклонения, повторная отправка, сверка финального статуса | Сделано бесплатно, проверено 2026-04-29: `transport_document_exchanges/receipts`, retry, provider callback/status, refusal receipt; реальный оператор ЭПД позже |
 | Архив документов | Сроки хранения, неизменяемость, поиск по заказу/рейсу/контрагенту | Сделано бесплатно, проверено 2026-04-29: persisted transport documents/history/receipts + MinIO skeleton; юридический WORM/КЭП-архив позже |
 | ЭТРН source package | Реализация должна опираться на локальные XSD и описание формата | Сделано 2026-04-29: `docs/architecture/etrn-source-map.md` |
@@ -56,10 +56,10 @@
 
 | Сценарий | Что нужно в продукте | Работа |
 |---|---|---|
-| Нет связи у водителя | Offline queue, локальные фото/подписи, повторная синхронизация, конфликт-резолюция | Сделано бесплатно, проверено 2026-04-29: `clientEventId` idempotency, `offlineCreatedAt`, attachments, duplicate smoke; нативная mobile queue позже |
+| Нет связи у водителя | Offline queue, локальные фото/подписи, повторная синхронизация, конфликт-резолюция | Сделано бесплатно, проверено 2026-04-29: `clientEventId` idempotency, `offlineCreatedAt`, attachments, duplicate smoke; mobile offline replay для checkpoint/completion добавлен; conflict UI остается partly |
 | Фото плохого качества | Retake flow, минимальные требования, привязка к точке/времени/GPS | Сделано бесплатно, проверено 2026-04-29: attachment placeholders, GPS, `photo-placeholder`/correction event; UI retake позже |
 | GPS расходится с ручным статусом | Алгоритм доверия, флаг на диспетчера, audit trail | Сделано бесплатно, проверено 2026-04-29: GPS пишется в append-only journal и cockpit видит execution exceptions; сложный trust algorithm позже |
-| Водитель нажал не тот статус | Корректировка с причиной и правами, без потери истории | Сделано бесплатно, проверено 2026-04-29: `correction` execution event в append-only journal; UI согласования позже |
+| Водитель нажал не тот статус | Корректировка с причиной и правами, без потери истории | Сделано бесплатно, проверено 2026-04-29: `correction` execution event в append-only journal; mobile trip blockers добавлены; UI согласования корректировок позже |
 | Нарушение ETA | Автоуведомление, причина задержки, влияние на SLA/штраф | Сделано бесплатно, проверено 2026-04-29: `delay` execution event, route point downtime, cockpit warning; тариф SLA позже |
 | Режим труда и отдыха | Интеграция с тахографом или хотя бы контроль риска переработки | Сделано, проверено 2026-04-29: API crew-rest-plan, смены, лимит минут, blocking/warning risk в cockpit; тахографа нет |
 | Два водителя | Экипаж, смены, подписи, путевой лист, ответственность | Сделано, проверено 2026-04-29: crew array с primary/secondary, сменами и smoke; нужны UI и печатная/ЭТРН-связка с путевым листом |
@@ -72,10 +72,10 @@
 | Простой | Норматив, факт, подтверждение, автоматическое начисление или claim | Сделано бесплатно, проверено 2026-04-29: downtime API, billable/free minutes, reserveAmount, additional-services billing; тарифные правила позже |
 | Штраф за срыв подачи | Кто виноват, доказательства, сумма, акт, settlement | Сделано бесплатно, проверено 2026-04-29: cancel-after-arrival, reserveAmount, claims settlementNote, акт/evidence foundation; печатная форма позже |
 | Недостача/повреждение | Акт, фото, стоимость груза, ответственная сторона, резерв, итоговое решение | Сделано бесплатно, проверено 2026-04-29: auto claim из shortage/damage/refusal, акт/photo/signature evidence, reserve/estimated amount |
-| Частичная оплата | Разделение счета по выполненным сегментам/рейсам | Сделано, проверено 2026-04-29: payments API, append-only payment events, paid/remaining balance; нужен UI и платежные документы |
+| Частичная оплата | Разделение счета по выполненным сегментам/рейсам | Сделано, проверено 2026-04-29: payments API, append-only payment events, paid/remaining balance; finance actions UI добавлен; платежные документы позже |
 | Допуслуги | Погрузка, разгрузка, пропуск, мойка, простой, экспедирование | Сделано, проверено 2026-04-29: additional-services API поверх invoice adjustments + journal event; нужны тарифные правила |
 | Несовпадение с 1С | Сверка актов/счетов, статусы выгрузки, расхождения | Сделано, проверено 2026-04-29: 1c-reconciliation API, external status/amount, discrepancy list; нужен реальный обмен/маппинг 1С |
-| Закрытие рейса без документов | Правило: разрешать с риском или блокировать до сдачи досье | Сделано бесплатно, проверено 2026-04-29: dossier projection, close gate, paper exception, cockpit blockers; UI закрытия позже |
+| Закрытие рейса без документов | Правило: разрешать с риском или блокировать до сдачи досье | Сделано бесплатно, проверено 2026-04-29: dossier projection, close gate, paper exception, cockpit blockers; dispatcher cockpit и mobile blockers показывают риск; close flow остается partly |
 
 ## Что делать первым
 
@@ -84,9 +84,9 @@
 | Ввести доменную модель партий/сегментов заказа | Сделано 2026-04-29: `shipment_lots`, `trip_lot_assignments`, smoke |
 | Добавить фактические значения погрузки/доставки: вес, объем, места, паллеты, фото, подпись, расхождение | Сделано бесплатно, проверено 2026-04-29: вес/объем/места/паллеты/evidence/GPS/подпись/акт/расхождение в smoke |
 | Сделать матрицу совместимости груза и ТС | Сделано бесплатно, проверено 2026-04-29: `GET /trips/:id/compatibility`, cargo rules, body/ref/bulk/liquid/hazardous/valuable/oversized markers; справочники можно расширять |
-| Сделать досье документов как обязательный close gate | Сделано бесплатно, проверено 2026-04-29: projection + `GET /trips/:id/dossier/close-gate`, exception/cockpit blockers; UI закрытия позже |
-| Сделать модуль инцидентов/претензий, связанный с рейсом, заказом, документами и финансами | Сделано бесплатно, проверено 2026-04-29: execution events + claim exposure + operations cockpit + finance adjustments/payments/reconciliation |
-| Сделать dispatcher cockpit исключений: перегруз, опоздание, нет документов, нет связи, расхождение, простой, претензия | Сделано, проверено 2026-04-29: `GET /operations/exceptions`, smoke покрывает ЭТРН-блокировку, претензию/расхождение, execution events |
+| Сделать досье документов как обязательный close gate | Сделано бесплатно, проверено 2026-04-29: projection + `GET /trips/:id/dossier/close-gate`, exception/cockpit blockers; dispatcher cockpit показывает blockers; close flow остается partly |
+| Сделать модуль инцидентов/претензий, связанный с рейсом, заказом, документами и финансами | Сделано бесплатно, проверено 2026-04-29: execution events + claim exposure + operations cockpit + finance adjustments/payments/reconciliation + finance actions UI |
+| Сделать dispatcher cockpit исключений: перегруз, опоздание, нет документов, нет связи, расхождение, простой, претензия | Сделано, проверено 2026-04-29: `GET /operations/exceptions`, smoke покрывает ЭТРН-блокировку, претензию/расхождение, execution events; cockpit UI и next actions добавлены |
 
 ## Источники для проверки требований
 

@@ -41,6 +41,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
     const [orders, setOrders] = useState<ConfirmedOrder[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [splittingOrderId, setSplittingOrderId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [warnings, setWarnings] = useState<string[]>([]);
 
@@ -88,6 +89,38 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
 
     const selectedVehicleData = vehicles.find(v => v.id === selectedVehicle);
     const isOverweight = selectedVehicleData && totalWeight > selectedVehicleData.payloadCapacityKg;
+    const capacityKg = selectedVehicleData?.payloadCapacityKg ?? 0;
+
+    const estimateTripCount = (weightKg: number) => {
+        if (!capacityKg || capacityKg <= 0) return null;
+        return Math.max(1, Math.ceil(weightKg / capacityKg));
+    };
+
+    const splitOrderBySelectedVehicle = async (order: ConfirmedOrder) => {
+        if (!selectedVehicleData) {
+            setError('Сначала выберите ТС, чтобы рассчитать партии по грузоподъемности.');
+            return;
+        }
+
+        setSplittingOrderId(order.id);
+        setError(null);
+        try {
+            const result = await api.post(`/orders/${order.id}/lots/split`, {
+                maxWeightKg: selectedVehicleData.payloadCapacityKg,
+            });
+            if (!result.success) {
+                throw new Error(result.error || 'Не удалось разбить заявку на партии');
+            }
+            const count = Array.isArray(result.data) ? result.data.length : estimateTripCount(order.cargoWeightKg);
+            setWarnings([
+                `Заявка ${order.number} разбита на ${count} партий по ${(selectedVehicleData.payloadCapacityKg / 1000).toFixed(1)} т.`,
+            ]);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Не удалось разбить заявку на партии');
+        } finally {
+            setSplittingOrderId(null);
+        }
+    };
 
     const handleSubmit = async () => {
         if (!selectedVehicle || !selectedDriver || selectedOrders.length === 0) return;
@@ -226,7 +259,11 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                 )}
 
                                 <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-                                    {orders.map(order => (
+                                    {orders.map(order => {
+                                        const tripsNeeded = estimateTripCount(order.cargoWeightKg);
+                                        const needsSplit = Boolean(selectedVehicleData && tripsNeeded && tripsNeeded > 1);
+
+                                        return (
                                         <label
                                             key={order.id}
                                             className={`flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all ${selectedOrders.includes(order.id)
@@ -253,9 +290,34 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                                 <p className="text-xs text-slate-400 truncate">
                                                     {order.loadingAddress} → {order.unloadingAddress}
                                                 </p>
+                                                {selectedVehicleData && (
+                                                    <div className={`mt-2 rounded-md px-2 py-1 text-[11px] ${needsSplit
+                                                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                        }`}>
+                                                        {needsSplit
+                                                            ? `Нужно рейсов/партий: ${tripsNeeded}. Выбранное ТС не заберет всю заявку.`
+                                                            : 'Заявка помещается в выбранное ТС.'}
+                                                    </div>
+                                                )}
+                                                {needsSplit && (
+                                                    <button
+                                                        type="button"
+                                                        disabled={splittingOrderId === order.id}
+                                                        onClick={(event) => {
+                                                            event.preventDefault();
+                                                            event.stopPropagation();
+                                                            void splitOrderBySelectedVehicle(order);
+                                                        }}
+                                                        className="mt-2 rounded-md border border-amber-300 bg-white px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                                                    >
+                                                        {splittingOrderId === order.id ? 'Разбиваем...' : 'Разбить на партии'}
+                                                    </button>
+                                                )}
                                             </div>
                                         </label>
-                                    ))}
+                                        );
+                                    })}
                                     {orders.length === 0 && (
                                         <p className="text-xs text-slate-400 text-center py-4">
                                             Нет подтверждённых заявок

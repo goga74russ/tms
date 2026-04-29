@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-04-28
+Updated: 2026-04-29
 
 ## P0. Make v2 A Clean Working Base
 
@@ -17,7 +17,7 @@ Updated: 2026-04-28
 - Copy the archived Expo app from `D:\Ai\TMS\apps\mobile`.
 - Align package versions with v2 workspace policy.
 - Verify auth against `/api/auth/mobile/login`.
-- Verify trip list, trip detail, checkpoints, delivery confirmation, mechanic inspection, uploads, and offline queue.
+- Verify trip list, trip detail, checkpoints, delivery confirmation, mechanic inspection, uploads, mobile trip blockers, and offline queue replay for checkpoint/completion.
 - **Mandatory before pilot/release:** run the app on a real Android device or emulator against a LAN API URL and save UI evidence for login, trip list, checkpoint, and completion.
 - Decide whether mobile is shipped as part of v2 production or kept as pilot-only.
 
@@ -39,7 +39,7 @@ Updated: 2026-04-28
 - * Partial loading/delivery and discrepancy acts: planned vs actual weight/quantity, shortages, damage, photos, signatures, and claim hooks.
 - * Vehicle/cargo compatibility matrix: payload, volume, body type, trailer, temperature/special conditions, loading method, and restrictions.
 - * Document dossier enforcement: required docs, EPD receipts, paper exceptions, signed scans, return control, and close blockers.
-- * Claims and penalties module: delays, no-show, downtime, shortage, damage, rejected documents, responsible party, and settlement impact.
+- * Claims and penalties module: delays, no-show, downtime, shortage, damage, rejected documents, responsible party, settlement impact, and finance actions.
 - * Operational edge-case backlog: multi-order trips, multi-stop, переадресация, возвраты, простой, dangerous/perishable/oversized cargo, offline driver flow, tachograph/rest risk.
 
 ## P4. Operational Fleet Track
@@ -52,7 +52,7 @@ Updated: 2026-04-28
 
 ## P5. Market Readiness
 
-- * UX polish by role: dispatcher cockpit, clear next actions, empty/error states, Russian copy, and browser screenshot evidence.
+- * UX polish by role: dispatcher cockpit and finance/ETRN actions are partly done; continue clear next actions, empty/error states, Russian copy, and browser screenshot evidence.
 - Create demo environment and demo data.
 - Add customer-facing product docs.
 - Add integration guides for 1C, SAP, WMS, GPS, and EDO.

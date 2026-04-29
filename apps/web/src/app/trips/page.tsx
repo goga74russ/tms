@@ -36,6 +36,44 @@ interface TrailerInfo {
     currentVehicleId?: string | null;
 }
 
+type CloseGateSeverity = 'blocking' | 'warning';
+
+type CloseGateItem = {
+    id: string;
+    documentType: string;
+    status: string;
+    required: boolean;
+    sourceDocumentId?: string | null;
+    sourceDocumentKind?: string | null;
+    blockedReason?: string | null;
+    dueAt?: string | null;
+    completedAt?: string | null;
+    severity: CloseGateSeverity;
+    reason: string;
+};
+
+type DossierCloseGate = {
+    canClose: boolean;
+    generatedAt?: string | null;
+    blockingItems?: CloseGateItem[];
+    warningItems?: CloseGateItem[];
+    etrn?: {
+        required: boolean;
+        present: boolean;
+        missing: boolean;
+        exceptioned: boolean;
+        paperException: boolean;
+    };
+    summary?: {
+        totalItems: number;
+        requiredItems: number;
+        completedItems: number;
+        exceptionedItems: number;
+        blockingItems: number;
+        warningItems: number;
+    };
+};
+
 const STATUS_LABELS: Record<string, string> = {
     planning: 'Планирование',
     assigned: 'Назначен',
@@ -86,9 +124,29 @@ function transportDocumentLabel(type: string) {
         waybill: 'Путевой лист',
         delivery_confirmation: 'Подтверждение доставки',
         document_return: 'Возврат оригиналов',
+        etrn: 'ЭТРН',
+        ttn: 'ТТН',
+        upd: 'УПД',
+        act: 'Акт',
+        transport_document: 'Транспортный документ',
     };
 
     return labels[type] || type;
+}
+
+function dossierItemStatusLabel(status: string) {
+    const labels: Record<string, string> = {
+        missing: 'нет',
+        draft: 'черновик',
+        sent: 'отправлен',
+        signed: 'подписан',
+        received: 'получен',
+        accepted: 'принят',
+        rejected: 'отклонён',
+        exceptioned: 'исключение',
+    };
+
+    return labels[status] || status;
 }
 
 function etrnTitleTypeLabel(type: string) {
@@ -253,6 +311,106 @@ function TimelineCard({
                         </div>
                     </div>
                 ))}
+            </div>
+        </div>
+    );
+}
+
+function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) {
+    if (!closeGate) return null;
+
+    const blockingItems = closeGate.blockingItems || [];
+    const warningItems = closeGate.warningItems || [];
+    const allItems = [...blockingItems, ...warningItems];
+    const hasItems = allItems.length > 0;
+    const canClose = closeGate.canClose && blockingItems.length === 0;
+
+    const renderItem = (item: CloseGateItem) => (
+        <div key={item.id} className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900">{transportDocumentLabel(item.documentType)}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">{item.reason || item.blockedReason || 'Требуется проверка документа'}</p>
+                </div>
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                    item.severity === 'blocking' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                }`}>
+                    {item.severity === 'blocking' ? 'block' : 'warning'}
+                </span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                <span className="rounded-full bg-slate-50 px-2 py-0.5">{dossierItemStatusLabel(item.status)}</span>
+                <span className="rounded-full bg-slate-50 px-2 py-0.5">{item.required ? 'обязательный' : 'необязательный'}</span>
+                {item.sourceDocumentKind && (
+                    <span className="rounded-full bg-slate-50 px-2 py-0.5">{item.sourceDocumentKind}</span>
+                )}
+                {item.dueAt && (
+                    <span className="rounded-full bg-slate-50 px-2 py-0.5">срок: {formatTimelineDate(item.dueAt)}</span>
+                )}
+                {item.completedAt && (
+                    <span className="rounded-full bg-slate-50 px-2 py-0.5">закрыт: {formatTimelineDate(item.completedAt)}</span>
+                )}
+            </div>
+        </div>
+    );
+
+    return (
+        <div className={`rounded-2xl border p-4 ${
+            canClose ? 'border-emerald-200 bg-emerald-50/70' : 'border-rose-200 bg-rose-50/70'
+        }`}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p className={`text-xs font-semibold uppercase tracking-wide ${canClose ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        Close gate
+                    </p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">
+                        {canClose ? 'Рейс можно закрывать по досье' : 'Что мешает закрыть рейс'}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600">
+                        Проверка документов: {closeGate.summary?.completedItems ?? 0}/{closeGate.summary?.totalItems ?? 0} готово · обновлено {formatTimelineDate(closeGate.generatedAt)}
+                    </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                        canClose ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                    }`}>
+                        canClose: {canClose ? 'true' : 'false'}
+                    </span>
+                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-sm">
+                        blockers: {blockingItems.length}
+                    </span>
+                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 shadow-sm">
+                        warnings: {warningItems.length}
+                    </span>
+                </div>
+            </div>
+
+            <div className="mt-3 grid gap-3 md:grid-cols-4">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                    Обязательных: {closeGate.summary?.requiredItems ?? 0}
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                    Исключений: {closeGate.summary?.exceptionedItems ?? 0}
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                    ЭТРН: {closeGate.etrn?.present ? 'есть' : closeGate.etrn?.missing ? 'нет' : 'проверить'}
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                    Бумажное исключение: {closeGate.etrn?.paperException ? 'да' : 'нет'}
+                </div>
+            </div>
+
+            <div className="mt-4">
+                {hasItems ? (
+                    <div className="grid gap-3 lg:grid-cols-2">
+                        {blockingItems.map(renderItem)}
+                        {warningItems.map(renderItem)}
+                    </div>
+                ) : (
+                    <div className="rounded-xl border border-white bg-white px-3 py-2 text-sm text-emerald-700 shadow-sm">
+                        Блокирующих и предупреждающих пунктов нет.
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -1109,6 +1267,8 @@ export default function TripsPage() {
                                         </div>
                                     </div>
 
+                                    <CloseGateBlock closeGate={dossier.closeGate} />
+
                                     <TransportDocumentsBlock dossier={dossier} />
 
                                     <div className="grid gap-6 lg:grid-cols-2">
@@ -1182,4 +1342,3 @@ export default function TripsPage() {
         </div>
     );
 }
-

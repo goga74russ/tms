@@ -1,6 +1,6 @@
 ﻿# Mobile Migration
 
-Updated: 2026-04-28
+Updated: 2026-04-29
 
 ## Current State
 
@@ -33,11 +33,12 @@ apps/mobile/index.ts -> apps/mobile/App.tsx -> src/navigation/AppNavigator.tsx
 - driver trip list and trip details from local WatermelonDB sync tables
 - route point checkpoint screen with photo/signature event capture
 - trip completion offline event capture
+- trip blocker display for missing/blocked operational prerequisites
 - delivery confirmation with recipient, photo, signature, online submit, and offline queue fallback
 - mechanic inspection flow
 - upload API integration
 - WatermelonDB sync through `/api/sync/pull` and `/api/sync/events`
-- offline queue replay when connectivity returns
+- offline queue replay for checkpoint and completion events when connectivity returns
 
 ## P1 Changes Applied
 
@@ -46,7 +47,9 @@ apps/mobile/index.ts -> apps/mobile/App.tsx -> src/navigation/AppNavigator.tsx
 3. Triggered WatermelonDB sync after login and after stored-token restoration.
 4. Aligned trip status API client with backend `POST /trips/:id/status`.
 5. Aligned checkpoint confirmation helper with backend `/sync/events` contract.
-6. Added repeatable full mobile smoke script:
+6. Added repeatable full mobile smoke script.
+7. Added mobile trip blocker visibility in driver trip context.
+8. Added offline replay coverage for checkpoint and trip completion events.
 
 ```powershell
 D:\Ai\TMS-prod\scripts\mobile-smoke.ps1
@@ -65,19 +68,20 @@ Verified:
 - mobile login smoke for `driver1@tms.local`
 - `/api/auth/me` returns driver role and `driverId`
 - `/api/sync/pull` returns `success=true` with one prepared smoke trip and one route point
-- `/api/sync/events` accepts `route_point_completed` and `trip_status_changed` events
+- `/api/sync/events` accepts and replays `route_point_completed` and `trip_status_changed` events
 - prepared smoke trip reaches `completed` and its route point reaches `completed`
+- driver trip blockers are represented in the mobile trip context
 
 ## Required Device Gate
 
-Before any mobile pilot or release, run the app on a real Android device or Android emulator against a LAN API URL, not only localhost contract smoke. Capture UI evidence for login, trip list, checkpoint photo/signature, offline/sync behavior, and trip completion.
+Before any mobile pilot or release, run the app on a real Android device or Android emulator against a LAN API URL, not only localhost contract smoke. Capture UI evidence for login, trip list, checkpoint photo/signature, trip blockers, offline/sync replay, and trip completion.
 
 This is mandatory because camera, signature canvas, SecureStore, WatermelonDB, network addressing, and Expo runtime behavior can differ from API-level smoke tests.
 
 ## Remaining Mobile Debt
 
 - Complete the required Android device/emulator gate.
-- Add mobile UI evidence/screenshots for login, trip list, checkpoint, and completion.
+- Add mobile UI evidence/screenshots for login, trip list, checkpoint, completion, trip blockers, and offline replay.
 - Decide whether mobile should keep mechanic/medic flows in the same app or split driver/mechanic builds.
 - Add EAS build profile and pilot installation notes.
 - Add UI pass for Russian texts, empty states, offline banners, and sync status indicators.

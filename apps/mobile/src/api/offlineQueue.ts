@@ -1,6 +1,7 @@
 ﻿import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { getToken } from './auth';
+import { uploadPhoto } from './upload';
 
 const QUEUE_KEY = 'tms_offline_action_queue';
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
@@ -63,6 +64,36 @@ export async function getQueueSize(): Promise<number> {
     return queue.length;
 }
 
+function isLocalPhotoUri(uri: string): boolean {
+    return uri.startsWith('file://') || uri.startsWith('content://') || uri.startsWith('ph://');
+}
+
+async function prepareBodyForReplay(action: OfflineAction): Promise<any> {
+    if (action.type !== 'delivery_confirmation') {
+        return action.body;
+    }
+
+    const photos = Array.isArray(action.body?.photos) ? action.body.photos : [];
+    if (photos.length === 0) {
+        return action.body;
+    }
+
+    const uploadedPhotos = await Promise.all(
+        photos.map(async (photo: unknown) => {
+            if (typeof photo === 'string' && isLocalPhotoUri(photo)) {
+                return uploadPhoto(photo);
+            }
+
+            return photo;
+        })
+    );
+
+    return {
+        ...action.body,
+        photos: uploadedPhotos,
+    };
+}
+
 export async function replayQueue(): Promise<{ success: number; failed: number }> {
     const token = await getToken();
     if (!token) {
@@ -80,13 +111,15 @@ export async function replayQueue(): Promise<{ success: number; failed: number }
 
     for (const action of queue) {
         try {
+            const body = await prepareBodyForReplay(action);
+            action.body = body;
             const res = await fetch(`${API_URL}${action.endpoint}`, {
                 method: action.method,
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(action.body),
+                body: JSON.stringify(body),
             });
 
             if (res.ok || res.status === 409) {

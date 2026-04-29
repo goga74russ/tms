@@ -8,9 +8,11 @@ import {
     ScrollView,
     Alert,
     ActivityIndicator,
+    Image,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Location from 'expo-location';
 import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas';
 import NetInfo from '@react-native-community/netinfo';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -22,7 +24,14 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DeliveryConfirmation'>;
 type CargoCondition = 'intact' | 'damaged' | 'partial';
-type Step = 'form' | 'camera' | 'signature';
+type Step = 'form' | 'camera' | 'photoReview' | 'signature';
+type SubmissionStatus = 'idle' | 'sending' | 'queued';
+
+interface EvidenceMeta {
+    capturedAt: string;
+    gpsLat?: number;
+    gpsLng?: number;
+}
 
 export default function DeliveryConfirmationScreen({ route, navigation }: Props) {
     const { tripId } = route.params;
@@ -36,9 +45,39 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
     const [cargoCondition, setCargoCondition] = useState<CargoCondition>('intact');
     const [notes, setNotes] = useState('');
     const [photoUri, setPhotoUri] = useState<string | null>(null);
+    const [evidenceMeta, setEvidenceMeta] = useState<EvidenceMeta | null>(null);
+    const [submissionStatus, setSubmissionStatus] = useState<SubmissionStatus>('idle');
 
     const cameraRef = useRef<CameraView>(null);
     const signatureRef = useRef<SignatureViewRef>(null);
+
+    const submissionStatusText =
+        submissionStatus === 'queued'
+            ? '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435 \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u0438...'
+            : '\u041e\u0442\u043f\u0440\u0430\u0432\u043a\u0430...';
+
+    const captureEvidenceMeta = async (): Promise<EvidenceMeta> => {
+        const capturedAt = new Date().toISOString();
+
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                return { capturedAt };
+            }
+
+            const position = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+            });
+
+            return {
+                capturedAt,
+                gpsLat: position.coords.latitude,
+                gpsLng: position.coords.longitude,
+            };
+        } catch {
+            return { capturedAt };
+        }
+    };
 
     const takePicture = async () => {
         if (!cameraRef.current) {
@@ -47,6 +86,13 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
 
         const photo = await cameraRef.current.takePictureAsync();
         setPhotoUri(photo?.uri || null);
+        setEvidenceMeta(await captureEvidenceMeta());
+        setStep('photoReview');
+    };
+
+    const skipPhoto = async () => {
+        setPhotoUri(null);
+        setEvidenceMeta(await captureEvidenceMeta());
         setStep('signature');
     };
 
@@ -56,17 +102,22 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
 
     const submitConfirmation = async (photo: string | null, sig: string | null) => {
         setLoading(true);
+        setSubmissionStatus('sending');
 
         try {
             const netState = await NetInfo.fetch();
             const isOnline = Boolean(netState.isConnected && netState.isInternetReachable);
+            setSubmissionStatus(isOnline ? 'sending' : 'queued');
 
             let photoUrl: string | null = null;
+            let shouldQueue = !isOnline;
             if (photo && isOnline) {
                 try {
                     photoUrl = await uploadPhoto(photo);
                 } catch {
                     photoUrl = photo;
+                    shouldQueue = true;
+                    setSubmissionStatus('queued');
                 }
             } else if (photo) {
                 photoUrl = photo;
@@ -80,9 +131,11 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
                 photos: photoUrl ? [photoUrl] : [],
                 cargoCondition,
                 notes: notes || undefined,
+                gpsLat: evidenceMeta?.gpsLat,
+                gpsLng: evidenceMeta?.gpsLng,
             };
 
-            if (!isOnline) {
+            if (shouldQueue) {
                 await enqueueAction({
                     type: 'delivery_confirmation',
                     endpoint: `/trips/${tripId}/delivery-confirmation`,
@@ -90,8 +143,8 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
                     body,
                 });
                 Alert.alert(
-                    '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e \u043e\u0444\u043b\u0430\u0439\u043d',
-                    '\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u0435 \u0431\u0443\u0434\u0435\u0442 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u043f\u0440\u0438 \u0432\u043e\u0441\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0438 \u0441\u0432\u044f\u0437\u0438.',
+                    '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u0438',
+                    '\u0424\u043e\u0442\u043e \u0438 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u0435 \u043e\u0441\u0442\u0430\u043d\u0443\u0442\u0441\u044f \u043d\u0430 \u044d\u0442\u043e\u043c \u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u0435 \u0438 \u043e\u0442\u043f\u0440\u0430\u0432\u044f\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438, \u043a\u043e\u0433\u0434\u0430 \u0441\u0432\u044f\u0437\u044c \u0438 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u0431\u0443\u0434\u0443\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b.',
                     [{ text: 'OK', onPress: () => navigation.navigate('TripList') }]
                 );
                 return;
@@ -117,6 +170,7 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
                 [{ text: 'OK', onPress: () => navigation.navigate('TripList') }]
             );
         } catch (error: any) {
+            setSubmissionStatus('idle');
             Alert.alert(
                 '\u041e\u0448\u0438\u0431\u043a\u0430',
                 error?.message || '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u0435 \u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0438.'
@@ -164,12 +218,53 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
                         <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
                             <View style={styles.captureInner} />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.skipButton} onPress={() => setStep('signature')}>
+                        <TouchableOpacity style={styles.skipButton} onPress={() => void skipPhoto()}>
                             <Text style={styles.skipText}>{'\u041f\u0440\u043e\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0444\u043e\u0442\u043e'}</Text>
                         </TouchableOpacity>
                     </View>
                 </CameraView>
             </View>
+        );
+    }
+
+    if (step === 'photoReview') {
+        const capturedTime = evidenceMeta?.capturedAt
+            ? new Date(evidenceMeta.capturedAt).toLocaleString('ru-RU')
+            : null;
+        const hasGps = evidenceMeta?.gpsLat !== undefined && evidenceMeta?.gpsLng !== undefined;
+
+        return (
+            <ScrollView style={styles.container} contentContainerStyle={styles.reviewContent}>
+                <Text style={styles.title}>{'\u0424\u043e\u0442\u043e \u0434\u043b\u044f \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u044f'}</Text>
+                {photoUri && <Image source={{ uri: photoUri }} style={styles.photoPreview} />}
+                <View style={styles.noticeBox}>
+                    <Text style={styles.noticeTitle}>{'\u041b\u043e\u043a\u0430\u043b\u044c\u043d\u043e\u0435 \u0444\u043e\u0442\u043e'}</Text>
+                    <Text style={styles.noticeText}>
+                        {'\u0424\u043e\u0442\u043e \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u0445\u0440\u0430\u043d\u0438\u0442\u0441\u044f \u043d\u0430 \u044d\u0442\u043e\u043c \u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u0435. \u0415\u0441\u043b\u0438 \u0441\u0432\u044f\u0437\u0438 \u043d\u0435 \u0431\u0443\u0434\u0435\u0442, \u043e\u043d\u043e \u0443\u0439\u0434\u0435\u0442 \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u044c \u0438 \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u0441\u044f \u043f\u0440\u0438 \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e\u0439 \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0435.'}
+                    </Text>
+                </View>
+                <View style={styles.metaBox}>
+                    <Text style={styles.metaText}>
+                        {capturedTime
+                            ? `\u0412\u0440\u0435\u043c\u044f: ${capturedTime}`
+                            : '\u0412\u0440\u0435\u043c\u044f: \u043d\u0435 \u0437\u0430\u0444\u0438\u043a\u0441\u0438\u0440\u043e\u0432\u0430\u043d\u043e'}
+                    </Text>
+                    <Text style={styles.metaText}>
+                        {hasGps
+                            ? `GPS: ${evidenceMeta?.gpsLat?.toFixed(5)}, ${evidenceMeta?.gpsLng?.toFixed(5)}`
+                            : 'GPS: \u043d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430 \u0438\u043b\u0438 \u0441\u0438\u0433\u043d\u0430\u043b\u0430'}
+                    </Text>
+                </View>
+                <TouchableOpacity style={styles.primaryButton} onPress={() => setStep('signature')}>
+                    <Text style={styles.buttonText}>{'\u0414\u0430\u043b\u0435\u0435: \u043f\u043e\u0434\u043f\u0438\u0441\u044c'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.secondaryButton} onPress={() => setStep('camera')}>
+                    <Text style={styles.secondaryButtonText}>{'\u041f\u0435\u0440\u0435\u0441\u043d\u044f\u0442\u044c'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.textButton} onPress={() => void skipPhoto()}>
+                    <Text style={styles.textButtonText}>{'\u041f\u0440\u043e\u043f\u0443\u0441\u0442\u0438\u0442\u044c \u0444\u043e\u0442\u043e'}</Text>
+                </TouchableOpacity>
+            </ScrollView>
         );
     }
 
@@ -190,7 +285,7 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
                 {loading && (
                     <View style={styles.loadingOverlay}>
                         <ActivityIndicator size="large" color="#2563eb" />
-                        <Text style={styles.loadingText}>{'\u041e\u0442\u043f\u0440\u0430\u0432\u043a\u0430...'}</Text>
+                        <Text style={styles.loadingText}>{submissionStatusText}</Text>
                     </View>
                 )}
             </View>
@@ -305,6 +400,33 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
     },
     conditionText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+    reviewContent: { paddingBottom: 32 },
+    photoPreview: {
+        width: '100%',
+        aspectRatio: 4 / 3,
+        borderRadius: 8,
+        backgroundColor: '#e2e8f0',
+        marginBottom: 16,
+    },
+    noticeBox: {
+        borderWidth: 1,
+        borderColor: '#fde68a',
+        borderRadius: 8,
+        backgroundColor: '#fffbeb',
+        padding: 12,
+        marginBottom: 12,
+    },
+    noticeTitle: { fontSize: 15, fontWeight: '700', color: '#92400e', marginBottom: 4 },
+    noticeText: { fontSize: 14, lineHeight: 20, color: '#78350f' },
+    metaBox: {
+        borderWidth: 1,
+        borderColor: '#cbd5e1',
+        borderRadius: 8,
+        backgroundColor: '#f8fafc',
+        padding: 12,
+        marginBottom: 8,
+    },
+    metaText: { fontSize: 14, color: '#475569', marginBottom: 4 },
     primaryButton: {
         backgroundColor: '#2563eb',
         padding: 16,
@@ -314,6 +436,17 @@ const styles = StyleSheet.create({
         marginBottom: 32,
     },
     buttonText: { color: '#fff', fontSize: 17, fontWeight: '700' },
+    secondaryButton: {
+        borderWidth: 1,
+        borderColor: '#2563eb',
+        padding: 14,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    secondaryButtonText: { color: '#2563eb', fontSize: 16, fontWeight: '700' },
+    textButton: { padding: 14, alignItems: 'center', marginTop: 4 },
+    textButtonText: { color: '#475569', fontSize: 15, fontWeight: '600' },
     cameraContainer: { flex: 1 },
     camera: { flex: 1 },
     cameraOverlay: {

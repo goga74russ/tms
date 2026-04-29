@@ -20,7 +20,23 @@ interface Claim {
     type: 'damage' | 'delay' | 'loss' | 'other';
     status: 'open' | 'investigating' | 'resolved' | 'rejected';
     amount: string | null;
+    reserveAmount?: string | number | null;
+    estimatedAmount?: string | number | null;
     resolvedAmount: string | null;
+    effectiveExposureAmount?: string | number | null;
+    exposureBasis?: 'amount' | 'reserve' | 'estimated' | 'none';
+    cause?: string | null;
+    settlementNote?: string | null;
+    exposure?: {
+        claimedAmount?: number | null;
+        reserveAmount?: number | null;
+        estimatedAmount?: number | null;
+        resolvedAmount?: number | null;
+        effectiveExposureAmount?: number | null;
+        exposureBasis?: 'amount' | 'reserve' | 'estimated' | 'none';
+        cause?: string | null;
+        settlementNote?: string | null;
+    };
     description: string;
     resolution: string | null;
     attachments: unknown[];
@@ -32,6 +48,11 @@ interface Claim {
 }
 
 type ApiResponse<T> = { success: boolean; data: T };
+
+type EvidenceItem = {
+    label: string;
+    value: string;
+};
 
 // ——— Helpers ———
 const TYPE_LABELS: Record<string, string> = {
@@ -48,6 +69,90 @@ const STATUS_OPTIONS = [
     { value: 'resolved', label: 'Урегулирована' },
     { value: 'rejected', label: 'Отклонена' },
 ];
+
+const EXPOSURE_BASIS_LABELS: Record<string, string> = {
+    amount: 'Claimed',
+    reserve: 'Reserve',
+    estimated: 'Estimated',
+    none: 'No exposure',
+};
+
+const CAUSE_LABELS: Record<string, string> = {
+    shortage: 'Shortage',
+    damage: 'Damage',
+    delay: 'Delay',
+    downtime: 'Downtime',
+    refusal: 'Refusal',
+    overage: 'Overage',
+    wrong_docs: 'Wrong docs',
+    other: 'Other',
+};
+
+function toMoneyNumber(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') return null;
+    const normalized = typeof value === 'string' ? value.replace(/\s/g, '').replace(',', '.') : value;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function money(value: unknown) {
+    const parsed = toMoneyNumber(value);
+    return parsed === null
+        ? '—'
+        : parsed.toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ₽';
+}
+
+function claimAmount(claim: Claim, key: 'amount' | 'reserveAmount' | 'estimatedAmount' | 'resolvedAmount' | 'effectiveExposureAmount') {
+    if (key === 'amount') return toMoneyNumber(claim.amount ?? claim.exposure?.claimedAmount);
+    if (key === 'resolvedAmount') return toMoneyNumber(claim.resolvedAmount ?? claim.exposure?.resolvedAmount);
+    return toMoneyNumber(claim[key] ?? claim.exposure?.[key]);
+}
+
+function claimExposureBasis(claim: Claim) {
+    return claim.exposureBasis ?? claim.exposure?.exposureBasis ?? 'none';
+}
+
+function claimSettlementNote(claim: Claim) {
+    return claim.settlementNote ?? claim.exposure?.settlementNote ?? null;
+}
+
+function evidenceValue(value: unknown): string | null {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (Array.isArray(value)) return value.length ? `${value.length} item(s)` : null;
+    if (typeof value === 'object') return 'provided';
+    return null;
+}
+
+function collectEvidence(claim: Claim): EvidenceItem[] {
+    const rows: EvidenceItem[] = [];
+    if (!Array.isArray(claim.attachments)) return rows;
+
+    claim.attachments.forEach((attachment, index) => {
+        if (!attachment || typeof attachment !== 'object' || Array.isArray(attachment)) {
+            if (attachment) rows.push({ label: `Attachment ${index + 1}`, value: evidenceValue(attachment) ?? 'provided' });
+            return;
+        }
+
+        const record = attachment as Record<string, unknown>;
+        if (record.kind === 'claim_policy_metadata' || record.kind === 'claim_metadata') {
+            const nested = record.metadata && typeof record.metadata === 'object' && !Array.isArray(record.metadata)
+                ? record.metadata as Record<string, unknown>
+                : {};
+            Object.entries({ ...record, ...nested }).forEach(([key, value]) => {
+                if (['kind', 'version', 'metadata', 'reserveAmount', 'estimatedAmount', 'settlementNote', 'cause'].includes(key)) return;
+                const formatted = evidenceValue(value);
+                if (formatted) rows.push({ label: key, value: formatted });
+            });
+            return;
+        }
+
+        const label = typeof record.name === 'string' ? record.name : typeof record.type === 'string' ? record.type : `Attachment ${index + 1}`;
+        rows.push({ label, value: evidenceValue(record.url ?? record.fileName ?? record.status ?? record.note ?? record) ?? 'provided' });
+    });
+
+    return rows.slice(0, 4);
+}
 
 function statusBadge(status: string) {
     const variants: Record<string, string> = {
@@ -82,7 +187,10 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
         contractorId: '',
         type: 'damage' as const,
         amount: '',
+        reserveAmount: '',
+        estimatedAmount: '',
         description: '',
+        settlementNote: '',
     });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -119,7 +227,10 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                 contractorId: form.contractorId || null,
                 type: form.type,
                 amount: form.amount ? parseFloat(form.amount) : null,
+                reserveAmount: form.reserveAmount ? parseFloat(form.reserveAmount) : null,
+                estimatedAmount: form.estimatedAmount ? parseFloat(form.estimatedAmount) : null,
                 description: form.description,
+                settlementNote: form.settlementNote || null,
             });
             onCreated();
         } catch (err: any) {
@@ -160,6 +271,30 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                             />
                         </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="text-xs text-gray-500 block mb-1">Reserve, RUB</label>
+                            <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={form.reserveAmount}
+                                onChange={e => setForm(f => ({ ...f, reserveAmount: e.target.value }))}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs text-gray-500 block mb-1">Estimated, RUB</label>
+                            <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={form.estimatedAmount}
+                                onChange={e => setForm(f => ({ ...f, estimatedAmount: e.target.value }))}
+                            />
+                        </div>
+                    </div>
                     <div>
                         <label className="text-xs text-gray-500 block mb-1">ID рейса (необяз.)</label>
                         <Input
@@ -194,6 +329,15 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                             required
                         />
                     </div>
+                    <div>
+                        <label className="text-xs text-gray-500 block mb-1">Settlement note</label>
+                        <textarea
+                            className="w-full border rounded px-2 py-1.5 text-sm min-h-[60px]"
+                            placeholder="Reserve rationale, evidence notes, negotiation context..."
+                            value={form.settlementNote}
+                            onChange={e => setForm(f => ({ ...f, settlementNote: e.target.value }))}
+                        />
+                    </div>
                     {error && <p className="text-red-600 text-sm">{error}</p>}
                     <div className="flex justify-end gap-2 pt-2">
                         <Button type="button" variant="outline" onClick={onClose}>Отмена</Button>
@@ -219,6 +363,7 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
         status: 'resolved' as 'resolved' | 'rejected',
         resolvedAmount: '',
         resolution: '',
+        settlementNote: claimSettlementNote(claim) ?? '',
     });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -235,6 +380,7 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
                 status: form.status,
                 resolvedAmount: form.resolvedAmount ? parseFloat(form.resolvedAmount) : null,
                 resolution: form.resolution,
+                settlementNote: form.settlementNote || null,
             });
             onResolved();
         } catch (err: any) {
@@ -282,6 +428,15 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
                             value={form.resolution}
                             onChange={e => setForm(f => ({ ...f, resolution: e.target.value }))}
                             required
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs text-gray-500 block mb-1">Settlement note</label>
+                        <textarea
+                            className="w-full border rounded px-2 py-1.5 text-sm min-h-[60px]"
+                            placeholder="Settlement, deductions, recovery notes..."
+                            value={form.settlementNote}
+                            onChange={e => setForm(f => ({ ...f, settlementNote: e.target.value }))}
                         />
                     </div>
                     {error && <p className="text-red-600 text-sm">{error}</p>}
@@ -347,10 +502,19 @@ export default function ClaimsPage() {
         resolved: claims.filter(c => c.status === 'resolved').length,
         totalAmount: claims
             .filter(c => c.status !== 'rejected')
-            .reduce((s, c) => s + (parseFloat(c.amount ?? '0') || 0), 0),
+            .reduce((s, c) => s + (claimAmount(c, 'amount') ?? 0), 0),
+        reserveAmount: claims
+            .filter(c => c.status === 'open' || c.status === 'investigating')
+            .reduce((s, c) => s + (claimAmount(c, 'reserveAmount') ?? 0), 0),
+        estimatedAmount: claims
+            .filter(c => c.status === 'open' || c.status === 'investigating')
+            .reduce((s, c) => s + (claimAmount(c, 'estimatedAmount') ?? 0), 0),
+        effectiveExposure: claims
+            .filter(c => c.status === 'open' || c.status === 'investigating')
+            .reduce((s, c) => s + (claimAmount(c, 'effectiveExposureAmount') ?? 0), 0),
         resolvedAmount: claims
             .filter(c => c.status === 'resolved')
-            .reduce((s, c) => s + (parseFloat(c.resolvedAmount ?? '0') || 0), 0),
+            .reduce((s, c) => s + (claimAmount(c, 'resolvedAmount') ?? 0), 0),
     };
 
     return (
@@ -361,7 +525,7 @@ export default function ClaimsPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-7 gap-4">
                 <Card>
                     <CardContent className="pt-4">
                         <div className="text-2xl font-bold text-blue-600">{stats.open}</div>
@@ -383,7 +547,7 @@ export default function ClaimsPage() {
                 <Card>
                     <CardContent className="pt-4">
                         <div className="text-2xl font-bold">
-                            {stats.totalAmount.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽
+                            {money(stats.totalAmount)}
                         </div>
                         <div className="text-xs text-gray-500">Заявлено</div>
                     </CardContent>
@@ -391,9 +555,33 @@ export default function ClaimsPage() {
                 <Card>
                     <CardContent className="pt-4">
                         <div className="text-2xl font-bold text-green-700">
-                            {stats.resolvedAmount.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} ₽
+                            {money(stats.resolvedAmount)}
                         </div>
                         <div className="text-xs text-gray-500">Выплачено</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="pt-4">
+                        <div className="text-2xl font-bold text-amber-700">
+                            {money(stats.reserveAmount)}
+                        </div>
+                        <div className="text-xs text-gray-500">Reserve</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="pt-4">
+                        <div className="text-2xl font-bold text-sky-700">
+                            {money(stats.estimatedAmount)}
+                        </div>
+                        <div className="text-xs text-gray-500">Estimated</div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="pt-4">
+                        <div className="text-2xl font-bold text-orange-700">
+                            {money(stats.effectiveExposure)}
+                        </div>
+                        <div className="text-xs text-gray-500">Effective exposure</div>
                     </CardContent>
                 </Card>
             </div>
@@ -465,21 +653,43 @@ export default function ClaimsPage() {
                                                 → {claim.resolution}
                                             </span>
                                         )}
+                                        {claimSettlementNote(claim) && (
+                                            <span className="block truncate text-xs text-indigo-600 mt-0.5" title={claimSettlementNote(claim) ?? undefined}>
+                                                Settlement: {claimSettlementNote(claim)}
+                                            </span>
+                                        )}
+                                        {collectEvidence(claim).length > 0 && (
+                                            <span className="block truncate text-xs text-gray-500 mt-0.5" title={collectEvidence(claim).map(e => `${e.label}: ${e.value}`).join('; ')}>
+                                                Evidence: {collectEvidence(claim).map(e => e.label).join(', ')}
+                                            </span>
+                                        )}
                                     </TableCell>
                                     <TableCell className="font-mono text-xs">
                                         {claim.tripId ? claim.tripId.slice(0, 8) + '...' : '—'}
                                     </TableCell>
                                     <TableCell>
-                                        {claim.amount
-                                            ? parseFloat(claim.amount).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ₽'
-                                            : '—'
-                                        }
+                                        <div className="space-y-1 text-xs">
+                                            <div className="font-medium text-sm">{money(claimAmount(claim, 'amount'))}</div>
+                                            <div className="text-gray-500">Reserve: {money(claimAmount(claim, 'reserveAmount'))}</div>
+                                            <div className="text-gray-500">Estimated: {money(claimAmount(claim, 'estimatedAmount'))}</div>
+                                            <div className="text-orange-700">
+                                                Effective: {money(claimAmount(claim, 'effectiveExposureAmount'))}
+                                                {claimExposureBasis(claim) !== 'none' && (
+                                                    <span className="ml-1 text-gray-400">({EXPOSURE_BASIS_LABELS[claimExposureBasis(claim)] ?? claimExposureBasis(claim)})</span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </TableCell>
                                     <TableCell>
-                                        {claim.resolvedAmount
-                                            ? parseFloat(claim.resolvedAmount).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ₽'
-                                            : '—'
-                                        }
+                                        <div className="space-y-1 text-xs">
+                                            <div className="font-medium text-sm">{money(claimAmount(claim, 'resolvedAmount'))}</div>
+                                            <div className="text-gray-500">
+                                                {claim.resolvedAt ? format(new Date(claim.resolvedAt), 'dd.MM.yy', { locale: ru }) : 'Not settled'}
+                                            </div>
+                                            <div className="text-gray-500">
+                                                Cause: {CAUSE_LABELS[claim.cause ?? claim.exposure?.cause ?? ''] ?? claim.cause ?? claim.exposure?.cause ?? '—'}
+                                            </div>
+                                        </div>
                                     </TableCell>
                                     <TableCell className="text-xs text-gray-500">
                                         {format(new Date(claim.createdAt), 'dd.MM.yy', { locale: ru })}
