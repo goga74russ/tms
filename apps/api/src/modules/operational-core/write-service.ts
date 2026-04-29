@@ -1,6 +1,6 @@
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
-import { orders, routePoints, shipmentFacts, shipmentLots, tripLotAssignments, tripOrders, trips, vehicles } from '../../db/schema.js';
+import { claims, orders, routePoints, shipmentFacts, shipmentLots, tripLotAssignments, tripOrders, trips, vehicles } from '../../db/schema.js';
 import { recordEvent } from '../../events/journal.js';
 import { OrderStatus } from '@tms/shared';
 
@@ -177,6 +177,60 @@ export async function assignLotToTrip(tripId: string, input: { shipmentLotId: st
     });
 }
 
+async function createClaimForDiscrepancy(tx: any, params: {
+    tripId: string;
+    orderId: string;
+    factId: string;
+    shipmentLotId: string;
+    tripLotAssignmentId: string;
+    discrepancyCode?: string | null;
+    cargoCondition?: string | null;
+    notes?: string | null;
+    actor: Actor;
+}) {
+    if (!params.discrepancyCode && params.cargoCondition !== 'damaged') return null;
+
+    const [order] = await tx.select({ contractorId: orders.contractorId, number: orders.number }).from(orders).where(eq(orders.id, params.orderId)).limit(1);
+    if (!order?.contractorId) return null;
+
+    const claimType = params.cargoCondition === 'damaged' || params.discrepancyCode === 'damage'
+        ? 'damage'
+        : ['shortage', 'refusal'].includes(params.discrepancyCode ?? '')
+            ? 'loss'
+            : 'other';
+
+    const [existing] = await tx.select({ id: claims.id }).from(claims)
+        .where(and(eq(claims.tripId, params.tripId), eq(claims.orderId, params.orderId), eq(claims.status, 'open')))
+        .limit(1);
+    if (existing) return existing;
+
+    const [claim] = await tx.insert(claims).values({
+        tripId: params.tripId,
+        orderId: params.orderId,
+        contractorId: order.contractorId,
+        type: claimType,
+        status: 'open',
+        description: params.notes || `Auto-created from shipment discrepancy. shipmentFactId=${params.factId}; shipmentLotId=${params.shipmentLotId}; assignmentId=${params.tripLotAssignmentId}; discrepancyCode=${params.discrepancyCode ?? ''}; cargoCondition=${params.cargoCondition ?? ''}; order=${order.number}`,
+        attachments: [
+            { kind: 'shipment_fact', id: params.factId },
+            { kind: 'shipment_lot', id: params.shipmentLotId },
+            { kind: 'trip_lot_assignment', id: params.tripLotAssignmentId },
+        ],
+        createdBy: params.actor.userId,
+    }).returning();
+
+    await recordEvent({
+        authorId: params.actor.userId,
+        authorRole: params.actor.role,
+        eventType: 'claim_created',
+        entityType: 'claim',
+        entityId: claim.id,
+        data: { source: 'shipment_fact', factId: params.factId, discrepancyCode: params.discrepancyCode, cargoCondition: params.cargoCondition },
+    }, tx);
+
+    return claim;
+}
+
 async function recalcLot(tx: any, lotId: string) {
     const [lot] = await tx.select().from(shipmentLots).where(eq(shipmentLots.id, lotId)).limit(1);
     if (!lot) throw new Error('Shipment lot not found');
@@ -271,7 +325,8 @@ export async function captureShipmentFact(tripId: string, input: {
 
         await tx.update(tripLotAssignments).set({ status, updatedAt: new Date() }).where(eq(tripLotAssignments.id, assignment.id));
         const lot = await recalcLot(tx, assignment.shipmentLotId);
+        const claim = await createClaimForDiscrepancy(tx, { tripId, orderId: assignment.orderId, factId: fact.id, shipmentLotId: assignment.shipmentLotId, tripLotAssignmentId: assignment.id, discrepancyCode: input.discrepancyCode, cargoCondition: input.cargoCondition, notes: input.notes, actor });
         await recordEvent({ authorId: actor.userId, authorRole: actor.role, eventType: `shipment_fact.${input.factType}`, entityType: 'shipment_fact', entityId: fact.id, data: { tripId, orderId: assignment.orderId, shipmentLotId: assignment.shipmentLotId, assignmentId: assignment.id } }, tx);
-        return { fact, assignment: { ...assignment, status }, lot };
+        return { fact, assignment: { ...assignment, status }, lot, claim };
     });
 }

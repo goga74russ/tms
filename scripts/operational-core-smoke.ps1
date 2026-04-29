@@ -87,7 +87,17 @@ $assign2 = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2
 foreach ($pair in @(@{ trip = $prepared.trip1Id; assignment = $assign1.data.assignment.id; weight = 60000 }, @{ trip = $prepared.trip2Id; assignment = $assign2.data.assignment.id; weight = 40000 })) {
     $loadBody = @{ tripLotAssignmentId = $pair.assignment; factType = 'loading'; weightKg = $pair.weight; cargoCondition = 'intact'; source = 'smoke' } | ConvertTo-Json
     Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($pair.trip)/shipment-facts" -Headers $headers -ContentType 'application/json' -Body $loadBody | Out-Null
-    $unloadBody = @{ tripLotAssignmentId = $pair.assignment; factType = 'unloading'; weightKg = $pair.weight; cargoCondition = 'intact'; source = 'smoke' } | ConvertTo-Json
+    $unloadWeight = $pair.weight
+    $condition = 'intact'
+    $discrepancy = $null
+    $notes = $null
+    if ($pair.weight -eq 40000) {
+        $unloadWeight = 39000
+        $condition = 'partial'
+        $discrepancy = 'shortage'
+        $notes = 'Operational smoke shortage: delivered 39000 of 40000 kg'
+    }
+    $unloadBody = @{ tripLotAssignmentId = $pair.assignment; factType = 'unloading'; weightKg = $unloadWeight; cargoCondition = $condition; discrepancyCode = $discrepancy; notes = $notes; source = 'smoke' } | ConvertTo-Json
     Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($pair.trip)/shipment-facts" -Headers $headers -ContentType 'application/json' -Body $unloadBody | Out-Null
 }
 
@@ -95,13 +105,22 @@ $fulfillment = Invoke-RestMethod -Method Get -Uri "$BaseUrl/orders/$($prepared.o
 if ([double]$fulfillment.data.totals.plannedWeightKg -ne 100000) { throw 'plannedWeightKg mismatch' }
 if ([double]$fulfillment.data.totals.assignedWeightKg -ne 100000) { throw 'assignedWeightKg mismatch' }
 if ([double]$fulfillment.data.totals.loadedWeightKg -ne 100000) { throw 'loadedWeightKg mismatch' }
-if ([double]$fulfillment.data.totals.deliveredWeightKg -ne 100000) { throw 'deliveredWeightKg mismatch' }
-if ([double]$fulfillment.data.totals.remainingWeightKg -ne 0) { throw 'remainingWeightKg mismatch' }
+if ([double]$fulfillment.data.totals.deliveredWeightKg -ne 99000) { throw 'deliveredWeightKg mismatch' }
+if ([double]$fulfillment.data.totals.remainingWeightKg -ne 1000) { throw 'remainingWeightKg mismatch' }
 
 $plan1 = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared.trip1Id)/load-plan" -Headers $headers
 $plan2 = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared.trip2Id)/load-plan" -Headers $headers
 if ([double]$plan1.data.summary.totalAssignedWeightKg -ne 60000) { throw 'trip1 load plan mismatch' }
 if ([double]$plan2.data.summary.totalAssignedWeightKg -ne 40000) { throw 'trip2 load plan mismatch' }
+
+$claims = Invoke-RestMethod -Method Get -Uri "$BaseUrl/claims?status=open" -Headers $headers
+$claimForOrder = @($claims.data | Where-Object { $_.orderId -eq $prepared.orderId })
+if ($claimForOrder.Count -lt 1) { throw 'Expected auto-created open claim for shortage' }
+
+$dossier = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared.trip2Id)/dossier" -Headers $headers
+$dossierItems = @($dossier.data.dossierItems)
+if ($dossierItems.Count -lt 1) { throw 'Expected dossier items projection' }
+if (-not (@($dossierItems | ForEach-Object { $_.documentType }) -contains 'etrn')) { throw 'Expected ETRN dossier placeholder' }
 
 $result = [ordered]@{
     orderId = $prepared.orderId
@@ -109,6 +128,8 @@ $result = [ordered]@{
     assignedWeightKg = $fulfillment.data.totals.assignedWeightKg
     deliveredWeightKg = $fulfillment.data.totals.deliveredWeightKg
     remainingWeightKg = $fulfillment.data.totals.remainingWeightKg
+    openClaimsForOrder = $claimForOrder.Count
+    dossierItems = $dossierItems.Count
     trip1AssignedWeightKg = $plan1.data.summary.totalAssignedWeightKg
     trip2AssignedWeightKg = $plan2.data.summary.totalAssignedWeightKg
 }

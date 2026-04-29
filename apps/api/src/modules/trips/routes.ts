@@ -32,6 +32,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { getTripLoadPlan } from '../operational-core/service.js';
 import { assignLotToTrip, captureShipmentFact } from '../operational-core/write-service.js';
+import { syncDossierItemsForTrip } from '../operational-core/dossier-service.js';
 import {
     TripCreateSchema,
     TripUpdateSchema,
@@ -955,6 +956,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         }
 
         const transportDocuments = await syncTransportDocumentsForTrip(id, user.userId);
+        await syncDossierItemsForTrip({ tripId: id, organizationId: user.organizationId, transportDocuments: transportDocuments?.documents ?? [] });
 
         const dossierItemConditions = [eq(documentDossierItems.scopeType, 'trip' as any), eq(documentDossierItems.scopeId, id)];
         if (user.organizationId) dossierItemConditions.push(eq(documentDossierItems.organizationId, user.organizationId));
@@ -965,7 +967,5 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 };
 
 export default tripsRoutes;
-
-
 
 
