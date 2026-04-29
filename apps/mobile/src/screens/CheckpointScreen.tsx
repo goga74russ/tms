@@ -1,18 +1,20 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas';
-import { v4 as uuidv4 } from 'uuid';
+import NetInfo from '@react-native-community/netinfo';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { database } from '../database';
-import AppEvent from '../database/models/AppEvent';
 import { uploadPhoto } from '../api/upload';
+import { enqueueAction } from '../api/offlineQueue';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Checkpoint'>;
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 export default function CheckpointScreen({ route, navigation }: Props) {
     const { tripId, routePointId } = route.params;
+    const { token } = useAuth();
     const [permission, requestPermission] = useCameraPermissions();
     const [step, setStep] = useState<'details' | 'camera' | 'signature'>('details');
     const [notes, setNotes] = useState('');
@@ -28,9 +30,9 @@ export default function CheckpointScreen({ route, navigation }: Props) {
     if (!permission.granted) {
         return (
             <View style={styles.container}>
-                <Text style={styles.centerText}>{'\u041d\u0430\u043c \u043d\u0443\u0436\u0435\u043d \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u043a\u0430\u043c\u0435\u0440\u0435'}</Text>
+                <Text style={styles.centerText}>Нам нужен доступ к камере</Text>
                 <TouchableOpacity style={styles.primaryButton} onPress={requestPermission}>
-                    <Text style={styles.buttonText}>{'\u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u044c'}</Text>
+                    <Text style={styles.buttonText}>Разрешить</Text>
                 </TouchableOpacity>
             </View>
         );
@@ -50,49 +52,75 @@ export default function CheckpointScreen({ route, navigation }: Props) {
         void saveCheckpoint(photoUri, sig);
     };
 
+    const enqueueCheckpoint = async (body: any) => {
+        await enqueueAction({
+            type: 'checkpoint_confirm',
+            endpoint: '/sync/events',
+            method: 'POST',
+            body,
+        });
+    };
+
     const saveCheckpoint = async (photo: string | null, sig: string | null) => {
         try {
+            const netState = await NetInfo.fetch();
+            const isOnline = Boolean(netState.isConnected && netState.isInternetReachable && token);
             let photoUrl: string | null = null;
-            let photoSavedLocally = false;
+            let requiresReplay = !isOnline;
 
-            if (photo) {
+            if (photo && isOnline) {
                 try {
                     photoUrl = await uploadPhoto(photo);
                 } catch {
                     photoUrl = photo;
-                    photoSavedLocally = true;
+                    requiresReplay = true;
                 }
+            } else if (photo) {
+                photoUrl = photo;
             }
 
-            await database.write(async () => {
-                await database.collections.get<AppEvent>('events').create((event) => {
-                    event.eventId = uuidv4();
-                    event.type = 'route_point_completed';
-                    event.entityId = tripId;
-                    event.entityType = 'trip';
-                    event.timestamp = new Date();
-                    event.synced = false;
-                    event.payload = JSON.stringify({
+            const body = {
+                events: [{
+                    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                    type: 'route_point_completed',
+                    timestamp: new Date().toISOString(),
+                    payload: {
+                        tripId,
                         pointId: routePointId,
                         photoUrls: photoUrl ? [photoUrl] : [],
                         signatureUrl: sig,
                         notes,
-                    });
-                });
-            });
+                    },
+                }],
+            };
 
-            if (photoSavedLocally) {
-                Alert.alert(
-                    '\u0422\u043e\u0447\u043a\u0430 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0430',
-                    '\u0424\u043e\u0442\u043e \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e \u0438 \u0431\u0443\u0434\u0435\u0442 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u043e \u043f\u0440\u0438 \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0435\u0439 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u0438.'
-                );
-            } else {
-                Alert.alert('\u0423\u0441\u043f\u0435\u0448\u043d\u043e', '\u0422\u043e\u0447\u043a\u0430 \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0430');
+            if (requiresReplay) {
+                await enqueueCheckpoint(body);
+                Alert.alert('Точка подтверждена', 'Данные попали в очередь и уйдут при восстановлении связи.');
+                navigation.goBack();
+                return;
             }
 
+            const res = await fetch(`${API_URL}/sync/events`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!res.ok) {
+                await enqueueCheckpoint(body);
+                Alert.alert('Точка сохранена', 'Сервер не принял событие, повторим при восстановлении связи.');
+                navigation.goBack();
+                return;
+            }
+
+            Alert.alert('Успешно', 'Точка подтверждена');
             navigation.goBack();
         } catch {
-            Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0442\u043e\u0447\u043a\u0443.');
+            Alert.alert('Ошибка', 'Не удалось сохранить точку.');
         }
     };
 
@@ -113,14 +141,14 @@ export default function CheckpointScreen({ route, navigation }: Props) {
     if (step === 'signature') {
         return (
             <View style={styles.signatureContainer}>
-                <Text style={styles.instructions}>{'\u0420\u0430\u0441\u043f\u0438\u0448\u0438\u0442\u0435\u0441\u044c \u043d\u0438\u0436\u0435'}</Text>
+                <Text style={styles.instructions}>Распишитесь ниже</Text>
                 <SignatureScreen
                     ref={signatureRef}
                     onOK={handleSignature}
-                    onEmpty={() => Alert.alert('\u041f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0440\u0430\u0441\u043f\u0438\u0448\u0438\u0442\u0435\u0441\u044c')}
-                    descriptionText={'\u041f\u043e\u0434\u043f\u0438\u0441\u044c \u043f\u043e\u043b\u0443\u0447\u0430\u0442\u0435\u043b\u044f'}
-                    clearText={'\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u044c'}
-                    confirmText={'\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c'}
+                    onEmpty={() => Alert.alert('Пожалуйста, распишитесь')}
+                    descriptionText="Подпись получателя"
+                    clearText="Очистить"
+                    confirmText="Сохранить"
                     webStyle=".m-signature-pad { box-shadow: none; border: none; margin: 0px; }"
                 />
             </View>
@@ -129,20 +157,20 @@ export default function CheckpointScreen({ route, navigation }: Props) {
 
     return (
         <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-            <Text style={styles.title}>{'\u0414\u0435\u0442\u0430\u043b\u0438 \u0432\u044b\u0433\u0440\u0443\u0437\u043a\u0438'}</Text>
+            <Text style={styles.title}>Детали выгрузки</Text>
 
-            <Text style={styles.label}>{'\u0417\u0430\u043c\u0435\u0442\u043a\u0438 / \u0440\u0430\u0441\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u044f'}</Text>
+            <Text style={styles.label}>Заметки / расхождения</Text>
             <TextInput
                 style={styles.input}
                 multiline
                 numberOfLines={4}
-                placeholder={'\u041e\u043f\u0438\u0448\u0438\u0442\u0435 \u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 \u0433\u0440\u0443\u0437\u0430 \u0438\u043b\u0438 \u0440\u0430\u0441\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u044f, \u0435\u0441\u043b\u0438 \u043e\u043d\u0438 \u0435\u0441\u0442\u044c'}
+                placeholder="Опишите состояние груза или расхождения, если они есть"
                 value={notes}
                 onChangeText={setNotes}
             />
 
             <TouchableOpacity style={styles.primaryButton} onPress={() => setStep('camera')}>
-                <Text style={styles.buttonText}>{'\u0421\u0434\u0435\u043b\u0430\u0442\u044c \u0444\u043e\u0442\u043e \u0438 \u043f\u043e\u0434\u043f\u0438\u0441\u0430\u0442\u044c'}</Text>
+                <Text style={styles.buttonText}>Сделать фото и подписать</Text>
             </TouchableOpacity>
         </ScrollView>
     );

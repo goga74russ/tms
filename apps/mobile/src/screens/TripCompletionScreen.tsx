@@ -1,73 +1,117 @@
-﻿import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { v4 as uuidv4 } from 'uuid';
+import NetInfo from '@react-native-community/netinfo';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { database } from '../database';
-import AppEvent from '../database/models/AppEvent';
+import { enqueueAction } from '../api/offlineQueue';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripCompletion'>;
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 export default function TripCompletionScreen({ route, navigation }: Props) {
     const { tripId } = route.params;
+    const { token } = useAuth();
     const [odometer, setOdometer] = useState('');
     const [fuel, setFuel] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const finishTrip = async () => {
         if (!odometer || !fuel) {
-            Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u041f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0437\u0430\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0432\u0441\u0435 \u043f\u043e\u043b\u044f.');
+            Alert.alert('Ошибка', 'Пожалуйста, заполните все поля.');
             return;
         }
 
-        try {
-            await database.write(async () => {
-                await database.collections.get<AppEvent>('events').create((event) => {
-                    event.eventId = uuidv4();
-                    event.type = 'trip_status_changed';
-                    event.entityId = tripId;
-                    event.entityType = 'trip';
-                    event.timestamp = new Date();
-                    event.synced = false;
-                    event.payload = JSON.stringify({
-                        tripId,
-                        status: 'completed',
-                        odometer: parseInt(odometer, 10),
-                        fuel: parseInt(fuel, 10),
-                    });
-                });
-            });
+        const odometerEnd = Number.parseInt(odometer, 10);
+        const fuelEnd = Number.parseInt(fuel, 10);
+        if (!Number.isFinite(odometerEnd) || odometerEnd < 0 || !Number.isFinite(fuelEnd) || fuelEnd < 0) {
+            Alert.alert('Ошибка', 'Укажите корректные числа.');
+            return;
+        }
 
-            Alert.alert('\u0423\u0441\u043f\u0435\u0448\u043d\u043e', '\u0420\u0435\u0439\u0441 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d. \u0414\u0430\u043d\u043d\u044b\u0435 \u043e\u0442\u043f\u0440\u0430\u0432\u044f\u0442\u0441\u044f \u043f\u0440\u0438 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0430\u0446\u0438\u0438.');
+        const body = {
+            status: 'completed',
+            odometerEnd,
+            fuelEnd,
+        };
+
+        setLoading(true);
+        try {
+            const netState = await NetInfo.fetch();
+            const isOnline = Boolean(netState.isConnected && netState.isInternetReachable && token);
+
+            if (!isOnline) {
+                await enqueueAction({
+                    type: 'trip_status',
+                    endpoint: `/trips/${tripId}/status`,
+                    method: 'POST',
+                    body,
+                });
+                Alert.alert('Сохранено офлайн', 'Завершение рейса будет отправлено при восстановлении связи.');
+                navigation.navigate('TripList');
+                return;
+            }
+
+            const res = await fetch(`${API_URL}/trips/${tripId}/status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(body),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.error || 'Не удалось завершить рейс');
+            }
+
+            Alert.alert('Успешно', 'Рейс завершен.');
             navigation.navigate('TripList');
-        } catch {
-            Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0438\u0435 \u0440\u0435\u0439\u0441\u0430.');
+        } catch (error: any) {
+            await enqueueAction({
+                type: 'trip_status',
+                endpoint: `/trips/${tripId}/status`,
+                method: 'POST',
+                body,
+            });
+            Alert.alert(
+                'Сохранено в очередь',
+                error?.message ? `${error.message}. Повторим при восстановлении связи.` : 'Повторим при восстановлении связи.'
+            );
+            navigation.navigate('TripList');
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>{'\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0438\u0435 \u0440\u0435\u0439\u0441\u0430'}</Text>
+            <Text style={styles.title}>Завершение рейса</Text>
 
-            <Text style={styles.label}>{'\u041f\u043e\u043a\u0430\u0437\u0430\u043d\u0438\u044f \u043e\u0434\u043e\u043c\u0435\u0442\u0440\u0430 (\u043a\u043c)'}</Text>
+            <Text style={styles.label}>Показания одометра (км)</Text>
             <TextInput
                 style={styles.input}
-                placeholder={'\u041d\u0430\u043f\u0440\u0438\u043c\u0435\u0440: 145000'}
+                placeholder="Например: 145000"
                 keyboardType="numeric"
                 value={odometer}
                 onChangeText={setOdometer}
             />
 
-            <Text style={styles.label}>{'\u041e\u0441\u0442\u0430\u0442\u043e\u043a \u0442\u043e\u043f\u043b\u0438\u0432\u0430 (\u043b\u0438\u0442\u0440\u043e\u0432)'}</Text>
+            <Text style={styles.label}>Остаток топлива (литров)</Text>
             <TextInput
                 style={styles.input}
-                placeholder={'\u041d\u0430\u043f\u0440\u0438\u043c\u0435\u0440: 45'}
+                placeholder="Например: 45"
                 keyboardType="numeric"
                 value={fuel}
                 onChangeText={setFuel}
             />
 
-            <TouchableOpacity style={styles.primaryButton} onPress={finishTrip}>
-                <Text style={styles.buttonText}>{'\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u0440\u0435\u0439\u0441'}</Text>
+            <TouchableOpacity style={[styles.primaryButton, loading && styles.disabledButton]} onPress={finishTrip} disabled={loading}>
+                {loading ? (
+                    <ActivityIndicator color="#fff" />
+                ) : (
+                    <Text style={styles.buttonText}>Завершить рейс</Text>
+                )}
             </TouchableOpacity>
         </View>
     );
@@ -109,6 +153,9 @@ const styles = StyleSheet.create({
         minHeight: 56,
         justifyContent: 'center',
         marginTop: 16,
+    },
+    disabledButton: {
+        backgroundColor: '#94a3b8',
     },
     buttonText: {
         color: '#fff',
