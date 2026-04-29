@@ -84,6 +84,7 @@
 
 ## Источники для проверки требований
 
+- Локальный пакет ЭТРН/XSD: `D:\Ai\TMS\docs\etrn` (зафиксирован в `docs/architecture/etrn-source-map.md`)
 - Минтранс, ГИС ЭПД: https://www.mintrans.gov.ru/activities/94/7/365
 - Минтранс, портал ЭПД: https://mintrans.gov.ru/activities/214/376/377
 - Минтранс, обязательный переход на ЭПД с 2026-09-01: https://mintrans.gov.ru/press-center/news/12486
