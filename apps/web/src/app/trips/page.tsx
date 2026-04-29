@@ -74,6 +74,16 @@ type DossierCloseGate = {
     };
 };
 
+type RoutePoint = {
+    id: string;
+    type?: string | null;
+    address?: string | null;
+    sequence?: number | null;
+    status?: string | null;
+    plannedArrivalAt?: string | null;
+    actualArrivalAt?: string | null;
+};
+
 const STATUS_LABELS: Record<string, string> = {
     planning: 'Планирование',
     assigned: 'Назначен',
@@ -411,6 +421,309 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                         Блокирующих и предупреждающих пунктов нет.
                     </div>
                 )}
+            </div>
+        </div>
+    );
+}
+
+function OperationalActionsBlock({
+    tripId,
+    routePoints,
+    onDone,
+}: {
+    tripId: string;
+    routePoints: RoutePoint[];
+    onDone: () => Promise<void>;
+}) {
+    const [activeAction, setActiveAction] = useState<'downtime' | 'readdress' | 'cancel' | 'breakdown' | 'return'>('downtime');
+    const [routePointId, setRoutePointId] = useState(routePoints[0]?.id || '');
+    const [reason, setReason] = useState('Операционное отклонение');
+    const [notes, setNotes] = useState('');
+    const [address, setAddress] = useState('');
+    const [reserveAmount, setReserveAmount] = useState('');
+    const [freeMinutes, setFreeMinutes] = useState('60');
+    const [odometerEnd, setOdometerEnd] = useState('');
+    const [fuelEnd, setFuelEnd] = useState('');
+    const [cancelTrip, setCancelTrip] = useState(true);
+    const [requiresReplacement, setRequiresReplacement] = useState(true);
+    const [originalDocumentsReceived, setOriginalDocumentsReceived] = useState(false);
+    const [postTripInspectionStatus, setPostTripInspectionStatus] = useState<'pending' | 'passed' | 'failed'>('pending');
+    const [blockNextTrip, setBlockNextTrip] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+
+    useEffect(() => {
+        if (activeAction === 'downtime' && !routePointId && routePoints[0]?.id) setRoutePointId(routePoints[0].id);
+    }, [activeAction, routePointId, routePoints]);
+
+    const selectedPoint = routePoints.find(point => point.id === routePointId) || null;
+    const hasRoutePoints = routePoints.length > 0;
+
+    const numberOrUndefined = (value: string) => {
+        if (value.trim() === '') return undefined;
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+    };
+
+    const submit = async () => {
+        setLoading(true);
+        setResult(null);
+
+        try {
+            if (activeAction === 'downtime') {
+                if (!routePointId) throw new Error('Выберите точку маршрута');
+                await api.post(`/trips/${tripId}/route-points/${routePointId}/downtime`, {
+                    vehicleArrivedAt: new Date().toISOString(),
+                    waitingStartedAt: new Date().toISOString(),
+                    reason,
+                    notes: notes || null,
+                    freeMinutes: numberOrUndefined(freeMinutes),
+                    reserveAmount: numberOrUndefined(reserveAmount),
+                });
+                setResult({ tone: 'success', message: 'Простой зафиксирован. Cockpit и close-flow увидят событие.' });
+            } else if (activeAction === 'readdress') {
+                if (!address.trim()) throw new Error('Укажите новый адрес');
+                await api.post(`/trips/${tripId}/route-changes/readdress`, {
+                    routePointId: routePointId || null,
+                    type: selectedPoint?.type === 'loading' ? 'loading' : 'unloading',
+                    address,
+                    reason,
+                    notes: notes || null,
+                });
+                setResult({ tone: 'success', message: 'Переадресация записана в маршрутный журнал и ЭТРН metadata.' });
+            } else if (activeAction === 'cancel') {
+                await api.post(`/trips/${tripId}/cancel-after-arrival`, {
+                    routePointId: routePointId || null,
+                    vehicleArrivedAt: new Date().toISOString(),
+                    reason,
+                    notes: notes || null,
+                    reserveAmount: numberOrUndefined(reserveAmount),
+                    cancelTrip,
+                });
+                setResult({ tone: 'success', message: 'Отмена после подачи зафиксирована с резервом и следом в журнале.' });
+            } else if (activeAction === 'breakdown') {
+                await api.post(`/trips/${tripId}/breakdowns`, {
+                    routePointId: routePointId || null,
+                    reason,
+                    notes: notes || null,
+                    requiresReplacement,
+                });
+                setResult({ tone: 'success', message: 'Поломка записана как блокирующее событие.' });
+            } else {
+                await api.post(`/trips/${tripId}/post-trip-return`, {
+                    actualCompletionAt: new Date().toISOString(),
+                    odometerEnd: numberOrUndefined(odometerEnd),
+                    fuelEnd: numberOrUndefined(fuelEnd),
+                    originalDocumentsReceived,
+                    documentsReturned: originalDocumentsReceived,
+                    postTripInspectionStatus,
+                    blockNextTrip,
+                    notes: notes || null,
+                });
+                setResult({ tone: 'success', message: 'Возврат ТС после рейса зафиксирован.' });
+            }
+
+            await onDone();
+        } catch (err: any) {
+            setResult({ tone: 'error', message: err?.message || 'Не удалось выполнить действие' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const actions = [
+        { id: 'downtime', label: 'Простой', disabled: !hasRoutePoints },
+        { id: 'readdress', label: 'Переадресация', disabled: false },
+        { id: 'cancel', label: 'Отмена подачи', disabled: false },
+        { id: 'breakdown', label: 'Поломка', disabled: false },
+        { id: 'return', label: 'Возврат ТС', disabled: false },
+    ] as const;
+
+    return (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Операционные действия</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">Простой, переадресация, поломка, отмена и возврат</p>
+                </div>
+                <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                    {routePoints.length} точек
+                </span>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+                {actions.map(action => (
+                    <button
+                        key={action.id}
+                        type="button"
+                        disabled={action.disabled}
+                        onClick={() => setActiveAction(action.id)}
+                        className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                            activeAction === action.id
+                                ? 'bg-indigo-600 text-white shadow-sm'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                    >
+                        {action.label}
+                    </button>
+                ))}
+            </div>
+
+            {result && (
+                <div className={`mt-4 rounded-xl border px-3 py-2 text-sm ${
+                    result.tone === 'success'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-rose-200 bg-rose-50 text-rose-700'
+                }`}>
+                    {result.message}
+                </div>
+            )}
+
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <label className="block">
+                    <span className="text-xs font-semibold text-slate-600">Точка маршрута</span>
+                    <select
+                        value={routePointId}
+                        onChange={event => setRoutePointId(event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    >
+                        <option value="">Без привязки к точке</option>
+                        {routePoints.map((point, index) => (
+                            <option key={point.id} value={point.id}>
+                                {point.sequence ?? index + 1}. {point.type === 'loading' ? 'Погрузка' : 'Выгрузка'} · {point.address || point.id.slice(0, 8)}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+
+                <label className="block">
+                    <span className="text-xs font-semibold text-slate-600">Причина</span>
+                    <input
+                        value={reason}
+                        onChange={event => setReason(event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                </label>
+
+                {activeAction === 'readdress' && (
+                    <label className="block lg:col-span-2">
+                        <span className="text-xs font-semibold text-slate-600">Новый адрес</span>
+                        <input
+                            value={address}
+                            onChange={event => setAddress(event.target.value)}
+                            placeholder="Новый адрес погрузки или выгрузки"
+                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        />
+                    </label>
+                )}
+
+                {(activeAction === 'downtime' || activeAction === 'cancel') && (
+                    <>
+                        <label className="block">
+                            <span className="text-xs font-semibold text-slate-600">Финансовый резерв, руб.</span>
+                            <input
+                                value={reserveAmount}
+                                onChange={event => setReserveAmount(event.target.value)}
+                                inputMode="decimal"
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        </label>
+                        {activeAction === 'downtime' && (
+                            <label className="block">
+                                <span className="text-xs font-semibold text-slate-600">Бесплатные минуты</span>
+                                <input
+                                    value={freeMinutes}
+                                    onChange={event => setFreeMinutes(event.target.value)}
+                                    inputMode="numeric"
+                                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                />
+                            </label>
+                        )}
+                    </>
+                )}
+
+                {activeAction === 'return' && (
+                    <>
+                        <label className="block">
+                            <span className="text-xs font-semibold text-slate-600">Одометр</span>
+                            <input
+                                value={odometerEnd}
+                                onChange={event => setOdometerEnd(event.target.value)}
+                                inputMode="decimal"
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        </label>
+                        <label className="block">
+                            <span className="text-xs font-semibold text-slate-600">Топливо</span>
+                            <input
+                                value={fuelEnd}
+                                onChange={event => setFuelEnd(event.target.value)}
+                                inputMode="decimal"
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        </label>
+                        <label className="block">
+                            <span className="text-xs font-semibold text-slate-600">Послерейсовый осмотр</span>
+                            <select
+                                value={postTripInspectionStatus}
+                                onChange={event => setPostTripInspectionStatus(event.target.value as 'pending' | 'passed' | 'failed')}
+                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            >
+                                <option value="pending">Ожидает</option>
+                                <option value="passed">Пройден</option>
+                                <option value="failed">Не пройден</option>
+                            </select>
+                        </label>
+                    </>
+                )}
+
+                <label className="block lg:col-span-2">
+                    <span className="text-xs font-semibold text-slate-600">Комментарий</span>
+                    <textarea
+                        value={notes}
+                        onChange={event => setNotes(event.target.value)}
+                        rows={3}
+                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                </label>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-3">
+                    {activeAction === 'cancel' && (
+                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <input type="checkbox" checked={cancelTrip} onChange={event => setCancelTrip(event.target.checked)} />
+                            Отменить рейс
+                        </label>
+                    )}
+                    {activeAction === 'breakdown' && (
+                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <input type="checkbox" checked={requiresReplacement} onChange={event => setRequiresReplacement(event.target.checked)} />
+                            Нужна замена ресурса
+                        </label>
+                    )}
+                    {activeAction === 'return' && (
+                        <>
+                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                <input type="checkbox" checked={originalDocumentsReceived} onChange={event => setOriginalDocumentsReceived(event.target.checked)} />
+                                Оригиналы сданы
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                <input type="checkbox" checked={blockNextTrip} onChange={event => setBlockNextTrip(event.target.checked)} />
+                                Блокировать следующий рейс
+                            </label>
+                        </>
+                    )}
+                </div>
+                <button
+                    type="button"
+                    onClick={submit}
+                    disabled={loading || !reason.trim() || (activeAction === 'downtime' && !routePointId)}
+                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Зафиксировать
+                </button>
             </div>
         </div>
     );
@@ -824,6 +1137,7 @@ export default function TripsPage() {
     const [dossierLoading, setDossierLoading] = useState(false);
     const [dossierError, setDossierError] = useState('');
     const [dossier, setDossier] = useState<any>(null);
+    const [dossierRoutePoints, setDossierRoutePoints] = useState<RoutePoint[]>([]);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -926,10 +1240,15 @@ export default function TripsPage() {
         setDossierLoading(true);
         setDossierError('');
         setDossier(null);
+        setDossierRoutePoints([]);
 
         try {
-            const result = await api.get<any>(`/trips/${tripId}/dossier`);
+            const [result, pointsResult] = await Promise.all([
+                api.get<any>(`/trips/${tripId}/dossier`),
+                api.get<any>(`/trips/${tripId}/points`).catch(() => ({ success: false, data: [] })),
+            ]);
             setDossier(result.data || null);
+            setDossierRoutePoints(pointsResult.success ? (pointsResult.data || []) : []);
         } catch (err: any) {
             setDossierError(err?.message || 'Не удалось загрузить досье рейса');
         } finally {
@@ -942,6 +1261,7 @@ export default function TripsPage() {
         setDossierLoading(false);
         setDossierError('');
         setDossier(null);
+        setDossierRoutePoints([]);
     };
 
     // Status counters
@@ -1268,6 +1588,12 @@ export default function TripsPage() {
                                     </div>
 
                                     <CloseGateBlock closeGate={dossier.closeGate} />
+
+                                    <OperationalActionsBlock
+                                        tripId={dossier.trip?.id || dossierTripId}
+                                        routePoints={dossierRoutePoints}
+                                        onDone={() => openDossier(dossier.trip?.id || dossierTripId)}
+                                    />
 
                                     <TransportDocumentsBlock dossier={dossier} />
 

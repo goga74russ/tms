@@ -79,6 +79,7 @@ if ($null -eq $exceptions.data.summary -or $null -eq $exceptions.data.exceptions
 
 $tripDossierResult = 'skipped'
 $tripCloseGateResult = 'skipped'
+$tripRoutePointsResult = 'skipped'
 $firstTrip = @($trips.data | Select-Object -First 1)
 if ($firstTrip.Count -gt 0 -and $firstTrip[0].id) {
     $tripId = $firstTrip[0].id
@@ -95,6 +96,10 @@ if ($firstTrip.Count -gt 0 -and $firstTrip[0].id) {
         throw "close gate response is missing canClose"
     }
     $tripCloseGateResult = 'ok'
+
+    $routePoints = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/trips/$tripId/points" -WebSession $session
+    Assert-Success $routePoints 'trip route points'
+    $tripRoutePointsResult = @($routePoints.data).Count
 }
 
 [ordered]@{
@@ -108,5 +113,6 @@ if ($firstTrip.Count -gt 0 -and $firstTrip[0].id) {
         operationsExceptions = @($exceptions.data.exceptions).Count
         tripDossier = $tripDossierResult
         tripCloseGate = $tripCloseGateResult
+        tripRoutePoints = $tripRoutePointsResult
     }
 } | ConvertTo-Json -Depth 8

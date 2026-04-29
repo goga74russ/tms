@@ -2,6 +2,12 @@
 
 Обновлено: 2026-04-29
 
+## UI coverage update 2026-04-29
+
+- Done: web trip dossier now includes an operational actions panel for downtime, readdressing, cancellation after arrival, breakdown, and post-trip return.
+- Checked: `corepack pnpm --filter @tms/web lint`, `scripts/ui-workflow-smoke.ps1`.
+- Still later: resource replacement selector UI, crew-rest UI, printed acts, tariff rule engine, and real ETRN provider/KEP/MChD integration.
+
 Этот список нужен, чтобы TMS v2 не стала системой только для happy path `одна заявка -> одна машина -> одна доставка`. Реальные перевозки часто ломают такую модель: груз делится, консолидируется, меняется по факту, требует особых условий, документов, разрешений или претензионного контура.
 
 Колонка `Работа` используется как живой трекер: `сделано + дата` означает, что есть код/документация/проверка в `TMS-prod`; `частично` означает, что фундамент есть, но сценарий еще нельзя считать закрытым end-to-end.
