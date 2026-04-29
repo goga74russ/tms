@@ -25,3 +25,4 @@ This documentation describes the clean v2 workspace in `D:\Ai\TMS-prod`.
 - Market claims must distinguish internal foundation from legally complete external EDO/EPD exchange.
 - [Russian road transport process map](./product/russian-road-transport-process-map.md)
 - [Russian transport edge cases](./product/russian-transport-edge-cases.md)
+- [Operational Core v2 design](./architecture/operational-core-v2.md)

@@ -33,6 +33,8 @@ Updated: 2026-04-28
 
 ## P3. Operational Process Track
 
+- Implement Operational Core v2 schema and migration: shipment lots, trip lot assignments, shipment facts, document dossier items, and compatibility backfill.
+
 - * Order splitting / partial shipment model: one customer order can become multiple shipment lots, trips, vehicles, actual deliveries, and billing lines.
 - * Partial loading/delivery and discrepancy acts: planned vs actual weight/quantity, shortages, damage, photos, signatures, and claim hooks.
 - * Vehicle/cargo compatibility matrix: payload, volume, body type, trailer, temperature/special conditions, loading method, and restrictions.
