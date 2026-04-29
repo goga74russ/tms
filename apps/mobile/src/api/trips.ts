@@ -49,6 +49,28 @@ export interface TripSummary {
     }>;
 }
 
+export interface OperationExceptionSummary {
+    total: number;
+    blocking: number;
+    warning: number;
+    info: number;
+}
+
+export interface OperationExceptionItem {
+    id: string;
+    type: string;
+    severity: 'blocking' | 'warning' | 'info';
+    title: string;
+    message: string;
+    tripNumber?: string;
+    createdAt?: string | null;
+}
+
+export interface OperationExceptionsResponse {
+    summary: OperationExceptionSummary;
+    exceptions: OperationExceptionItem[];
+}
+
 /**
  * Get all trips assigned to the current driver.
  */
@@ -63,6 +85,18 @@ export async function getMyTrips(): Promise<TripSummary[]> {
 export async function getTripById(id: string): Promise<TripSummary> {
     const data = await authFetch(`/trips/${id}`);
     return data.data || data;
+}
+
+/**
+ * Get operational blockers and warnings for the trip.
+ */
+export async function getTripOperationExceptions(tripId: string): Promise<OperationExceptionsResponse | null> {
+    try {
+        const data = await authFetch(`/operations/exceptions?tripId=${tripId}&includeInfo=true&limit=20`);
+        return data.data || null;
+    } catch {
+        return null;
+    }
 }
 
 /**
