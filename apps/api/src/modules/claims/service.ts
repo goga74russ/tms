@@ -2,15 +2,30 @@
 import { claims, orders, tripOrders, contractors } from '../../db/schema.js';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
+import {
+    appendSettlementNote,
+    buildClaimAttachments,
+    classifyClaim,
+    enrichClaim,
+    getClaimExposure,
+    type ClaimCause,
+    type ClaimStatus,
+    type ClaimType,
+} from '../operational-core/claim-policy.js';
 
 export type ClaimCreate = {
     tripId?: string | null;
     orderId?: string | null;
     contractorId?: string | null;
-    type: 'damage' | 'delay' | 'loss' | 'other';
+    type?: ClaimType | null;
+    cause?: ClaimCause | null;
     amount?: number | null;
+    reserveAmount?: number | null;
+    estimatedAmount?: number | null;
     description: string;
     attachments?: unknown[];
+    settlementNote?: string | null;
+    metadata?: Record<string, unknown> | null;
     createdBy: string;
     createdByRole: string;
 };
@@ -19,8 +34,17 @@ export type ClaimResolve = {
     status: 'resolved' | 'rejected';
     resolvedAmount?: number | null;
     resolution: string;
+    settlementNote?: string | null;
     resolvedBy: string;
     resolvedByRole: string;
+};
+
+export type ClaimListFilters = {
+    contractorId?: string;
+    status?: string;
+    organizationId?: string | null;
+    tripId?: string;
+    orderId?: string;
 };
 
 
@@ -61,7 +85,7 @@ async function resolveClaimContractorId(data: { orderId?: string | null; tripId?
     return unique[0] ?? null;
 }
 export const claimsService = {
-    async list(filters: { contractorId?: string; status?: string; organizationId?: string | null } = {}) {
+    async list(filters: ClaimListFilters = {}) {
         const conditions: ReturnType<typeof eq>[] = [];
         if (filters.organizationId) {
             conditions.push(
@@ -74,17 +98,56 @@ export const claimsService = {
             conditions.push(eq(claims.contractorId, filters.contractorId));
         }
         if (filters.status) {
-            conditions.push(eq(claims.status, filters.status as 'open' | 'investigating' | 'resolved' | 'rejected'));
+            conditions.push(eq(claims.status, filters.status as ClaimStatus));
+        }
+        if (filters.tripId) {
+            conditions.push(eq(claims.tripId, filters.tripId));
+        }
+        if (filters.orderId) {
+            conditions.push(eq(claims.orderId, filters.orderId));
         }
 
-        return db.select().from(claims)
+        const rows = await db.select().from(claims)
             .where(conditions.length > 0 ? and(...conditions) : undefined)
             .orderBy(desc(claims.createdAt));
+        return rows.map(enrichClaim);
     },
 
     async getById(id: string) {
         const [row] = await db.select().from(claims).where(eq(claims.id, id));
-        return row ?? null;
+        return row ? enrichClaim(row) : null;
+    },
+
+    async exposure(filters: ClaimListFilters = {}) {
+        const rows = await this.list(filters);
+        const summary = rows.reduce((acc, claim) => {
+            const exposure = getClaimExposure(claim);
+            const isOpenExposure = claim.status === 'open' || claim.status === 'investigating';
+            acc.claimCount += 1;
+            acc.claimedAmount += exposure.claimedAmount ?? 0;
+            acc.reserveAmount += exposure.reserveAmount ?? 0;
+            acc.estimatedAmount += exposure.estimatedAmount ?? 0;
+            acc.resolvedAmount += exposure.resolvedAmount ?? 0;
+            if (isOpenExposure) {
+                acc.openClaimCount += 1;
+                acc.openExposureAmount += exposure.effectiveExposureAmount;
+            }
+            if (claim.status === 'resolved' || claim.status === 'rejected') {
+                acc.closedClaimCount += 1;
+            }
+            return acc;
+        }, {
+            claimCount: 0,
+            openClaimCount: 0,
+            closedClaimCount: 0,
+            claimedAmount: 0,
+            reserveAmount: 0,
+            estimatedAmount: 0,
+            resolvedAmount: 0,
+            openExposureAmount: 0,
+        });
+
+        return { summary, claims: rows };
     },
 
     async create(data: ClaimCreate) {
@@ -93,15 +156,28 @@ export const claimsService = {
             throw new Error('Claim must be linked to a contractor');
         }
 
+        const classification = classifyClaim({
+            type: data.type,
+            cause: data.cause,
+            description: data.description,
+        });
+        const attachments = buildClaimAttachments(data.attachments, {
+            cause: data.cause ?? (classification.cause !== 'other' ? classification.cause : null),
+            reserveAmount: data.reserveAmount,
+            estimatedAmount: data.estimatedAmount,
+            settlementNote: data.settlementNote,
+            metadata: data.metadata,
+        });
+
         const [row] = await db.insert(claims).values({
             tripId: data.tripId ?? null,
             orderId: data.orderId ?? null,
             contractorId: effectiveContractorId,
-            type: data.type,
+            type: classification.type,
             status: 'open',
             amount: data.amount != null ? String(data.amount) : null,
             description: data.description,
-            attachments: data.attachments ?? [],
+            attachments,
             createdBy: data.createdBy,
         }).returning();
 
@@ -111,15 +187,31 @@ export const claimsService = {
             eventType: 'claim_created',
             entityType: 'claim',
             entityId: row.id,
-            data: { type: data.type, amount: data.amount },
+            data: {
+                type: classification.type,
+                cause: classification.cause,
+                amount: data.amount,
+                reserveAmount: data.reserveAmount,
+                estimatedAmount: data.estimatedAmount,
+            },
         });
 
-        return row;
+        return enrichClaim(row);
     },
 
-    async updateStatus(id: string, update: { status: 'investigating' | 'open'; updatedBy: string; updatedByRole: string }) {
+    async updateStatus(id: string, update: { status: 'investigating' | 'open'; settlementNote?: string | null; updatedBy: string; updatedByRole: string }) {
+        let resolution: string | null | undefined;
+        if (update.settlementNote) {
+            const [existing] = await db.select({ resolution: claims.resolution }).from(claims).where(eq(claims.id, id)).limit(1);
+            resolution = appendSettlementNote(existing?.resolution ?? null, update.settlementNote);
+        }
+
         const [row] = await db.update(claims)
-            .set({ status: update.status, updatedAt: new Date() })
+            .set({
+                status: update.status,
+                ...(resolution !== undefined ? { resolution } : {}),
+                updatedAt: new Date(),
+            })
             .where(eq(claims.id, id))
             .returning();
 
@@ -131,18 +223,19 @@ export const claimsService = {
             eventType: 'claim_status_changed',
             entityType: 'claim',
             entityId: id,
-            data: { status: update.status },
+            data: { status: update.status, settlementNote: update.settlementNote ?? null },
         });
 
-        return row;
+        return enrichClaim(row);
     },
 
     async resolve(id: string, data: ClaimResolve) {
+        const resolution = appendSettlementNote(data.resolution, data.settlementNote);
         const [row] = await db.update(claims)
             .set({
                 status: data.status,
                 resolvedAmount: data.resolvedAmount != null ? String(data.resolvedAmount) : null,
-                resolution: data.resolution,
+                resolution,
                 resolvedBy: data.resolvedBy,
                 resolvedAt: new Date(),
                 updatedAt: new Date(),
@@ -158,10 +251,9 @@ export const claimsService = {
             eventType: 'claim_resolved',
             entityType: 'claim',
             entityId: id,
-            data: { status: data.status, resolvedAmount: data.resolvedAmount },
+            data: { status: data.status, resolvedAmount: data.resolvedAmount, settlementNote: data.settlementNote ?? null },
         });
 
-        return row;
+        return enrichClaim(row);
     },
 };
-

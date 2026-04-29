@@ -84,6 +84,23 @@ $assign2Body = @{ shipmentLotId = $lot2.id; assignedWeightKg = 40000; allowOverC
 $assign1 = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip1Id)/lot-assignments" -Headers $headers -ContentType 'application/json' -Body $assign1Body
 $assign2 = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/lot-assignments" -Headers $headers -ContentType 'application/json' -Body $assign2Body
 
+$executionRoutePointId = @($assign1.data.routePoints)[0].id
+$executionBody = @{
+    type = 'delay'
+    routePointId = $executionRoutePointId
+    reason = 'traffic'
+    notes = 'Operational smoke execution event'
+    gps = @{ lat = 55.7558; lon = 37.6173; accuracyM = 30 }
+    attachments = @(@{ kind = 'photo-placeholder'; localId = 'smoke-photo-1'; status = 'pending_upload' })
+    offlineCreatedAt = (Get-Date).ToUniversalTime().AddMinutes(-5).ToString("o")
+    clientEventId = "OC-SMOKE-$([guid]::NewGuid())"
+    source = 'smoke'
+    metadata = @{ syncScenario = 'offline-later' }
+} | ConvertTo-Json -Depth 6
+$execution = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip1Id)/execution-events" -Headers $headers -ContentType 'application/json' -Body $executionBody
+if ($execution.data.event.eventType -ne 'trip.execution.delay') { throw 'execution event type mismatch' }
+if ($execution.data.event.data.type -ne 'delay') { throw 'execution event payload mismatch' }
+
 foreach ($pair in @(@{ trip = $prepared.trip1Id; assignment = $assign1.data.assignment.id; weight = 60000 }, @{ trip = $prepared.trip2Id; assignment = $assign2.data.assignment.id; weight = 40000 })) {
     $loadBody = @{ tripLotAssignmentId = $pair.assignment; factType = 'loading'; weightKg = $pair.weight; cargoCondition = 'intact'; source = 'smoke' } | ConvertTo-Json
     Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($pair.trip)/shipment-facts" -Headers $headers -ContentType 'application/json' -Body $loadBody | Out-Null
@@ -113,14 +130,27 @@ $plan2 = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared.trip2Id)
 if ([double]$plan1.data.summary.totalAssignedWeightKg -ne 60000) { throw 'trip1 load plan mismatch' }
 if ([double]$plan2.data.summary.totalAssignedWeightKg -ne 40000) { throw 'trip2 load plan mismatch' }
 
+$compatibility1 = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared.trip1Id)/compatibility" -Headers $headers
+if (-not $compatibility1.data.checks) { throw 'trip1 compatibility checks missing' }
+if (-not (@($compatibility1.data.checks | ForEach-Object { $_.code }) -contains 'payload')) { throw 'trip1 compatibility payload check missing' }
+
 $claims = Invoke-RestMethod -Method Get -Uri "$BaseUrl/claims?status=open" -Headers $headers
 $claimForOrder = @($claims.data | Where-Object { $_.orderId -eq $prepared.orderId })
 if ($claimForOrder.Count -lt 1) { throw 'Expected auto-created open claim for shortage' }
+$claimExposure = Invoke-RestMethod -Method Get -Uri "$BaseUrl/claims/exposure?orderId=$($prepared.orderId)" -Headers $headers
+if ([int]$claimExposure.data.summary.claimCount -lt 1) { throw 'Expected claim exposure summary for order' }
+if (-not ($claimExposure.data.summary.PSObject.Properties.Name -contains 'openExposureAmount')) { throw 'Expected openExposureAmount in claim exposure summary' }
 
 $dossier = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared.trip2Id)/dossier" -Headers $headers
 $dossierItems = @($dossier.data.dossierItems)
 if ($dossierItems.Count -lt 1) { throw 'Expected dossier items projection' }
 if (-not (@($dossierItems | ForEach-Object { $_.documentType }) -contains 'etrn')) { throw 'Expected ETRN dossier placeholder' }
+if (-not $dossier.data.closeGate) { throw 'Expected dossier close gate in dossier response' }
+if ($dossier.data.closeGate.etrn.missing -ne $true) { throw 'Expected missing ETRN close gate signal' }
+
+$closeGate = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared.trip2Id)/dossier/close-gate" -Headers $headers
+if ($closeGate.data.tripId -ne $prepared.trip2Id) { throw 'Close gate tripId mismatch' }
+if (-not @($closeGate.data.blockingItems | Where-Object { $_.documentType -eq 'etrn' })) { throw 'Expected ETRN blocking close gate item' }
 
 $result = [ordered]@{
     orderId = $prepared.orderId
@@ -129,8 +159,13 @@ $result = [ordered]@{
     deliveredWeightKg = $fulfillment.data.totals.deliveredWeightKg
     remainingWeightKg = $fulfillment.data.totals.remainingWeightKg
     openClaimsForOrder = $claimForOrder.Count
+    claimExposureAmount = $claimExposure.data.summary.openExposureAmount
     dossierItems = $dossierItems.Count
+    executionEventId = $execution.data.event.id
+    closeGateCanClose = $closeGate.data.canClose
+    closeGateBlockingItems = @($closeGate.data.blockingItems).Count
     trip1AssignedWeightKg = $plan1.data.summary.totalAssignedWeightKg
     trip2AssignedWeightKg = $plan2.data.summary.totalAssignedWeightKg
+    trip1CompatibilityStatus = $compatibility1.data.status
 }
 $result | ConvertTo-Json -Depth 4

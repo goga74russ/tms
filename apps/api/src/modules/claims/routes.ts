@@ -14,20 +14,34 @@ const ClaimCreateSchema = z.object({
     tripId: z.string().uuid().optional().nullable(),
     orderId: z.string().uuid().optional().nullable(),
     contractorId: z.string().uuid().optional().nullable(),
-    type: z.enum(['damage', 'delay', 'loss', 'other']),
+    type: z.enum(['damage', 'delay', 'loss', 'other']).optional().nullable(),
+    cause: z.enum(['shortage', 'damage', 'delay', 'downtime', 'refusal', 'overage', 'wrong_docs', 'other']).optional().nullable(),
     amount: z.number().positive().optional().nullable(),
+    reserveAmount: z.number().nonnegative().optional().nullable(),
+    estimatedAmount: z.number().nonnegative().optional().nullable(),
     description: z.string().min(1).max(2000),
     attachments: z.array(z.unknown()).optional(),
+    settlementNote: z.string().max(2000).optional().nullable(),
+    metadata: z.record(z.unknown()).optional().nullable(),
 });
 
 const ClaimStatusSchema = z.object({
     status: z.enum(['open', 'investigating']),
+    settlementNote: z.string().max(2000).optional().nullable(),
 });
 
 const ClaimResolveSchema = z.object({
     status: z.enum(['resolved', 'rejected']),
     resolvedAmount: z.number().nonnegative().optional().nullable(),
     resolution: z.string().min(1).max(2000),
+    settlementNote: z.string().max(2000).optional().nullable(),
+});
+
+const ClaimExposureQuerySchema = z.object({
+    tripId: z.string().uuid().optional(),
+    orderId: z.string().uuid().optional(),
+    contractorId: z.string().uuid().optional(),
+    status: z.enum(['open', 'investigating', 'resolved', 'rejected']).optional(),
 });
 
 export default async function claimsRoutes(app: FastifyInstance) {
@@ -71,7 +85,7 @@ export default async function claimsRoutes(app: FastifyInstance) {
         preHandler: [app.authenticate, requireAbility('read', 'Claim')],
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string };
-        const { contractorId, status } = request.query as { contractorId?: string; status?: string };
+        const { contractorId, status, tripId, orderId } = request.query as { contractorId?: string; status?: string; tripId?: string; orderId?: string };
 
         let effectiveContractorId = contractorId;
 
@@ -84,7 +98,48 @@ export default async function claimsRoutes(app: FastifyInstance) {
             effectiveContractorId = myContractorId; // ignore query param
         }
 
-        const data = await claimsService.list({ contractorId: effectiveContractorId, status, organizationId: user.organizationId });
+        if (orderId) await assertOrderAccess(orderId, user);
+        if (tripId) await assertTripAccess(tripId, user);
+
+        const data = await claimsService.list({ contractorId: effectiveContractorId, status, tripId, orderId, organizationId: user.organizationId });
+        return { success: true, data };
+    });
+
+    // Claim exposure by trip/order/contractor
+    app.get('/claims/exposure', {
+        schema: { tags: ['Claims'], summary: 'Claim exposure by trip/order' },
+        preHandler: [app.authenticate, requireAbility('read', 'Claim')],
+    }, async (request, reply) => {
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const parsed = ClaimExposureQuerySchema.safeParse(request.query);
+        if (!parsed.success) {
+            const fe = parsed.error.flatten().fieldErrors;
+            const msg = Object.entries(fe).map(([f, e]) => `${f}: ${(e as string[]).join(', ')}`).join('; ');
+            return reply.status(400).send({ success: false, error: msg || 'Validation error', details: parsed.error.flatten() });
+        }
+        if (!parsed.data.tripId && !parsed.data.orderId && !parsed.data.contractorId) {
+            return reply.status(400).send({ success: false, error: 'tripId, orderId or contractorId is required' });
+        }
+
+        let effectiveContractorId = parsed.data.contractorId;
+        if (user.roles.includes('client')) {
+            const myContractorId = await resolveContractorId(user.userId);
+            if (!myContractorId) {
+                return reply.status(403).send({ success: false, error: 'Ð ÑœÐ ÂµÐ¡â€š Ð Ñ—Ð¡Ð‚Ð Ñ‘Ð Ð†Ð¡ÐÐ Â·Ð Ñ”Ð Ñ‘ Ð Ñ” Ð Ñ”Ð Ñ•Ð Ð…Ð¡â€šÐ¡Ð‚Ð Â°Ð Ñ–Ð ÂµÐ Ð…Ð¡â€šÐ¡Ñ“' });
+            }
+            effectiveContractorId = myContractorId;
+        }
+
+        if (parsed.data.orderId) await assertOrderAccess(parsed.data.orderId, user);
+        if (parsed.data.tripId) await assertTripAccess(parsed.data.tripId, user);
+
+        const data = await claimsService.exposure({
+            contractorId: effectiveContractorId,
+            status: parsed.data.status,
+            tripId: parsed.data.tripId,
+            orderId: parsed.data.orderId,
+            organizationId: user.organizationId,
+        });
         return { success: true, data };
     });
 
@@ -185,6 +240,7 @@ export default async function claimsRoutes(app: FastifyInstance) {
         if (!accessible) return;
         const claim = await claimsService.updateStatus(id, {
             status: parsed.data.status,
+            settlementNote: parsed.data.settlementNote,
             updatedBy: user.userId,
             updatedByRole: user.roles[0] ?? 'unknown',
         });

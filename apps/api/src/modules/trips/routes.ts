@@ -28,11 +28,13 @@ import {
 } from './transport-documents-store.js';
 import { db } from '../../db/connection.js';
 import { drivers, orders, documentReturns, documentDossierItems } from '../../db/schema.js';
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { getTripLoadPlan } from '../operational-core/service.js';
+import { registerTripCompatibilityRoutes } from '../operational-core/compatibility-routes.js';
 import { assignLotToTrip, captureShipmentFact } from '../operational-core/write-service.js';
-import { syncDossierItemsForTrip } from '../operational-core/dossier-service.js';
+import { registerExecutionRoutes } from '../operational-core/execution-routes.js';
+import { evaluateDossierCloseGate, getDossierItemsForTrip, syncDossierItemsForTrip } from '../operational-core/dossier-service.js';
 import {
     TripCreateSchema,
     TripUpdateSchema,
@@ -53,6 +55,10 @@ async function resolveDriverId(userId: string): Promise<string | null> {
 }
 
 const tripsRoutes: FastifyPluginAsync = async (app) => {
+    registerExecutionRoutes(app);
+
+    registerTripCompatibilityRoutes(app);
+
     // --- GET /trips вЂ” list with pagination & filters (RLS: driver sees own, client sees own) ---
     app.get('/trips', {
         schema: { tags: ['Рейсы'], summary: 'Список рейсов', description: 'Получить все рейсы с фильтрацией по статусу, ТС, водителю, дате. Пагинация. RLS для водителей/клиентов.' },
@@ -942,6 +948,26 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         return { success: true, data: item };
     });
 
+    app.get('/trips/:id/dossier/close-gate', {
+        schema: { tags: ['Trips'], summary: 'Trip dossier close gate', description: 'Read-only document gate for trip close: blocking/warning dossier items and ETRN exception awareness.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const dossier = await getTransportDossier(id);
+        if (!dossier) {
+            return reply.status(404).send({ success: false, error: 'Trip not found' });
+        }
+
+        const transportDocuments = await syncTransportDocumentsForTrip(id, user.userId);
+        await syncDossierItemsForTrip({ tripId: id, organizationId: user.organizationId, transportDocuments: transportDocuments?.documents ?? [] });
+
+        const dossierItems = await getDossierItemsForTrip({ tripId: id, organizationId: user.organizationId });
+        return { success: true, data: evaluateDossierCloseGate({ tripId: id, dossierItems }) };
+    });
+
     app.get('/trips/:id/dossier', {
         schema: { tags: ['Trips'], summary: 'Transport dossier', description: 'Read-only dossier for a trip: trip, orders, waybill, vehicle, trailer, and parties.' },
         preHandler: [app.authenticate, requireAbility('read', 'Trip')],
@@ -958,14 +984,11 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         const transportDocuments = await syncTransportDocumentsForTrip(id, user.userId);
         await syncDossierItemsForTrip({ tripId: id, organizationId: user.organizationId, transportDocuments: transportDocuments?.documents ?? [] });
 
-        const dossierItemConditions = [eq(documentDossierItems.scopeType, 'trip' as any), eq(documentDossierItems.scopeId, id)];
-        if (user.organizationId) dossierItemConditions.push(eq(documentDossierItems.organizationId, user.organizationId));
-        const dossierItems = await db.select().from(documentDossierItems).where(and(...dossierItemConditions));
+        const dossierItems = await getDossierItemsForTrip({ tripId: id, organizationId: user.organizationId });
+        const closeGate = evaluateDossierCloseGate({ tripId: id, dossierItems });
 
-        return { success: true, data: { ...dossier, transportDocuments, dossierItems } };
+        return { success: true, data: { ...dossier, transportDocuments, dossierItems, closeGate } };
     });
 };
 
 export default tripsRoutes;
-
-

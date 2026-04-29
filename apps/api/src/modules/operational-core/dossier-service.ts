@@ -15,6 +15,53 @@ type TransportDoc = {
     metadata?: Record<string, unknown> | null;
 };
 
+type DossierItem = typeof documentDossierItems.$inferSelect;
+type DossierItemStatus = DossierItem['status'];
+
+type DossierCloseGateSeverity = 'blocking' | 'warning';
+
+type DossierCloseGateItem = {
+    id: string;
+    documentType: string;
+    status: DossierItemStatus;
+    required: boolean;
+    sourceDocumentId: string | null;
+    sourceDocumentKind: string | null;
+    blockedReason: string | null;
+    dueAt: Date | null;
+    completedAt: Date | null;
+    metadata: Record<string, unknown>;
+    severity: DossierCloseGateSeverity;
+    reason: string;
+};
+
+export type DossierCloseGate = {
+    tripId: string;
+    canClose: boolean;
+    generatedAt: string;
+    blockingItems: DossierCloseGateItem[];
+    warningItems: DossierCloseGateItem[];
+    etrn: {
+        required: boolean;
+        present: boolean;
+        missing: boolean;
+        exceptioned: boolean;
+        paperException: boolean;
+    };
+    summary: {
+        totalItems: number;
+        requiredItems: number;
+        completedItems: number;
+        exceptionedItems: number;
+        blockingItems: number;
+        warningItems: number;
+    };
+};
+
+const COMPLETED_DOSSIER_STATUSES = new Set<DossierItemStatus>(['signed', 'received', 'accepted']);
+const BLOCKING_DOSSIER_STATUSES = new Set<DossierItemStatus>(['missing', 'rejected']);
+const WARNING_DOSSIER_STATUSES = new Set<DossierItemStatus>(['draft', 'sent', 'exceptioned']);
+
 function mapTransportDocumentType(doc: TransportDoc): string {
     const raw = (doc.documentType || doc.titleType || doc.artifactKind || '').toLowerCase();
     if (raw.includes('waybill')) return 'waybill';
@@ -81,6 +128,112 @@ async function upsertItem(tx: any, params: {
         metadata: params.metadata ?? {},
     }).returning();
     return created;
+}
+
+function isEtrnDossierItem(item: DossierItem) {
+    return item.documentType.toLowerCase() === 'etrn';
+}
+
+function isStaleEtrnPlaceholder(item: DossierItem, hasConcreteEtrn: boolean) {
+    return hasConcreteEtrn
+        && isEtrnDossierItem(item)
+        && !item.sourceDocumentId
+        && item.status === 'missing';
+}
+
+function closeGateReason(item: DossierItem, severity: DossierCloseGateSeverity) {
+    if (item.status === 'missing') return `${item.documentType} is required but missing`;
+    if (item.status === 'rejected') return item.blockedReason ?? `${item.documentType} was rejected`;
+    if (item.status === 'exceptioned') return item.blockedReason ?? `${item.documentType} is covered by a manual paper exception`;
+    if (severity === 'warning') return `${item.documentType} is not fully completed yet`;
+    return item.blockedReason ?? `${item.documentType} blocks trip close`;
+}
+
+function toCloseGateItem(item: DossierItem, severity: DossierCloseGateSeverity): DossierCloseGateItem {
+    return {
+        id: item.id,
+        documentType: item.documentType,
+        status: item.status,
+        required: item.required,
+        sourceDocumentId: item.sourceDocumentId ?? null,
+        sourceDocumentKind: item.sourceDocumentKind ?? null,
+        blockedReason: item.blockedReason ?? null,
+        dueAt: item.dueAt ?? null,
+        completedAt: item.completedAt ?? null,
+        metadata: item.metadata ?? {},
+        severity,
+        reason: closeGateReason(item, severity),
+    };
+}
+
+export async function getDossierItemsForTrip(params: {
+    tripId: string;
+    organizationId?: string | null;
+}) {
+    const conditions = [
+        eq(documentDossierItems.scopeType, 'trip'),
+        eq(documentDossierItems.scopeId, params.tripId),
+    ];
+    if (params.organizationId) conditions.push(eq(documentDossierItems.organizationId, params.organizationId));
+    return db.select().from(documentDossierItems).where(and(...conditions));
+}
+
+export function evaluateDossierCloseGate(params: {
+    tripId: string;
+    dossierItems: DossierItem[];
+}): DossierCloseGate {
+    const etrnItems = params.dossierItems.filter(isEtrnDossierItem);
+    const concreteEtrnItems = etrnItems.filter((item) => Boolean(item.sourceDocumentId));
+    const hasConcreteEtrn = concreteEtrnItems.length > 0;
+    const effectiveItems = params.dossierItems.filter((item) => !isStaleEtrnPlaceholder(item, hasConcreteEtrn));
+    const effectiveEtrnItems = effectiveItems.filter(isEtrnDossierItem);
+    const etrnExceptioned = effectiveEtrnItems.some((item) => item.status === 'exceptioned');
+    const etrnPresent = effectiveEtrnItems.some((item) => item.status !== 'missing' && item.status !== 'exceptioned');
+    const etrnMissing = effectiveEtrnItems.length === 0
+        || effectiveEtrnItems.every((item) => item.status === 'missing');
+
+    const blockingItems: DossierCloseGateItem[] = [];
+    const warningItems: DossierCloseGateItem[] = [];
+
+    for (const item of effectiveItems) {
+        if (!item.required && item.status !== 'rejected') continue;
+        if (BLOCKING_DOSSIER_STATUSES.has(item.status)) {
+            blockingItems.push(toCloseGateItem(item, item.required ? 'blocking' : 'warning'));
+            continue;
+        }
+        if (WARNING_DOSSIER_STATUSES.has(item.status)) {
+            warningItems.push(toCloseGateItem(item, 'warning'));
+        }
+    }
+
+    const hardBlockingItems = blockingItems.filter((item) => item.severity === 'blocking');
+    const softWarningItems = [
+        ...blockingItems.filter((item) => item.severity === 'warning'),
+        ...warningItems,
+    ];
+
+    return {
+        tripId: params.tripId,
+        canClose: hardBlockingItems.length === 0,
+        generatedAt: new Date().toISOString(),
+        blockingItems: hardBlockingItems,
+        warningItems: softWarningItems,
+        etrn: {
+            required: true,
+            present: etrnPresent,
+            missing: etrnMissing,
+            exceptioned: etrnExceptioned,
+            paperException: etrnExceptioned,
+        },
+        summary: {
+            totalItems: effectiveItems.length,
+            requiredItems: effectiveItems.filter((item) => item.required).length,
+            completedItems: effectiveItems.filter((item) => COMPLETED_DOSSIER_STATUSES.has(item.status)).length,
+            exceptionedItems: effectiveItems.filter((item) => item.status === 'exceptioned').length,
+            blockingItems: hardBlockingItems.length,
+            warningItems: softWarningItems.length,
+        },
+    };
 }
 
 export async function syncDossierItemsForTrip(params: {
