@@ -3,6 +3,7 @@ import { requireAbility } from '../../auth/rbac.js';
 import { resolveContractorId } from '../../auth/guards.js';
 import { tarificationService } from './tarification.service.js';
 import { financeService } from './finance.service.js';
+import { evaluateTariffRule } from './tariff-rules.service.js';
 import { InvoiceCreateSchema, FuelAnalysisQuerySchema, Export1CQuerySchema, AdjustmentCreateSchema } from './schemas.js';
 import { db } from '../../db/connection.js';
 import { invoices, invoiceTrips, invoiceAdjustments, contractors as contractorsTable } from '../../db/schema.js';
@@ -501,6 +502,27 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         }
     );
 
+    fastify.post(
+        '/finance/tariff-rules/evaluate',
+        { schema: { tags: ['Финансы'], summary: 'Расчёт тарифного правила', description: 'Бесплатный локальный evaluator для простоя, допуслуг и штрафа за срыв подачи.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')] },
+        async (request, reply) => {
+            const parsed = z.object({
+                serviceType: z.enum(['loading', 'unloading', 'permit', 'wash', 'downtime', 'forwarding', 'cancellation_after_arrival', 'other']),
+                tripId: z.string().uuid().nullable().optional(),
+                quantity: z.number().positive().nullable().optional(),
+                unit: z.string().max(40).nullable().optional(),
+                minutes: z.number().int().nonnegative().nullable().optional(),
+                freeMinutes: z.number().int().nonnegative().nullable().optional(),
+                amountOverride: z.number().nonnegative().nullable().optional(),
+            }).safeParse(request.body ?? {});
+            if (!parsed.success) {
+                return reply.code(422).send({ success: false, error: parsed.error.flatten() });
+            }
+            const result = await evaluateTariffRule(parsed.data);
+            return { success: true, data: result };
+        }
+    );
+
     fastify.post<{ Params: { invoiceId: string } }>(
         '/finance/invoices/:invoiceId/payments',
         { schema: { tags: ['Финансы'], summary: 'Зафиксировать частичную оплату', description: 'Append-only фиксация оплаты по счёту с расчётом остатка.' }, preHandler: [fastify.authenticate, requireAbility('update', 'Invoice')] },
@@ -545,10 +567,14 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
             if (access.error) return reply.code(access.error.status).send(access.error.body);
 
             const parsed = z.object({
-                serviceType: z.enum(['loading', 'unloading', 'permit', 'wash', 'downtime', 'forwarding', 'other']),
+                serviceType: z.enum(['loading', 'unloading', 'permit', 'wash', 'downtime', 'forwarding', 'cancellation_after_arrival', 'other']),
                 description: z.string().min(1).max(1000),
-                amount: z.number(),
+                amount: z.number().nonnegative().nullable().optional(),
                 tripId: z.string().uuid().nullable().optional(),
+                quantity: z.number().positive().nullable().optional(),
+                unit: z.string().max(40).nullable().optional(),
+                minutes: z.number().int().nonnegative().nullable().optional(),
+                freeMinutes: z.number().int().nonnegative().nullable().optional(),
                 vatRate: z.number().nonnegative().nullable().optional(),
                 notes: z.string().max(1000).nullable().optional(),
             }).safeParse(request.body ?? {});

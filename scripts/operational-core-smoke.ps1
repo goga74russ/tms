@@ -207,6 +207,8 @@ $downtimeBody = @{
 $downtime = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/route-points/$($unloadingPoint.id)/downtime" -Headers $headers -ContentType 'application/json' -Body $downtimeBody
 if ($downtime.data.event.eventType -ne 'trip.point.downtime_recorded') { throw 'downtime event type mismatch' }
 if ([int]$downtime.data.billableMinutes -le 0) { throw 'Expected positive downtime billable minutes' }
+if (-not $downtime.data.tariffRule) { throw 'Expected downtime tariff rule evaluation' }
+if ([double]$downtime.data.tariffRule.amount -le 0) { throw 'Expected positive downtime tariff rule amount' }
 
 $postTripReturnBody = @{
     actualCompletionAt = $nowUtc.ToString("o")
@@ -361,13 +363,15 @@ if (-not ($claimExposure.data.summary.PSObject.Properties.Name -contains 'openEx
 $additionalServiceBody = @{
     serviceType = 'downtime'
     description = 'Paid warehouse downtime smoke service'
-    amount = 1200
     tripId = $prepared.trip2Id
+    minutes = $downtime.data.waitingMinutes
+    freeMinutes = 120
     vatRate = 20
     notes = 'Smoke validates additional service billing'
 } | ConvertTo-Json
 $additionalService = Invoke-RestMethod -Method Post -Uri "$BaseUrl/finance/invoices/$($prepared.invoiceId)/additional-services" -Headers $headers -ContentType 'application/json' -Body $additionalServiceBody
-if ([double]$additionalService.data.adjustment.amount -ne 1200) { throw 'Expected additional service adjustment amount' }
+if ([double]$additionalService.data.adjustment.amount -le 0) { throw 'Expected additional service adjustment amount' }
+if ($additionalService.data.tariffRule.serviceType -ne 'downtime') { throw 'Expected additional service tariff rule payload' }
 
 $partialPaymentBody = @{
     amount = 5000
@@ -464,6 +468,8 @@ $cancelBody = @{
 $cancelAfterArrival = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip1Id)/cancel-after-arrival" -Headers $headers -ContentType 'application/json' -Body $cancelBody
 if ($cancelAfterArrival.data.event.eventType -ne 'trip.cancellation.after_arrival') { throw 'cancel-after-arrival event type mismatch' }
 if ($cancelAfterArrival.data.trip.status -ne 'cancelled') { throw 'Expected trip cancellation status' }
+if (-not $cancelAfterArrival.data.tariffRule) { throw 'Expected cancellation tariff rule evaluation' }
+if ([double]$cancelAfterArrival.data.tariffRule.amount -ne 1500) { throw 'Expected cancellation manual reserve tariff rule amount' }
 
 $trip1ExceptionsAfterCancel = Invoke-RestMethod -Method Get -Uri "$BaseUrl/operations/exceptions?tripId=$($prepared.trip1Id)&includeInfo=true" -Headers $headers
 if (-not @($trip1ExceptionsAfterCancel.data.exceptions | Where-Object { $_.type -eq 'cancellation_after_arrival' })) { throw 'Expected cancellation after arrival operational exception' }

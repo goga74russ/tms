@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '@/lib/api';
-import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw } from 'lucide-react';
+import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from '../fleet/components/vehicleProfile';
 
 interface Trip {
@@ -92,9 +92,41 @@ type RoutePoint = {
     type?: string | null;
     address?: string | null;
     sequence?: number | null;
+    sequenceNumber?: number | null;
     status?: string | null;
     plannedArrivalAt?: string | null;
     actualArrivalAt?: string | null;
+};
+
+type TripLoadPlan = {
+    summary?: {
+        assignmentCount?: number;
+        totalAssignedWeightKg?: number;
+        totalAssignedVolumeM3?: number;
+        payloadCapacityKg?: number | null;
+        payloadVolumeM3?: number | null;
+        overweight?: boolean;
+        overVolume?: boolean;
+    };
+    assignments?: Array<{
+        id: string;
+        status?: string | null;
+        assignedWeightKg?: number | string | null;
+        assignedVolumeM3?: number | string | null;
+        assignedPlaces?: number | string | null;
+        orderId?: string | null;
+        orderNumber?: string | null;
+        shipmentLotId?: string | null;
+        lotSequence?: number | string | null;
+        lotStatus?: string | null;
+        cargoDescription?: string | null;
+        cargoType?: string | null;
+        plannedWeightKg?: number | string | null;
+        remainingWeightKg?: number | string | null;
+        loadingRoutePointId?: string | null;
+        unloadingRoutePointId?: string | null;
+    }>;
+    routePoints?: RoutePoint[];
 };
 
 type VehicleOption = {
@@ -161,6 +193,30 @@ function formatTimelineDate(value?: string | null) {
         hour: '2-digit',
         minute: '2-digit',
     });
+}
+
+function formatWeightKg(value?: number | string | null) {
+    const parsed = Number(value ?? 0);
+    if (!Number.isFinite(parsed) || parsed <= 0) return '-';
+    return parsed >= 1000
+        ? `${(parsed / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} t`
+        : `${parsed.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} kg`;
+}
+
+function formatVolumeM3(value?: number | string | null) {
+    const parsed = Number(value ?? 0);
+    if (!Number.isFinite(parsed) || parsed <= 0) return '-';
+    return `${parsed.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} m3`;
+}
+
+function routePointOrder(point: RoutePoint, index = 0) {
+    return point.sequenceNumber ?? point.sequence ?? index + 1;
+}
+
+function routePointTypeLabel(type?: string | null) {
+    if (type === 'loading') return 'Loading';
+    if (type === 'unloading') return 'Unloading';
+    return type || 'Stop';
 }
 
 function transportDocumentLabel(type: string) {
@@ -469,7 +525,7 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
             </div>
 
             {documentQueue.length > 0 && (
-                <div className="mt-4 rounded-2xl border border-white bg-white p-4 shadow-sm">
+                <div id="document-queue" className="mt-4 rounded-2xl border border-white bg-white p-4 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Document queue</p>
@@ -520,13 +576,270 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
     );
 }
 
+function DossierNextActions({
+    dossier,
+    onSelectAction,
+}: {
+    dossier: any;
+    onSelectAction: (action: OperationalAction) => void;
+}) {
+    const trip = dossier?.trip || {};
+    const closeGate = dossier?.closeGate as DossierCloseGate | undefined;
+    const queueCount = closeGate?.documentQueue?.length ?? 0;
+    const blockerCount = closeGate?.blockingItems?.length ?? 0;
+    const warningCount = closeGate?.warningItems?.length ?? 0;
+    const repairUrl = `/repair?action=create&tripId=${encodeURIComponent(trip.id || '')}&vehicleId=${encodeURIComponent(trip.vehicleId || '')}&source=mechanic`;
+
+    return (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next actions</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">Repair, return and close-flow shortcuts</p>
+                </div>
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                    closeGate?.canClose ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                }`}>
+                    close: {closeGate?.canClose ? 'ready' : 'blocked'}
+                </span>
+            </div>
+            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                <button
+                    type="button"
+                    onClick={() => window.open(repairUrl, '_blank', 'noopener,noreferrer')}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                >
+                    <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
+                        <Wrench className="h-3.5 w-3.5" />
+                        Repair request
+                    </span>
+                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Open repair UI with this vehicle and trip context.</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onSelectAction('return')}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                >
+                    <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Return checklist
+                    </span>
+                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Jump to post-trip return: documents, odometer, fuel, inspection.</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onSelectAction('breakdown')}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                >
+                    <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Breakdown flow
+                    </span>
+                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Record blocking event, then open repair or replacement if needed.</span>
+                </button>
+                <a
+                    href="#document-queue"
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                >
+                    <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Close gate
+                    </span>
+                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+                        {blockerCount} blockers, {warningCount} warnings, {queueCount} document actions.
+                    </span>
+                </a>
+            </div>
+        </div>
+    );
+}
+
+function OperationalStructureBlock({
+    dossier,
+    loadPlan,
+    routePoints,
+}: {
+    dossier: any;
+    loadPlan?: TripLoadPlan | null;
+    routePoints: RoutePoint[];
+}) {
+    const orders = Array.isArray(dossier?.orders) ? dossier.orders : [];
+    const assignments = Array.isArray(loadPlan?.assignments) ? loadPlan.assignments : [];
+    const points = (Array.isArray(loadPlan?.routePoints) && loadPlan.routePoints.length > 0)
+        ? loadPlan.routePoints
+        : routePoints;
+    const sortedPoints = points.slice().sort((a, b) => routePointOrder(a) - routePointOrder(b));
+    const loadingCount = sortedPoints.filter(point => point.type === 'loading').length;
+    const unloadingCount = sortedPoints.filter(point => point.type === 'unloading').length;
+    const orderCount = orders.length || dossier?.summary?.orderCount || 0;
+    const hasMultiOrder = orderCount > 1;
+    const hasMultiStop = sortedPoints.length > 2;
+    const summary = loadPlan?.summary;
+    const assignmentsByOrder = assignments.reduce((acc, assignment) => {
+        const key = assignment.orderNumber || assignment.orderId || 'Unlinked order';
+        const current = acc.get(key) ?? [];
+        current.push(assignment);
+        acc.set(key, current);
+        return acc;
+    }, new globalThis.Map<string, typeof assignments>());
+
+    const routePointById = new globalThis.Map(sortedPoints.map((point, index) => [point.id, `${routePointOrder(point, index)}. ${routePointTypeLabel(point.type)}`]));
+
+    return (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Load structure</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                        Multi-order, lot assignments, and route stops
+                    </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiOrder ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
+                        {orderCount} orders
+                    </span>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${assignments.length > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                        {assignments.length} lots
+                    </span>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiStop ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-600'}`}>
+                        {sortedPoints.length} stops
+                    </span>
+                </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{'One trip to many orders'}</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{hasMultiOrder ? 'Consolidated trip' : 'Single-order trip'}</p>
+                    <p className="mt-1 text-xs text-slate-500">Grouped by linked orders from the dossier.</p>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Lot load plan</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {formatWeightKg(summary?.totalAssignedWeightKg)} / {formatWeightKg(summary?.payloadCapacityKg)}
+                    </p>
+                    <p className={`mt-1 text-xs ${summary?.overweight || summary?.overVolume ? 'text-rose-600' : 'text-slate-500'}`}>
+                        {summary?.overweight ? 'Over payload capacity' : summary?.overVolume ? 'Over volume capacity' : 'Capacity summary from load-plan.'}
+                    </p>
+                </div>
+                <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Multi-stop route</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{loadingCount} loading / {unloadingCount} unloading</p>
+                    <p className="mt-1 text-xs text-slate-500">Visual sequence only; no solver or VRP changes.</p>
+                </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                <div className="rounded-xl border border-slate-200">
+                    <div className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Lot assignments
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                        {assignments.length === 0 ? (
+                            <div className="px-3 py-4 text-sm text-slate-500">
+                                No lot assignments returned yet. Split/assignment data will appear here when the load-plan API has it.
+                            </div>
+                        ) : assignments.slice(0, 6).map((assignment) => (
+                            <div key={assignment.id} className="px-3 py-3">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-slate-900">
+                                            {assignment.orderNumber || 'Order'} / lot {assignment.lotSequence ?? '-'}
+                                        </p>
+                                        <p className="truncate text-xs text-slate-500">{assignment.cargoDescription || assignment.cargoType || 'Cargo details not provided'}</p>
+                                    </div>
+                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                        {assignment.status || assignment.lotStatus || 'planned'}
+                                    </span>
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                                    <span className="rounded-full bg-slate-50 px-2 py-0.5">{formatWeightKg(assignment.assignedWeightKg || assignment.plannedWeightKg)}</span>
+                                    <span className="rounded-full bg-slate-50 px-2 py-0.5">{formatVolumeM3(assignment.assignedVolumeM3)}</span>
+                                    {assignment.assignedPlaces != null && (
+                                        <span className="rounded-full bg-slate-50 px-2 py-0.5">{assignment.assignedPlaces} places</span>
+                                    )}
+                                </div>
+                                <p className="mt-2 text-[11px] text-slate-400">
+                                    {`${routePointById.get(assignment.loadingRoutePointId || '') || 'Loading stop not linked'} to ${routePointById.get(assignment.unloadingRoutePointId || '') || 'Unloading stop not linked'}`}
+                                </p>
+                            </div>
+                        ))}
+                        {assignments.length > 6 && (
+                            <div className="px-3 py-2 text-xs text-slate-500">+{assignments.length - 6} more assignments</div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200">
+                    <div className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Route sequence
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                        {sortedPoints.length === 0 ? (
+                            <div className="px-3 py-4 text-sm text-slate-500">
+                                No route points returned. The route timeline will appear after points are generated.
+                            </div>
+                        ) : sortedPoints.map((point, index) => (
+                            <div key={point.id} className="flex gap-3 px-3 py-3">
+                                <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+                                    {routePointOrder(point, index)}
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-slate-900">{routePointTypeLabel(point.type)}</p>
+                                    <p className="truncate text-xs text-slate-500">{point.address || 'Address not provided'}</p>
+                                    <p className="mt-1 text-[11px] text-slate-400">
+                                        {point.status || 'planned'} | plan {formatTimelineDate(point.plannedArrivalAt)} | fact {formatTimelineDate(point.actualArrivalAt)}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200">
+                    <div className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Order grouping
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                        {orders.length === 0 ? (
+                            <div className="px-3 py-4 text-sm text-slate-500">
+                                No linked orders in dossier.
+                            </div>
+                        ) : orders.map((order: any) => {
+                            const group = assignmentsByOrder.get(order.number) || assignmentsByOrder.get(order.id) || [];
+                            return (
+                                <div key={order.id || order.number} className="px-3 py-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-slate-900">{order.number || order.id}</p>
+                                            <p className="truncate text-xs text-slate-500">{order.cargoDescription || 'Cargo details not provided'}</p>
+                                        </div>
+                                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                                            {group.length} lots
+                                        </span>
+                                    </div>
+                                    <p className="mt-2 text-[11px] text-slate-400">
+                                        {`${order.loadingAddress || 'Loading address not set'} to ${order.unloadingAddress || 'Unloading address not set'}`}
+                                    </p>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function OperationalActionsBlock({
     tripId,
     routePoints,
+    initialAction,
     onDone,
 }: {
     tripId: string;
     routePoints: RoutePoint[];
+    initialAction?: OperationalAction | null;
     onDone: () => Promise<void>;
 }) {
     const defaultShiftStart = () => new Date(Date.now() + 30 * 60 * 1000).toISOString().slice(0, 16);
@@ -560,6 +873,10 @@ function OperationalActionsBlock({
     const [loading, setLoading] = useState(false);
     const [optionsLoading, setOptionsLoading] = useState(false);
     const [result, setResult] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+
+    useEffect(() => {
+        if (initialAction) setActiveAction(initialAction);
+    }, [initialAction]);
 
     useEffect(() => {
         if (activeAction === 'downtime' && !routePointId && routePoints[0]?.id) setRoutePointId(routePoints[0].id);
@@ -1432,6 +1749,8 @@ export default function TripsPage() {
     const [dossierError, setDossierError] = useState('');
     const [dossier, setDossier] = useState<any>(null);
     const [dossierRoutePoints, setDossierRoutePoints] = useState<RoutePoint[]>([]);
+    const [dossierLoadPlan, setDossierLoadPlan] = useState<TripLoadPlan | null>(null);
+    const [preferredDossierAction, setPreferredDossierAction] = useState<OperationalAction | null>(null);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -1535,14 +1854,18 @@ export default function TripsPage() {
         setDossierError('');
         setDossier(null);
         setDossierRoutePoints([]);
+        setDossierLoadPlan(null);
+        setPreferredDossierAction(null);
 
         try {
-            const [result, pointsResult] = await Promise.all([
+            const [result, pointsResult, loadPlanResult] = await Promise.all([
                 api.get<any>(`/trips/${tripId}/dossier`),
                 api.get<any>(`/trips/${tripId}/points`).catch(() => ({ success: false, data: [] })),
+                api.get<{ success: boolean; data: TripLoadPlan }>(`/trips/${tripId}/load-plan`).catch(() => ({ success: false, data: null as any })),
             ]);
             setDossier(result.data || null);
             setDossierRoutePoints(pointsResult.success ? (pointsResult.data || []) : []);
+            setDossierLoadPlan(loadPlanResult.success ? (loadPlanResult.data || null) : null);
         } catch (err: any) {
             setDossierError(err?.message || 'Не удалось загрузить досье рейса');
         } finally {
@@ -1556,6 +1879,8 @@ export default function TripsPage() {
         setDossierError('');
         setDossier(null);
         setDossierRoutePoints([]);
+        setDossierLoadPlan(null);
+        setPreferredDossierAction(null);
     };
 
     // Status counters
@@ -1881,11 +2206,23 @@ export default function TripsPage() {
                                         </div>
                                     </div>
 
+                                    <DossierNextActions
+                                        dossier={dossier}
+                                        onSelectAction={setPreferredDossierAction}
+                                    />
+
+                                    <OperationalStructureBlock
+                                        dossier={dossier}
+                                        loadPlan={dossierLoadPlan}
+                                        routePoints={dossierRoutePoints}
+                                    />
+
                                     <CloseGateBlock closeGate={dossier.closeGate} />
 
                                     <OperationalActionsBlock
                                         tripId={dossier.trip?.id || dossierTripId}
                                         routePoints={dossierRoutePoints}
+                                        initialAction={preferredDossierAction}
                                         onDone={() => openDossier(dossier.trip?.id || dossierTripId)}
                                     />
 

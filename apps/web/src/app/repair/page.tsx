@@ -10,11 +10,27 @@ import { RepairCatalogManager } from './components/RepairCatalogManager';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
-function CreateRepairModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+type RepairDraft = {
+    vehicleId?: string;
+    description?: string;
+    priority?: string;
+    source?: string;
+    tripId?: string;
+};
+
+function CreateRepairModal({
+    initialDraft,
+    onClose,
+    onCreated,
+}: {
+    initialDraft?: RepairDraft;
+    onClose: () => void;
+    onCreated: () => void;
+}) {
     const [vehicles, setVehicles] = useState<any[]>([]);
-    const [vehicleId, setVehicleId] = useState('');
-    const [description, setDescription] = useState('');
-    const [priority, setPriority] = useState('medium');
+    const [vehicleId, setVehicleId] = useState(initialDraft?.vehicleId || '');
+    const [description, setDescription] = useState(initialDraft?.description || '');
+    const [priority, setPriority] = useState(initialDraft?.priority || 'medium');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
@@ -30,7 +46,12 @@ function CreateRepairModal({ onClose, onCreated }: { onClose: () => void; onCrea
         setSubmitting(true);
         setError('');
         try {
-            const result = await api.post<any>('/repairs', { vehicleId, description, priority, source: 'mechanic' });
+            const result = await api.post<any>('/repairs', {
+                vehicleId,
+                description,
+                priority,
+                source: initialDraft?.source || 'mechanic',
+            });
             if (result.success) {
                 onCreated();
             } else {
@@ -126,9 +147,28 @@ export default function RepairPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showCatalogModal, setShowCatalogModal] = useState(false);
     const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
+    const [initialDraft, setInitialDraft] = useState<RepairDraft | undefined>();
 
     useEffect(() => {
         loadStats();
+    }, []);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('action') !== 'create') return;
+
+        const tripId = params.get('tripId') || undefined;
+        const source = params.get('source') || 'mechanic';
+        setInitialDraft({
+            vehicleId: params.get('vehicleId') || undefined,
+            priority: 'high',
+            source: ['auto_inspection', 'driver', 'mechanic', 'scheduled'].includes(source) ? source : 'mechanic',
+            tripId,
+            description: tripId
+                ? `Breakdown from trip dossier. Trip: ${tripId}`
+                : 'Breakdown from trip dossier.',
+        });
+        setShowCreateModal(true);
     }, []);
 
     async function loadStats() {
@@ -174,6 +214,12 @@ export default function RepairPage() {
                 </Button>
             </div>
 
+            {initialDraft?.tripId && (
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+                    Repair request opened from trip close-flow. Trip context is prefilled in the description; create the request, then continue replacement or close actions in the trip dossier.
+                </div>
+            )}
+
             {/* Stats bar */}
             <div className="grid grid-cols-4 gap-4">
                 {['created', 'waiting_parts', 'in_progress', 'done'].map(status => {
@@ -201,9 +247,11 @@ export default function RepairPage() {
             {/* Create Modal */}
             {showCreateModal && (
                 <CreateRepairModal
+                    initialDraft={initialDraft}
                     onClose={() => setShowCreateModal(false)}
                     onCreated={() => {
                         setShowCreateModal(false);
+                        setInitialDraft(undefined);
                         loadStats();
                     }}
                 />

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { drivers, routePoints, trailers, trips, vehicles } from '../../db/schema.js';
 import { recordEvent } from '../../events/journal.js';
+import { evaluateTariffRule } from '../finance/tariff-rules.service.js';
 import { getTripCompatibility } from '../operational-core/compatibility-service.js';
 import { syncTransportDocumentsForTrip } from '../trips/transport-documents-store.js';
 
@@ -306,6 +307,14 @@ export async function recordRoutePointDowntime(tripId: string, input: RecordDown
         const waitingMinutes = diffMinutes(waitingStartedAt, waitingEndedAt);
         const freeMinutes = input.freeMinutes ?? 120;
         const billableMinutes = waitingMinutes === null ? null : Math.max(waitingMinutes - freeMinutes, 0);
+        const tariffRule = waitingMinutes === null
+            ? null
+            : await evaluateTariffRule({
+                serviceType: 'downtime',
+                tripId,
+                minutes: waitingMinutes,
+                freeMinutes,
+            });
 
         const [point] = await tx.update(routePoints).set({
             vehicleArrivedAt,
@@ -333,14 +342,15 @@ export async function recordRoutePointDowntime(tripId: string, input: RecordDown
                 billableMinutes,
                 reserveAmount: input.reserveAmount ?? null,
                 financialImpact: {
-                    reserveAmount: input.reserveAmount ?? null,
+                    reserveAmount: input.reserveAmount ?? tariffRule?.amount ?? null,
                     basis: billableMinutes && billableMinutes > 0 ? 'billable_downtime' : 'tracked_downtime',
+                    tariffRule,
                 },
             },
         }, tx);
 
         await tx.update(trips).set({ updatedAt: new Date() }).where(eq(trips.id, tripId));
-        return { routePoint: point, waitingMinutes, billableMinutes, event };
+        return { routePoint: point, waitingMinutes, billableMinutes, tariffRule, event };
     });
 }
 
@@ -372,6 +382,11 @@ export async function cancelTripAfterArrival(tripId: string, input: CancelAfterA
             status: input.cancelTrip === false ? trip.status : 'cancelled',
             updatedAt: new Date(),
         }).where(eq(trips.id, tripId)).returning();
+        const tariffRule = await evaluateTariffRule({
+            serviceType: 'cancellation_after_arrival',
+            tripId,
+            amountOverride: input.reserveAmount ?? null,
+        });
 
         const event = await recordEvent({
             authorId: actor.userId,
@@ -387,15 +402,16 @@ export async function cancelTripAfterArrival(tripId: string, input: CancelAfterA
                 notes: input.notes ?? null,
                 previousStatus: trip.status,
                 nextStatus: updatedTrip.status,
-                reserveAmount: input.reserveAmount ?? null,
+                reserveAmount: tariffRule.amount,
                 financialImpact: {
-                    reserveAmount: input.reserveAmount ?? null,
+                    reserveAmount: tariffRule.amount,
                     basis: 'vehicle_arrived_cancellation',
+                    tariffRule,
                 },
             },
         }, tx);
 
-        return { trip: updatedTrip, routePoint: point, event };
+        return { trip: updatedTrip, routePoint: point, tariffRule, event };
     });
 }
 

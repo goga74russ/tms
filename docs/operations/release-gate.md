@@ -12,7 +12,9 @@ Updated: 2026-04-29
 - Web smoke passes for the main roles.
 - UI workflow smoke passes for logist/trips/claims/finance/dispatcher pages and the close-gate/claims/exceptions APIs.
 - New `/print/*` routes are included in UI workflow smoke before they are counted as done.
+- Shipment/multistop, document queue, close-flow, claims, and tariff-rule UI changes must be covered by UI workflow smoke or explicit build/typecheck evidence.
 - Mobile smoke uses the same delivery/checkpoint/completion endpoints as the app, including `/sync/events` for driver checkpoint and completion events.
+- Mobile conflict/retake/correction UX changes require mobile typecheck and the API-level mobile smoke unless the change is docs-only.
 - Mobile pilot evidence runbook is current before mobile is included in a pilot build.
 - Database migrations apply on a clean database.
 - Database migrations apply on an upgraded database.

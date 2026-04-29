@@ -4,13 +4,19 @@
 
 ## UI coverage update 2026-04-29
 
+- Done: Beauvoir hardening adds trip dossier next-action buttons for repair request, breakdown flow, post-trip return checklist, close gate, and document queue without new paid services or schema.
+- Done: repair page accepts trip/vehicle create context from `/repair?action=create&tripId=...&vehicleId=...`, so breakdowns in trips have a direct handoff to existing repair UI.
+- Done: UI smoke includes `/repair` page coverage in addition to trip dossier close gate and document queue checks.
 - Done: web trip dossier now includes an operational actions panel for downtime, readdressing, cancellation after arrival, breakdown, post-trip return, resource replacement, and crew/rest planning.
+- Done: web trip dossier now shows a read-only load structure panel for one-order-to-many-trips, one-trip-to-many-orders, lot assignments, and multi-stop route sequencing when the existing load-plan/dossier data is available.
 - Done: trip dossier close gate now exposes a lightweight document queue for missing, overdue, and exceptioned documents with owner/action hints and safe print links for signature-refusal evidence.
 - Done: added printable signature-refusal act at `/print/signature-refusal/:tripId?documentId=...`, based on existing persisted transport document refusal metadata and dossier data.
 - Done: claims page has a printable claim act at `/print/claim-act/:id` for damage/shortage/delay/downtime/refusal evidence and settlement.
 - Done: finance invoice modal includes a free additional-service calculator for loading, unloading, permits, wash, downtime, and forwarding before posting invoice adjustments.
+- Done: backend tariff-rule evaluator now prices downtime, additional services, and arrival-cancellation penalties from contract tariffs when present, with free defaults otherwise.
+- Done: added printable arrival-cancellation act at `/print/cancellation-act/:tripId`.
 - Checked: `corepack pnpm --filter @tms/web lint`, `scripts/ui-workflow-smoke.ps1`; document queue smoke also validates `closeGate.documentQueue` and `/print/signature-refusal/:tripId`.
-- Still later: printed acts, tariff rule engine, real ETRN provider/KEP/MChD integration, and richer approval workflows.
+- Still later: real ETRN provider/KEP/MChD integration, real accounting operator sync, and richer approval workflows.
 
 Этот список нужен, чтобы TMS v2 не стала системой только для happy path `одна заявка -> одна машина -> одна доставка`. Реальные перевозки часто ломают такую модель: груз делится, консолидируется, меняется по факту, требует особых условий, документов, разрешений или претензионного контура.
 
@@ -26,8 +32,8 @@
 | Частичная доставка | Получатель принял 17 из 18 паллет | Отразить недостачу, акт, claim, финансовый резерв | Есть фактическая разгрузка, shortage, акт/evidence, авто-претензия, reserve/estimated amount, финконтур допуслуг/оплат | Сделано бесплатно, проверено 2026-04-29: smoke на недовоз с актом и резервом |
 | Мультистоп | Один рейс с несколькими погрузками/выгрузками | Последовательность точек, SLA по каждой точке, документы по каждой партии | Route points создаются при назначении партии, downtime/SLA факты пишутся по точке, cockpit видит исключения | Сделано бесплатно, проверено 2026-04-29; визуальный UI маршрута позже |
 | Переадресация | Получатель/адрес меняются в пути | Версионировать маршрут, согласование, документальный след, ЭТРН-титул переадресовки | Есть API изменения route point, journal event, cockpit signal, ЭТРН Title 03 metadata | Сделано, проверено 2026-04-29; нужен UI согласования |
-| Отмена после подачи ТС | Машина приехала, груз не готов | Фиксировать подачу, простой/штраф, акт, оплату | Есть API cancel-after-arrival, фиксация подачи, reserveAmount, journal event и cockpit signal | Сделано, проверено 2026-04-29; нужен печатный акт/UI |
-| Простой на погрузке/выгрузке | Машина стоит 8 часов на складе | Тайминг прибытия/убытия, норматив, начисление, доказательства | Есть API downtime по route point, waiting/billable minutes, reserveAmount, journal event и cockpit signal | Сделано, проверено 2026-04-29; нужны тарифы начисления |
+| Отмена после подачи ТС | Машина приехала, груз не готов | Фиксировать подачу, простой/штраф, акт, оплату | Есть API cancel-after-arrival, фиксация подачи, reserveAmount, tariffRule, journal event, cockpit signal и `/print/cancellation-act/:tripId` | Сделано бесплатно, проверено 2026-04-29 |
+| Простой на погрузке/выгрузке | Машина стоит 8 часов на складе | Тайминг прибытия/убытия, норматив, начисление, доказательства | Есть API downtime по route point, waiting/billable minutes, tariffRule/reserveAmount, journal event и cockpit signal | Сделано бесплатно, проверено 2026-04-29 |
 | Замена машины/водителя | Поломка, заболел водитель, другой тягач | История замен, перепроверка готовности, обновление документов | Есть API замены ТС/водителя/прицепа, compatibility recheck, journal event, cockpit signal, ЭТРН Title 04 metadata | Сделано, проверено 2026-04-29; нужен UI согласования |
 | Поломка в пути | Рейс не может продолжаться | Инцидент, эвакуация/ремонт, перегруз в другую машину, уведомления | Есть API breakdown, blocking cockpit signal, nextActions на ремонт/замену ресурса | Сделано, проверено 2026-04-29; нужна связка с repair UI |
 | Возврат груза | Получатель отказался или часть возвращается | Обратный рейс/сегмент, новые документы, финансовые последствия | `shipment_facts.factType=return`, discrepancy/refusal, claims и finance adjustments покрывают бесплатный контур возврата | Сделано бесплатно, проверено 2026-04-29; отдельный UI возврата позже |
@@ -66,10 +72,10 @@
 
 | Сценарий | Что нужно в продукте | Работа |
 |---|---|---|
-| Нет связи у водителя | Offline queue, локальные фото/подписи, повторная синхронизация, конфликт-резолюция | Сделано бесплатно, проверено 2026-04-29: `clientEventId` idempotency, `offlineCreatedAt`, attachments, duplicate smoke; mobile offline replay для checkpoint/completion добавлен; conflict UI остается partly |
-| Фото плохого качества | Retake flow, минимальные требования, привязка к точке/времени/GPS | Сделано бесплатно, проверено 2026-04-29: attachment placeholders, GPS, `photo-placeholder`/correction event; UI retake позже |
+| Нет связи у водителя | Offline queue, локальные фото/подписи, повторная синхронизация, конфликт-резолюция | Сделано бесплатно, проверено 2026-04-29: `clientEventId` idempotency, `offlineCreatedAt`, attachments, duplicate smoke; mobile offline replay для checkpoint/completion и conflict/duplicate hint добавлены |
+| Фото плохого качества | Retake flow, минимальные требования, привязка к точке/времени/GPS | Сделано бесплатно, проверено 2026-04-29: attachment placeholders, GPS, `photo-placeholder`/correction event; mobile photo review + retake/replace UI добавлены |
 | GPS расходится с ручным статусом | Алгоритм доверия, флаг на диспетчера, audit trail | Сделано бесплатно, проверено 2026-04-29: GPS пишется в append-only journal и cockpit видит execution exceptions; сложный trust algorithm позже |
-| Водитель нажал не тот статус | Корректировка с причиной и правами, без потери истории | Сделано бесплатно, проверено 2026-04-29: `correction` execution event в append-only journal; mobile trip blockers добавлены; UI согласования корректировок позже |
+| Водитель нажал не тот статус | Корректировка с причиной и правами, без потери истории | Сделано бесплатно, проверено 2026-04-29: `correction` execution event в append-only journal; mobile trip blockers и correction reason UX добавлены |
 | Нарушение ETA | Автоуведомление, причина задержки, влияние на SLA/штраф | Сделано бесплатно, проверено 2026-04-29: `delay` execution event, route point downtime, cockpit warning; тариф SLA позже |
 | Режим труда и отдыха | Интеграция с тахографом или хотя бы контроль риска переработки | Сделано, проверено 2026-04-29: API crew-rest-plan, смены, лимит минут, blocking/warning risk в cockpit; тахографа нет |
 | Два водителя | Экипаж, смены, подписи, путевой лист, ответственность | Сделано, проверено 2026-04-29: crew array с primary/secondary, сменами и smoke; нужны UI и печатная/ЭТРН-связка с путевым листом |
@@ -79,11 +85,11 @@
 
 | Сценарий | Что нужно в продукте | Работа |
 |---|---|---|
-| Простой | Норматив, факт, подтверждение, автоматическое начисление или claim | Сделано бесплатно, проверено 2026-04-29: downtime API, billable/free minutes, reserveAmount, additional-services billing; тарифные правила позже |
-| Штраф за срыв подачи | Кто виноват, доказательства, сумма, акт, settlement | Сделано бесплатно, проверено 2026-04-29: cancel-after-arrival, reserveAmount, claims settlementNote, акт/evidence foundation; печатная форма позже |
+| Простой | Норматив, факт, подтверждение, автоматическое начисление или claim | Сделано бесплатно, проверено 2026-04-29: downtime API, billable/free minutes, tariffRule amount from contract/default, reserveAmount, additional-services billing |
+| Штраф за срыв подачи | Кто виноват, доказательства, сумма, акт, settlement | Сделано бесплатно, проверено 2026-04-29: cancel-after-arrival, reserveAmount/tariffRule, claims settlementNote, акт/evidence foundation, `/print/cancellation-act/:tripId` |
 | Недостача/повреждение | Акт, фото, стоимость груза, ответственная сторона, резерв, итоговое решение | Сделано бесплатно, проверено 2026-04-29: auto claim из shortage/damage/refusal, акт/photo/signature evidence, reserve/estimated amount |
 | Частичная оплата | Разделение счета по выполненным сегментам/рейсам | Сделано, проверено 2026-04-29: payments API, append-only payment events, paid/remaining balance; finance actions UI добавлен; платежные документы позже |
-| Допуслуги | Погрузка, разгрузка, пропуск, мойка, простой, экспедирование | Сделано, проверено 2026-04-29: additional-services API поверх invoice adjustments + journal event; нужны тарифные правила |
+| Допуслуги | Погрузка, разгрузка, пропуск, мойка, простой, экспедирование | Сделано бесплатно, проверено 2026-04-29: additional-services API поверх invoice adjustments + journal event, локальный tariff-rule evaluator, contract tariff/default rates |
 | Несовпадение с 1С | Сверка актов/счетов, статусы выгрузки, расхождения | Сделано, проверено 2026-04-29: 1c-reconciliation API, external status/amount, discrepancy list; нужен реальный обмен/маппинг 1С |
 | Закрытие рейса без документов | Правило: разрешать с риском или блокировать до сдачи досье | Сделано бесплатно, проверено 2026-04-29: dossier projection, close gate, paper exception, cockpit blockers; dispatcher cockpit и mobile blockers показывают риск; close flow остается partly |
 

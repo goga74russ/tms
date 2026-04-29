@@ -9,6 +9,7 @@ Updated: 2026-04-29
 - UI copy cleanup started: priority finance/tariffs/claims/print/admin tariff screens audited, with obvious mojibake fixes applied where safe.
 - Document queue / close-gate improvements and printable exception forms for refusal or cancellation-after-arrival.
 - Mobile pilot evidence runbook for Android/emulator LAN testing with repeatable screenshots/checklist.
+- Batch 2: free remaining-edge hardening for shipment/multistop UI, tariff rule evidence, repair/return/close-flow links, and mobile conflict/retake/correction UX.
 - Integration owner: keep Docker localhost current and rerun web/API/mobile smoke after merging agent work.
 
 ## P0. Make v2 A Clean Working Base

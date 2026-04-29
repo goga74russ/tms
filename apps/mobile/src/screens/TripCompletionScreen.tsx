@@ -10,7 +10,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TripCompletion'>;
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 export default function TripCompletionScreen({ route, navigation }: Props) {
-    const { tripId } = route.params;
+    const { tripId, correctionReason } = route.params;
     const { token } = useAuth();
     const [odometer, setOdometer] = useState('');
     const [fuel, setFuel] = useState('');
@@ -39,6 +39,7 @@ export default function TripCompletionScreen({ route, navigation }: Props) {
                     status: 'completed',
                     odometer: odometerEnd,
                     fuel: fuelEnd,
+                    correctionReason,
                 },
             }],
         };
@@ -96,6 +97,13 @@ export default function TripCompletionScreen({ route, navigation }: Props) {
         <View style={styles.container}>
             <Text style={styles.title}>Завершение рейса</Text>
 
+            {!!correctionReason && (
+                <View style={styles.correctionBox}>
+                    <Text style={styles.correctionTitle}>Причина коррекции</Text>
+                    <Text style={styles.correctionText}>{correctionReason}</Text>
+                </View>
+            )}
+
             <Text style={styles.label}>Показания одометра (км)</Text>
             <TextInput
                 style={styles.input}
@@ -143,6 +151,25 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         marginBottom: 8,
         color: '#334155',
+    },
+    correctionBox: {
+        backgroundColor: '#fffbeb',
+        borderColor: '#fde68a',
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 24,
+    },
+    correctionTitle: {
+        color: '#92400e',
+        fontSize: 13,
+        fontWeight: '700',
+        marginBottom: 4,
+    },
+    correctionText: {
+        color: '#78350f',
+        fontSize: 14,
+        lineHeight: 19,
     },
     input: {
         borderWidth: 1,

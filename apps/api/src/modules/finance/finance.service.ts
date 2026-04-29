@@ -6,6 +6,7 @@ import { InvoiceCreate } from './schemas.js';
 import { recordEvent } from '../../events/journal.js';
 import { buildCommerceMLXml, type InvoiceExportRow } from './xml-export.service.js';
 import { toFiniteNumber } from '../../utils/number.js';
+import { evaluateTariffRule, type TariffRuleServiceType } from './tariff-rules.service.js';
 
 type FleetVehicleSnapshot = {
     status: string;
@@ -571,21 +572,34 @@ export class FinanceService {
     async addAdditionalService(
         invoiceId: string,
         params: {
-            serviceType: string;
+            serviceType: TariffRuleServiceType;
             description: string;
-            amount: number;
+            amount?: number | null;
             tripId?: string | null;
+            quantity?: number | null;
+            unit?: string | null;
+            minutes?: number | null;
+            freeMinutes?: number | null;
             vatRate?: number | null;
             notes?: string | null;
         },
         authorId: string,
         authorRole: string,
     ) {
+        const tariffRule = await evaluateTariffRule({
+            serviceType: params.serviceType,
+            tripId: params.tripId,
+            quantity: params.quantity,
+            unit: params.unit,
+            minutes: params.minutes,
+            freeMinutes: params.freeMinutes,
+            amountOverride: params.amount,
+        });
         const adjustment = await this.createAdjustment(
             invoiceId,
-            'other',
+            params.serviceType === 'cancellation_after_arrival' ? 'penalty' : 'other',
             `${params.serviceType}: ${params.description}`,
-            params.amount,
+            tariffRule.amount,
             authorId,
         );
         await recordEvent({
@@ -598,8 +612,9 @@ export class FinanceService {
                 adjustmentId: adjustment.id,
                 serviceType: params.serviceType,
                 description: params.description,
-                amount: params.amount,
+                amount: tariffRule.amount,
                 tripId: params.tripId ?? null,
+                tariffRule,
                 vatRate: params.vatRate ?? null,
                 notes: params.notes ?? null,
             },
@@ -607,6 +622,7 @@ export class FinanceService {
         const [invoice] = await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
         return {
             adjustment,
+            tariffRule,
             invoice: invoice ? { ...invoice, subtotal: num(invoice.subtotal), vatAmount: num(invoice.vatAmount), total: num(invoice.total) } : null,
         };
     }

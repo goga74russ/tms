@@ -1,12 +1,12 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { Q } from '@nozbe/watermelondb';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { database } from '../database';
 import Trip from '../database/models/Trip';
 import RoutePoint from '../database/models/RoutePoint';
-import { getQueueSize } from '../api/offlineQueue';
+import { getQueueSummary } from '../api/offlineQueue';
 import { getTripOperationExceptions, OperationExceptionItem, OperationExceptionSummary } from '../api/trips';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripDetails'>;
@@ -30,7 +30,15 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
     const [points, setPoints] = useState<RoutePoint[]>([]);
     const [exceptionSummary, setExceptionSummary] = useState<OperationExceptionSummary | null>(null);
     const [exceptions, setExceptions] = useState<OperationExceptionItem[]>([]);
-    const [offlineQueueSize, setOfflineQueueSize] = useState(0);
+    const [offlineQueueSummary, setOfflineQueueSummary] = useState({
+        size: 0,
+        hasCheckpoint: false,
+        hasCompletion: false,
+        hasDelivery: false,
+        hasInspection: false,
+        hasRetries: false,
+    });
+    const [completionReason, setCompletionReason] = useState('');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -46,11 +54,11 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
 
                 const [exceptionData, queueSize] = await Promise.all([
                     getTripOperationExceptions(tripId),
-                    getQueueSize(),
+                    getQueueSummary(),
                 ]);
                 setExceptionSummary(exceptionData?.summary || null);
                 setExceptions(exceptionData?.exceptions || []);
-                setOfflineQueueSize(queueSize);
+                setOfflineQueueSummary(queueSize);
             } catch {
                 Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u0440\u0435\u0439\u0441\u0430.');
             } finally {
@@ -67,10 +75,21 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
     };
 
     const canCompleteTrip = (exceptionSummary?.blocking || 0) === 0;
+    const requiresCompletionReason = !canCompleteTrip;
+    const canSubmitCompletion = canCompleteTrip || completionReason.trim().length >= 6;
 
     const markCompleted = () => {
         if (canCompleteTrip) {
             navigation.navigate('TripCompletion', { tripId });
+            return;
+        }
+
+        const reason = completionReason.trim();
+        if (reason.length < 6) {
+            Alert.alert(
+                'Нужна причина',
+                'Укажите, почему водитель продолжает или исправляет статус при блокерах.'
+            );
             return;
         }
 
@@ -79,10 +98,17 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
             'По рейсу есть незакрытые замечания. Продолжить завершение?',
             [
                 { text: 'Отмена', style: 'cancel' },
-                { text: 'Продолжить', onPress: () => navigation.navigate('TripCompletion', { tripId }) },
+                { text: 'Продолжить', onPress: () => navigation.navigate('TripCompletion', { tripId, correctionReason: reason }) },
             ]
         );
     };
+
+    const queueHintParts = [
+        offlineQueueSummary.hasCheckpoint ? 'checkpoint' : null,
+        offlineQueueSummary.hasCompletion ? 'completion' : null,
+        offlineQueueSummary.hasDelivery ? 'delivery' : null,
+        offlineQueueSummary.hasInspection ? 'inspection' : null,
+    ].filter(Boolean);
 
     const renderException = ({ item }: { item: OperationExceptionItem }) => (
         <View style={styles.exceptionItem}>
@@ -125,8 +151,8 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                                     {canCompleteTrip ? 'Блокеров нет' : 'Есть блокеры перед закрытием'}
                                 </Text>
                             </View>
-                            {offlineQueueSize > 0 && (
-                                <Text style={styles.queueBadge}>{`Офлайн: ${offlineQueueSize}`}</Text>
+                            {offlineQueueSummary.size > 0 && (
+                                <Text style={styles.queueBadge}>{`Офлайн: ${offlineQueueSummary.size}`}</Text>
                             )}
                         </View>
                         <View style={styles.summaryRow}>
@@ -152,6 +178,31 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                             />
                         ) : (
                             <Text style={styles.emptyExceptions}>Нет открытых замечаний по рейсу</Text>
+                        )}
+                        {offlineQueueSummary.size > 0 && (
+                            <View style={styles.queueHint}>
+                                <Text style={styles.queueHintTitle}>Очередь офлайн-отправки</Text>
+                                <Text style={styles.queueHintText}>
+                                    {`В очереди ${offlineQueueSummary.size}. ${queueHintParts.length ? `Типы: ${queueHintParts.join(', ')}. ` : ''}Дубли и конфликты при replay считаются безопасной повторной отправкой; не удаляйте локальные данные до синхронизации.`}
+                                </Text>
+                                {offlineQueueSummary.hasRetries && (
+                                    <Text style={styles.queueRetryText}>Есть повторные попытки: проверьте связь и LAN API.</Text>
+                                )}
+                            </View>
+                        )}
+                        {requiresCompletionReason && (
+                            <View style={styles.reasonBox}>
+                                <Text style={styles.reasonLabel}>Причина продолжения / коррекции</Text>
+                                <TextInput
+                                    style={styles.reasonInput}
+                                    value={completionReason}
+                                    onChangeText={setCompletionReason}
+                                    placeholder="Например: документы у диспетчера, нужно закрыть рейс"
+                                    multiline
+                                    numberOfLines={3}
+                                />
+                                <Text style={styles.reasonHint}>Причина пойдет в event payload для audit/replay.</Text>
+                            </View>
                         )}
                     </View>
                 )}
@@ -185,8 +236,9 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
             />
 
             <TouchableOpacity
-                style={[styles.completeTripButton, !canCompleteTrip && styles.completeTripButtonWarning]}
+                style={[styles.completeTripButton, !canCompleteTrip && styles.completeTripButtonWarning, !canSubmitCompletion && styles.disabledButton]}
                 onPress={markCompleted}
+                disabled={!canSubmitCompletion}
             >
                 <Text style={styles.completeTripText}>{'\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u0440\u0435\u0439\u0441'}</Text>
             </TouchableOpacity>
@@ -319,6 +371,59 @@ const styles = StyleSheet.create({
         padding: 10,
         borderRadius: 8,
         overflow: 'hidden',
+    },
+    queueHint: {
+        backgroundColor: '#fffbeb',
+        borderColor: '#fde68a',
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 12,
+        marginTop: 12,
+    },
+    queueHintTitle: {
+        color: '#92400e',
+        fontSize: 13,
+        fontWeight: '700',
+        marginBottom: 4,
+    },
+    queueHintText: {
+        color: '#78350f',
+        fontSize: 12,
+        lineHeight: 17,
+    },
+    queueRetryText: {
+        color: '#b45309',
+        fontSize: 12,
+        fontWeight: '700',
+        marginTop: 6,
+    },
+    reasonBox: {
+        marginTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#e2e8f0',
+        paddingTop: 12,
+    },
+    reasonLabel: {
+        color: '#0f172a',
+        fontSize: 13,
+        fontWeight: '700',
+        marginBottom: 6,
+    },
+    reasonInput: {
+        borderWidth: 1,
+        borderColor: '#cbd5e1',
+        borderRadius: 8,
+        padding: 10,
+        minHeight: 76,
+        fontSize: 14,
+        color: '#0f172a',
+        textAlignVertical: 'top',
+        backgroundColor: '#fff',
+    },
+    reasonHint: {
+        color: '#64748b',
+        fontSize: 12,
+        marginTop: 6,
     },
     pointCard: {
         backgroundColor: '#fff',

@@ -16,7 +16,7 @@ export type RootStackParamList = {
     TripList: undefined;
     TripDetails: { tripId: string };
     Checkpoint: { routePointId: string; tripId: string };
-    TripCompletion: { tripId: string };
+    TripCompletion: { tripId: string; correctionReason?: string };
     DeliveryConfirmation: { tripId: string };
     MechanicInspection: undefined;
 };

@@ -64,6 +64,18 @@ export async function getQueueSize(): Promise<number> {
     return queue.length;
 }
 
+export async function getQueueSummary(): Promise<{ size: number; hasCheckpoint: boolean; hasCompletion: boolean; hasDelivery: boolean; hasInspection: boolean; hasRetries: boolean }> {
+    const queue = await getQueue();
+    return {
+        size: queue.length,
+        hasCheckpoint: queue.some((action) => action.type === 'checkpoint_confirm'),
+        hasCompletion: queue.some((action) => action.type === 'trip_status'),
+        hasDelivery: queue.some((action) => action.type === 'delivery_confirmation'),
+        hasInspection: queue.some((action) => action.type === 'inspection_submit'),
+        hasRetries: queue.some((action) => action.retries > 0),
+    };
+}
+
 function isLocalPhotoUri(uri: string): boolean {
     return uri.startsWith('file://') || uri.startsWith('content://') || uri.startsWith('ph://');
 }

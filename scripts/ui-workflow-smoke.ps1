@@ -28,7 +28,7 @@ if ($login.StatusCode -lt 200 -or $login.StatusCode -ge 300) {
     throw "Super login failed: HTTP $($login.StatusCode)"
 }
 
-$pages = @('/logist', '/trips', '/claims', '/finance', '/dispatcher')
+$pages = @('/logist', '/trips', '/claims', '/finance', '/dispatcher', '/repair')
 $pageResults = @()
 foreach ($path in $pages) {
     $page = Invoke-WebRequest -UseBasicParsing -Method Get -Uri "$BaseUrl$path" -WebSession $session
@@ -89,6 +89,7 @@ if ($null -eq $exceptions.data.summary -or $null -eq $exceptions.data.exceptions
 $tripDossierResult = 'skipped'
 $tripCloseGateResult = 'skipped'
 $signatureRefusalPrintResult = 'skipped'
+$cancellationActPrintResult = 'skipped'
 $tripRoutePointsResult = 'skipped'
 $resourceOptionsResult = 'skipped'
 $firstTrip = @($trips.data | Select-Object -First 1)
@@ -117,6 +118,12 @@ if ($firstTrip.Count -gt 0 -and $firstTrip[0].id) {
     }
     $signatureRefusalPrintResult = 'ok'
 
+    $cancellationActPrint = Invoke-WebRequest -UseBasicParsing -Method Get -Uri "$BaseUrl/print/cancellation-act/$tripId?reason=Smoke%20arrival%20cancellation&amount=1500" -WebSession $session
+    if ($cancellationActPrint.StatusCode -ne 200) {
+        throw "Cancellation act print form failed: HTTP $($cancellationActPrint.StatusCode)"
+    }
+    $cancellationActPrintResult = 'ok'
+
     $routePoints = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/trips/$tripId/points" -WebSession $session
     Assert-Success $routePoints 'trip route points'
     $tripRoutePointsResult = @($routePoints.data).Count
@@ -143,6 +150,7 @@ if ($firstTrip.Count -gt 0 -and $firstTrip[0].id) {
         tripDossier = $tripDossierResult
         tripCloseGate = $tripCloseGateResult
         signatureRefusalPrint = $signatureRefusalPrintResult
+        cancellationActPrint = $cancellationActPrintResult
         tripRoutePoints = $tripRoutePointsResult
         resourceOptions = $resourceOptionsResult
     }

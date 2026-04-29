@@ -32,13 +32,16 @@ apps/mobile/index.ts -> apps/mobile/App.tsx -> src/navigation/AppNavigator.tsx
 - `/api/auth/me` profile hydration with `driverId`
 - driver trip list and trip details from local WatermelonDB sync tables
 - route point checkpoint screen with photo/signature event capture
+- checkpoint photo review with retake/replace/continue-without-photo actions
 - trip completion offline event capture
 - trip blocker display for missing/blocked operational prerequisites
+- completion correction reason UX when blockers are present
 - delivery confirmation with recipient, photo, signature, online submit, and offline queue fallback
 - mechanic inspection flow
 - upload API integration
 - WatermelonDB sync through `/api/sync/pull` and `/api/sync/events`
 - offline queue replay for checkpoint and completion events when connectivity returns
+- offline queue duplicate/conflict hint in trip details
 
 ## P1 Changes Applied
 
@@ -50,6 +53,7 @@ apps/mobile/index.ts -> apps/mobile/App.tsx -> src/navigation/AppNavigator.tsx
 6. Added repeatable full mobile smoke script.
 7. Added mobile trip blocker visibility in driver trip context.
 8. Added offline replay coverage for checkpoint and trip completion events.
+9. Added free execution-polish UI for checkpoint retake, offline conflict/duplicate hints, and completion correction reasons.
 
 ```powershell
 D:\Ai\TMS-prod\scripts\mobile-smoke.ps1
@@ -71,6 +75,7 @@ Verified:
 - `/api/sync/events` accepts and replays `route_point_completed` and `trip_status_changed` events
 - prepared smoke trip reaches `completed` and its route point reaches `completed`
 - driver trip blockers are represented in the mobile trip context
+- `corepack pnpm --filter @tms/mobile typecheck` after checkpoint retake/conflict/correction UI polish
 
 ## Required Device Gate
 
