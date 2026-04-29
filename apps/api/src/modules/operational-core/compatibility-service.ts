@@ -1,6 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { orders, shipmentLots, tripLotAssignments, trips, vehicles } from '../../db/schema.js';
+import { evaluateCargoRules } from './cargo-rules.js';
 
 export type CompatibilityStatus = 'ok' | 'warning' | 'blocking';
 
@@ -243,6 +244,21 @@ export async function getTripCompatibility(tripId: string, organizationId?: stri
             },
         });
 
+        assignmentChecks.push(...evaluateCargoRules([{
+            assignmentId: assignment.assignmentId,
+            orderId: assignment.orderId,
+            shipmentLotId: assignment.shipmentLotId,
+            cargoDescription: assignment.cargoDescription,
+            cargoType: assignment.cargoType,
+            assignedWeightKg: assignment.assignedWeightKg,
+            assignedVolumeM3: assignment.assignedVolumeM3,
+            assignedPlaces: assignment.assignedPlaces,
+            requirementsSnapshot: snapshot,
+            vehicleRequirements: requirementText,
+        }], {
+            vehicleBodyType: trip.vehicleBodyType,
+        }));
+
         return {
             assignmentId: assignment.assignmentId,
             shipmentLotId: assignment.shipmentLotId,
@@ -263,7 +279,31 @@ export async function getTripCompatibility(tripId: string, organizationId?: stri
         };
     });
 
-    const requirementStatuses = assignmentResults.flatMap(assignment => assignment.checks.map(check => check.status));
+    const tripCargoRuleChecks = evaluateCargoRules(assignments.map((assignment) => {
+        const snapshot = assignment.requirementsSnapshot ?? {};
+        const requirementText = compactText(String(snapshot.vehicleRequirements ?? assignment.orderVehicleRequirements ?? ''));
+        return {
+            assignmentId: assignment.assignmentId,
+            orderId: assignment.orderId,
+            shipmentLotId: assignment.shipmentLotId,
+            cargoDescription: assignment.cargoDescription,
+            cargoType: assignment.cargoType,
+            assignedWeightKg: assignment.assignedWeightKg,
+            assignedVolumeM3: assignment.assignedVolumeM3,
+            assignedPlaces: assignment.assignedPlaces,
+            requirementsSnapshot: snapshot,
+            vehicleRequirements: requirementText,
+        };
+    }), {
+        vehicleBodyType: trip.vehicleBodyType,
+    }).filter((check) => check.status !== 'ok');
+
+    checks.push(...tripCargoRuleChecks);
+
+    const requirementStatuses = [
+        ...assignmentResults.flatMap(assignment => assignment.checks.map(check => check.status)),
+        ...tripCargoRuleChecks.map(check => check.status),
+    ];
     checks.push({
         code: 'cargo_requirements',
         status: worstStatus(requirementStatuses),

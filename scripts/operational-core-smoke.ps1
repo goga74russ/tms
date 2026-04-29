@@ -19,7 +19,7 @@ WITH actor AS (
 ), contractor AS (
     SELECT id FROM contractors ORDER BY created_at LIMIT 1
 ), cleanup_order AS (
-    SELECT id FROM orders WHERE number = 'OC-SMOKE-100T'
+    SELECT id FROM orders WHERE number IN ('OC-SMOKE-100T', 'OC-SMOKE-CARGO-RULES')
 ), cleanup_facts AS (
     DELETE FROM shipment_facts WHERE order_id IN (SELECT id FROM cleanup_order)
 ), cleanup_assignments AS (
@@ -27,7 +27,7 @@ WITH actor AS (
 ), cleanup_lots AS (
     DELETE FROM shipment_lots WHERE order_id IN (SELECT id FROM cleanup_order)
 ), cleanup_points AS (
-    DELETE FROM route_points WHERE trip_id IN (SELECT id FROM trips WHERE number IN ('OC-SMOKE-TRIP-1', 'OC-SMOKE-TRIP-2'))
+    DELETE FROM route_points WHERE trip_id IN (SELECT id FROM trips WHERE number IN ('OC-SMOKE-TRIP-1', 'OC-SMOKE-TRIP-2', 'OC-SMOKE-TRIP-3'))
 ), cleanup_links AS (
     DELETE FROM trip_orders WHERE order_id IN (SELECT id FROM cleanup_order)
 ), upsert_order AS (
@@ -52,11 +52,31 @@ WITH actor AS (
     SELECT 'OC-SMOKE-TRIP-2', 'planning', 20, (SELECT id FROM org), (SELECT user_id FROM actor), now()
     ON CONFLICT (number) DO UPDATE SET status = 'planning', organization_id = EXCLUDED.organization_id, updated_at = now()
     RETURNING id, number
+), cargo_order AS (
+    INSERT INTO orders (
+        number, contractor_id, status, cargo_description, cargo_weight_kg, cargo_volume_m3, cargo_places, cargo_type,
+        loading_address, unloading_address, vehicle_requirements, confirmation_mode, organization_id, created_by, updated_at
+    )
+    SELECT 'OC-SMOKE-CARGO-RULES', c.id, 'confirmed', 'Food and hazardous chemical smoke cargo', 2000, 10, 20, 'food',
+           'Moscow food warehouse', 'Kazan chemical lab', 'valuable insured sealed', 'required', (SELECT id FROM org), a.user_id, now()
+    FROM actor a, contractor c
+    ON CONFLICT (number) DO UPDATE SET
+        status = 'confirmed', trip_id = NULL, cargo_weight_kg = 2000, cargo_volume_m3 = 10, cargo_places = 20,
+        cargo_type = 'food', vehicle_requirements = 'valuable insured sealed',
+        organization_id = EXCLUDED.organization_id, updated_at = now()
+    RETURNING id, number
+), trip3 AS (
+    INSERT INTO trips (number, status, planned_distance_km, organization_id, created_by, updated_at)
+    SELECT 'OC-SMOKE-TRIP-3', 'planning', 30, (SELECT id FROM org), (SELECT user_id FROM actor), now()
+    ON CONFLICT (number) DO UPDATE SET status = 'planning', organization_id = EXCLUDED.organization_id, updated_at = now()
+    RETURNING id, number
 )
 SELECT json_build_object(
     'orderId', (SELECT id FROM upsert_order),
+    'cargoOrderId', (SELECT id FROM cargo_order),
     'trip1Id', (SELECT id FROM trip1),
     'trip2Id', (SELECT id FROM trip2),
+    'trip3Id', (SELECT id FROM trip3),
     'vehicleId', (SELECT id FROM vehicles WHERE (organization_id = (SELECT id FROM org) OR organization_id IS NULL) AND is_archived = false ORDER BY created_at LIMIT 1),
     'driverId', (SELECT id FROM drivers WHERE (organization_id = (SELECT id FROM org) OR organization_id IS NULL) AND is_active = true ORDER BY created_at LIMIT 1)
 )::text;
@@ -67,6 +87,7 @@ if ($LASTEXITCODE -ne 0) { throw "Failed to prepare operational core smoke data"
 $prepared = (($prepareOutput -join "`n").Trim() -split "`n" | Select-Object -Last 1).Trim() | ConvertFrom-Json
 if (-not $prepared.vehicleId) { throw 'Smoke requires at least one vehicle in seed data' }
 if (-not $prepared.driverId) { throw 'Smoke requires at least one driver in seed data' }
+if (-not $prepared.cargoOrderId) { throw 'Smoke requires cargo rules order' }
 
 $loginBody = @{ email = 'admin@tms.local'; password = $seedPassword } | ConvertTo-Json
 $login = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/mobile/login" -ContentType 'application/json' -Body $loginBody
@@ -83,11 +104,32 @@ $lot1 = $lots | Where-Object { [double]$_.plannedWeightKg -eq 60000 } | Select-O
 $lot2 = $lots | Where-Object { [double]$_.plannedWeightKg -eq 40000 } | Select-Object -First 1
 if (-not $lot1 -or -not $lot2) { throw 'Expected 60000kg and 40000kg lots' }
 
+$cargoSplitBody = @{ maxWeightKg = 1000 } | ConvertTo-Json
+$cargoSplit = Invoke-RestMethod -Method Post -Uri "$BaseUrl/orders/$($prepared.cargoOrderId)/lots/split" -Headers $headers -ContentType 'application/json' -Body $cargoSplitBody
+$cargoLots = @($cargoSplit.data)
+if ($cargoLots.Count -ne 2) { throw "Expected 2 cargo rule lots, got $($cargoLots.Count)" }
+$cargoLot1 = $cargoLots[0]
+$cargoLot2 = $cargoLots[1]
+$cargoRulesSql = @"
+UPDATE shipment_lots
+SET cargo_type = 'food valuable insured sealed', cargo_description = 'Food cargo with declared value'
+WHERE id = '$($cargoLot1.id)';
+UPDATE shipment_lots
+SET cargo_type = 'hazardous chemical bulk oversized', cargo_description = 'Hazardous chemical bulk oversized cargo'
+WHERE id = '$($cargoLot2.id)';
+"@
+$cargoRulesSql | docker compose -f $ComposeFile exec -T postgres psql -U tms -d tms -v ON_ERROR_STOP=1 | Out-Null
+
 $assign1Body = @{ shipmentLotId = $lot1.id; assignedWeightKg = 60000; allowOverCapacity = $true } | ConvertTo-Json
 $assign2Body = @{ shipmentLotId = $lot2.id; assignedWeightKg = 40000; allowOverCapacity = $true } | ConvertTo-Json
 $assign1 = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip1Id)/lot-assignments" -Headers $headers -ContentType 'application/json' -Body $assign1Body
 $assign2 = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/lot-assignments" -Headers $headers -ContentType 'application/json' -Body $assign2Body
 $executionRoutePointId = @($assign1.data.routePoints)[0].id
+
+$cargoAssign1Body = @{ shipmentLotId = $cargoLot1.id; assignedWeightKg = 1000; allowOverCapacity = $true } | ConvertTo-Json
+$cargoAssign2Body = @{ shipmentLotId = $cargoLot2.id; assignedWeightKg = 1000; allowOverCapacity = $true } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip3Id)/lot-assignments" -Headers $headers -ContentType 'application/json' -Body $cargoAssign1Body | Out-Null
+Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip3Id)/lot-assignments" -Headers $headers -ContentType 'application/json' -Body $cargoAssign2Body | Out-Null
 
 $replaceBody = @{
     vehicleId = $prepared.vehicleId
@@ -187,6 +229,13 @@ $compatibility1 = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared
 if (-not $compatibility1.data.checks) { throw 'trip1 compatibility checks missing' }
 if (-not (@($compatibility1.data.checks | ForEach-Object { $_.code }) -contains 'payload')) { throw 'trip1 compatibility payload check missing' }
 
+$cargoCompatibility = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared.trip3Id)/compatibility" -Headers $headers
+$cargoCheckCodes = @($cargoCompatibility.data.checks | ForEach-Object { $_.code })
+if (-not ($cargoCheckCodes -contains 'cargo_incompatibility')) { throw 'cargo incompatibility check missing' }
+if (-not ($cargoCheckCodes -contains 'hazardous_cargo')) { throw 'hazardous cargo check missing' }
+if (-not ($cargoCheckCodes -contains 'oversized_or_heavyweight')) { throw 'oversized/heavyweight cargo check missing' }
+if (-not (@($cargoCompatibility.data.assignments | ForEach-Object { $_.checks } | ForEach-Object { $_.code }) -contains 'bulk_cargo_body')) { throw 'bulk cargo body check missing' }
+
 $claims = Invoke-RestMethod -Method Get -Uri "$BaseUrl/claims?status=open" -Headers $headers
 $claimForOrder = @($claims.data | Where-Object { $_.orderId -eq $prepared.orderId })
 if ($claimForOrder.Count -lt 1) { throw 'Expected auto-created open claim for shortage' }
@@ -253,5 +302,6 @@ $result = [ordered]@{
     trip1AssignedWeightKg = $plan1.data.summary.totalAssignedWeightKg
     trip2AssignedWeightKg = $plan2.data.summary.totalAssignedWeightKg
     trip1CompatibilityStatus = $compatibility1.data.status
+    cargoRulesCompatibilityStatus = $cargoCompatibility.data.status
 }
 $result | ConvertTo-Json -Depth 4
