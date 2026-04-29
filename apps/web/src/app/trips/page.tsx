@@ -261,6 +261,9 @@ function TimelineCard({
 function TransportDocumentsBlock({ dossier }: { dossier: any }) {
     const transportDocuments = dossier?.transportDocuments;
     const etrn = dossier?.etrn;
+    const tripId = dossier?.trip?.id;
+    const [documentActionLoading, setDocumentActionLoading] = useState<string | null>(null);
+    const [documentActionResult, setDocumentActionResult] = useState<string | null>(null);
 
     if (!transportDocuments && !etrn) return null;
 
@@ -298,6 +301,46 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
         blocked: 'заблокирован',
     };
 
+    const recordDocumentSignature = async (doc: any) => {
+        if (!tripId || !doc?.id) return;
+        setDocumentActionLoading(`sign-${doc.id}`);
+        try {
+            await api.post(`/trips/${tripId}/transport-documents/${doc.id}/signatures`, {
+                signerRole: 'dispatcher',
+                signerName: 'Оператор TMS',
+                authorityType: 'manual_ui',
+                signedAt: new Date().toISOString(),
+                notes: 'Зафиксировано из web dossier',
+            });
+            setDocumentActionResult(`${transportDocumentLabel(doc.type)}: подпись зафиксирована`);
+        } catch (err: any) {
+            setDocumentActionResult(err?.message || 'Не удалось зафиксировать подпись');
+        } finally {
+            setDocumentActionLoading(null);
+        }
+    };
+
+    const recordDocumentRefusal = async (doc: any) => {
+        if (!tripId || !doc?.id) return;
+        const reason = window.prompt('Причина отказа от подписи', 'Есть расхождения в документе');
+        if (!reason) return;
+        setDocumentActionLoading(`refuse-${doc.id}`);
+        try {
+            await api.post(`/trips/${tripId}/transport-documents/${doc.id}/signature-refusals`, {
+                signerRole: 'dispatcher',
+                signerName: 'Оператор TMS',
+                reason,
+                refusedAt: new Date().toISOString(),
+                notes: 'Отказ зафиксирован из web dossier',
+            });
+            setDocumentActionResult(`${transportDocumentLabel(doc.type)}: отказ от подписи зафиксирован`);
+        } catch (err: any) {
+            setDocumentActionResult(err?.message || 'Не удалось зафиксировать отказ');
+        } finally {
+            setDocumentActionLoading(null);
+        }
+    };
+
     return (
         <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -322,6 +365,12 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                     </span>
                 </div>
             </div>
+
+            {documentActionResult && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                    {documentActionResult}
+                </div>
+            )}
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
@@ -481,6 +530,24 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                                     : doc.providerStatus === 'retry_requested'
                                         ? 'Ручное действие: запрошен retry'
                                         : 'Ручное действие: наблюдение'}
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                disabled={!tripId || documentActionLoading === `sign-${doc.id}`}
+                                onClick={() => recordDocumentSignature(doc)}
+                                className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                            >
+                                {documentActionLoading === `sign-${doc.id}` ? 'Запись...' : 'Подписать'}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={!tripId || documentActionLoading === `refuse-${doc.id}`}
+                                onClick={() => recordDocumentRefusal(doc)}
+                                className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                            >
+                                {documentActionLoading === `refuse-${doc.id}` ? 'Запись...' : 'Отказать'}
+                            </button>
                         </div>
                         {(doc.error || doc.status === 'error' || doc.status === 'rejected') && (
                             <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
@@ -1115,7 +1182,4 @@ export default function TripsPage() {
         </div>
     );
 }
-
-
-
 

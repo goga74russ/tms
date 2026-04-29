@@ -88,6 +88,16 @@ const invoiceTypeLabels: Record<Invoice['type'], string> = {
     upd: 'УПД',
 };
 
+const ADDITIONAL_SERVICE_OPTIONS = [
+    { value: 'loading', label: 'Погрузка' },
+    { value: 'unloading', label: 'Разгрузка' },
+    { value: 'permit', label: 'Пропуск' },
+    { value: 'wash', label: 'Мойка' },
+    { value: 'downtime', label: 'Простой' },
+    { value: 'forwarding', label: 'Экспедирование' },
+    { value: 'other', label: 'Другое' },
+];
+
 // ================================================================
 export default function FinanceDashboard() {
     // State
@@ -105,6 +115,17 @@ export default function FinanceDashboard() {
     const [docReturns, setDocReturns] = useState<DocReturn[]>([]);
     const [docReturnsLoading, setDocReturnsLoading] = useState(false);
     const [markingReceived, setMarkingReceived] = useState<string | null>(null);
+    const [financeActionLoading, setFinanceActionLoading] = useState<string | null>(null);
+    const [financeActionResult, setFinanceActionResult] = useState<string | null>(null);
+    const [paymentForm, setPaymentForm] = useState({ amount: '', paymentRef: '', payerName: '', notes: '' });
+    const [serviceForm, setServiceForm] = useState({ serviceType: 'loading', description: '', amount: '', vatRate: '20', notes: '' });
+    const [reconciliationForm, setReconciliationForm] = useState({
+        externalDocumentId: '',
+        externalStatus: '',
+        externalTotal: '',
+        externalVatAmount: '',
+        notes: '',
+    });
 
     // Generate invoice form
     const [generating, setGenerating] = useState(false);
@@ -155,6 +176,20 @@ export default function FinanceDashboard() {
         ).then(results => {
             setDocReturns(results.flat());
         }).finally(() => setDocReturnsLoading(false));
+    }, [selectedInvoice]);
+
+    useEffect(() => {
+        if (!selectedInvoice) return;
+        setFinanceActionResult(null);
+        setPaymentForm({ amount: String(selectedInvoice.total || ''), paymentRef: '', payerName: '', notes: '' });
+        setServiceForm({ serviceType: 'loading', description: '', amount: '', vatRate: '20', notes: '' });
+        setReconciliationForm({
+            externalDocumentId: selectedInvoice.number ? `1C-${selectedInvoice.number}` : '',
+            externalStatus: selectedInvoice.status,
+            externalTotal: String(selectedInvoice.total || ''),
+            externalVatAmount: String(selectedInvoice.vatAmount || ''),
+            notes: '',
+        });
     }, [selectedInvoice]);
 
     // ——— Derived summary ———
@@ -248,6 +283,97 @@ export default function FinanceDashboard() {
             setError(err.message);
         } finally {
             setStatusChanging(false);
+        }
+    };
+
+    const parseMoneyInput = (value: string) => {
+        const parsed = Number(value.replace(',', '.').trim());
+        return Number.isFinite(parsed) ? parsed : NaN;
+    };
+
+    const handleRecordPayment = async () => {
+        if (!selectedInvoice) return;
+        const amount = parseMoneyInput(paymentForm.amount);
+        if (!amount || amount <= 0) {
+            setError('Укажите корректную сумму оплаты');
+            return;
+        }
+
+        setFinanceActionLoading('payment');
+        try {
+            setError(null);
+            const result = await api.post<{ success: boolean; data?: any }>(`/finance/invoices/${selectedInvoice.id}/payments`, {
+                amount,
+                paidAt: new Date().toISOString(),
+                paymentRef: paymentForm.paymentRef || null,
+                payerName: paymentForm.payerName || null,
+                notes: paymentForm.notes || null,
+            });
+            await fetchInvoices();
+            const remaining = result?.data?.remainingAmount;
+            setFinanceActionResult(`Оплата зафиксирована${remaining !== undefined ? `. Остаток: ${fmtMoney(remaining)}` : ''}`);
+        } catch (err: any) {
+            setError(err.message || 'Не удалось зафиксировать оплату');
+        } finally {
+            setFinanceActionLoading(null);
+        }
+    };
+
+    const handleAddService = async () => {
+        if (!selectedInvoice) return;
+        const amount = parseMoneyInput(serviceForm.amount);
+        if (!serviceForm.description.trim()) {
+            setError('Опишите допуслугу');
+            return;
+        }
+        if (!Number.isFinite(amount)) {
+            setError('Укажите корректную сумму допуслуги');
+            return;
+        }
+
+        setFinanceActionLoading('service');
+        try {
+            setError(null);
+            await api.post(`/finance/invoices/${selectedInvoice.id}/additional-services`, {
+                serviceType: serviceForm.serviceType,
+                description: serviceForm.description,
+                amount,
+                vatRate: serviceForm.vatRate ? parseMoneyInput(serviceForm.vatRate) : null,
+                notes: serviceForm.notes || null,
+            });
+            await fetchInvoices();
+            setFinanceActionResult('Допуслуга добавлена как финансовая корректировка');
+        } catch (err: any) {
+            setError(err.message || 'Не удалось добавить допуслугу');
+        } finally {
+            setFinanceActionLoading(null);
+        }
+    };
+
+    const handleReconcile1C = async () => {
+        if (!selectedInvoice) return;
+        if (!reconciliationForm.externalDocumentId.trim()) {
+            setError('Укажите внешний документ 1С');
+            return;
+        }
+
+        setFinanceActionLoading('reconciliation');
+        try {
+            setError(null);
+            const result = await api.post<{ success: boolean; data?: any }>(`/finance/invoices/${selectedInvoice.id}/1c-reconciliation`, {
+                externalDocumentId: reconciliationForm.externalDocumentId,
+                externalStatus: reconciliationForm.externalStatus || null,
+                externalTotal: reconciliationForm.externalTotal ? parseMoneyInput(reconciliationForm.externalTotal) : null,
+                externalVatAmount: reconciliationForm.externalVatAmount ? parseMoneyInput(reconciliationForm.externalVatAmount) : null,
+                exportedAt: new Date().toISOString(),
+                notes: reconciliationForm.notes || null,
+            });
+            const mismatchCount = Array.isArray(result?.data?.mismatches) ? result.data.mismatches.length : 0;
+            setFinanceActionResult(mismatchCount > 0 ? `Сверка записана, расхождений: ${mismatchCount}` : 'Сверка записана, расхождений нет');
+        } catch (err: any) {
+            setError(err.message || 'Не удалось записать сверку с 1С');
+        } finally {
+            setFinanceActionLoading(null);
         }
     };
 
@@ -424,6 +550,12 @@ export default function FinanceDashboard() {
                             )}
                         </div>
 
+                        {financeActionResult && (
+                            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                                {financeActionResult}
+                            </div>
+                        )}
+
                         {/* Document returns section */}
                         {selectedInvoice.tripIds && selectedInvoice.tripIds.length > 0 && (
                             <div className="border-t border-slate-200 pt-4">
@@ -463,6 +595,47 @@ export default function FinanceDashboard() {
                                 )}
                             </div>
                         )}
+
+                        <div className="border-t border-slate-200 pt-4">
+                            <p className="text-sm font-medium text-slate-700 mb-3">Оплата, допуслуги и сверка:</p>
+                            <div className="grid gap-3 lg:grid-cols-3">
+                                <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Оплата</p>
+                                    <Input type="number" step="0.01" placeholder="Сумма" value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
+                                    <Input placeholder="Платежное поручение" value={paymentForm.paymentRef} onChange={(e) => setPaymentForm({ ...paymentForm, paymentRef: e.target.value })} />
+                                    <Input placeholder="Плательщик" value={paymentForm.payerName} onChange={(e) => setPaymentForm({ ...paymentForm, payerName: e.target.value })} />
+                                    <Button size="sm" className="w-full" disabled={financeActionLoading === 'payment'} onClick={handleRecordPayment}>
+                                        {financeActionLoading === 'payment' ? 'Запись...' : 'Зафиксировать оплату'}
+                                    </Button>
+                                </div>
+
+                                <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Допуслуга</p>
+                                    <Select value={serviceForm.serviceType} onChange={(e) => setServiceForm({ ...serviceForm, serviceType: e.target.value })} options={ADDITIONAL_SERVICE_OPTIONS} />
+                                    <Input placeholder="Описание" value={serviceForm.description} onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })} />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Input type="number" step="0.01" placeholder="Сумма" value={serviceForm.amount} onChange={(e) => setServiceForm({ ...serviceForm, amount: e.target.value })} />
+                                        <Input type="number" step="0.01" placeholder="НДС %" value={serviceForm.vatRate} onChange={(e) => setServiceForm({ ...serviceForm, vatRate: e.target.value })} />
+                                    </div>
+                                    <Button size="sm" variant="outline" className="w-full" disabled={financeActionLoading === 'service'} onClick={handleAddService}>
+                                        {financeActionLoading === 'service' ? 'Добавление...' : 'Добавить допуслугу'}
+                                    </Button>
+                                </div>
+
+                                <div className="rounded-lg border border-slate-200 p-3 space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Сверка 1С</p>
+                                    <Input placeholder="Документ 1С" value={reconciliationForm.externalDocumentId} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalDocumentId: e.target.value })} />
+                                    <Input placeholder="Статус 1С" value={reconciliationForm.externalStatus} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalStatus: e.target.value })} />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Input type="number" step="0.01" placeholder="Итого 1С" value={reconciliationForm.externalTotal} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalTotal: e.target.value })} />
+                                        <Input type="number" step="0.01" placeholder="НДС 1С" value={reconciliationForm.externalVatAmount} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalVatAmount: e.target.value })} />
+                                    </div>
+                                    <Button size="sm" variant="outline" className="w-full" disabled={financeActionLoading === 'reconciliation'} onClick={handleReconcile1C}>
+                                        {financeActionLoading === 'reconciliation' ? 'Сверка...' : 'Записать сверку'}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
 
                         <div className="border-t border-slate-200 pt-4">
                             <p className="text-sm font-medium text-slate-700 mb-3">Сменить статус:</p>
