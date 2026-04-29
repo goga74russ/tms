@@ -87,6 +87,7 @@ $assign1Body = @{ shipmentLotId = $lot1.id; assignedWeightKg = 60000; allowOverC
 $assign2Body = @{ shipmentLotId = $lot2.id; assignedWeightKg = 40000; allowOverCapacity = $true } | ConvertTo-Json
 $assign1 = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip1Id)/lot-assignments" -Headers $headers -ContentType 'application/json' -Body $assign1Body
 $assign2 = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/lot-assignments" -Headers $headers -ContentType 'application/json' -Body $assign2Body
+$executionRoutePointId = @($assign1.data.routePoints)[0].id
 
 $replaceBody = @{
     vehicleId = $prepared.vehicleId
@@ -112,7 +113,31 @@ $readdress = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.tri
 if ($readdress.data.event.eventType -ne 'trip.route.readdressed') { throw 'readdress event type mismatch' }
 if ($readdress.data.event.data.etrn.titleType -ne '03') { throw 'readdress ETRN title mismatch' }
 
-$executionRoutePointId = @($assign1.data.routePoints)[0].id
+$nowUtc = (Get-Date).ToUniversalTime()
+$downtimeBody = @{
+    vehicleArrivedAt = $nowUtc.AddHours(-3).ToString("o")
+    waitingStartedAt = $nowUtc.AddHours(-3).ToString("o")
+    waitingEndedAt = $nowUtc.AddMinutes(-20).ToString("o")
+    freeMinutes = 120
+    reserveAmount = 2500
+    reason = 'Warehouse queue'
+    notes = 'Smoke validates route point downtime trace'
+} | ConvertTo-Json
+$downtime = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/route-points/$($unloadingPoint.id)/downtime" -Headers $headers -ContentType 'application/json' -Body $downtimeBody
+if ($downtime.data.event.eventType -ne 'trip.point.downtime_recorded') { throw 'downtime event type mismatch' }
+if ([int]$downtime.data.billableMinutes -le 0) { throw 'Expected positive downtime billable minutes' }
+
+$breakdownBody = @{
+    routePointId = $executionRoutePointId
+    reason = 'Smoke road breakdown'
+    notes = 'Smoke validates breakdown disruption trace'
+    lat = 55.7558
+    lon = 37.6173
+    requiresReplacement = $true
+} | ConvertTo-Json
+$breakdown = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip1Id)/breakdowns" -Headers $headers -ContentType 'application/json' -Body $breakdownBody
+if ($breakdown.data.event.eventType -ne 'trip.disruption.breakdown') { throw 'breakdown event type mismatch' }
+
 $executionBody = @{
     type = 'delay'
     routePointId = $executionRoutePointId
@@ -188,6 +213,22 @@ if (-not @($exceptions.data.exceptions | Where-Object { $_.type -eq 'route_chang
 
 $trip1Exceptions = Invoke-RestMethod -Method Get -Uri "$BaseUrl/operations/exceptions?tripId=$($prepared.trip1Id)&includeInfo=true" -Headers $headers
 if (-not @($trip1Exceptions.data.exceptions | Where-Object { $_.type -eq 'resource_replacement' })) { throw 'Expected resource replacement operational exception' }
+if (-not @($trip1Exceptions.data.exceptions | Where-Object { $_.type -eq 'breakdown' -and $_.severity -eq 'blocking' })) { throw 'Expected blocking breakdown operational exception' }
+
+$cancelBody = @{
+    routePointId = $executionRoutePointId
+    vehicleArrivedAt = (Get-Date).ToUniversalTime().ToString("o")
+    reason = 'Cargo not ready after vehicle arrival'
+    notes = 'Smoke validates cancellation after arrival trace'
+    reserveAmount = 1500
+    cancelTrip = $true
+} | ConvertTo-Json
+$cancelAfterArrival = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip1Id)/cancel-after-arrival" -Headers $headers -ContentType 'application/json' -Body $cancelBody
+if ($cancelAfterArrival.data.event.eventType -ne 'trip.cancellation.after_arrival') { throw 'cancel-after-arrival event type mismatch' }
+if ($cancelAfterArrival.data.trip.status -ne 'cancelled') { throw 'Expected trip cancellation status' }
+
+$trip1ExceptionsAfterCancel = Invoke-RestMethod -Method Get -Uri "$BaseUrl/operations/exceptions?tripId=$($prepared.trip1Id)&includeInfo=true" -Headers $headers
+if (-not @($trip1ExceptionsAfterCancel.data.exceptions | Where-Object { $_.type -eq 'cancellation_after_arrival' })) { throw 'Expected cancellation after arrival operational exception' }
 
 $result = [ordered]@{
     orderId = $prepared.orderId
@@ -201,11 +242,14 @@ $result = [ordered]@{
     executionEventId = $execution.data.event.id
     resourceReplacementEventId = $replacement.data.event.id
     readdressEventId = $readdress.data.event.id
+    downtimeEventId = $downtime.data.event.id
+    breakdownEventId = $breakdown.data.event.id
+    cancelAfterArrivalEventId = $cancelAfterArrival.data.event.id
     closeGateCanClose = $closeGate.data.canClose
     closeGateBlockingItems = @($closeGate.data.blockingItems).Count
     operationalExceptions = $exceptions.data.summary.total
     operationalBlockingExceptions = $exceptions.data.summary.blocking
-    trip1OperationalExceptions = $trip1Exceptions.data.summary.total
+    trip1OperationalExceptions = $trip1ExceptionsAfterCancel.data.summary.total
     trip1AssignedWeightKg = $plan1.data.summary.totalAssignedWeightKg
     trip2AssignedWeightKg = $plan2.data.summary.totalAssignedWeightKg
     trip1CompatibilityStatus = $compatibility1.data.status

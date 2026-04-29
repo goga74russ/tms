@@ -32,6 +32,36 @@ export type ReplaceTripResourcesInput = {
     notes?: string | null;
 };
 
+export type RecordDowntimeInput = {
+    routePointId: string;
+    vehicleArrivedAt?: string | null;
+    waitingStartedAt?: string | null;
+    waitingEndedAt?: string | null;
+    reason: string;
+    notes?: string | null;
+    freeMinutes?: number | null;
+    reserveAmount?: number | null;
+};
+
+export type CancelAfterArrivalInput = {
+    routePointId?: string | null;
+    vehicleArrivedAt?: string | null;
+    reason: string;
+    notes?: string | null;
+    reserveAmount?: number | null;
+    cancelTrip?: boolean;
+};
+
+export type RecordBreakdownInput = {
+    routePointId?: string | null;
+    reason: string;
+    notes?: string | null;
+    lat?: number | null;
+    lon?: number | null;
+    requiresReplacement?: boolean;
+    repairRequestId?: string | null;
+};
+
 function maybeOrgCondition<T extends { organizationId: any }>(table: T, organizationId?: string | null) {
     return organizationId ? eq(table.organizationId, organizationId) : undefined;
 }
@@ -54,7 +84,16 @@ function serializePoint(point: typeof routePoints.$inferSelect | null | undefine
         windowStart: point.windowStart,
         windowEnd: point.windowEnd,
         notes: point.notes,
+        vehicleArrivedAt: point.vehicleArrivedAt,
+        waitingStartedAt: point.waitingStartedAt,
+        waitingEndedAt: point.waitingEndedAt,
     };
+}
+
+function diffMinutes(start?: Date | null, end?: Date | null) {
+    if (!start || !end) return null;
+    const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
+    return Number.isFinite(minutes) ? Math.max(minutes, 0) : null;
 }
 
 export async function readdressTrip(tripId: string, input: ReaddressTripInput, actor: Actor) {
@@ -217,4 +256,162 @@ export async function replaceTripResources(tripId: string, input: ReplaceTripRes
     const compatibility = await getTripCompatibility(tripId, actor.organizationId);
     await syncTransportDocumentsForTrip(tripId, actor.userId);
     return { ...result, compatibility };
+}
+
+export async function recordRoutePointDowntime(tripId: string, input: RecordDowntimeInput, actor: Actor) {
+    return db.transaction(async (tx) => {
+        const [trip] = await tx.select({ id: trips.id }).from(trips).where(and(
+            eq(trips.id, tripId),
+            maybeOrgCondition(trips, actor.organizationId),
+        )).limit(1);
+        if (!trip) throw new Error('Trip not found');
+
+        const [before] = await tx.select().from(routePoints).where(and(
+            eq(routePoints.id, input.routePointId),
+            eq(routePoints.tripId, tripId),
+        )).limit(1);
+        if (!before) throw new Error('Route point not found');
+
+        const vehicleArrivedAt = input.vehicleArrivedAt ? new Date(input.vehicleArrivedAt) : before.vehicleArrivedAt ?? new Date();
+        const waitingStartedAt = input.waitingStartedAt ? new Date(input.waitingStartedAt) : before.waitingStartedAt ?? vehicleArrivedAt;
+        const waitingEndedAt = input.waitingEndedAt ? new Date(input.waitingEndedAt) : before.waitingEndedAt ?? null;
+        const waitingMinutes = diffMinutes(waitingStartedAt, waitingEndedAt);
+        const freeMinutes = input.freeMinutes ?? 120;
+        const billableMinutes = waitingMinutes === null ? null : Math.max(waitingMinutes - freeMinutes, 0);
+
+        const [point] = await tx.update(routePoints).set({
+            vehicleArrivedAt,
+            waitingStartedAt,
+            waitingEndedAt,
+            notes: input.notes ?? before.notes,
+        }).where(eq(routePoints.id, before.id)).returning();
+
+        const event = await recordEvent({
+            authorId: actor.userId,
+            authorRole: actor.role,
+            eventType: 'trip.point.downtime_recorded',
+            entityType: 'trip',
+            entityId: tripId,
+            data: {
+                kind: 'downtime',
+                routePointId: point.id,
+                orderId: point.orderId,
+                reason: input.reason,
+                notes: input.notes ?? null,
+                before: serializePoint(before),
+                after: serializePoint(point),
+                waitingMinutes,
+                freeMinutes,
+                billableMinutes,
+                reserveAmount: input.reserveAmount ?? null,
+                financialImpact: {
+                    reserveAmount: input.reserveAmount ?? null,
+                    basis: billableMinutes && billableMinutes > 0 ? 'billable_downtime' : 'tracked_downtime',
+                },
+            },
+        }, tx);
+
+        await tx.update(trips).set({ updatedAt: new Date() }).where(eq(trips.id, tripId));
+        return { routePoint: point, waitingMinutes, billableMinutes, event };
+    });
+}
+
+export async function cancelTripAfterArrival(tripId: string, input: CancelAfterArrivalInput, actor: Actor) {
+    return db.transaction(async (tx) => {
+        const [trip] = await tx.select({
+            id: trips.id,
+            status: trips.status,
+        }).from(trips).where(and(
+            eq(trips.id, tripId),
+            maybeOrgCondition(trips, actor.organizationId),
+        )).limit(1);
+        if (!trip) throw new Error('Trip not found');
+
+        let point: typeof routePoints.$inferSelect | null = null;
+        if (input.routePointId) {
+            const [before] = await tx.select().from(routePoints).where(and(
+                eq(routePoints.id, input.routePointId),
+                eq(routePoints.tripId, tripId),
+            )).limit(1);
+            if (!before) throw new Error('Route point not found');
+            [point] = await tx.update(routePoints).set({
+                vehicleArrivedAt: input.vehicleArrivedAt ? new Date(input.vehicleArrivedAt) : before.vehicleArrivedAt ?? new Date(),
+                notes: input.notes ?? before.notes,
+            }).where(eq(routePoints.id, before.id)).returning();
+        }
+
+        const [updatedTrip] = await tx.update(trips).set({
+            status: input.cancelTrip === false ? trip.status : 'cancelled',
+            updatedAt: new Date(),
+        }).where(eq(trips.id, tripId)).returning();
+
+        const event = await recordEvent({
+            authorId: actor.userId,
+            authorRole: actor.role,
+            eventType: 'trip.cancellation.after_arrival',
+            entityType: 'trip',
+            entityId: tripId,
+            data: {
+                kind: 'cancellation_after_arrival',
+                routePointId: point?.id ?? input.routePointId ?? null,
+                orderId: point?.orderId ?? null,
+                reason: input.reason,
+                notes: input.notes ?? null,
+                previousStatus: trip.status,
+                nextStatus: updatedTrip.status,
+                reserveAmount: input.reserveAmount ?? null,
+                financialImpact: {
+                    reserveAmount: input.reserveAmount ?? null,
+                    basis: 'vehicle_arrived_cancellation',
+                },
+            },
+        }, tx);
+
+        return { trip: updatedTrip, routePoint: point, event };
+    });
+}
+
+export async function recordTripBreakdown(tripId: string, input: RecordBreakdownInput, actor: Actor) {
+    return db.transaction(async (tx) => {
+        const [trip] = await tx.select({ id: trips.id, vehicleId: trips.vehicleId, driverId: trips.driverId })
+            .from(trips)
+            .where(and(eq(trips.id, tripId), maybeOrgCondition(trips, actor.organizationId)))
+            .limit(1);
+        if (!trip) throw new Error('Trip not found');
+
+        if (input.routePointId) {
+            const [point] = await tx.select({ id: routePoints.id }).from(routePoints).where(and(
+                eq(routePoints.id, input.routePointId),
+                eq(routePoints.tripId, tripId),
+            )).limit(1);
+            if (!point) throw new Error('Route point not found');
+        }
+
+        const event = await recordEvent({
+            authorId: actor.userId,
+            authorRole: actor.role,
+            eventType: 'trip.disruption.breakdown',
+            entityType: 'trip',
+            entityId: tripId,
+            data: {
+                kind: 'breakdown',
+                routePointId: input.routePointId ?? null,
+                reason: input.reason,
+                notes: input.notes ?? null,
+                gps: input.lat !== undefined && input.lon !== undefined ? { lat: input.lat, lon: input.lon } : null,
+                vehicleId: trip.vehicleId,
+                driverId: trip.driverId,
+                requiresReplacement: input.requiresReplacement ?? true,
+                repairRequestId: input.repairRequestId ?? null,
+                nextActions: {
+                    createRepairRequest: !input.repairRequestId,
+                    considerResourceReplacement: input.requiresReplacement ?? true,
+                    notifyDispatcher: true,
+                },
+            },
+        }, tx);
+
+        await tx.update(trips).set({ updatedAt: new Date() }).where(eq(trips.id, tripId));
+        return { event };
+    });
 }

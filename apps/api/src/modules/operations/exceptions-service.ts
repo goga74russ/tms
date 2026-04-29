@@ -21,7 +21,10 @@ export type OperationExceptionType =
     | 'shipment_discrepancy'
     | 'execution_event'
     | 'route_change'
-    | 'resource_replacement';
+    | 'resource_replacement'
+    | 'downtime'
+    | 'cancellation_after_arrival'
+    | 'breakdown';
 
 export type OperationException = {
     id: string;
@@ -56,6 +59,9 @@ const OPERATIONAL_EVENT_TYPES = [
     'trip.execution.photo_placeholder',
     'trip.route.readdressed',
     'trip.resource.replaced',
+    'trip.point.downtime_recorded',
+    'trip.cancellation.after_arrival',
+    'trip.disruption.breakdown',
 ] as const;
 
 function iso(value: Date | string | null | undefined) {
@@ -79,6 +85,8 @@ function matchesSeverity(item: OperationException, severity?: OperationException
 }
 
 function eventSeverity(eventType: string): OperationExceptionSeverity {
+    if (eventType === 'trip.disruption.breakdown') return 'blocking';
+    if (eventType === 'trip.point.downtime_recorded' || eventType === 'trip.cancellation.after_arrival') return 'warning';
     if (eventType === 'trip.route.readdressed' || eventType === 'trip.resource.replaced') return 'warning';
     if (eventType.endsWith('.disruption')) return 'blocking';
     if (eventType.endsWith('.delay') || eventType.endsWith('.downtime')) return 'warning';
@@ -86,6 +94,9 @@ function eventSeverity(eventType: string): OperationExceptionSeverity {
 }
 
 function eventTitle(eventType: string) {
+    if (eventType === 'trip.disruption.breakdown') return 'Trip breakdown';
+    if (eventType === 'trip.point.downtime_recorded') return 'Route point downtime';
+    if (eventType === 'trip.cancellation.after_arrival') return 'Cancellation after vehicle arrival';
     if (eventType === 'trip.route.readdressed') return 'Trip route changed';
     if (eventType === 'trip.resource.replaced') return 'Trip resource replaced';
     if (eventType.endsWith('.disruption')) return 'Trip disruption';
@@ -271,7 +282,13 @@ export async function listOperationExceptions(params: ListOperationExceptionsPar
                 ? 'route_change'
                 : event.eventType === 'trip.resource.replaced'
                     ? 'resource_replacement'
-                    : 'execution_event';
+                    : event.eventType === 'trip.point.downtime_recorded'
+                        ? 'downtime'
+                        : event.eventType === 'trip.cancellation.after_arrival'
+                            ? 'cancellation_after_arrival'
+                            : event.eventType === 'trip.disruption.breakdown'
+                                ? 'breakdown'
+                                : 'execution_event';
             exceptions.push({
                 id: makeId(['execution', event.entityId, event.id]),
                 type,
