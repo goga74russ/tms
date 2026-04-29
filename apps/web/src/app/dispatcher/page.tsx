@@ -81,6 +81,28 @@ type ActiveTripDetails = {
     } | null;
 };
 
+type OperationException = {
+    id: string;
+    type: string;
+    severity: 'info' | 'warning' | 'blocking' | string;
+    title: string;
+    message?: string | null;
+    status?: string;
+    tripId?: string | null;
+    tripNumber?: string | null;
+    createdAt?: string;
+    data?: Record<string, unknown>;
+};
+
+type OperationExceptionsPayload = {
+    summary?: {
+        blocking?: number;
+        warning?: number;
+        info?: number;
+    };
+    exceptions?: OperationException[];
+};
+
 type CitySearchResult = {
     value: string;
     city: string;
@@ -121,6 +143,7 @@ export default function DispatcherPage() {
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [orders, setOrders] = useState<UnassignedOrder[]>([]);
     const [trips, setTrips] = useState<TripForTimeline[]>([]);
+    const [exceptions, setExceptions] = useState<OperationException[]>([]);
     const [loading, setLoading] = useState(true);
     const [tripRoutePoints, setTripRoutePoints] = useState<RoutePoint[]>([]);
     const [activeTripDetails, setActiveTripDetails] = useState<ActiveTripDetails | null>(null);
@@ -158,14 +181,15 @@ export default function DispatcherPage() {
         });
     }, [vehicles, wsPositions]);
 
-    // Load vehicles, orders, and trips
+    // Load vehicles, orders, trips, and operational exceptions
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const [vehiclesResult, ordersResult, tripsResult] = await Promise.allSettled([
+            const [vehiclesResult, ordersResult, tripsResult, exceptionsResult] = await Promise.allSettled([
                 api.get('/fleet/vehicles?limit=100'),
                 api.get('/orders?status=confirmed&limit=50'),
                 api.get('/trips?limit=100'),
+                api.get('/operations/exceptions?limit=50&includeInfo=true'),
             ]);
 
             if (vehiclesResult.status === 'fulfilled' && (vehiclesResult.value as any).success) {
@@ -184,6 +208,13 @@ export default function DispatcherPage() {
                 setTrips(Array.isArray((tripsResult.value as any).data) ? (tripsResult.value as any).data : []);
             } else if (tripsResult.status === 'rejected') {
                 console.error('Failed to load trips for dispatcher', tripsResult.reason);
+            }
+
+            if (exceptionsResult.status === 'fulfilled' && (exceptionsResult.value as any).success) {
+                const payload = (exceptionsResult.value as any).data as OperationExceptionsPayload;
+                setExceptions(Array.isArray(payload?.exceptions) ? payload.exceptions : []);
+            } else if (exceptionsResult.status === 'rejected') {
+                console.error('Failed to load operations exceptions for dispatcher', exceptionsResult.reason);
             }
         } finally {
             setLoading(false);
@@ -311,6 +342,24 @@ export default function DispatcherPage() {
         problem: enrichedVehicles.filter(v => ['broken', 'maintenance'].includes(v.status)).length,
     };
 
+    const exceptionStats = {
+        blocking: exceptions.filter(e => e.severity === 'blocking').length,
+        warning: exceptions.filter(e => e.severity === 'warning').length,
+        info: exceptions.filter(e => e.severity === 'info').length,
+    };
+
+    const exceptionSeverityClass = (severity: string) => {
+        if (severity === 'blocking') return 'border-red-200 bg-red-50 text-red-700';
+        if (severity === 'warning') return 'border-amber-200 bg-amber-50 text-amber-700';
+        return 'border-blue-200 bg-blue-50 text-blue-700';
+    };
+
+    const exceptionSeverityLabel = (severity: string) => {
+        if (severity === 'blocking') return 'Блокер';
+        if (severity === 'warning') return 'Риск';
+        return 'Инфо';
+    };
+
     return (
         <div className="space-y-6">
             {/* Toast */}
@@ -321,7 +370,7 @@ export default function DispatcherPage() {
             )}
 
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/25">
                         <MapIcon className="w-5 h-5 text-white" />
@@ -347,7 +396,7 @@ export default function DispatcherPage() {
             </div>
 
             {/* Vehicle stats */}
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <Card className="hover:border-slate-300 transition-colors">
                     <CardContent className="p-4">
                         <div className="flex items-center gap-2 mb-1">
@@ -385,6 +434,64 @@ export default function DispatcherPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Operational cockpit */}
+            <Card className="border-slate-200">
+                <CardContent className="p-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-4">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                <h2 className="text-sm font-semibold text-slate-900">Операционный cockpit</h2>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">Разделение заявок, перегруз, замены, простои, возврат машины, отдых экипажа и ЭТРН-блокеры</p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center w-full lg:w-auto">
+                            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                                <div className="text-lg font-bold text-red-700">{exceptionStats.blocking}</div>
+                                <div className="text-[11px] font-medium text-red-600">Блокеры</div>
+                            </div>
+                            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                                <div className="text-lg font-bold text-amber-700">{exceptionStats.warning}</div>
+                                <div className="text-[11px] font-medium text-amber-600">Риски</div>
+                            </div>
+                            <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
+                                <div className="text-lg font-bold text-blue-700">{exceptionStats.info}</div>
+                                <div className="text-[11px] font-medium text-blue-600">Инфо</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {exceptions.length === 0 ? (
+                        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                            <CheckCircle2 className="w-4 h-4" />
+                            Нет открытых операционных исключений
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                            {exceptions.slice(0, 6).map(item => (
+                                <div key={item.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${exceptionSeverityClass(item.severity)}`}>
+                                                    {exceptionSeverityLabel(item.severity)}
+                                                </span>
+                                                {item.tripNumber && (
+                                                    <span className="text-[11px] font-medium text-slate-500 truncate">Рейс {item.tripNumber}</span>
+                                                )}
+                                            </div>
+                                            <div className="text-sm font-semibold text-slate-900 truncate">{item.title}</div>
+                                            {item.message && <div className="text-xs text-slate-500 line-clamp-2 mt-0.5">{item.message}</div>}
+                                        </div>
+                                        <span className="text-[11px] text-slate-400 shrink-0">{item.type}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
             {/* Tab switcher + map search */}
             <div className="flex items-center gap-3">
