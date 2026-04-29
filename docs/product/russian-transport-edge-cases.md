@@ -6,6 +6,7 @@
 
 - Done: web trip dossier now includes an operational actions panel for downtime, readdressing, cancellation after arrival, breakdown, post-trip return, resource replacement, and crew/rest planning.
 - Done: claims page has a printable claim act at `/print/claim-act/:id` for damage/shortage/delay/downtime/refusal evidence and settlement.
+- Done: finance invoice modal includes a free additional-service calculator for loading, unloading, permits, wash, downtime, and forwarding before posting invoice adjustments.
 - Checked: `corepack pnpm --filter @tms/web lint`, `scripts/ui-workflow-smoke.ps1`.
 - Still later: printed acts, tariff rule engine, real ETRN provider/KEP/MChD integration, and richer approval workflows.
 

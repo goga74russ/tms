@@ -98,6 +98,23 @@ const ADDITIONAL_SERVICE_OPTIONS = [
     { value: 'other', label: 'Другое' },
 ];
 
+const SERVICE_RULES: Record<string, { unit: string; rate: number; quantity: number; coefficient: number; description: string }> = {
+    loading: { unit: 'operation', rate: 2500, quantity: 1, coefficient: 1, description: 'Погрузочные работы' },
+    unloading: { unit: 'operation', rate: 2500, quantity: 1, coefficient: 1, description: 'Разгрузочные работы' },
+    permit: { unit: 'document', rate: 1500, quantity: 1, coefficient: 1, description: 'Пропуск / разрешение на территорию' },
+    wash: { unit: 'operation', rate: 1800, quantity: 1, coefficient: 1, description: 'Мойка ТС после рейса' },
+    downtime: { unit: 'hour', rate: 1200, quantity: 1, coefficient: 1, description: 'Простой сверх нормативного времени' },
+    forwarding: { unit: 'hour', rate: 1800, quantity: 1, coefficient: 1, description: 'Экспедирование' },
+    other: { unit: 'service', rate: 0, quantity: 1, coefficient: 1, description: 'Дополнительная услуга' },
+};
+
+const SERVICE_UNIT_LABELS: Record<string, string> = {
+    operation: 'операция',
+    document: 'документ',
+    hour: 'час',
+    service: 'услуга',
+};
+
 // ================================================================
 export default function FinanceDashboard() {
     // State
@@ -118,7 +135,16 @@ export default function FinanceDashboard() {
     const [financeActionLoading, setFinanceActionLoading] = useState<string | null>(null);
     const [financeActionResult, setFinanceActionResult] = useState<string | null>(null);
     const [paymentForm, setPaymentForm] = useState({ amount: '', paymentRef: '', payerName: '', notes: '' });
-    const [serviceForm, setServiceForm] = useState({ serviceType: 'loading', description: '', amount: '', vatRate: '20', notes: '' });
+    const [serviceForm, setServiceForm] = useState({
+        serviceType: 'loading',
+        description: SERVICE_RULES.loading.description,
+        amount: String(SERVICE_RULES.loading.rate),
+        vatRate: '20',
+        quantity: String(SERVICE_RULES.loading.quantity),
+        rate: String(SERVICE_RULES.loading.rate),
+        coefficient: String(SERVICE_RULES.loading.coefficient),
+        notes: '',
+    });
     const [reconciliationForm, setReconciliationForm] = useState({
         externalDocumentId: '',
         externalStatus: '',
@@ -182,7 +208,16 @@ export default function FinanceDashboard() {
         if (!selectedInvoice) return;
         setFinanceActionResult(null);
         setPaymentForm({ amount: String(selectedInvoice.total || ''), paymentRef: '', payerName: '', notes: '' });
-        setServiceForm({ serviceType: 'loading', description: '', amount: '', vatRate: '20', notes: '' });
+        setServiceForm({
+            serviceType: 'loading',
+            description: SERVICE_RULES.loading.description,
+            amount: String(SERVICE_RULES.loading.rate),
+            vatRate: '20',
+            quantity: String(SERVICE_RULES.loading.quantity),
+            rate: String(SERVICE_RULES.loading.rate),
+            coefficient: String(SERVICE_RULES.loading.coefficient),
+            notes: '',
+        });
         setReconciliationForm({
             externalDocumentId: selectedInvoice.number ? `1C-${selectedInvoice.number}` : '',
             externalStatus: selectedInvoice.status,
@@ -291,6 +326,37 @@ export default function FinanceDashboard() {
         return Number.isFinite(parsed) ? parsed : NaN;
     };
 
+    const calculateServiceAmount = (form = serviceForm) => {
+        const quantity = parseMoneyInput(form.quantity);
+        const rate = parseMoneyInput(form.rate);
+        const coefficient = parseMoneyInput(form.coefficient);
+        if (!Number.isFinite(quantity) || !Number.isFinite(rate) || !Number.isFinite(coefficient)) return NaN;
+        return Math.round(quantity * rate * coefficient * 100) / 100;
+    };
+
+    const handleServiceTypeChange = (serviceType: string) => {
+        const rule = SERVICE_RULES[serviceType] || SERVICE_RULES.other;
+        const amount = Math.round(rule.quantity * rule.rate * rule.coefficient * 100) / 100;
+        setServiceForm({
+            ...serviceForm,
+            serviceType,
+            description: rule.description,
+            quantity: String(rule.quantity),
+            rate: String(rule.rate),
+            coefficient: String(rule.coefficient),
+            amount: String(amount),
+        });
+    };
+
+    const updateServiceCalc = (patch: Partial<typeof serviceForm>) => {
+        const next = { ...serviceForm, ...patch };
+        const amount = calculateServiceAmount(next);
+        setServiceForm({
+            ...next,
+            amount: Number.isFinite(amount) ? String(amount) : next.amount,
+        });
+    };
+
     const handleRecordPayment = async () => {
         if (!selectedInvoice) return;
         const amount = parseMoneyInput(paymentForm.amount);
@@ -321,7 +387,8 @@ export default function FinanceDashboard() {
 
     const handleAddService = async () => {
         if (!selectedInvoice) return;
-        const amount = parseMoneyInput(serviceForm.amount);
+        const calculatedAmount = calculateServiceAmount();
+        const amount = Number.isFinite(calculatedAmount) ? calculatedAmount : parseMoneyInput(serviceForm.amount);
         if (!serviceForm.description.trim()) {
             setError('Опишите допуслугу');
             return;
@@ -339,7 +406,7 @@ export default function FinanceDashboard() {
                 description: serviceForm.description,
                 amount,
                 vatRate: serviceForm.vatRate ? parseMoneyInput(serviceForm.vatRate) : null,
-                notes: serviceForm.notes || null,
+                notes: serviceForm.notes || `rule=${serviceForm.serviceType}; qty=${serviceForm.quantity}; rate=${serviceForm.rate}; coeff=${serviceForm.coefficient}`,
             });
             await fetchInvoices();
             setFinanceActionResult('Допуслуга добавлена как финансовая корректировка');
@@ -611,12 +678,24 @@ export default function FinanceDashboard() {
 
                                 <div className="rounded-lg border border-slate-200 p-3 space-y-2">
                                     <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Допуслуга</p>
-                                    <Select value={serviceForm.serviceType} onChange={(e) => setServiceForm({ ...serviceForm, serviceType: e.target.value })} options={ADDITIONAL_SERVICE_OPTIONS} />
+                                    <Select value={serviceForm.serviceType} onChange={(e) => handleServiceTypeChange(e.target.value)} options={ADDITIONAL_SERVICE_OPTIONS} />
                                     <Input placeholder="Описание" value={serviceForm.description} onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })} />
+                                    <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-slate-700">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span>Расчет: {SERVICE_UNIT_LABELS[SERVICE_RULES[serviceForm.serviceType]?.unit || 'service']}</span>
+                                            <span className="font-semibold">{fmtMoney(calculateServiceAmount() || 0)}</span>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <Input type="number" step="0.01" placeholder="Кол-во" value={serviceForm.quantity} onChange={(e) => updateServiceCalc({ quantity: e.target.value })} />
+                                        <Input type="number" step="0.01" placeholder="Ставка" value={serviceForm.rate} onChange={(e) => updateServiceCalc({ rate: e.target.value })} />
+                                        <Input type="number" step="0.01" placeholder="Коэфф." value={serviceForm.coefficient} onChange={(e) => updateServiceCalc({ coefficient: e.target.value })} />
+                                    </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <Input type="number" step="0.01" placeholder="Сумма" value={serviceForm.amount} onChange={(e) => setServiceForm({ ...serviceForm, amount: e.target.value })} />
                                         <Input type="number" step="0.01" placeholder="НДС %" value={serviceForm.vatRate} onChange={(e) => setServiceForm({ ...serviceForm, vatRate: e.target.value })} />
                                     </div>
+                                    <Input placeholder="Примечание к правилу" value={serviceForm.notes} onChange={(e) => setServiceForm({ ...serviceForm, notes: e.target.value })} />
                                     <Button size="sm" variant="outline" className="w-full" disabled={financeActionLoading === 'service'} onClick={handleAddService}>
                                         {financeActionLoading === 'service' ? 'Добавление...' : 'Добавить допуслугу'}
                                     </Button>
