@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, like } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { events, shipmentFacts, trips } from '../../db/schema.js';
 import { claimsService } from '../claims/service.js';
@@ -19,7 +19,9 @@ export type OperationExceptionType =
     | 'document_warning'
     | 'open_claim'
     | 'shipment_discrepancy'
-    | 'execution_event';
+    | 'execution_event'
+    | 'route_change'
+    | 'resource_replacement';
 
 export type OperationException = {
     id: string;
@@ -46,7 +48,15 @@ export type ListOperationExceptionsParams = {
 };
 
 const ACTIVE_TRIP_STATUSES = ['planning', 'assigned', 'waybill_draft', 'inspection', 'waybill_issued', 'loading', 'in_transit'] as const;
-const EXECUTION_EVENT_TYPES = ['trip.execution.delay', 'trip.execution.downtime', 'trip.execution.disruption', 'trip.execution.correction', 'trip.execution.photo_placeholder'] as const;
+const OPERATIONAL_EVENT_TYPES = [
+    'trip.execution.delay',
+    'trip.execution.downtime',
+    'trip.execution.disruption',
+    'trip.execution.correction',
+    'trip.execution.photo_placeholder',
+    'trip.route.readdressed',
+    'trip.resource.replaced',
+] as const;
 
 function iso(value: Date | string | null | undefined) {
     if (!value) return null;
@@ -69,12 +79,15 @@ function matchesSeverity(item: OperationException, severity?: OperationException
 }
 
 function eventSeverity(eventType: string): OperationExceptionSeverity {
+    if (eventType === 'trip.route.readdressed' || eventType === 'trip.resource.replaced') return 'warning';
     if (eventType.endsWith('.disruption')) return 'blocking';
     if (eventType.endsWith('.delay') || eventType.endsWith('.downtime')) return 'warning';
     return 'info';
 }
 
 function eventTitle(eventType: string) {
+    if (eventType === 'trip.route.readdressed') return 'Trip route changed';
+    if (eventType === 'trip.resource.replaced') return 'Trip resource replaced';
     if (eventType.endsWith('.disruption')) return 'Trip disruption';
     if (eventType.endsWith('.delay')) return 'Trip delay';
     if (eventType.endsWith('.downtime')) return 'Trip downtime';
@@ -246,17 +259,22 @@ export async function listOperationExceptions(params: ListOperationExceptionsPar
             .where(and(
                 eq(events.entityType, 'trip'),
                 inArray(events.entityId, tripIds),
-                like(events.eventType, 'trip.execution.%'),
+                inArray(events.eventType, [...OPERATIONAL_EVENT_TYPES]),
             ))
             .orderBy(desc(events.timestamp))
             .limit(limit);
 
-        for (const event of eventRows.filter((row) => (EXECUTION_EVENT_TYPES as readonly string[]).includes(row.eventType))) {
+        for (const event of eventRows.filter((row) => (OPERATIONAL_EVENT_TYPES as readonly string[]).includes(row.eventType))) {
             const severity = eventSeverity(event.eventType);
             if (severity === 'info' && !params.includeInfo) continue;
+            const type: OperationExceptionType = event.eventType === 'trip.route.readdressed'
+                ? 'route_change'
+                : event.eventType === 'trip.resource.replaced'
+                    ? 'resource_replacement'
+                    : 'execution_event';
             exceptions.push({
                 id: makeId(['execution', event.entityId, event.id]),
-                type: 'execution_event',
+                type,
                 severity,
                 title: eventTitle(event.eventType),
                 message: String((event.data as Record<string, unknown>)?.reason ?? (event.data as Record<string, unknown>)?.notes ?? event.eventType),

@@ -56,13 +56,17 @@ WITH actor AS (
 SELECT json_build_object(
     'orderId', (SELECT id FROM upsert_order),
     'trip1Id', (SELECT id FROM trip1),
-    'trip2Id', (SELECT id FROM trip2)
+    'trip2Id', (SELECT id FROM trip2),
+    'vehicleId', (SELECT id FROM vehicles WHERE (organization_id = (SELECT id FROM org) OR organization_id IS NULL) AND is_archived = false ORDER BY created_at LIMIT 1),
+    'driverId', (SELECT id FROM drivers WHERE (organization_id = (SELECT id FROM org) OR organization_id IS NULL) AND is_active = true ORDER BY created_at LIMIT 1)
 )::text;
 "@
 
 $prepareOutput = $prepareSql | docker compose -f $ComposeFile exec -T postgres psql -U tms -d tms -t -A -v ON_ERROR_STOP=1
 if ($LASTEXITCODE -ne 0) { throw "Failed to prepare operational core smoke data" }
 $prepared = (($prepareOutput -join "`n").Trim() -split "`n" | Select-Object -Last 1).Trim() | ConvertFrom-Json
+if (-not $prepared.vehicleId) { throw 'Smoke requires at least one vehicle in seed data' }
+if (-not $prepared.driverId) { throw 'Smoke requires at least one driver in seed data' }
 
 $loginBody = @{ email = 'admin@tms.local'; password = $seedPassword } | ConvertTo-Json
 $login = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/mobile/login" -ContentType 'application/json' -Body $loginBody
@@ -83,6 +87,30 @@ $assign1Body = @{ shipmentLotId = $lot1.id; assignedWeightKg = 60000; allowOverC
 $assign2Body = @{ shipmentLotId = $lot2.id; assignedWeightKg = 40000; allowOverCapacity = $true } | ConvertTo-Json
 $assign1 = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip1Id)/lot-assignments" -Headers $headers -ContentType 'application/json' -Body $assign1Body
 $assign2 = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/lot-assignments" -Headers $headers -ContentType 'application/json' -Body $assign2Body
+
+$replaceBody = @{
+    vehicleId = $prepared.vehicleId
+    driverId = $prepared.driverId
+    reason = 'Operational smoke resource replacement'
+    notes = 'Smoke validates ETRN Title 04 resource replacement trace'
+} | ConvertTo-Json
+$replacement = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip1Id)/resource-replacements" -Headers $headers -ContentType 'application/json' -Body $replaceBody
+if ($replacement.data.event.eventType -ne 'trip.resource.replaced') { throw 'resource replacement event type mismatch' }
+if ($replacement.data.event.data.etrn.titleType -ne '04') { throw 'resource replacement ETRN title mismatch' }
+
+$unloadingPoint = @($assign2.data.routePoints | Where-Object { $_.type -eq 'unloading' } | Select-Object -First 1)
+if (-not $unloadingPoint) { throw 'Expected unloading route point for readdressing smoke' }
+$readdressBody = @{
+    routePointId = $unloadingPoint.id
+    address = 'Kazan smoke readdressed unloading warehouse'
+    lat = 55.8304
+    lon = 49.0661
+    reason = 'Recipient changed dock'
+    notes = 'Smoke validates ETRN Title 03 readdressing trace'
+} | ConvertTo-Json
+$readdress = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/route-changes/readdress" -Headers $headers -ContentType 'application/json' -Body $readdressBody
+if ($readdress.data.event.eventType -ne 'trip.route.readdressed') { throw 'readdress event type mismatch' }
+if ($readdress.data.event.data.etrn.titleType -ne '03') { throw 'readdress ETRN title mismatch' }
 
 $executionRoutePointId = @($assign1.data.routePoints)[0].id
 $executionBody = @{
@@ -156,6 +184,10 @@ $exceptions = Invoke-RestMethod -Method Get -Uri "$BaseUrl/operations/exceptions
 if ([int]$exceptions.data.summary.total -lt 1) { throw 'Expected operational exceptions for trip2' }
 if (-not @($exceptions.data.exceptions | Where-Object { $_.type -eq 'etrn_blocking' -and $_.severity -eq 'blocking' })) { throw 'Expected ETRN blocking operational exception' }
 if (-not @($exceptions.data.exceptions | Where-Object { $_.type -eq 'open_claim' -or $_.type -eq 'shipment_discrepancy' })) { throw 'Expected claim or shipment discrepancy operational exception' }
+if (-not @($exceptions.data.exceptions | Where-Object { $_.type -eq 'route_change' })) { throw 'Expected route change operational exception' }
+
+$trip1Exceptions = Invoke-RestMethod -Method Get -Uri "$BaseUrl/operations/exceptions?tripId=$($prepared.trip1Id)&includeInfo=true" -Headers $headers
+if (-not @($trip1Exceptions.data.exceptions | Where-Object { $_.type -eq 'resource_replacement' })) { throw 'Expected resource replacement operational exception' }
 
 $result = [ordered]@{
     orderId = $prepared.orderId
@@ -167,10 +199,13 @@ $result = [ordered]@{
     claimExposureAmount = $claimExposure.data.summary.openExposureAmount
     dossierItems = $dossierItems.Count
     executionEventId = $execution.data.event.id
+    resourceReplacementEventId = $replacement.data.event.id
+    readdressEventId = $readdress.data.event.id
     closeGateCanClose = $closeGate.data.canClose
     closeGateBlockingItems = @($closeGate.data.blockingItems).Count
     operationalExceptions = $exceptions.data.summary.total
     operationalBlockingExceptions = $exceptions.data.summary.blocking
+    trip1OperationalExceptions = $trip1Exceptions.data.summary.total
     trip1AssignedWeightKg = $plan1.data.summary.totalAssignedWeightKg
     trip2AssignedWeightKg = $plan2.data.summary.totalAssignedWeightKg
     trip1CompatibilityStatus = $compatibility1.data.status
