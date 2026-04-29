@@ -20,6 +20,17 @@ WITH actor AS (
     SELECT id FROM contractors ORDER BY created_at LIMIT 1
 ), cleanup_order AS (
     SELECT id FROM orders WHERE number IN ('OC-SMOKE-100T', 'OC-SMOKE-CARGO-RULES')
+), cleanup_invoice AS (
+    SELECT id FROM invoices WHERE number = 'OC-SMOKE-FIN-1'
+), cleanup_invoice_events AS (
+    SELECT id FROM events WHERE false
+), cleanup_invoice_adjustments AS (
+    DELETE FROM invoice_adjustments WHERE invoice_id IN (SELECT id FROM cleanup_invoice)
+), cleanup_invoice_trips AS (
+    DELETE FROM invoice_trips WHERE invoice_id IN (SELECT id FROM cleanup_invoice)
+), cleanup_invoices AS (
+    DELETE FROM invoices WHERE id IN (SELECT id FROM cleanup_invoice)
+    RETURNING id
 ), cleanup_facts AS (
     DELETE FROM shipment_facts WHERE order_id IN (SELECT id FROM cleanup_order)
 ), cleanup_assignments AS (
@@ -70,6 +81,27 @@ WITH actor AS (
     SELECT 'OC-SMOKE-TRIP-3', 'planning', 30, (SELECT id FROM org), (SELECT user_id FROM actor), now()
     ON CONFLICT (number) DO UPDATE SET status = 'planning', organization_id = EXCLUDED.organization_id, updated_at = now()
     RETURNING id, number
+), finance_invoice AS (
+    INSERT INTO invoices (
+        number, contractor_id, type, status, trip_ids, subtotal, vat_amount, total, period_start, period_end
+    )
+    SELECT 'OC-SMOKE-FIN-' || to_char(clock_timestamp(), 'YYYYMMDDHH24MISSMS'), c.id, 'invoice', 'sent', jsonb_build_array((SELECT id FROM trip2)), 10000, 2000, 12000, now() - interval '1 day', now()
+    FROM contractor c
+    ON CONFLICT (number) DO UPDATE SET
+        contractor_id = EXCLUDED.contractor_id,
+        type = EXCLUDED.type,
+        status = EXCLUDED.status,
+        trip_ids = EXCLUDED.trip_ids,
+        subtotal = EXCLUDED.subtotal,
+        vat_amount = EXCLUDED.vat_amount,
+        total = EXCLUDED.total,
+        period_start = EXCLUDED.period_start,
+        period_end = EXCLUDED.period_end
+    RETURNING id, number
+), finance_invoice_trip AS (
+    INSERT INTO invoice_trips (invoice_id, trip_id)
+    SELECT (SELECT id FROM finance_invoice), (SELECT id FROM trip2)
+    ON CONFLICT DO NOTHING
 )
 SELECT json_build_object(
     'orderId', (SELECT id FROM upsert_order),
@@ -77,6 +109,7 @@ SELECT json_build_object(
     'trip1Id', (SELECT id FROM trip1),
     'trip2Id', (SELECT id FROM trip2),
     'trip3Id', (SELECT id FROM trip3),
+    'invoiceId', (SELECT id FROM finance_invoice),
     'vehicleId', (SELECT id FROM vehicles WHERE (organization_id = (SELECT id FROM org) OR organization_id IS NULL) AND is_archived = false ORDER BY created_at LIMIT 1),
     'driverId', (SELECT id FROM drivers WHERE (organization_id = (SELECT id FROM org) OR organization_id IS NULL) AND is_active = true ORDER BY created_at LIMIT 1),
     'driver2Id', COALESCE(
@@ -93,6 +126,7 @@ if (-not $prepared.vehicleId) { throw 'Smoke requires at least one vehicle in se
 if (-not $prepared.driverId) { throw 'Smoke requires at least one driver in seed data' }
 if (-not $prepared.driver2Id) { throw 'Smoke requires a fallback second driver id' }
 if (-not $prepared.cargoOrderId) { throw 'Smoke requires cargo rules order' }
+if (-not $prepared.invoiceId) { throw 'Smoke requires finance invoice' }
 
 $loginBody = @{ email = 'admin@tms.local'; password = $seedPassword } | ConvertTo-Json
 $login = Invoke-RestMethod -Method Post -Uri "$BaseUrl/auth/mobile/login" -ContentType 'application/json' -Body $loginBody
@@ -284,12 +318,78 @@ $claimExposure = Invoke-RestMethod -Method Get -Uri "$BaseUrl/claims/exposure?or
 if ([int]$claimExposure.data.summary.claimCount -lt 1) { throw 'Expected claim exposure summary for order' }
 if (-not ($claimExposure.data.summary.PSObject.Properties.Name -contains 'openExposureAmount')) { throw 'Expected openExposureAmount in claim exposure summary' }
 
+$additionalServiceBody = @{
+    serviceType = 'downtime'
+    description = 'Paid warehouse downtime smoke service'
+    amount = 1200
+    tripId = $prepared.trip2Id
+    vatRate = 20
+    notes = 'Smoke validates additional service billing'
+} | ConvertTo-Json
+$additionalService = Invoke-RestMethod -Method Post -Uri "$BaseUrl/finance/invoices/$($prepared.invoiceId)/additional-services" -Headers $headers -ContentType 'application/json' -Body $additionalServiceBody
+if ([double]$additionalService.data.adjustment.amount -ne 1200) { throw 'Expected additional service adjustment amount' }
+
+$partialPaymentBody = @{
+    amount = 5000
+    paymentRef = 'SMOKE-PAY-1'
+    payerName = 'Smoke payer'
+    notes = 'Smoke validates partial payment balance'
+} | ConvertTo-Json
+$partialPayment = Invoke-RestMethod -Method Post -Uri "$BaseUrl/finance/invoices/$($prepared.invoiceId)/payments" -Headers $headers -ContentType 'application/json' -Body $partialPaymentBody
+if ([double]$partialPayment.data.remainingAmount -le 0) { throw 'Expected positive remaining amount after partial payment' }
+
+$reconciliationBody = @{
+    externalDocumentId = '1C-SMOKE-DOC-1'
+    externalStatus = 'posted'
+    externalTotal = ([double]$additionalService.data.invoice.total + 100)
+    externalVatAmount = 2000
+    notes = 'Smoke validates 1C mismatch detection'
+} | ConvertTo-Json
+$reconciliation = Invoke-RestMethod -Method Post -Uri "$BaseUrl/finance/invoices/$($prepared.invoiceId)/1c-reconciliation" -Headers $headers -ContentType 'application/json' -Body $reconciliationBody
+if ($reconciliation.data.reconciliationStatus -ne 'mismatch') { throw 'Expected 1C reconciliation mismatch' }
+if (-not @($reconciliation.data.discrepancies | Where-Object { $_.code -eq 'total_mismatch' })) { throw 'Expected total mismatch discrepancy' }
+
 $dossier = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared.trip2Id)/dossier" -Headers $headers
 $dossierItems = @($dossier.data.dossierItems)
 if ($dossierItems.Count -lt 1) { throw 'Expected dossier items projection' }
 if (-not (@($dossierItems | ForEach-Object { $_.documentType }) -contains 'etrn')) { throw 'Expected ETRN dossier placeholder' }
 if (-not $dossier.data.closeGate) { throw 'Expected dossier close gate in dossier response' }
 if ($dossier.data.closeGate.etrn.missing -ne $true) { throw 'Expected missing ETRN close gate signal' }
+
+$transportDocument = @($dossier.data.transportDocuments.documents | Select-Object -First 1)
+if (-not $transportDocument) { throw 'Expected transport document for signing smoke' }
+$shipperSignatureBody = @{
+    signerRole = 'shipper'
+    signerName = 'Smoke Shipper Signer'
+    signerInn = '7700000000'
+    authorityType = 'mchd'
+    certificateThumbprint = 'SMOKE-CERT-SHIPPER'
+    powerOfAttorneyId = 'SMOKE-MCHD-1'
+    notes = 'Smoke validates transport document role-based signature trace'
+} | ConvertTo-Json
+$shipperSignature = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/transport-documents/$($transportDocument.id)/signatures" -Headers $headers -ContentType 'application/json' -Body $shipperSignatureBody
+if (-not @($shipperSignature.data.history | Where-Object { $_.eventType -eq 'signature_recorded' })) { throw 'Expected signature history event' }
+
+$carrierSignatureBody = @{
+    signerRole = 'carrier'
+    signerName = 'Smoke Carrier Signer'
+    authorityType = 'kep'
+    certificateThumbprint = 'SMOKE-CERT-CARRIER'
+    notes = 'Smoke validates multi-party transport document signature trace'
+} | ConvertTo-Json
+$carrierSignature = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/transport-documents/$($transportDocument.id)/signatures" -Headers $headers -ContentType 'application/json' -Body $carrierSignatureBody
+if (@($carrierSignature.data.metadata.signatures).Count -lt 2) { throw 'Expected multiple ETRN signatures in metadata' }
+
+$refusalBody = @{
+    signerRole = 'consignee'
+    signerName = 'Smoke Consignee Signer'
+    reason = 'Consignee refused to sign due to shortage'
+    evidenceUrl = 's3://smoke/signature-refusal-act.pdf'
+    notes = 'Smoke validates transport document signature refusal trace'
+} | ConvertTo-Json
+$signatureRefusal = Invoke-RestMethod -Method Post -Uri "$BaseUrl/trips/$($prepared.trip2Id)/transport-documents/$($transportDocument.id)/signature-refusals" -Headers $headers -ContentType 'application/json' -Body $refusalBody
+if ($signatureRefusal.data.status -ne 'rejected') { throw 'Expected rejected document after signature refusal' }
+if (-not @($signatureRefusal.data.history | Where-Object { $_.eventType -eq 'signature_refused' })) { throw 'Expected signature refusal history event' }
 
 $closeGate = Invoke-RestMethod -Method Get -Uri "$BaseUrl/trips/$($prepared.trip2Id)/dossier/close-gate" -Headers $headers
 if ($closeGate.data.tripId -ne $prepared.trip2Id) { throw 'Close gate tripId mismatch' }
@@ -330,7 +430,12 @@ $result = [ordered]@{
     remainingWeightKg = $fulfillment.data.totals.remainingWeightKg
     openClaimsForOrder = $claimForOrder.Count
     claimExposureAmount = $claimExposure.data.summary.openExposureAmount
+    additionalServiceAdjustmentId = $additionalService.data.adjustment.id
+    partialPaymentRemainingAmount = $partialPayment.data.remainingAmount
+    reconciliationStatus = $reconciliation.data.reconciliationStatus
     dossierItems = $dossierItems.Count
+    etrnSignatureHistoryCount = @($carrierSignature.data.history | Where-Object { $_.eventType -eq 'signature_recorded' }).Count
+    etrnSignatureRefusalStatus = $signatureRefusal.data.status
     executionEventId = $execution.data.event.id
     resourceReplacementEventId = $replacement.data.event.id
     readdressEventId = $readdress.data.event.id

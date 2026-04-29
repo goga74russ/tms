@@ -1,5 +1,5 @@
 import { db } from '../../db/connection.js';
-import { trips, invoices, invoiceTrips, invoiceAdjustments, vehicles, fines, repairRequests, tachographRecords, orders, users, drivers, tripOrders, contractors } from '../../db/schema.js';
+import { trips, invoices, invoiceTrips, invoiceAdjustments, vehicles, fines, repairRequests, tachographRecords, orders, users, drivers, tripOrders, contractors, events } from '../../db/schema.js';
 import { eq, and, gt, gte, lte, inArray, sql, desc } from 'drizzle-orm';
 import { tarificationService } from './tarification.service.js';
 import { InvoiceCreate } from './schemas.js';
@@ -513,6 +513,155 @@ export class FinanceService {
     }
 
     // === 1C EXPORT (XML — CommerceML 2.x) ===
+    async recordPartialPayment(
+        invoiceId: string,
+        params: {
+            amount: number;
+            paidAt?: string | null;
+            paymentRef?: string | null;
+            payerName?: string | null;
+            notes?: string | null;
+        },
+        authorId: string,
+        authorRole: string,
+    ) {
+        const [invoice] = await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+        if (!invoice) throw new Error('Invoice not found');
+        if (params.amount <= 0) throw new Error('Payment amount must be positive');
+
+        await recordEvent({
+            authorId,
+            authorRole,
+            eventType: 'invoice.partial_payment.recorded',
+            entityType: 'invoice',
+            entityId: invoiceId,
+            data: {
+                amount: params.amount,
+                paidAt: params.paidAt ?? new Date().toISOString(),
+                paymentRef: params.paymentRef ?? null,
+                payerName: params.payerName ?? null,
+                notes: params.notes ?? null,
+            },
+        });
+
+        const paymentRows = await db.select({ data: events.data })
+            .from(events)
+            .where(and(
+                eq(events.entityType, 'invoice'),
+                eq(events.entityId, invoiceId),
+                eq(events.eventType, 'invoice.partial_payment.recorded'),
+            ));
+        const paidAmount = paymentRows.reduce((sum, row) => sum + num((row.data as Record<string, unknown>)?.amount), 0);
+        const remainingAmount = Math.max(num(invoice.total) - paidAmount, 0);
+
+        if (remainingAmount === 0 && invoice.status !== 'paid') {
+            await db.update(invoices).set({ status: 'paid' }).where(eq(invoices.id, invoiceId));
+        }
+
+        return {
+            invoiceId,
+            invoiceNumber: invoice.number,
+            invoiceTotal: num(invoice.total),
+            paidAmount,
+            remainingAmount,
+            status: remainingAmount === 0 ? 'paid' : invoice.status,
+        };
+    }
+
+    async addAdditionalService(
+        invoiceId: string,
+        params: {
+            serviceType: string;
+            description: string;
+            amount: number;
+            tripId?: string | null;
+            vatRate?: number | null;
+            notes?: string | null;
+        },
+        authorId: string,
+        authorRole: string,
+    ) {
+        const adjustment = await this.createAdjustment(
+            invoiceId,
+            'other',
+            `${params.serviceType}: ${params.description}`,
+            params.amount,
+            authorId,
+        );
+        await recordEvent({
+            authorId,
+            authorRole,
+            eventType: 'invoice.additional_service.added',
+            entityType: 'invoice',
+            entityId: invoiceId,
+            data: {
+                adjustmentId: adjustment.id,
+                serviceType: params.serviceType,
+                description: params.description,
+                amount: params.amount,
+                tripId: params.tripId ?? null,
+                vatRate: params.vatRate ?? null,
+                notes: params.notes ?? null,
+            },
+        });
+        const [invoice] = await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+        return {
+            adjustment,
+            invoice: invoice ? { ...invoice, subtotal: num(invoice.subtotal), vatAmount: num(invoice.vatAmount), total: num(invoice.total) } : null,
+        };
+    }
+
+    async reconcileWith1C(
+        invoiceId: string,
+        params: {
+            externalDocumentId: string;
+            externalStatus?: string | null;
+            externalTotal?: number | null;
+            externalVatAmount?: number | null;
+            exportedAt?: string | null;
+            notes?: string | null;
+        },
+        authorId: string,
+        authorRole: string,
+    ) {
+        const [invoice] = await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+        if (!invoice) throw new Error('Invoice not found');
+
+        const discrepancies = [];
+        if (params.externalTotal !== undefined && params.externalTotal !== null && Math.abs(params.externalTotal - num(invoice.total)) > 0.01) {
+            discrepancies.push({ code: 'total_mismatch', local: num(invoice.total), external: params.externalTotal });
+        }
+        if (params.externalVatAmount !== undefined && params.externalVatAmount !== null && Math.abs(params.externalVatAmount - num(invoice.vatAmount)) > 0.01) {
+            discrepancies.push({ code: 'vat_mismatch', local: num(invoice.vatAmount), external: params.externalVatAmount });
+        }
+
+        const reconciliationStatus = discrepancies.length > 0 ? 'mismatch' : 'matched';
+        await recordEvent({
+            authorId,
+            authorRole,
+            eventType: 'invoice.1c.reconciled',
+            entityType: 'invoice',
+            entityId: invoiceId,
+            data: {
+                externalDocumentId: params.externalDocumentId,
+                externalStatus: params.externalStatus ?? null,
+                externalTotal: params.externalTotal ?? null,
+                externalVatAmount: params.externalVatAmount ?? null,
+                exportedAt: params.exportedAt ?? new Date().toISOString(),
+                reconciliationStatus,
+                discrepancies,
+                notes: params.notes ?? null,
+            },
+        });
+
+        return {
+            invoiceId,
+            invoiceNumber: invoice.number,
+            reconciliationStatus,
+            discrepancies,
+        };
+    }
+
     async export1CXml(startDate: Date, endDate: Date, organizationId?: string | null): Promise<string> {
         const recentInvoices = await db.query.invoices.findMany({
             where: and(

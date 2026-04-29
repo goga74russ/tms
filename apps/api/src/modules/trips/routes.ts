@@ -20,6 +20,8 @@ import {
 } from './service.js';
 import {
     getPersistedTransportDocumentById,
+    recordTransportDocumentSignature,
+    recordTransportDocumentSignatureRefusal,
     registerTransportDocumentProviderCallback,
     retryTransportDocument,
     sendTransportDocumentToProvider,
@@ -611,6 +613,76 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
                 receipts: document.receipts ?? [],
             },
         };
+      });
+
+    app.post('/trips/:id/transport-documents/:documentId/signatures', {
+        schema: { tags: ['Trips'], summary: 'Record transport document signature', description: 'Persist a role-based signature fact for ETRN/transport document lifecycle.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, documentId } = request.params as { id: string; documentId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const bodySchema = z.object({
+            signerRole: z.string().min(2).max(100),
+            signerName: z.string().min(2).max(255),
+            signerInn: z.string().max(12).nullable().optional(),
+            authorityType: z.string().max(100).nullable().optional(),
+            certificateThumbprint: z.string().max(255).nullable().optional(),
+            powerOfAttorneyId: z.string().max(255).nullable().optional(),
+            signedAt: z.string().datetime().nullable().optional(),
+            notes: z.string().max(2000).nullable().optional(),
+        });
+
+        await assertTripAccess(id, user);
+        const parsed = bodySchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+
+        await syncTransportDocumentsForTrip(id, user.userId);
+        const document = await recordTransportDocumentSignature({
+            tripId: id,
+            documentId,
+            createdBy: user.userId,
+            ...parsed.data,
+        });
+        if (!document) {
+            return reply.status(404).send({ success: false, error: 'Document not found' });
+        }
+        return reply.status(201).send({ success: true, data: document });
+    });
+
+    app.post('/trips/:id/transport-documents/:documentId/signature-refusals', {
+        schema: { tags: ['Trips'], summary: 'Record transport document signature refusal', description: 'Persist signer refusal with reason/evidence and mark document rejected.' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const { id, documentId } = request.params as { id: string; documentId: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const bodySchema = z.object({
+            signerRole: z.string().min(2).max(100),
+            signerName: z.string().min(2).max(255),
+            reason: z.string().min(3).max(1000),
+            evidenceUrl: z.string().max(1000).nullable().optional(),
+            refusedAt: z.string().datetime().nullable().optional(),
+            notes: z.string().max(2000).nullable().optional(),
+        });
+
+        await assertTripAccess(id, user);
+        const parsed = bodySchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+
+        await syncTransportDocumentsForTrip(id, user.userId);
+        const document = await recordTransportDocumentSignatureRefusal({
+            tripId: id,
+            documentId,
+            createdBy: user.userId,
+            ...parsed.data,
+        });
+        if (!document) {
+            return reply.status(404).send({ success: false, error: 'Document not found' });
+        }
+        return reply.status(201).send({ success: true, data: document });
     });
 
     app.post('/trips/:id/transport-documents/:documentId/retry', {

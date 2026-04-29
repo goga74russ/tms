@@ -501,6 +501,110 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         }
     );
 
+    fastify.post<{ Params: { invoiceId: string } }>(
+        '/finance/invoices/:invoiceId/payments',
+        { schema: { tags: ['Финансы'], summary: 'Зафиксировать частичную оплату', description: 'Append-only фиксация оплаты по счёту с расчётом остатка.' }, preHandler: [fastify.authenticate, requireAbility('update', 'Invoice')] },
+        async (request, reply) => {
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+            const { invoiceId } = request.params;
+            const access = await ensureInvoiceAccess(invoiceId, user);
+            if (access.error) return reply.code(access.error.status).send(access.error.body);
+
+            const parsed = z.object({
+                amount: z.number().positive(),
+                paidAt: z.string().datetime().nullable().optional(),
+                paymentRef: z.string().max(255).nullable().optional(),
+                payerName: z.string().max(255).nullable().optional(),
+                notes: z.string().max(1000).nullable().optional(),
+            }).safeParse(request.body ?? {});
+            if (!parsed.success) {
+                return reply.code(422).send({ success: false, error: parsed.error.flatten() });
+            }
+
+            try {
+                const result = await financeService.recordPartialPayment(
+                    invoiceId,
+                    parsed.data,
+                    user.userId,
+                    user.roles[0] ?? 'unknown',
+                );
+                return reply.code(201).send({ success: true, data: result });
+            } catch (error: any) {
+                return reply.code(400).send({ success: false, error: error.message });
+            }
+        }
+    );
+
+    fastify.post<{ Params: { invoiceId: string } }>(
+        '/finance/invoices/:invoiceId/additional-services',
+        { schema: { tags: ['Финансы'], summary: 'Добавить допуслугу', description: 'Добавляет погрузку/разгрузку/пропуск/мойку/простой/экспедирование как корректировку счёта и journal event.' }, preHandler: [fastify.authenticate, requireAbility('update', 'Invoice')] },
+        async (request, reply) => {
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+            const { invoiceId } = request.params;
+            const access = await ensureInvoiceAccess(invoiceId, user);
+            if (access.error) return reply.code(access.error.status).send(access.error.body);
+
+            const parsed = z.object({
+                serviceType: z.enum(['loading', 'unloading', 'permit', 'wash', 'downtime', 'forwarding', 'other']),
+                description: z.string().min(1).max(1000),
+                amount: z.number(),
+                tripId: z.string().uuid().nullable().optional(),
+                vatRate: z.number().nonnegative().nullable().optional(),
+                notes: z.string().max(1000).nullable().optional(),
+            }).safeParse(request.body ?? {});
+            if (!parsed.success) {
+                return reply.code(422).send({ success: false, error: parsed.error.flatten() });
+            }
+
+            try {
+                const result = await financeService.addAdditionalService(
+                    invoiceId,
+                    parsed.data,
+                    user.userId,
+                    user.roles[0] ?? 'unknown',
+                );
+                return reply.code(201).send({ success: true, data: result });
+            } catch (error: any) {
+                return reply.code(400).send({ success: false, error: error.message });
+            }
+        }
+    );
+
+    fastify.post<{ Params: { invoiceId: string } }>(
+        '/finance/invoices/:invoiceId/1c-reconciliation',
+        { schema: { tags: ['Финансы'], summary: 'Сверка с 1С', description: 'Фиксирует результат сверки счёта/акта с внешним документом 1С и возвращает расхождения.' }, preHandler: [fastify.authenticate, requireAbility('update', 'Invoice')] },
+        async (request, reply) => {
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+            const { invoiceId } = request.params;
+            const access = await ensureInvoiceAccess(invoiceId, user);
+            if (access.error) return reply.code(access.error.status).send(access.error.body);
+
+            const parsed = z.object({
+                externalDocumentId: z.string().min(1).max(255),
+                externalStatus: z.string().max(100).nullable().optional(),
+                externalTotal: z.number().nullable().optional(),
+                externalVatAmount: z.number().nullable().optional(),
+                exportedAt: z.string().datetime().nullable().optional(),
+                notes: z.string().max(1000).nullable().optional(),
+            }).safeParse(request.body ?? {});
+            if (!parsed.success) {
+                return reply.code(422).send({ success: false, error: parsed.error.flatten() });
+            }
+
+            try {
+                const result = await financeService.reconcileWith1C(
+                    invoiceId,
+                    parsed.data,
+                    user.userId,
+                    user.roles[0] ?? 'unknown',
+                );
+                return reply.code(201).send({ success: true, data: result });
+            } catch (error: any) {
+                return reply.code(400).send({ success: false, error: error.message });
+            }
+        }
+    );
+
     // 9. GET /finance/invoices/:invoiceId/adjustments — список корректировок
     fastify.get<{ Params: { invoiceId: string } }>(
         '/finance/invoices/:invoiceId/adjustments',
