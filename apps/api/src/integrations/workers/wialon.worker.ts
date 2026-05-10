@@ -92,6 +92,18 @@ async function processWialonSync(job: Job): Promise<{
                                 headingDeg: sample.headingDeg,
                                 source: 'mock',
                             });
+
+                            // Wave 4: пересчитать ETA для активного рейса и broadcast.
+                            try {
+                                const { computeTripEta } = await import('../../modules/trips/eta.service.js');
+                                const eta = await computeTripEta(activeTrip.id);
+                                if (eta) {
+                                    const { broadcastEvent } = await import('../websocket.js');
+                                    broadcastEvent('trip.eta_updated', { tripId: activeTrip.id, eta });
+                                }
+                            } catch (etaErr) {
+                                job.log(`ETA recompute skipped for ${v.plateNumber}: ${(etaErr as Error).message}`);
+                            }
                         }
                     }
                 }

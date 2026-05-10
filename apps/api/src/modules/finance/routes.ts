@@ -150,6 +150,45 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         }
     );
 
+    // 3b. POST /finance/invoices/bulk-generate — Wave 4: пакетная генерация по периоду.
+    // Один сводный счёт на каждого контрагента. admin/accountant only.
+    fastify.post(
+        '/finance/invoices/bulk-generate',
+        {
+            schema: {
+                tags: ['Финансы'],
+                summary: 'Пакетная генерация счетов',
+                description: 'Создаёт по одному сводному draft-счёту на каждого контрагента за указанный период. Возвращает списки created/skipped.',
+            },
+            preHandler: [fastify.authenticate, requireAbility('create', 'Invoice')],
+        },
+        async (request, reply) => {
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+            const allowed = user.roles.includes('admin') || user.roles.includes('accountant');
+            if (!allowed) {
+                return reply.code(403).send({ success: false, error: 'Только admin/accountant могут запускать пакетную генерацию' });
+            }
+            const parsed = z.object({
+                from: z.string().datetime(),
+                to: z.string().datetime(),
+                contractorId: z.string().uuid().optional(),
+            }).safeParse(request.body ?? {});
+            if (!parsed.success) {
+                return reply.code(422).send({ success: false, error: parsed.error.flatten() });
+            }
+            try {
+                const result = await financeService.bulkGenerateInvoices(parsed.data, {
+                    authorId: user.userId,
+                    authorRole: user.roles[0] ?? 'unknown',
+                    organizationId: user.organizationId,
+                });
+                return reply.code(201).send({ success: true, data: result });
+            } catch (error: any) {
+                return reply.code(400).send({ success: false, error: error.message });
+            }
+        }
+    );
+
     // 4. PUT /finance/invoices/:id/status — Смена статуса счёта
     fastify.put<{ Params: { id: string } }>(
         '/finance/invoices/:id/status',

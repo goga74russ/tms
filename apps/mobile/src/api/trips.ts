@@ -208,6 +208,31 @@ export async function confirmRoutePoint(
     });
 }
 
+export interface TripEtaData {
+    etaIso: string;
+    distanceKm: number;
+    currentLatLng: { lat: number; lon: number } | [number, number];
+    nextPointId: string;
+}
+
+export interface TripEtaResponse {
+    data: TripEtaData | null;
+    reason?: string;
+}
+
+/**
+ * Get the driver's ETA to the next route point. Returns `data: null` when GPS
+ * is unavailable; `reason` may explain why.
+ */
+export async function getTripEta(tripId: string): Promise<TripEtaResponse> {
+    try {
+        const res = await authFetch(`/trips/${tripId}/eta`);
+        return { data: res.data ?? null, reason: res.reason };
+    } catch {
+        return { data: null, reason: 'request_failed' };
+    }
+}
+
 // --- Inspections ---
 
 export interface InspectionTemplate {

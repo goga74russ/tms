@@ -158,6 +158,14 @@ export default function FinanceDashboard() {
     const [contractors, setContractors] = useState<ContractorOption[]>([]);
     const [selectedContractorId, setSelectedContractorId] = useState('');
 
+    // Bulk generate dialog
+    const [bulkOpen, setBulkOpen] = useState(false);
+    const [bulkFrom, setBulkFrom] = useState(() => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'));
+    const [bulkTo, setBulkTo] = useState(() => format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 'yyyy-MM-dd'));
+    const [bulkContractorId, setBulkContractorId] = useState('');
+    const [bulkSubmitting, setBulkSubmitting] = useState(false);
+    const [bulkResult, setBulkResult] = useState<string | null>(null);
+
     // ——— Load invoices ———
     const fetchInvoices = useCallback(async () => {
         setLoading(true);
@@ -268,6 +276,35 @@ export default function FinanceDashboard() {
             setError(err.message);
         } finally {
             setGenerating(false);
+        }
+    };
+
+    const handleBulkGenerate = async () => {
+        if (!bulkFrom || !bulkTo) {
+            setError('Укажите период (с/по)');
+            return;
+        }
+        setBulkSubmitting(true);
+        setBulkResult(null);
+        try {
+            setError(null);
+            const body: Record<string, any> = {
+                from: new Date(bulkFrom + 'T00:00:00').toISOString(),
+                to: new Date(bulkTo + 'T23:59:59').toISOString(),
+            };
+            if (bulkContractorId) body.contractorId = bulkContractorId;
+            const res = await api.post<{ success: boolean; data?: { created?: any[]; skipped?: any[] } }>(
+                '/finance/invoices/bulk-generate',
+                body,
+            );
+            const created = res.data?.created?.length ?? 0;
+            const skipped = res.data?.skipped?.length ?? 0;
+            setBulkResult(`Создано ${created}, пропущено ${skipped}`);
+            await fetchInvoices();
+        } catch (err: any) {
+            setError(err.message || 'Не удалось сформировать счета пакетом');
+        } finally {
+            setBulkSubmitting(false);
         }
     };
 
@@ -466,6 +503,9 @@ export default function FinanceDashboard() {
                     />
                     <Button onClick={handleGenerateInvoice} disabled={generating || !selectedContractorId} className="bg-blue-600 hover:bg-blue-700 text-white">
                         {generating ? 'Генерация...' : '+ Создать счет по рейсам'}
+                    </Button>
+                    <Button variant="outline" onClick={() => { setBulkResult(null); setBulkOpen(true); }}>
+                        Сформировать счета пакетом
                     </Button>
                 </div>
             </div>
@@ -735,6 +775,53 @@ export default function FinanceDashboard() {
                         </div>
                     </div>
                 )}
+            </Dialog>
+
+            {/* Bulk generate dialog */}
+            <Dialog
+                open={bulkOpen}
+                onClose={() => { setBulkOpen(false); setBulkResult(null); }}
+                title="Сформировать счета пакетом"
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-500">
+                        Создаст счета по завершённым рейсам за период. Можно ограничить одним контрагентом.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">С</label>
+                            <Input type="date" value={bulkFrom} onChange={(e) => setBulkFrom(e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">По</label>
+                            <Input type="date" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Контрагент (необязательно)</label>
+                        <Select
+                            value={bulkContractorId}
+                            onChange={(e) => setBulkContractorId(e.target.value)}
+                            placeholder="Все контрагенты"
+                            options={contractors.map((c) => ({ value: c.id, label: `${c.name} (${c.inn})` }))}
+                        />
+                    </div>
+
+                    {bulkResult && (
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                            {bulkResult}
+                        </div>
+                    )}
+
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" onClick={() => { setBulkOpen(false); setBulkResult(null); }}>
+                            Закрыть
+                        </Button>
+                        <Button disabled={bulkSubmitting} onClick={handleBulkGenerate}>
+                            {bulkSubmitting ? 'Формирование...' : 'Сформировать'}
+                        </Button>
+                    </div>
+                </div>
             </Dialog>
         </div>
     );

@@ -1051,6 +1051,22 @@ export async function changeTripStatus(
     });
 
     await refreshTransportDocumentsForTrip(id, author.userId);
+
+    // Wave 4: автогенерация черновика счёта при завершении рейса.
+    // Вынесено за транзакцию, ошибки логируются — не блокируют переход статуса.
+    if (newStatus === TripStatus.COMPLETED) {
+        try {
+            const { financeService } = await import('../finance/finance.service.js');
+            await financeService.tryAutoCreateInvoice(id, {
+                authorId: author.userId,
+                authorRole: author.role,
+            });
+        } catch (err) {
+            // Best-effort: не падаем при сбое автотарификации.
+            console.warn('[trips] tryAutoCreateInvoice failed for', id, (err as Error).message);
+        }
+    }
+
     return updated;
 }
 

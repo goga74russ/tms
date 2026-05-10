@@ -1303,6 +1303,51 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         return { success: true, data: { ...dossier, transportDocuments, dossierItems, closeGate } };
     });
+
+    // --- GET /trips/:id/eta — Wave 4: расчёт ETA по последней позиции ТС ---
+    app.get('/trips/:id/eta', {
+        schema: {
+            tags: ['Рейсы'],
+            summary: 'ETA рейса',
+            description: 'Возвращает оценочное время прибытия на следующую точку маршрута (haversine, 50 км/ч). Если нет GPS или нет ожидающих точек — возвращает причину.',
+        },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const { computeTripEta } = await import('./eta.service.js');
+        const eta = await computeTripEta(id);
+        if (!eta) {
+            // Различить «нет GPS» и «нет ожидающих точек», подсмотрев в БД.
+            const { db } = await import('../../db/connection.js');
+            const { vehiclePositions, routePoints, trips } = await import('../../db/schema.js');
+            const { eq, and: andOp, desc: descOp } = await import('drizzle-orm');
+            const [tripRow] = await db
+                .select({ vehicleId: trips.vehicleId })
+                .from(trips).where(eq(trips.id, id)).limit(1);
+            let reason: 'no_gps' | 'no_pending_points' = 'no_gps';
+            if (tripRow?.vehicleId) {
+                const [pos] = await db
+                    .select({ id: vehiclePositions.id })
+                    .from(vehiclePositions)
+                    .where(eq(vehiclePositions.vehicleId, tripRow.vehicleId))
+                    .orderBy(descOp(vehiclePositions.recordedAt))
+                    .limit(1);
+                if (pos) {
+                    const [pending] = await db
+                        .select({ id: routePoints.id })
+                        .from(routePoints)
+                        .where(andOp(eq(routePoints.tripId, id), eq(routePoints.status, 'pending')))
+                        .limit(1);
+                    reason = pending ? 'no_gps' : 'no_pending_points';
+                }
+            }
+            return reply.send({ success: true, data: null, reason });
+        }
+        return { success: true, data: eta };
+    });
 };
 
 export default tripsRoutes;

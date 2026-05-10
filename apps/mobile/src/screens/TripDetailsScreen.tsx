@@ -7,7 +7,7 @@ import { database } from '../database';
 import Trip from '../database/models/Trip';
 import RoutePoint from '../database/models/RoutePoint';
 import { getQueueSummary } from '../api/offlineQueue';
-import { completeTrip, getTripById, getTripOperationExceptions, OperationExceptionItem, OperationExceptionSummary, startTrip, TripSummary } from '../api/trips';
+import { completeTrip, getTripById, getTripEta, getTripOperationExceptions, OperationExceptionItem, OperationExceptionSummary, startTrip, TripEtaData, TripSummary } from '../api/trips';
 import { getTemperatureSummary, TemperatureSummary } from '../api/temperature';
 import { startWialonMock, stopWialonMock } from '../api/wialonMock';
 
@@ -75,6 +75,8 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
     const [odometerValue, setOdometerValue] = useState('');
     const [completionNotes, setCompletionNotes] = useState('');
     const [actionInFlight, setActionInFlight] = useState(false);
+    const [eta, setEta] = useState<TripEtaData | null>(null);
+    const [etaLoaded, setEtaLoaded] = useState(false);
 
     const fetchData = useCallback(async () => {
         try {
@@ -116,6 +118,28 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
     useEffect(() => {
         void fetchData();
     }, [fetchData]);
+
+    const tripStatusForEta = trip?.status;
+    useEffect(() => {
+        if (tripStatusForEta !== 'in_transit') {
+            setEta(null);
+            setEtaLoaded(false);
+            return;
+        }
+        let cancelled = false;
+        const poll = async () => {
+            const res = await getTripEta(tripId);
+            if (cancelled) return;
+            setEta(res.data);
+            setEtaLoaded(true);
+        };
+        void poll();
+        const handle = setInterval(() => { void poll(); }, 60_000);
+        return () => {
+            cancelled = true;
+            clearInterval(handle);
+        };
+    }, [tripId, tripStatusForEta]);
 
     const windowsByPointId = useMemo(() => {
         const map = new Map<string, { from?: string | null; to?: string | null }>();
@@ -262,6 +286,20 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                 data={points}
                 keyExtractor={(item) => item.id}
                 ListHeaderComponent={(
+                    <View>
+                    {tripStatus === 'in_transit' && etaLoaded && (
+                        eta ? (
+                            <View style={styles.etaCard}>
+                                <Text style={styles.etaTitle}>{`До следующей точки: ~${Math.max(0, Math.round((new Date(eta.etaIso).getTime() - Date.now()) / 60000))}мин`}</Text>
+                                <Text style={styles.etaLine}>{`Прибытие: ${(() => { const d = new Date(eta.etaIso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; })()}`}</Text>
+                                <Text style={styles.etaLine}>{`Расстояние: ${eta.distanceKm.toFixed(1)} км`}</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.etaCardMuted}>
+                                <Text style={styles.etaMutedText}>{'ETA: нет GPS-данных'}</Text>
+                            </View>
+                        )
+                    )}
                     <View style={styles.cockpitCard}>
                         <View style={styles.cockpitHeader}>
                             <View>
@@ -323,6 +361,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                                 <Text style={styles.reasonHint}>Причина пойдет в event payload для audit/replay.</Text>
                             </View>
                         )}
+                    </View>
                     </View>
                 )}
                 renderItem={({ item, index }) => {
@@ -503,6 +542,38 @@ const styles = StyleSheet.create({
         color: '#ef4444',
         textAlign: 'center',
         marginTop: 20,
+    },
+    etaCard: {
+        backgroundColor: '#ecfeff',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#a5f3fc',
+    },
+    etaTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#0e7490',
+        marginBottom: 4,
+    },
+    etaLine: {
+        fontSize: 13,
+        color: '#155e75',
+        marginTop: 2,
+    },
+    etaCardMuted: {
+        backgroundColor: '#f1f5f9',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    etaMutedText: {
+        fontSize: 13,
+        color: '#94a3b8',
+        fontStyle: 'italic',
     },
     cockpitCard: {
         backgroundColor: '#fff',

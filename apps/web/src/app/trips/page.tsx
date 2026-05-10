@@ -32,6 +32,8 @@ interface Trip {
     actualCompletionAt?: string;
     notes?: string;
     createdAt: string;
+    carrierContractorId?: string | null;
+    carrierName?: string | null;
 }
 
 interface VehicleInfo {
@@ -191,6 +193,19 @@ const STATUS_COLORS: Record<string, string> = {
     billed: 'bg-green-100 text-green-800',
     cancelled: 'bg-red-100 text-red-700',
 };
+
+function formatEtaBadge(etaIso?: string | null, reason?: string): string {
+    if (!etaIso) {
+        if (reason && reason !== 'ok') return 'ETA: нет данных GPS';
+        return 'ETA: нет данных GPS';
+    }
+    const eta = new Date(etaIso);
+    if (Number.isNaN(eta.getTime())) return 'ETA: нет данных GPS';
+    const hh = String(eta.getHours()).padStart(2, '0');
+    const mm = String(eta.getMinutes()).padStart(2, '0');
+    const diffMin = Math.max(0, Math.round((eta.getTime() - Date.now()) / 60000));
+    return `ETA: ${hh}:${mm} (через ~${diffMin}мин)`;
+}
 
 function formatDate(d?: string) {
     if (!d) return 'вЂ”';
@@ -1825,6 +1840,11 @@ export default function TripsPage() {
     const [preferredDossierAction, setPreferredDossierAction] = useState<OperationalAction | null>(null);
     const [sortingRoute, setSortingRoute] = useState(false);
     const [tripsToast, setTripsToast] = useState<{ message: string; tone: 'success' | 'error' | 'warning' } | null>(null);
+    const [tripEta, setTripEta] = useState<{ etaIso?: string | null; reason?: string } | null>(null);
+    // Carriers (for assignment in dossier)
+    const [carrierOptions, setCarrierOptions] = useState<Array<{ id: string; name: string; activeContract?: any }>>([]);
+    const [assigningCarrier, setAssigningCarrier] = useState(false);
+    const [selectedCarrierId, setSelectedCarrierId] = useState('');
 
     const canSortRoute = !!user?.roles?.some(r => r === 'dispatcher' || r === 'logist' || r === 'admin');
 
@@ -2096,6 +2116,59 @@ export default function TripsPage() {
         setDossierRoutePoints([]);
         setDossierLoadPlan(null);
         setPreferredDossierAction(null);
+        setTripEta(null);
+        setSelectedCarrierId('');
+    };
+
+    // ETA polling for in-transit trips while dossier modal is open
+    useEffect(() => {
+        if (!dossierTripId) return;
+        const trip = trips.find(t => t.id === dossierTripId);
+        if (!trip || trip.status !== 'in_transit') {
+            setTripEta(null);
+            return;
+        }
+        let cancelled = false;
+        const fetchEta = async () => {
+            try {
+                const res = await api.get<{ success: boolean; data: { etaIso: string | null; distanceKm?: number } | null; reason?: string }>(`/trips/${dossierTripId}/eta`);
+                if (cancelled) return;
+                setTripEta({ etaIso: res.data?.etaIso ?? null, reason: (res as any).reason });
+            } catch {
+                if (!cancelled) setTripEta({ etaIso: null, reason: 'no_gps' });
+            }
+        };
+        fetchEta();
+        const intervalId = setInterval(fetchEta, 60000);
+        return () => { cancelled = true; clearInterval(intervalId); };
+    }, [dossierTripId, trips]);
+
+    // Load carriers when dossier opens for trips not yet started
+    useEffect(() => {
+        if (!dossierTripId) return;
+        const trip = trips.find(t => t.id === dossierTripId);
+        if (!trip) return;
+        const startedStatuses = ['in_transit', 'completed', 'billed', 'cancelled'];
+        if (startedStatuses.includes(trip.status)) return;
+        let cancelled = false;
+        api.get<{ success: boolean; data: Array<{ id: string; name: string; activeContract?: any }> }>('/carriers')
+            .then(res => { if (!cancelled) setCarrierOptions(res.data || []); })
+            .catch(() => { if (!cancelled) setCarrierOptions([]); });
+        return () => { cancelled = true; };
+    }, [dossierTripId, trips]);
+
+    const handleAssignCarrier = async () => {
+        if (!dossierTripId || !selectedCarrierId) return;
+        setAssigningCarrier(true);
+        try {
+            await api.post(`/trips/${dossierTripId}/assign-carrier`, { carrierContractorId: selectedCarrierId });
+            setTripsToast({ message: 'Перевозчик назначен', tone: 'success' });
+            await openDossier(dossierTripId);
+        } catch (err: any) {
+            setTripsToast({ message: err?.message || 'Не удалось назначить перевозчика', tone: 'error' });
+        } finally {
+            setAssigningCarrier(false);
+        }
     };
 
     const handleSortRoute = async () => {
@@ -2297,6 +2370,11 @@ export default function TripsPage() {
                                                 {(tripOrderNumbers[t.id] || []).length > 1 && (
                                                     <span className="inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700">
                                                         Сборный рейс вЂў {(tripOrderNumbers[t.id] || []).length} заявок
+                                                    </span>
+                                                )}
+                                                {t.carrierContractorId && (
+                                                    <span className="inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                                        Перевозчик: {t.carrierName || 'назначен'}
                                                     </span>
                                                 )}
                                             </div>
@@ -2560,6 +2638,17 @@ export default function TripsPage() {
                                             <div className="text-xs uppercase tracking-wide text-slate-400">Рейс</div>
                                             <div className="mt-2 text-lg font-bold text-slate-900">{dossier.trip?.number}</div>
                                             <div className="mt-1 text-sm text-slate-500">{dossier.trip?.status}</div>
+                                            {dossier?.trip?.status === 'in_transit' && (
+                                                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
+                                                    <Clock3 className="w-3 h-3" />
+                                                    {formatEtaBadge(tripEta?.etaIso, tripEta?.reason)}
+                                                </div>
+                                            )}
+                                            {dossier?.trip?.carrierContractorId && (
+                                                <div className="mt-2 text-xs text-slate-600">
+                                                    Перевозчик: <span className="font-medium">{dossier?.carrier?.name || dossier?.trip?.carrierContractorId}</span>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="rounded-2xl border border-slate-200 p-4">
                                             <div className="text-xs uppercase tracking-wide text-slate-400">ТС / прицеп</div>
@@ -2642,6 +2731,50 @@ export default function TripsPage() {
                                         initialAction={preferredDossierAction}
                                         onDone={() => openDossier(dossier.trip?.id || dossierTripId)}
                                     />
+
+                                    {/* Carrier assignment (Wave 4) */}
+                                    {(() => {
+                                        const status = dossier?.trip?.status;
+                                        const startedStatuses = ['in_transit', 'completed', 'billed', 'cancelled'];
+                                        if (status && startedStatuses.includes(status)) return null;
+                                        return (
+                                            <div className="rounded-2xl border border-slate-200 p-4">
+                                                <div className="text-sm font-semibold text-slate-900 mb-2">Назначить перевозчика</div>
+                                                {dossier?.trip?.carrierContractorId && (
+                                                    <p className="text-xs text-slate-500 mb-2">
+                                                        Текущий перевозчик: {dossier?.carrier?.name || dossier?.trip?.carrierContractorId}
+                                                    </p>
+                                                )}
+                                                <div className="flex items-end gap-2">
+                                                    <div className="flex-1">
+                                                        <label className="block text-xs text-slate-500 mb-1">Перевозчик с активным договором</label>
+                                                        <select
+                                                            value={selectedCarrierId}
+                                                            onChange={(e) => setSelectedCarrierId(e.target.value)}
+                                                            className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm"
+                                                        >
+                                                            <option value="">— выбрать —</option>
+                                                            {carrierOptions
+                                                                .filter(c => c.activeContract)
+                                                                .map(c => (
+                                                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                                                ))}
+                                                        </select>
+                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        disabled={!selectedCarrierId || assigningCarrier}
+                                                        onClick={handleAssignCarrier}
+                                                    >
+                                                        {assigningCarrier ? 'Назначение...' : 'Назначить'}
+                                                    </Button>
+                                                </div>
+                                                {carrierOptions.filter(c => c.activeContract).length === 0 && (
+                                                    <p className="mt-2 text-xs text-amber-600">Нет перевозчиков с активным договором</p>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
 
                                     <TransportDocumentsBlock dossier={dossier} />
 

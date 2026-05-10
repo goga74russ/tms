@@ -240,4 +240,28 @@ export function getConnectedClientsCount(): number {
     return connectedClients.size;
 }
 
+// ================================================================
+// Wave 4: общий broadcast события произвольного типа
+// (например, trip.eta_updated). Сообщение получают все
+// подключенные клиенты с учётом их organizationId, если оно есть.
+// ================================================================
+export function broadcastEvent(eventType: string, payload: Record<string, unknown> & { organizationId?: string | null }) {
+    const baseMessage = JSON.stringify({
+        type: eventType,
+        data: payload,
+        timestamp: new Date().toISOString(),
+    });
+    for (const [client, meta] of connectedClients.entries()) {
+        if (client.readyState !== 1) continue;
+        if (payload.organizationId && meta.organizationId && payload.organizationId !== meta.organizationId) {
+            continue;
+        }
+        try {
+            client.send(baseMessage);
+        } catch {
+            /* ignore individual send errors */
+        }
+    }
+}
+
 

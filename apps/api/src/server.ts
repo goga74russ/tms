@@ -13,6 +13,7 @@ import { setupRepeatableJobs } from './integrations/queues.js';
 import { startWialonWorker, stopWialonWorker } from './integrations/workers/wialon.worker.js';
 import { startFinesWorker, stopFinesWorker } from './integrations/workers/fines.worker.js';
 import { startNotificationWorker, stopNotificationWorker } from './integrations/workers/notification.worker.js';
+import { startBillingWorker, stopBillingWorker } from './integrations/workers/billing.worker.js';
 import { startPositionBroadcast, stopPositionBroadcast } from './integrations/websocket.js';
 import { sql as rawSql } from './db/connection.js';
 import { APPEND_ONLY_TRIGGER_SQL } from './db/triggers.js';
@@ -163,6 +164,7 @@ await app.register(import('./modules/claims/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/uploads/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/cold-chain/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/rto/routes.js'), { prefix: '/api' });
+await app.register(import('./modules/carriers/routes.js'), { prefix: '/api' });
 await app.register(import('./integrations/websocket.js'), { prefix: '/api' });
 
 // --- Health check ---
@@ -216,8 +218,9 @@ if (redisOk) {
     startWialonWorker();
     startFinesWorker();
     startNotificationWorker();
+    startBillingWorker();
     await setupRepeatableJobs();
-    app.log.info('🔄 BullMQ workers started (wialon, fines, notifications)');
+    app.log.info('🔄 BullMQ workers started (wialon, fines, notifications, billing)');
     startPositionBroadcast(10000); // Broadcast vehicle positions every 10s
     app.log.info('📡 Vehicle position WebSocket broadcast started');
 } else {
@@ -232,6 +235,7 @@ for (const signal of signals) {
         await stopWialonWorker();
         await stopFinesWorker();
         await stopNotificationWorker();
+        await stopBillingWorker();
         stopPositionBroadcast();
         await app.close();
         process.exit(0);

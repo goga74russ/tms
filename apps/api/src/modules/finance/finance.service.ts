@@ -1,6 +1,6 @@
 import { db } from '../../db/connection.js';
-import { trips, invoices, invoiceTrips, invoiceAdjustments, vehicles, fines, repairRequests, tachographRecords, orders, users, drivers, tripOrders, contractors, events } from '../../db/schema.js';
-import { eq, and, gt, gte, lte, inArray, sql, desc } from 'drizzle-orm';
+import { trips, invoices, invoiceTrips, invoiceAdjustments, vehicles, fines, repairRequests, tachographRecords, orders, users, drivers, tripOrders, contractors, contracts, tariffs, events } from '../../db/schema.js';
+import { eq, and, gt, gte, lte, inArray, sql, desc, isNull } from 'drizzle-orm';
 import { tarificationService } from './tarification.service.js';
 import { InvoiceCreate } from './schemas.js';
 import { recordEvent } from '../../events/journal.js';
@@ -730,6 +730,297 @@ export class FinanceService {
         }
 
         return buildCommerceMLXml(rows);
+    }
+
+    // ================================================================
+    // Wave 4: Auto-billing on trip completion
+    // ================================================================
+    /**
+     * Создать draft-счёт по одному рейсу, если у заявки рейса есть
+     * активный договор с тарифом и счёт ещё не создан.
+     * Идемпотентно: повторный вызов на том же рейсе вернёт `skipped`.
+     */
+    async tryAutoCreateInvoice(
+        tripId: string,
+        author?: { authorId?: string; authorRole?: string },
+    ): Promise<{ created: boolean; invoiceId?: string; reason?: string }> {
+        // 1. Проверка: рейс уже привязан к счёту?
+        const [existingLink] = await db
+            .select({ invoiceId: invoiceTrips.invoiceId })
+            .from(invoiceTrips)
+            .where(eq(invoiceTrips.tripId, tripId))
+            .limit(1);
+        if (existingLink) {
+            return { created: false, reason: 'already_invoiced', invoiceId: existingLink.invoiceId };
+        }
+
+        // 2. Найти заявки рейса и контракт.
+        const linkedOrders = await db
+            .select({
+                orderId: orders.id,
+                contractorId: orders.contractorId,
+                contractId: orders.contractId,
+            })
+            .from(tripOrders)
+            .innerJoin(orders, eq(tripOrders.orderId, orders.id))
+            .where(eq(tripOrders.tripId, tripId));
+
+        if (linkedOrders.length === 0) {
+            return { created: false, reason: 'no_orders' };
+        }
+
+        const contractId = linkedOrders[0].contractId;
+        const contractorId = linkedOrders[0].contractorId;
+        if (!contractId) {
+            return { created: false, reason: 'no_contract' };
+        }
+        // Все заявки рейса должны принадлежать одному контракту
+        const sameContract = linkedOrders.every((o) => o.contractId === contractId);
+        if (!sameContract) {
+            return { created: false, reason: 'multi_contract' };
+        }
+
+        // 3. Контракт активен и содержит тариф.
+        const [contract] = await db
+            .select({ id: contracts.id, isActive: contracts.isActive })
+            .from(contracts)
+            .where(eq(contracts.id, contractId))
+            .limit(1);
+        if (!contract || !contract.isActive) {
+            return { created: false, reason: 'contract_inactive' };
+        }
+        const [tariff] = await db
+            .select({ id: tariffs.id })
+            .from(tariffs)
+            .where(eq(tariffs.contractId, contractId))
+            .limit(1);
+        if (!tariff) {
+            return { created: false, reason: 'no_tariff' };
+        }
+
+        // 4. Расчёт стоимости рейса.
+        let cost;
+        try {
+            cost = await tarificationService.calculateTripCost(tripId);
+        } catch (err: any) {
+            return { created: false, reason: `calc_failed:${err.message ?? 'unknown'}` };
+        }
+
+        // 5. Создать draft-счёт + invoice_trips + journal в одной транзакции.
+        const authorId = author?.authorId ?? '00000000-0000-0000-0000-000000000000';
+        const authorRole = author?.authorRole ?? 'system';
+
+        const created = await db.transaction(async (tx) => {
+            // Двойная защита от гонок: проверить связь ещё раз внутри tx.
+            const [doubleCheck] = await tx
+                .select({ invoiceId: invoiceTrips.invoiceId })
+                .from(invoiceTrips)
+                .where(eq(invoiceTrips.tripId, tripId))
+                .limit(1);
+            if (doubleCheck) {
+                return { skipped: true, invoiceId: doubleCheck.invoiceId };
+            }
+
+            const [tripRow] = await tx
+                .select({
+                    actualCompletionAt: trips.actualCompletionAt,
+                    createdAt: trips.createdAt,
+                })
+                .from(trips)
+                .where(eq(trips.id, tripId))
+                .limit(1);
+            const periodAnchor = tripRow?.actualCompletionAt ?? tripRow?.createdAt ?? new Date();
+
+            const number = await this.getNextInvoiceNumber('invoice', tx);
+
+            const [invoice] = await tx
+                .insert(invoices)
+                .values({
+                    number,
+                    contractorId,
+                    contractId,
+                    type: 'invoice',
+                    status: 'draft',
+                    subtotal: cost.subtotal,
+                    vatAmount: cost.vatAmount,
+                    total: cost.total,
+                    periodStart: periodAnchor,
+                    periodEnd: periodAnchor,
+                })
+                .returning();
+
+            await tx.insert(invoiceTrips).values({
+                invoiceId: invoice.id,
+                tripId,
+            });
+
+            await recordEvent({
+                authorId,
+                authorRole,
+                eventType: 'invoice.auto_created',
+                entityType: 'invoice',
+                entityId: invoice.id,
+                data: {
+                    tripId,
+                    contractorId,
+                    contractId,
+                    number: invoice.number,
+                    total: invoice.total,
+                    source: 'trip.completed',
+                },
+            }, tx);
+
+            return { skipped: false, invoiceId: invoice.id };
+        });
+
+        if (created.skipped) {
+            return { created: false, reason: 'already_invoiced', invoiceId: created.invoiceId };
+        }
+        return { created: true, invoiceId: created.invoiceId };
+    }
+
+    /**
+     * Сформировать сводные счета за период по всем завершённым рейсам без счетов.
+     * Группирует рейсы по контрагенту → один консолидированный счёт на каждого.
+     * Возвращает списки `created` и `skipped` для аудита.
+     */
+    async bulkGenerateInvoices(
+        params: { from: string; to: string; contractorId?: string },
+        author: { authorId: string; authorRole: string; organizationId?: string | null },
+    ): Promise<{
+        created: Array<{ invoiceId: string; contractorId: string; tripIds: string[]; total: number }>;
+        skipped: Array<{ tripId: string; reason: string }>;
+    }> {
+        const fromDate = new Date(params.from);
+        const toDate = new Date(params.to);
+
+        const conditions = [
+            eq(trips.status, 'completed'),
+            gte(trips.actualCompletionAt, fromDate),
+            lte(trips.actualCompletionAt, toDate),
+        ];
+        if (author.organizationId) {
+            conditions.push(eq(trips.organizationId, author.organizationId));
+        }
+
+        // Найти все completed рейсы, у которых ещё нет связанного счёта.
+        const completedRows = await db
+            .selectDistinct({
+                tripId: trips.id,
+                contractorId: orders.contractorId,
+                contractId: orders.contractId,
+            })
+            .from(trips)
+            .innerJoin(tripOrders, eq(trips.id, tripOrders.tripId))
+            .innerJoin(orders, eq(tripOrders.orderId, orders.id))
+            .leftJoin(invoiceTrips, eq(invoiceTrips.tripId, trips.id))
+            .where(and(
+                ...conditions,
+                isNull(invoiceTrips.invoiceId),
+                params.contractorId ? eq(orders.contractorId, params.contractorId) : undefined,
+            ));
+
+        const created: Array<{ invoiceId: string; contractorId: string; tripIds: string[]; total: number }> = [];
+        const skipped: Array<{ tripId: string; reason: string }> = [];
+
+        // Сгруппировать по contractor + contract.
+        const byContractor = new Map<string, { contractorId: string; contractId: string; tripIds: string[] }>();
+        for (const row of completedRows) {
+            if (!row.contractorId || !row.contractId) {
+                skipped.push({ tripId: row.tripId, reason: 'no_contract' });
+                continue;
+            }
+            const key = `${row.contractorId}::${row.contractId}`;
+            const bucket = byContractor.get(key) ?? { contractorId: row.contractorId, contractId: row.contractId, tripIds: [] };
+            bucket.tripIds.push(row.tripId);
+            byContractor.set(key, bucket);
+        }
+
+        for (const bucket of byContractor.values()) {
+            // Проверить тариф.
+            const [tariff] = await db
+                .select({ id: tariffs.id })
+                .from(tariffs)
+                .where(eq(tariffs.contractId, bucket.contractId))
+                .limit(1);
+            if (!tariff) {
+                for (const tid of bucket.tripIds) skipped.push({ tripId: tid, reason: 'no_tariff' });
+                continue;
+            }
+
+            // Расчёт стоимости батчем.
+            const costMap = await tarificationService.calculateBatchTripCosts(bucket.tripIds);
+            let subtotal = 0;
+            let vat = 0;
+            let total = 0;
+            const billable: string[] = [];
+            for (const tid of bucket.tripIds) {
+                const c = costMap.get(tid);
+                if (!c) {
+                    skipped.push({ tripId: tid, reason: 'calc_failed' });
+                    continue;
+                }
+                subtotal += c.subtotal;
+                vat += c.vatAmount;
+                total += c.total;
+                billable.push(tid);
+            }
+            if (billable.length === 0) continue;
+
+            try {
+                const invoiceId = await db.transaction(async (tx) => {
+                    const number = await this.getNextInvoiceNumber('invoice', tx);
+                    const [invoice] = await tx
+                        .insert(invoices)
+                        .values({
+                            number,
+                            contractorId: bucket.contractorId,
+                            contractId: bucket.contractId,
+                            type: 'invoice',
+                            status: 'draft',
+                            subtotal,
+                            vatAmount: vat,
+                            total,
+                            periodStart: fromDate,
+                            periodEnd: toDate,
+                        })
+                        .returning();
+
+                    await tx.insert(invoiceTrips).values(
+                        billable.map((tid) => ({ invoiceId: invoice.id, tripId: tid }))
+                    );
+
+                    await recordEvent({
+                        authorId: author.authorId,
+                        authorRole: author.authorRole,
+                        eventType: 'invoice.auto_created',
+                        entityType: 'invoice',
+                        entityId: invoice.id,
+                        data: {
+                            number: invoice.number,
+                            contractorId: bucket.contractorId,
+                            contractId: bucket.contractId,
+                            tripIds: billable,
+                            total: invoice.total,
+                            source: 'finance.bulk_generate',
+                        },
+                    }, tx);
+
+                    return invoice.id;
+                });
+
+                created.push({
+                    invoiceId,
+                    contractorId: bucket.contractorId,
+                    tripIds: billable,
+                    total,
+                });
+            } catch (err: any) {
+                for (const tid of billable) skipped.push({ tripId: tid, reason: `tx_failed:${err?.message ?? 'unknown'}` });
+            }
+        }
+
+        return { created, skipped };
     }
 }
 

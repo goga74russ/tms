@@ -116,6 +116,20 @@ export async function startSimulation(
                 headingDeg: sample.headingDeg,
                 source: 'mock',
             });
+
+            // Wave 4: пересчёт ETA + broadcast по WS, если есть рейс.
+            if (resolvedTripId) {
+                try {
+                    const { computeTripEta } = await import('../../modules/trips/eta.service.js');
+                    const eta = await computeTripEta(resolvedTripId);
+                    if (eta) {
+                        const { broadcastEvent } = await import('../websocket.js');
+                        broadcastEvent('trip.eta_updated', { tripId: resolvedTripId, eta });
+                    }
+                } catch (etaErr) {
+                    console.warn('[wialon-mock] ETA recompute failed:', (etaErr as Error).message);
+                }
+            }
         } catch (err) {
             // Лог через console — у нас нет fastify-инстанса в этом контексте
             console.error('[wialon-mock] tick error', (err as Error).message);

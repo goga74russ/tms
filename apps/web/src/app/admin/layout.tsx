@@ -4,12 +4,13 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useUser } from '@/lib/user-context';
-import { Users, FileText, ClipboardCheck, ShieldCheck, ChevronLeft, SlidersHorizontal } from 'lucide-react';
+import { Users, FileText, ClipboardCheck, ShieldCheck, ChevronLeft, SlidersHorizontal, Truck } from 'lucide-react';
 
 const adminNav = [
     { name: 'Пользователи', href: '/admin/users', icon: Users },
     { name: 'Тарифы', href: '/admin/tariffs', icon: FileText },
     { name: 'Шаблоны ЧЛ', href: '/admin/checklists', icon: ClipboardCheck },
+    { name: 'Перевозчики', href: '/admin/carriers', icon: Truck },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

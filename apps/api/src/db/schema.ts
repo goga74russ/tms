@@ -190,12 +190,15 @@ export const contractors = pgTable('contractors', {
     phone: varchar('phone', { length: 20 }),
     email: varchar('email', { length: 255 }),
     isArchived: boolean('is_archived').notNull().default(false),
+    // Wave 4: контрагент может выступать как перевозчик-субподрядчик.
+    isCarrier: boolean('is_carrier').notNull().default(false),
     // Multitenancy (Sprint 14)
     organizationId: uuid('organization_id').references(() => organizations.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
     uniqueIndex('idx_contractors_inn').on(table.inn),
+    index('idx_contractors_is_carrier').on(table.isCarrier),
 ]);
 
 // ================================================================
@@ -396,6 +399,8 @@ export const trips = pgTable('trips', {
     notes: text('notes'),
     originalDocumentsReceived: boolean('original_documents_received').notNull().default(false),
     organizationId: uuid('organization_id').references(() => organizations.id),
+    // Wave 4: рейс выполняется субподрядчиком-перевозчиком.
+    carrierContractorId: uuid('carrier_contractor_id').references(() => contractors.id, { onDelete: 'set null' }),
     createdBy: uuid('created_by').notNull().references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -406,6 +411,7 @@ export const trips = pgTable('trips', {
     index('idx_trips_trailer').on(table.trailerId),
     index('idx_trips_driver').on(table.driverId),
     index('idx_trips_org').on(table.organizationId),
+    index('idx_trips_carrier_contractor').on(table.carrierContractorId),
 ]);
 
 // ================================================================
@@ -1391,6 +1397,29 @@ export const temperatureReadings = pgTable('temperature_readings', {
     index('idx_temp_readings_order_recorded')
         .on(table.orderId, sql`${table.recordedAt} DESC`)
         .where(sql`${table.orderId} IS NOT NULL`),
+]);
+
+// ================================================================
+// Wave 4: Carrier subcontracting v0
+// Договоры с перевозчиками-субподрядчиками. status управляет
+// жизненным циклом (draft → active → terminated), договор вступает
+// в силу только в статусе 'active'.
+// ================================================================
+export const carrierContracts = pgTable('carrier_contracts', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    contractorId: uuid('contractor_id').notNull().references(() => contractors.id, { onDelete: 'cascade' }),
+    number: varchar('number', { length: 100 }).notNull(),
+    startDate: timestamp('start_date', { withTimezone: true }).notNull(),
+    endDate: timestamp('end_date', { withTimezone: true }),
+    defaultRatePerKm: numeric('default_rate_per_km', { precision: 12, scale: 2 }).$type<number>(),
+    defaultRatePerTon: numeric('default_rate_per_ton', { precision: 12, scale: 2 }).$type<number>(),
+    status: varchar('status', { length: 20 }).notNull().default('draft'),
+    organizationId: uuid('organization_id').references(() => organizations.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_carrier_contracts_contractor').on(table.contractorId),
+    index('idx_carrier_contracts_status').on(table.status),
+    index('idx_carrier_contracts_org').on(table.organizationId),
 ]);
 
 // ================================================================
