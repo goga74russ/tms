@@ -202,6 +202,73 @@ After product-market fit signals from Phase 5:
 - SOC 2 / ISO 27001 prep (only if enterprise customers ask).
 - 24/7 on-call rotation.
 
+## Phase 7 — AI dispatcher co-pilot (4 weeks dev, paid-tier killer feature)
+
+The "wow" feature for monetization. The dispatcher is the most loaded role in any transport company — 30–50 orders/day, 10–30 active trips, constant phone calls. Russian TMS competitors (1С, АТИ, TopLog, Топлог) are all CRUD interfaces with filters. None offer a natural-language co-pilot. Window of differentiation: ~12–18 months before they catch up.
+
+### Why this is feasible right now (2026)
+
+- LLM function calling is production-grade (Claude / GPT / Gemini all reliable).
+- Russian language quality near parity with English in modern frontier models.
+- All required data is already exposed via our 200+ API endpoints from W1–W6.
+- Mocks vs real providers irrelevant — co-pilot works on either.
+- Cost: Claude Haiku 4.5 at ~$1/M input + $5/M output. A typical query (5 K in + 500 out) ≈ $0.008. 100 queries/day per dispatcher ≈ ~25 USD/mo. Easily covered by paid-tier subscription.
+
+### Top demo scenarios (build in this order)
+
+1. **«Какие рейсы под риском опоздания?»** — model fetches `in_transit` trips, compares ETA to window-end, returns ranked list with reasons (traffic / loading delay / driver issue) and inline action buttons (notify client, extend window).
+2. **«У водителя X завтра превышение РТО — переназначь»** — checks `hos-status`, identifies conflicting trips, proposes reassignment to a driver with lower weekly hours and matching cargo / ADR compatibility, explains tradeoffs.
+3. **«Где сейчас груз клиента Y?»** — finds active trips for the contractor, returns last GPS position, ETA, current route point status.
+4. **«Сколько стоит рейс Москва→Воронеж по нашему среднему?»** — calls `tarification.service` with current tariff, shows breakdown.
+5. **«Покажи маржу за неделю»** — generates a chart inline from finance data, top / bottom orders.
+6. **«Создай заказ для нового клиента ИНН ...»** — DaData lookup → contractor draft → order template form pre-filled.
+7. **«Распредели завтрашние 30 заказов между свободными машинами»** — multi-step plan: filter compatible vehicles, balance by HOS, propose assignments with explanations.
+8. **«Что случилось с рейсом #1234?»** — reads full trip dossier, summarizes events timeline including incidents and breaches.
+9. **«Сколько простоев в этом месяце и где?»** — aggregates downtime records, breaks down by reason / contractor / vehicle.
+10. **«Уведоми клиента что рейс задерживается на час»** — drafts message text, asks for confirmation, sends via Telegram or e-mail.
+
+### Technical scope
+
+**Architecture:**
+- New module `apps/api/src/modules/copilot/` with:
+  - `tools/` — wrappers around our existing endpoints, defined as JSON schemas for LLM function calling (~30 tools for MVP)
+  - `prompt.ts` — domain system prompt teaching the model about waybill/ETrN/HOS/cold chain semantics
+  - `service.ts` — streaming chat orchestrator (LangChain or direct Anthropic SDK)
+  - `routes.ts` — `POST /api/copilot/chat` (SSE stream), `GET /api/copilot/conversations`, `POST /api/copilot/feedback`
+- New table `copilot_conversations` (id, user_id, organization_id, started_at, message_count) and `copilot_messages` (id, conversation_id, role, content, tool_calls, tool_results, created_at).
+- Web: chat panel docked to right side of dispatcher dashboard, expandable to full screen. Streaming responses, tool-call visualization, click-to-execute action buttons.
+- LLM choice: Claude Haiku 4.5 default (cost), Claude Sonnet 4.6 toggle for complex reasoning ("распредели 30 заказов"). Both via Anthropic SDK with prompt caching.
+
+**Safety / quality:**
+- All write operations require explicit confirmation button (model never silently mutates state).
+- Tool call results validated against Zod schemas before returning to model.
+- Hallucination guard: model is instructed to say "не нашёл данных" rather than invent. Critical for legal / financial answers.
+- Audit log of every chat / tool call linked to user_id for compliance review.
+- Per-organization rate limit (default 500 messages/day on paid tier, 50 on trial).
+
+**Effort breakdown:**
+- Week 1: 30 tool definitions + system prompt + token-counting + cost dashboards.
+- Week 2: Chat UI on dispatcher page with streaming, tool-call rendering, action confirmation.
+- Week 3: Top-10 scenarios QA, prompt iteration, hallucination tests with deliberate edge cases.
+- Week 4: Polish, conversation history, feedback widget, kill-switch flag, paid-tier gating.
+
+### Monetization hook
+
+- **Free tier:** co-pilot disabled, banner "Включить ИИ-копилота за 2 990 ₽/мес".
+- **Paid tier:** unlimited within 500 messages/day soft limit.
+- **Enterprise tier:** dedicated rate limit, custom system prompt with company terminology, audit log export.
+
+This is the natural upsell path: dispatcher uses free-box for two months, gets buried in spreadsheets, sees the co-pilot ad once a week, eventually upgrades. **Free-box stays free; co-pilot is the first thing worth paying for.**
+
+### Risks
+
+- **LLM provider dependency:** Anthropic / OpenAI export restrictions to РФ — payment routing through legal entity in another jurisdiction is required. Already a known constraint for any modern SaaS in РФ.
+- **Hallucinations on legal questions:** mitigated by tool-only architecture (model can only return data we showed it) and explicit "не уверен" instruction in prompt.
+- **Russian IT-sanctions registry compatibility:** if registered in реестр отечественного ПО is required for state customers, AI co-pilot using foreign LLM may disqualify. Mitigation: offer alternative deployment with YandexGPT-5 or GigaChat-MAX (both API-compatible function calling).
+- **Adoption:** dispatchers may resist AI initially. Mitigation: keep all CRUD UIs intact, co-pilot is additive not replacement.
+
+**Phase 7 deliverable:** Paid-tier killer feature live. Demo answers user's question in <2 seconds. First 100 paid customers self-serve.
+
 ## Out of scope
 
 These are explicitly NOT in the roadmap unless a customer asks:

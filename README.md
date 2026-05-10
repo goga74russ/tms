@@ -56,6 +56,7 @@ See [docs/product/roadmap.md](docs/product/roadmap.md) for the full plan. In sho
 3. **Phase 3 — Self-serve onboarding (6–8 weeks)**: sign-up + 6-step wizard, integrations cabinet, bulk import.
 4. **Phase 4 — Compliance breadth (8–12 weeks)**: «Честный знак», ОСАГО / страхование, additional EDI operators.
 5. **Phase 5 — Monetization (6–10 weeks)**: ЮKassa / Тинькофф / CloudPayments billing, paywall.
+6. **Phase 7 — AI dispatcher co-pilot (4 weeks)**: natural-language interface over our API for the most loaded role. Paid-tier killer feature. Window of differentiation vs 1С / АТИ / TopLog: ~12–18 months.
 
 Mock → real provider map: [docs/operations/integrations-status.md](docs/operations/integrations-status.md).
 Free-box feature checklist: [docs/operations/free-box-checklist.md](docs/operations/free-box-checklist.md).
