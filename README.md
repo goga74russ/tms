@@ -41,14 +41,24 @@ docs            v2 documentation
 - `D:\Ai\TMS` is the archive/reference workspace.
 - Do not treat old docs as current until they are copied or rewritten into `docs/`.
 
-## Next Priorities
+## Status
 
-The free-box ("бесплатный контур") is feature-complete: order → trip → waybill → inspections → release → delivery → document-return → billing all work end-to-end without paid integrations (Wialon/EDO/fuel-card/geocoder are realistic mocks). See `docs/operations/free-box-checklist.md`.
+The free-box ("бесплатный контур") is feature-complete: order → trip → waybill → inspections → release → delivery → document-return → billing all work end-to-end without paid integrations. Wialon, ЭДО, fuel cards, ГИБДД, DaData are realistic mocks ready to be swapped for real providers.
 
-1. Pilot deployment + smoke test — stand up a real org on staging and walk one trip through the full chain.
-2. Real provider integrations (Wialon, ЭДО, fuel cards) — paid tier; mocks already match the target contracts.
-3. Test coverage expansion — currently only RBAC + utils (42/42 passing); add module-level tests for trips, waybills, billing.
-4. Performance tuning + observability — replace remaining `console.log` with pino, add metrics/health probes.
+What was built in waves W1–W6: see [docs/operations/wave-summary.md](docs/operations/wave-summary.md).
+
+## What's next
+
+See [docs/product/roadmap.md](docs/product/roadmap.md) for the full plan. In short:
+
+1. **Phase 1 — Pilot stabilization (4–6 weeks)**: Playwright E2E happy path, observability, migration cleanup.
+2. **Phase 2 — First paid integrations (8–12 weeks)**: signature provider abstraction, DaData live, Diadoc EDI + ETrN, tachograph DDD upload, Wialon live.
+3. **Phase 3 — Self-serve onboarding (6–8 weeks)**: sign-up + 6-step wizard, integrations cabinet, bulk import.
+4. **Phase 4 — Compliance breadth (8–12 weeks)**: «Честный знак», ОСАГО / страхование, additional EDI operators.
+5. **Phase 5 — Monetization (6–10 weeks)**: ЮKassa / Тинькофф / CloudPayments billing, paywall.
+
+Mock → real provider map: [docs/operations/integrations-status.md](docs/operations/integrations-status.md).
+Free-box feature checklist: [docs/operations/free-box-checklist.md](docs/operations/free-box-checklist.md).
 
 ## Quick Start
 
