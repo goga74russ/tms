@@ -6,6 +6,7 @@
 // рейс с уже привязанным счётом будет пропущен.
 // ============================================================
 import { Worker, Job } from 'bullmq';
+import type { FastifyBaseLogger } from 'fastify';
 import { redisConnectionConfig } from '../redis.js';
 import { QUEUE_BILLING } from '../queues.js';
 import { recordEvent } from '../../events/journal.js';
@@ -69,7 +70,7 @@ async function processBillingDaily(job: Job): Promise<BillingDailyResult> {
 
 let billingWorker: Worker | null = null;
 
-export function startBillingWorker(): Worker {
+export function startBillingWorker(logger: FastifyBaseLogger): Worker {
     billingWorker = new Worker(QUEUE_BILLING, processBillingDaily, {
         connection: redisConnectionConfig,
         concurrency: 1,
@@ -77,14 +78,14 @@ export function startBillingWorker(): Worker {
     });
 
     billingWorker.on('completed', (job) => {
-        console.info(`✅ Billing daily job ${job.id} completed`);
+        logger.info({ jobId: job.id }, 'Billing daily job completed');
     });
 
     billingWorker.on('failed', (job, err) => {
-        console.error(`❌ Billing daily job ${job?.id} failed:`, err.message);
+        logger.error({ err, jobId: job?.id }, 'Billing daily job failed');
     });
 
-    console.info('💸 Billing daily worker started');
+    logger.info('Billing daily worker started');
     return billingWorker;
 }
 

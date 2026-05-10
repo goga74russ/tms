@@ -7,7 +7,8 @@
         "dev": "next dev --port 3000",
         "build": "next build",
         "start": "next start",
-        "lint": "tsc --noEmit"
+        "lint": "tsc --noEmit",
+        "e2e": "playwright test"
     },
     "dependencies": {
         "@radix-ui/react-checkbox": "^1.3.3",
@@ -22,6 +23,7 @@
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "date-fns": "^4.1.0",
+        "jose": "^5.9.6",
         "leaflet": "^1.9.4",
         "leaflet-routing-machine": "^3.2.12",
         "lucide-react": "^0.469.0",
@@ -36,6 +38,7 @@
         "zustand": "^5.0.0"
     },
     "devDependencies": {
+        "@playwright/test": "^1.48.0",
         "@types/leaflet": "^1.9.0",
         "@types/node": "^22.0.0",
         "@types/react": "^19.0.0",

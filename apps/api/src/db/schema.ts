@@ -1473,3 +1473,61 @@ export const vehiclePositions = pgTable('vehicle_positions', {
     index('idx_vehicle_positions_vehicle_recorded').on(table.vehicleId, sql`${table.recordedAt} DESC`),
 ]);
 
+// === PROVIDER FRAMEWORK (Round 1C) ===
+// Pluggable adapters for signature/EDI/telematics/fuel-card/fines/marking/payment/email
+// providers. Real credentials live encrypted in `encrypted_credentials` (AES-256-GCM,
+// key from CREDENTIALS_KEY env). The framework lets us swap a mock for a real provider
+// per organization within hours when API keys arrive.
+export const providerCredentials = pgTable('provider_credentials', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    // 'signature' | 'edi' | 'telematics' | 'fuel_card' | 'fines' | 'marking' | 'payment' | 'email'
+    providerType: text('provider_type').notNull(),
+    // 'gosklyuch' | 'kontur_sign' | 'sbis_sign' | 'cadesplugin' | 'diadoc' | 'sbis' |
+    // 'kontur' | 'wialon' | 'omnicomm' | 'glonasssoft' | 'lukoil' | 'rosneft' |
+    // 'gazpromneft' | 'autocode' | 'fssp' | 'gibdd' | 'crpt' | 'yookassa' | 'tinkoff' |
+    // 'cloudpayments' | 'mailru_smtp' | 'unisender' | 'mock'
+    providerName: text('provider_name').notNull(),
+    // 'mock' | 'sandbox' | 'active' | 'disabled' | 'error'
+    status: text('status').notNull().default('mock'),
+    encryptedCredentials: text('encrypted_credentials'),
+    lastHealthCheckAt: timestamp('last_health_check_at', { withTimezone: true }),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('uniq_provider_credentials_org_type_name')
+        .on(table.organizationId, table.providerType, table.providerName),
+    index('idx_provider_credentials_org_type').on(table.organizationId, table.providerType),
+]);
+
+// === COPILOT (Round 1A) ===
+export const copilotMessageRoleEnum = pgEnum('copilot_message_role', [
+    'user', 'assistant', 'tool', 'system',
+]);
+
+export const copilotConversations = pgTable('copilot_conversations', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    messageCount: integer('message_count').notNull().default(0),
+    lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_copilot_conversations_user').on(table.userId, sql`${table.lastActivityAt} DESC`),
+    index('idx_copilot_conversations_org').on(table.organizationId, sql`${table.lastActivityAt} DESC`),
+]);
+
+export const copilotMessages = pgTable('copilot_messages', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    conversationId: uuid('conversation_id').notNull().references(() => copilotConversations.id, { onDelete: 'cascade' }),
+    role: copilotMessageRoleEnum('role').notNull(),
+    content: text('content').notNull().default(''),
+    toolName: text('tool_name'),
+    toolInput: jsonb('tool_input').$type<Record<string, unknown>>(),
+    toolOutput: jsonb('tool_output').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_copilot_messages_conv_created').on(table.conversationId, table.createdAt),
+]);
+

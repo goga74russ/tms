@@ -127,6 +127,20 @@
       "when": 1773640835000,
       "tag": "0018_wave6_fuel_record_source",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1773640836000,
+      "tag": "0019_copilot",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1773640838000,
+      "tag": "0021_provider_framework",
+      "breakpoints": true
     }
   ]
 }

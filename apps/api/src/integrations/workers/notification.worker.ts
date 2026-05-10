@@ -3,6 +3,7 @@
 // Processes Telegram notifications asynchronously
 // ============================================================
 import { Queue, Worker, Job } from 'bullmq';
+import type { FastifyBaseLogger } from 'fastify';
 import { redisConnectionConfig } from '../redis.js';
 import { sendMessage, formatEventMessage, isNotifiableEvent } from '../telegram.service.js';
 import { db } from '../../db/connection.js';
@@ -76,7 +77,7 @@ async function processNotification(job: Job<NotificationJobData>) {
 
 let notificationWorker: Worker | null = null;
 
-export function startNotificationWorker(): Worker {
+export function startNotificationWorker(logger: FastifyBaseLogger): Worker {
     notificationWorker = new Worker(QUEUE_NOTIFICATIONS, processNotification, {
         connection: redisConnectionConfig,
         concurrency: 3,
@@ -86,15 +87,18 @@ export function startNotificationWorker(): Worker {
     notificationWorker.on('completed', (job) => {
         const result = job.returnvalue;
         if (result && !result.skipped) {
-            console.info(`📨 Notification sent: ${result.eventType} → ${result.sent} recipients`);
+            logger.info(
+                { eventType: result.eventType, sent: result.sent },
+                'Notification sent',
+            );
         }
     });
 
     notificationWorker.on('failed', (job, err) => {
-        console.error(`❌ Notification job ${job?.id} failed:`, err.message);
+        logger.error({ err, jobId: job?.id }, 'Notification job failed');
     });
 
-    console.info('📨 Notification worker started');
+    logger.info('Notification worker started');
     return notificationWorker;
 }
 

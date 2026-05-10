@@ -3,6 +3,7 @@
 // Periodically fetches telemetry and updates vehicle odometer
 // ============================================================
 import { Worker, Job } from 'bullmq';
+import type { FastifyBaseLogger } from 'fastify';
 import { redisConnectionConfig } from '../redis.js';
 import { QUEUE_WIALON_SYNC } from '../queues.js';
 import { db } from '../../db/connection.js';
@@ -165,7 +166,7 @@ async function processWialonSync(job: Job): Promise<{
 
 let wialonWorker: Worker | null = null;
 
-export function startWialonWorker(): Worker {
+export function startWialonWorker(logger: FastifyBaseLogger): Worker {
     wialonWorker = new Worker(QUEUE_WIALON_SYNC, processWialonSync, {
         connection: redisConnectionConfig,
         concurrency: 1, // one sync at a time
@@ -173,14 +174,14 @@ export function startWialonWorker(): Worker {
     });
 
     wialonWorker.on('completed', (job) => {
-        console.info(`✅ Wialon sync job ${job.id} completed`);
+        logger.info({ jobId: job.id }, 'Wialon sync job completed');
     });
 
     wialonWorker.on('failed', (job, err) => {
-        console.error(`❌ Wialon sync job ${job?.id} failed:`, err.message);
+        logger.error({ err, jobId: job?.id }, 'Wialon sync job failed');
     });
 
-    console.info('🛰️ Wialon sync worker started');
+    logger.info('Wialon sync worker started');
     return wialonWorker;
 }
 

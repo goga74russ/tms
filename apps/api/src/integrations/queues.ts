@@ -2,6 +2,7 @@
 // BullMQ Queue Definitions
 // ============================================================
 import { Queue } from 'bullmq';
+import type { FastifyBaseLogger } from 'fastify';
 import { redisConnectionConfig } from './redis.js';
 
 // --- Queue names ---
@@ -46,7 +47,7 @@ export const billingQueue = new Queue(QUEUE_BILLING, {
  * - Fines sync: once a day at 03:00 MSK
  * - Billing daily: bulk-generate за прошедшие сутки в 02:00
  */
-export async function setupRepeatableJobs(): Promise<void> {
+export async function setupRepeatableJobs(logger?: FastifyBaseLogger): Promise<void> {
     // Remove old repeatables first to avoid duplicates on restart
     const wialonReps = await wialonSyncQueue.getRepeatableJobs();
     for (const job of wialonReps) {
@@ -76,7 +77,13 @@ export async function setupRepeatableJobs(): Promise<void> {
         repeat: { pattern: '0 2 * * *' }, // daily at 02:00
     });
 
-    console.info('📋 Repeatable jobs configured: Wialon (*/15min), Fines (daily 03:00), Billing (daily 02:00)');
+    const msg = 'Repeatable jobs configured: Wialon (*/15min), Fines (daily 03:00), Billing (daily 02:00)';
+    if (logger) {
+        logger.info(msg);
+    } else {
+        // Bootstrap fallback only.
+        console.info(`📋 ${msg}`);
+    }
 }
 
 /**

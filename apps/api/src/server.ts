@@ -169,6 +169,10 @@ await app.register(import('./modules/carriers/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/adr/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/edi/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/scoring/routes.js'), { prefix: '/api' });
+// Phase 7: AI dispatcher co-pilot MVP
+await app.register(import('./modules/copilot/routes.js'), { prefix: '/api' });
+// Round 1C: provider framework — credential management
+await app.register(import('./modules/integrations/credentials/routes.js'), { prefix: '/api' });
 await app.register(import('./integrations/websocket.js'), { prefix: '/api' });
 
 // --- Health check ---
@@ -179,14 +183,14 @@ app.get('/api/health', { schema: { tags: ['Здоровье'], summary: 'Health 
 }));
 
 // --- Readiness check (DB + Redis) ---
-app.get('/api/health/ready', { schema: { tags: ['Здоровье'], summary: 'Readiness check', description: 'Проверка готовности: БД + Redis.' } }, async () => {
+app.get('/api/health/ready', { schema: { tags: ['Здоровье'], summary: 'Readiness check', description: 'Проверка готовности: БД + Redis.' } }, async (request) => {
     let dbOk = false;
     let redisOk = false;
     try {
         await rawSql`SELECT 1`;
         dbOk = true;
     } catch { }
-    redisOk = await testRedisConnection();
+    redisOk = await testRedisConnection(request.log);
     const status = dbOk && redisOk ? 'ok' : 'degraded';
     return { status, db: dbOk, redis: redisOk, timestamp: new Date().toISOString() };
 });
@@ -217,15 +221,15 @@ app.addHook('onRequest', (request, reply, done) => {
 });
 
 // --- BullMQ Workers ---
-const redisOk = await testRedisConnection();
+const redisOk = await testRedisConnection(app.log);
 if (redisOk) {
-    startWialonWorker();
-    startFinesWorker();
-    startNotificationWorker();
-    startBillingWorker();
-    await setupRepeatableJobs();
+    startWialonWorker(app.log);
+    startFinesWorker(app.log);
+    startNotificationWorker(app.log);
+    startBillingWorker(app.log);
+    await setupRepeatableJobs(app.log);
     app.log.info('🔄 BullMQ workers started (wialon, fines, notifications, billing)');
-    startPositionBroadcast(10000); // Broadcast vehicle positions every 10s
+    startPositionBroadcast(app.log, 10000); // Broadcast vehicle positions every 10s
     app.log.info('📡 Vehicle position WebSocket broadcast started');
 } else {
     app.log.warn('⚠️ Redis unavailable — BullMQ workers disabled');

@@ -52,3 +52,53 @@ jobs:
 
       - name: Validate compose config
         run: docker compose --env-file .env.example -f docker-compose.prod.yml config --quiet
+
+  # ----------------------------------------------------------------
+  # Playwright happy-path E2E.
+  #
+  # ADVISORY ONLY: this job is `continue-on-error: true` because the
+  # CI runner does not yet have a seeded Postgres + Redis pair. The
+  # tests will fail at the login step until that environment is
+  # wired up (Phase 1 follow-up). We still run the suite so:
+  #
+  #   - browser binaries stay warm in the cache,
+  #   - Playwright config / spec authoring breakages surface early,
+  #   - we get a green checkmark the day the env is provisioned.
+  #
+  # Do NOT remove `continue-on-error` until a real DB-backed env is
+  # in place — otherwise this job will block every PR.
+  # ----------------------------------------------------------------
+  playwright:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.2 --activate
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @tms/web exec playwright install --with-deps chromium
+
+      - name: Run Playwright tests (advisory)
+        run: pnpm --filter @tms/web exec playwright test
+

@@ -12,6 +12,8 @@ import { downloadFromApi } from '@/lib/download';
 import { useVehiclePositions } from '@/hooks/useVehiclePositions';
 import { useWialonPositions, type ActiveVehicleSubscription } from '@/hooks/useWialonPositions';
 import { useUser } from '@/lib/user-context';
+import { userCanUseCopilot } from '@tms/shared';
+import { CopilotChat } from '@/components/CopilotChat';
 import type { RoutePoint } from './components/TripRouteLayer';
 import type { LiveGpsMarker } from './components/DispatcherMap';
 
@@ -185,6 +187,7 @@ export default function DispatcherPage() {
 
     const { user } = useUser();
     const isAdmin = !!user?.roles?.includes('admin');
+    const showCopilot = userCanUseCopilot(user?.roles);
 
     // Derive list of active-trip vehicles for live GPS subscription
     const activeTripSubs = useMemo<ActiveVehicleSubscription[]>(() => {
@@ -1140,6 +1143,7 @@ export default function DispatcherPage() {
                     />
                 </div>
             </div>
+            {showCopilot && <CopilotChat />}
         </div>
     );
 }
