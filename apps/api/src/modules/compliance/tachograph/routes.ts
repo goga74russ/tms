@@ -8,6 +8,7 @@ import { desc, eq } from 'drizzle-orm';
 import { db } from '../../../db/connection.js';
 import { tachographUploads, drivers } from '../../../db/schema.js';
 import { ingestDddBuffer } from './service.js';
+import { requireFeature } from '../../../auth/plan-guard.js';
 
 interface AuthUser {
     userId: string;
@@ -26,7 +27,7 @@ const tachographRoutes: FastifyPluginAsync = async (app) => {
             description: 'Парсит файл лучшим образом, сохраняет посуточные сводки в `tachograph_records` и аудит-запись в `tachograph_uploads`. Привязка к водителю по номеру СКЗИ-карты.',
             consumes: ['multipart/form-data'],
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('tachograph')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const data = await request.file();
@@ -75,7 +76,7 @@ const tachographRoutes: FastifyPluginAsync = async (app) => {
             summary: 'Журнал загрузок тахографа',
             description: 'Возвращает последние 100 загрузок текущей организации.',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('tachograph')],
     }, async (request) => {
         const user = request.user as AuthUser;
         if (!user.organizationId) return { success: true, data: [] };

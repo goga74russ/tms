@@ -305,6 +305,22 @@ export default function MechanicPage() {
         }
     };
 
+    // D5: Quick override of a journal entry's decision (no full checklist re-entry).
+    const overrideDecision = async (record: InspectionRecord, decision: 'approved' | 'rejected') => {
+        if (record.decision === decision) return;
+        try {
+            await api.post(`/inspections/tech/${record.id}/decision`, { decision });
+            setToast({
+                message: decision === 'approved' ? 'Решение изменено: Допущен' : 'Решение изменено: Не допущен',
+                type: decision === 'approved' ? 'success' : 'error',
+            });
+            await loadJournal();
+            await loadQueue();
+        } catch (err: any) {
+            setToast({ message: err.message || 'Ошибка', type: 'error' });
+        }
+    };
+
     // Auto-dismiss toast
     useEffect(() => {
         if (toast) {
@@ -550,10 +566,9 @@ export default function MechanicPage() {
                 {/* Queue Tab */}
                 {activeTab === 'queue' && !selectedVehicle && (
                     <div>
-                        {/* TODO(wave1): Add inline "Допустить" / "Не допускать" buttons per queue row.
-                          * Skipped: backend has no POST /inspections/tech/:id/decision endpoint —
-                          * approval requires a full checklist (POST /inspections/tech with items+signature),
-                          * so per-row quick approve cannot be wired without a new API endpoint. */}
+                        {/* D5: Per-row quick approval requires a full checklist + ПЭП, so the queue
+                          * still drills into the inspection form. Lightweight decision overrides are
+                          * exposed in the Journal tab via POST /inspections/tech/:id/decision. */}
                         <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                             <Truck className="w-5 h-5 text-orange-500" />
                             Очередь на техосмотр
@@ -709,16 +724,39 @@ export default function MechanicPage() {
                                                         .join(', ') || '—'}
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <a
-                                                        href={`/api/inspections/tech/${record.id}/pdf`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition"
-                                                        title="Скачать акт PDF"
-                                                    >
-                                                        <FileText className="w-3.5 h-3.5" />
-                                                        PDF акт
-                                                    </a>
+                                                    <div className="flex items-center gap-2">
+                                                        <a
+                                                            href={`/api/inspections/tech/${record.id}/pdf`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition"
+                                                            title="Скачать акт PDF"
+                                                        >
+                                                            <FileText className="w-3.5 h-3.5" />
+                                                            PDF акт
+                                                        </a>
+                                                        {/* D5: per-row decision override (calls POST /inspections/tech/:id/decision). */}
+                                                        {record.decision !== 'approved' && (
+                                                            <button
+                                                                onClick={() => overrideDecision(record, 'approved')}
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+                                                                title="Допустить"
+                                                            >
+                                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                                                Допустить
+                                                            </button>
+                                                        )}
+                                                        {record.decision !== 'rejected' && (
+                                                            <button
+                                                                onClick={() => overrideDecision(record, 'rejected')}
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 transition"
+                                                                title="Не допускать"
+                                                            >
+                                                                <XCircle className="w-3.5 h-3.5" />
+                                                                Не допускать
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))

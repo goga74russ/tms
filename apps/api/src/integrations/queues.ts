@@ -9,6 +9,7 @@ import { redisConnectionConfig } from './redis.js';
 export const QUEUE_WIALON_SYNC = 'wialon-sync';
 export const QUEUE_FINES_SYNC = 'fines-sync';
 export const QUEUE_BILLING = 'billing';
+export const QUEUE_EDI_PROGRESSION = 'edi-progression';
 
 // --- Queue instances ---
 export const wialonSyncQueue = new Queue(QUEUE_WIALON_SYNC, {
@@ -38,6 +39,20 @@ export const billingQueue = new Queue(QUEUE_BILLING, {
         removeOnFail: { count: 30 },
         attempts: 2,
         backoff: { type: 'exponential', delay: 30000 },
+    },
+});
+
+// D20: EDI mock progression — replaces in-process setTimeout with a
+// durable BullMQ delayed job so pending sign transitions survive a
+// server restart. Job IDs are deterministic (`edi:{documentId}:{stage}`)
+// so manual progression can cancel the pending job by ID.
+export const ediProgressionQueue = new Queue(QUEUE_EDI_PROGRESSION, {
+    connection: redisConnectionConfig,
+    defaultJobOptions: {
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 50 },
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
     },
 });
 

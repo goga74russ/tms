@@ -9,6 +9,7 @@ import { transportDocuments } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { requireAbility } from '../../auth/rbac.js';
 import { assertTripAccess } from '../../auth/guards.js';
+import { requireFeature } from '../../auth/plan-guard.js';
 import {
     sendDocumentToEdi,
     getEdiHistory,
@@ -53,7 +54,7 @@ const ediRoutes: FastifyPluginAsync = async (app) => {
             summary: 'Отправить документ в EDI (mock)',
             description: 'Mock-отправка документа в Диадок/СБИС/Контур. Через 5с автоматически подписывается перевозчиком, через 10с — клиентом.',
         },
-        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+        preHandler: [app.authenticate, requireFeature('edi'), requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         const params = ParamsSchema.safeParse(request.params);
         if (!params.success) {
@@ -97,7 +98,7 @@ const ediRoutes: FastifyPluginAsync = async (app) => {
             summary: 'История EDI-событий',
             description: 'Журнал событий по документу (sent/signed/rejected) + текущий статус.',
         },
-        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+        preHandler: [app.authenticate, requireFeature('edi'), requireAbility('read', 'Trip')],
     }, async (request, reply) => {
         const params = ParamsSchema.safeParse(request.params);
         if (!params.success) {
@@ -130,7 +131,7 @@ const ediRoutes: FastifyPluginAsync = async (app) => {
             summary: 'Перевести EDI-статус вручную (admin)',
             description: 'Mock-эндпоинт для демонстрации. Доступен только администраторам.',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('edi')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         if (!isAdmin(user)) {

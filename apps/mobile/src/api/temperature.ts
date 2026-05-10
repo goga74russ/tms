@@ -4,6 +4,7 @@
 // Mirrors the style of trips.ts / inspections.ts.
 // ============================================================
 import NetInfo from '@react-native-community/netinfo';
+import * as Notifications from 'expo-notifications';
 import { getToken } from './auth';
 import { enqueueAction } from './offlineQueue';
 
@@ -107,12 +108,30 @@ export async function submitTemperature(
             body: JSON.stringify(body),
         });
         const data = res?.data || {};
-        return {
+        const result = {
             id: data.id || '',
             breach: Boolean(data.breach),
             slaMinC: typeof data.slaMinC === 'number' ? data.slaMinC : 0,
             slaMaxC: typeof data.slaMaxC === 'number' ? data.slaMaxC : 0,
         };
+        // D27 (Round 3C): trigger a local push notification on breach.
+        // Permission is requested once at screen mount; if not granted,
+        // scheduleNotificationAsync silently no-ops.
+        if (result.breach) {
+            try {
+                await Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: 'Нарушение температурного режима',
+                        body: `Замер ${body.tempC}°C вне SLA (${result.slaMinC} … ${result.slaMaxC}°C). Сообщите диспетчеру.`,
+                        priority: Notifications.AndroidNotificationPriority?.HIGH ?? 'high',
+                    },
+                    trigger: null, // immediate
+                });
+            } catch {
+                // Best-effort — never let a notification failure swallow the API result.
+            }
+        }
+        return result;
     } catch (err) {
         // On transient failure, fall back to queue so the reading is not lost.
         await enqueueAction({

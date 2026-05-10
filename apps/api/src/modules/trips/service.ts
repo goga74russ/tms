@@ -801,14 +801,17 @@ export async function assignTrip(
         });
     }
 
-    // Wave 5: ADR / hazmat (WARN-ONLY).
-    // Если у любой связанной заявки есть adr_class — проверяем совместимость
-    // ТС/водителя. Любая ошибка ADR — это soft-warning (журналируется как
-    // trip.adr_warning, не блокирует назначение).
+    // Wave 5: ADR / hazmat. Default: warn-only.
+    // D19: when org.adr_strict_mode = true, ADR errors escalate from soft
+    // warnings to a 'hard' block so the assignment cannot proceed.
     {
         const hazmatOrders = (trip.orders ?? []).filter((o: any) => o.adrClass);
         if (hazmatOrders.length > 0) {
             const { validateAdrCompatibility } = await import('../adr/service.js');
+            const { getAdrStrictMode } = await import('../compliance/adr/service.js');
+            const strictMode = author.organizationId
+                ? await getAdrStrictMode(author.organizationId)
+                : false;
             for (const hazmatOrder of hazmatOrders) {
                 const adrResult = await validateAdrCompatibility(
                     hazmatOrder.id,
@@ -819,11 +822,15 @@ export async function assignTrip(
                 if (!adrResult.ok) {
                     for (const message of adrResult.errors) {
                         warnings.push({
-                            type: 'soft',
-                            code: 'ADR_INCOMPATIBLE',
-                            message: `ADR (${hazmatOrder.adrClass}${
-                                hazmatOrder.adrUnNumber ? ` ${hazmatOrder.adrUnNumber}` : ''
-                            }): ${message}`,
+                            type: strictMode ? 'hard' : 'soft',
+                            code: strictMode ? 'ADR_BLOCKED' : 'ADR_INCOMPATIBLE',
+                            message: strictMode
+                                ? `Назначение заблокировано: транспорт не соответствует требованиям ADR (${hazmatOrder.adrClass}${
+                                    hazmatOrder.adrUnNumber ? ` ${hazmatOrder.adrUnNumber}` : ''
+                                }): ${message}`
+                                : `ADR (${hazmatOrder.adrClass}${
+                                    hazmatOrder.adrUnNumber ? ` ${hazmatOrder.adrUnNumber}` : ''
+                                }): ${message}`,
                         });
                     }
                 }

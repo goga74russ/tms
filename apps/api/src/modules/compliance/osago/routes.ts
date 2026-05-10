@@ -10,6 +10,7 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '../../../db/connection.js';
 import { vehicles } from '../../../db/schema.js';
 import { runOsagoCheck, runOrgOsagoSync, listLatestOsagoStatuses } from './service.js';
+import { requireFeature } from '../../../auth/plan-guard.js';
 
 interface AuthUser {
     userId: string;
@@ -26,7 +27,7 @@ const osagoRoutes: FastifyPluginAsync = async (app) => {
             summary: 'Проверка ОСАГО для ТС',
             description: 'Запрашивает статус ОСАГО у активного провайдера и сохраняет снимок в osago_checks.',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('osago_monitoring')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const params = ParamsSchema.safeParse(request.params);
@@ -62,7 +63,7 @@ const osagoRoutes: FastifyPluginAsync = async (app) => {
             summary: 'Массовая проверка ОСАГО',
             description: 'Проверяет ОСАГО для всех ТС организации. Только для admin.',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('osago_monitoring')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         if (!user.roles.includes('admin')) {
@@ -88,7 +89,7 @@ const osagoRoutes: FastifyPluginAsync = async (app) => {
             summary: 'Сводка ОСАГО по парку',
             description: 'Последняя проверка ОСАГО для каждого ТС текущей организации.',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('osago_monitoring')],
     }, async (request) => {
         const user = request.user as AuthUser;
         if (!user.organizationId) return { success: true, data: [] };

@@ -14,6 +14,7 @@ import { startWialonWorker, stopWialonWorker } from './integrations/workers/wial
 import { startFinesWorker, stopFinesWorker } from './integrations/workers/fines.worker.js';
 import { startNotificationWorker, stopNotificationWorker } from './integrations/workers/notification.worker.js';
 import { startBillingWorker, stopBillingWorker } from './integrations/workers/billing.worker.js';
+import { startEdiWorker, stopEdiWorker } from './integrations/workers/edi.worker.js';
 import { startPositionBroadcast, stopPositionBroadcast } from './integrations/websocket.js';
 import { sql as rawSql } from './db/connection.js';
 import { APPEND_ONLY_TRIGGER_SQL } from './db/triggers.js';
@@ -47,9 +48,21 @@ const app = Fastify({
 });
 
 // --- Plugins ---
-// H-1: Security headers
+// H-1: Security headers (D15 — proper CSP that still lets Swagger UI run).
+// Swagger UI inlines its own bootstrap script and styles, so we keep
+// 'unsafe-inline' for those two directives. All other directives are
+// locked down to 'self'. If CSP ever causes issues for Swagger, gate it
+// to non-/api/docs paths via a request hook.
 await app.register(helmet, {
-    contentSecurityPolicy: false, // disable CSP for API-only server
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'"], // swagger-ui needs inline
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:"],
+            connectSrc: ["'self'"],
+        },
+    },
 });
 
 // H-2: CORS — multi-origin support for production
@@ -69,12 +82,24 @@ await app.register(cors, {
     credentials: true, // Required for httpOnly cookies
 });
 
-// H-3: Rate limiting — brute-force protection
+// H-3: Rate limiting — brute-force protection.
+// D22: keyed per-user when authenticated (separate bucket from anon IP).
+// SSE co-pilot stream is a single long-lived connection per user, so we
+// skip it via allowList to avoid eating their entire bucket on one chat.
 await app.register(rateLimit, {
     global: true,
     max: RATE_LIMIT_MAX,
     timeWindow: RATE_LIMIT_WINDOW,
-    allowList: ['127.0.0.1'],
+    keyGenerator: (request) => {
+        const user = (request as { user?: { userId?: string } }).user;
+        return user?.userId ? `user:${user.userId}` : `ip:${request.ip}`;
+    },
+    allowList: (request, _key) => {
+        if (request.ip === '127.0.0.1' || request.ip === '::1') return true;
+        // SSE co-pilot stream — long-lived connection.
+        if (request.url.startsWith('/api/copilot/chat')) return true;
+        return false;
+    },
 });
 
 // --- Swagger / OpenAPI (русский) ---
@@ -106,6 +131,7 @@ await app.register(import('@fastify/swagger'), {
             { name: 'Геозоны', description: 'Ограничительные зоны (МКАД, ТТК)' },
             { name: 'Синхронизация', description: 'Офлайн-синхронизация мобильного приложения' },
             { name: 'Уведомления', description: 'Push-уведомления и WebSocket' },
+            { name: 'Аудит', description: 'Журнал событий append-only' },
             { name: 'Здоровье', description: 'Health check и readiness' },
         ],
         components: {
@@ -179,6 +205,9 @@ await app.register(import('./modules/onboarding/routes.js'), { prefix: '/api' })
 await app.register(import('./modules/billing/routes.js'), { prefix: '/api' });
 // Round 2A: compliance breadth — tachograph DDD, ОСАГО, ЦРПТ, ADR strict mode
 await app.register(import('./modules/compliance/routes.js'), { prefix: '/api' });
+// Round 3B: D8 demo data generator + D10 audit log
+await app.register(import('./modules/demo/routes.js'), { prefix: '/api' });
+await app.register(import('./modules/audit/routes.js'), { prefix: '/api' });
 await app.register(import('./integrations/websocket.js'), { prefix: '/api' });
 
 // --- Health check ---
@@ -233,8 +262,9 @@ if (redisOk) {
     startFinesWorker(app.log);
     startNotificationWorker(app.log);
     startBillingWorker(app.log);
+    startEdiWorker(app.log);
     await setupRepeatableJobs(app.log);
-    app.log.info('🔄 BullMQ workers started (wialon, fines, notifications, billing)');
+    app.log.info('🔄 BullMQ workers started (wialon, fines, notifications, billing, edi)');
     startPositionBroadcast(app.log, 10000); // Broadcast vehicle positions every 10s
     app.log.info('📡 Vehicle position WebSocket broadcast started');
 } else {
@@ -250,6 +280,7 @@ for (const signal of signals) {
         await stopFinesWorker();
         await stopNotificationWorker();
         await stopBillingWorker();
+        await stopEdiWorker();
         stopPositionBroadcast();
         await app.close();
         process.exit(0);

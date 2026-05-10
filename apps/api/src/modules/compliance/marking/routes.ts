@@ -14,6 +14,7 @@ import {
     listRecentVerifications,
     categorySummary,
 } from './service.js';
+import { requireFeature } from '../../../auth/plan-guard.js';
 
 interface AuthUser {
     userId: string;
@@ -39,7 +40,7 @@ const markingRoutes: FastifyPluginAsync = async (app) => {
             summary: 'Проверить коды маркировки (Честный знак)',
             description: 'Bulk-verify через активный провайдер ЦРПТ. Сохраняет результаты в marking_verifications.',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('marking')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const parsed = VerifySchema.safeParse(request.body);
@@ -71,7 +72,7 @@ const markingRoutes: FastifyPluginAsync = async (app) => {
             summary: 'Привязать партию кодов к отгрузке',
             description: 'Bulk-verifies коды и связывает их с указанной shipment_lot.',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('marking')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const parsed = ScanBatchSchema.safeParse(request.body);
@@ -104,7 +105,7 @@ const markingRoutes: FastifyPluginAsync = async (app) => {
             tags: ['Compliance'],
             summary: 'Коды маркировки по отгрузке',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('marking')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const params = LotParamsSchema.safeParse(request.params);
@@ -120,7 +121,7 @@ const markingRoutes: FastifyPluginAsync = async (app) => {
             tags: ['Compliance'],
             summary: 'Недавние проверки маркировки',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('marking')],
     }, async (request) => {
         const user = request.user as AuthUser;
         if (!user.organizationId) return { success: true, data: [] };
@@ -133,7 +134,7 @@ const markingRoutes: FastifyPluginAsync = async (app) => {
             tags: ['Compliance'],
             summary: 'Сводка по категориям маркировки',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('marking')],
     }, async (request) => {
         const user = request.user as AuthUser;
         if (!user.organizationId) return { success: true, data: [] };

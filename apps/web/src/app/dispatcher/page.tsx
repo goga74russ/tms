@@ -14,6 +14,7 @@ import { useWialonPositions, type ActiveVehicleSubscription } from '@/hooks/useW
 import { useUser } from '@/lib/user-context';
 import { userCanUseCopilot } from '@tms/shared';
 import { CopilotChat } from '@/components/CopilotChat';
+import { OnboardingTour, type TourStep } from '@/components/OnboardingTour';
 import type { RoutePoint } from './components/TripRouteLayer';
 import type { LiveGpsMarker } from './components/DispatcherMap';
 
@@ -142,6 +143,47 @@ function buildTimelineData(vehicles: Vehicle[], trips: TripForTimeline[]) {
         return { vehicleId: v.id, plateNumber: v.plateNumber, segments };
     });
 }
+
+// D9: dispatcher onboarding tour steps. Each `targetSelector` points to an
+// element with a matching `data-tour="..."` attribute on this page.
+const DISPATCHER_TOUR_STEPS: TourStep[] = [
+    {
+        targetSelector: '[data-tour="dispatcher-stats"]',
+        title: 'Статус автопарка',
+        description: 'Здесь видно, сколько ТС свободно, назначено, в рейсе и сколько с проблемами. Цифры обновляются в реальном времени.',
+        position: 'bottom',
+    },
+    {
+        targetSelector: '[data-tour="dispatcher-map"]',
+        title: 'Это карта рейсов',
+        description: 'Машины движутся в реальном времени. Кликните маркер, чтобы открыть детали рейса и плановый маршрут.',
+        position: 'top',
+    },
+    {
+        targetSelector: '[data-tour="dispatcher-orders"]',
+        title: 'Активные заказы',
+        description: 'Список нераспределённых заявок. Перетащите заявку на ТС, чтобы назначить рейс.',
+        position: 'left',
+    },
+    {
+        targetSelector: '[data-tour-secondary="dispatcher-new-order"]',
+        title: 'Создать новый заказ',
+        description: 'Откроется мастер заявки: контрагент, груз, точки погрузки/выгрузки, требования.',
+        position: 'left',
+    },
+    {
+        targetSelector: '[data-tour="dispatcher-copilot"]',
+        title: 'AI-копилот',
+        description: 'Спросите его текстом: «Сколько свободных тентовиков?», «Покажи рейсы с риском срыва». Копилот сам ходит в данные и отвечает.',
+        position: 'left',
+    },
+    {
+        targetSelector: '[data-tour="dispatcher-timeline"]',
+        title: 'Тайм-лайн машин',
+        description: 'Переключитесь сюда, чтобы увидеть загрузку каждой машины по часам — удобно для планирования следующего дня.',
+        position: 'top',
+    },
+];
 
 export default function DispatcherPage() {
     const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
@@ -464,7 +506,12 @@ export default function DispatcherPage() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6" data-tour="dispatcher-root">
+            {/* D9 Onboarding tour for first-time dispatcher visit */}
+            <OnboardingTour
+                storageKey="tms_tour_completed_dispatcher_v1"
+                steps={DISPATCHER_TOUR_STEPS}
+            />
             {/* Toast */}
             {toast && (
                 <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
@@ -499,7 +546,7 @@ export default function DispatcherPage() {
             </div>
 
             {/* Vehicle stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-tour="dispatcher-stats">
                 <Card className="hover:border-slate-300 transition-colors">
                     <CardContent className="p-4">
                         <div className="flex items-center gap-2 mb-1">
@@ -747,16 +794,20 @@ export default function DispatcherPage() {
                 {/* Map / Timeline area (2/3) */}
                 <div className="col-span-2 space-y-4">
                     {activeTab === 'map' ? (
-                        <DispatcherMap
-                            vehicles={enrichedVehicles}
-                            selectedVehicle={selectedVehicle}
-                            onSelectVehicle={setSelectedVehicle}
-                            tripRoutePoints={tripRoutePoints}
-                            onMapReady={setMapInstance}
-                            liveMarkers={liveMarkersList}
-                        />
+                        <div data-tour="dispatcher-map">
+                            <DispatcherMap
+                                vehicles={enrichedVehicles}
+                                selectedVehicle={selectedVehicle}
+                                onSelectVehicle={setSelectedVehicle}
+                                tripRoutePoints={tripRoutePoints}
+                                onMapReady={setMapInstance}
+                                liveMarkers={liveMarkersList}
+                            />
+                        </div>
                     ) : (
-                        <VehicleTimeline data={timelineData} />
+                        <div data-tour="dispatcher-timeline">
+                            <VehicleTimeline data={timelineData} />
+                        </div>
                     )}
 
                     {/* Trip Details Panel */}
@@ -1110,6 +1161,7 @@ export default function DispatcherPage() {
                             </CardContent>
                         </Card>
                     )}
+                    <div data-tour="dispatcher-orders" data-tour-secondary="dispatcher-new-order" id="dispatcher-orders-anchor">
                     <AssignmentPanel
                         orders={orders}
                         vehicles={enrichedVehicles.filter(v => v.status === 'available')}
@@ -1141,9 +1193,12 @@ export default function DispatcherPage() {
                             loadData();
                         }}
                     />
+                    </div>
                 </div>
             </div>
-            {showCopilot && <CopilotChat />}
+            <div data-tour="dispatcher-copilot">
+                {showCopilot && <CopilotChat />}
+            </div>
         </div>
     );
 }

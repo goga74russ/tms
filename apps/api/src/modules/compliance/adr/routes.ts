@@ -10,6 +10,7 @@ import { z } from 'zod';
 import {
     setAdrStrictMode, getAdrStrictMode, validateAdrHard, listAdrOrders,
 } from './service.js';
+import { requireFeature } from '../../../auth/plan-guard.js';
 
 interface AuthUser {
     userId: string;
@@ -31,7 +32,7 @@ const adrComplianceRoutes: FastifyPluginAsync = async (app) => {
             tags: ['Compliance'],
             summary: 'Текущий режим строгости ADR',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('adr')],
     }, async (request) => {
         const user = request.user as AuthUser;
         if (!user.organizationId) return { success: true, data: { enabled: false } };
@@ -45,7 +46,7 @@ const adrComplianceRoutes: FastifyPluginAsync = async (app) => {
             summary: 'Переключить режим строгости ADR (admin)',
             description: 'Когда enabled=true, любые ошибки ADR при назначении рейса будут блокировать операцию вместо предупреждения.',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('adr')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         if (!user.roles.includes('admin')) {
@@ -67,7 +68,7 @@ const adrComplianceRoutes: FastifyPluginAsync = async (app) => {
             tags: ['Compliance'],
             summary: 'Список заявок с ADR-классом',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('adr')],
     }, async (request) => {
         const user = request.user as AuthUser;
         if (!user.organizationId) return { success: true, data: [] };
@@ -80,7 +81,7 @@ const adrComplianceRoutes: FastifyPluginAsync = async (app) => {
             tags: ['Compliance'],
             summary: 'Жёсткая валидация ADR (учитывает strict-mode)',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('adr')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const parsed = ValidateSchema.safeParse(request.body);

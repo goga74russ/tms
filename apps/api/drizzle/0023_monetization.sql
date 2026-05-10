@@ -19,10 +19,10 @@ CREATE TABLE IF NOT EXISTS "plans" (
 
 -- Seed catalogue. Use INSERT ... ON CONFLICT to make migration re-runnable.
 INSERT INTO "plans" ("id", "name_ru", "price_monthly_kopecks", "vehicle_limit", "monthly_orders_limit", "copilot_messages_daily", "features") VALUES
-    ('free',       'Free',       0,       5,    50,   0,    '{"ai_copilot":false,"edi":false,"marking":false,"multi_tenant":false,"sso":false,"api_export":false,"priority_support":false,"custom_integrations":false}'::jsonb),
-    ('pro',        'Pro',        290000,  30,   NULL, 500,  '{"ai_copilot":true,"edi":true,"marking":true,"multi_tenant":false,"sso":false,"api_export":true,"priority_support":false,"custom_integrations":false}'::jsonb),
-    ('business',   'Business',   990000,  100,  NULL, 2000, '{"ai_copilot":true,"edi":true,"marking":true,"multi_tenant":true,"sso":true,"api_export":true,"priority_support":true,"custom_integrations":false}'::jsonb),
-    ('enterprise', 'Enterprise', 0,       NULL, NULL, NULL, '{"ai_copilot":true,"edi":true,"marking":true,"multi_tenant":true,"sso":true,"api_export":true,"priority_support":true,"custom_integrations":true}'::jsonb)
+    ('free',       'Free',       0,       5,    50,   0,    '{"ai_copilot":false,"edi":false,"marking":false,"osago_monitoring":false,"tachograph":false,"adr":false,"multi_tenant":false,"sso":false,"api_export":false,"priority_support":false,"custom_integrations":false}'::jsonb),
+    ('pro',        'Pro',        290000,  30,   NULL, 500,  '{"ai_copilot":true,"edi":true,"marking":true,"osago_monitoring":false,"tachograph":false,"adr":false,"multi_tenant":false,"sso":false,"api_export":true,"priority_support":false,"custom_integrations":false}'::jsonb),
+    ('business',   'Business',   990000,  100,  NULL, 2000, '{"ai_copilot":true,"edi":true,"marking":true,"osago_monitoring":true,"tachograph":true,"adr":true,"multi_tenant":true,"sso":true,"api_export":true,"priority_support":true,"custom_integrations":false}'::jsonb),
+    ('enterprise', 'Enterprise', 0,       NULL, NULL, NULL, '{"ai_copilot":true,"edi":true,"marking":true,"osago_monitoring":true,"tachograph":true,"adr":true,"multi_tenant":true,"sso":true,"api_export":true,"priority_support":true,"custom_integrations":true}'::jsonb)
 ON CONFLICT ("id") DO UPDATE SET
     "name_ru" = EXCLUDED."name_ru",
     "price_monthly_kopecks" = EXCLUDED."price_monthly_kopecks",

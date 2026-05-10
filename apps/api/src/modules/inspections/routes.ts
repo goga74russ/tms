@@ -19,6 +19,8 @@ import {
     getExpiringMedCertificates,
     createPostTripTechInspection,
     createPostTripMedInspection,
+    updateTechInspectionDecision,
+    updateMedInspectionDecision,
 } from './service.js';
 
 function parsePage(value: string | undefined) {
@@ -595,6 +597,70 @@ export default async function inspectionRoutes(app: FastifyInstance) {
                 success: false,
                 error: error.message || '\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u0438 \u0441\u043e\u0437\u0434\u0430\u043d\u0438\u0438 \u043e\u0441\u043c\u043e\u0442\u0440\u0430',
             });
+        }
+    });
+
+    // ============================================================
+    // D5 \u2014 Lightweight decision endpoints (queue UI quick-approve)
+    // ============================================================
+    app.post('/inspections/tech/:id/decision', {
+        schema: { tags: ['\u041e\u0441\u043c\u043e\u0442\u0440\u044b'], summary: '\u0418\u0437\u043c\u0435\u043d\u0438\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435 \u043f\u043e \u0442\u0435\u0445\u043e\u0441\u043c\u043e\u0442\u0440\u0443', description: '\u041b\u0451\u0433\u043a\u0430\u044f \u0441\u043c\u0435\u043d\u0430 \u0440\u0435\u0448\u0435\u043d\u0438\u044f approved/rejected \u0431\u0435\u0437 \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f \u0447\u0435\u043a-\u043b\u0438\u0441\u0442\u0430.' },
+        preHandler: [app.authenticate, requireAbility('manage', 'TechInspection')],
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            const { id } = request.params as { id: string };
+            const body = request.body as { decision?: string; notes?: string };
+            if (body.decision !== 'approved' && body.decision !== 'rejected') {
+                return reply.status(400).send({
+                    success: false,
+                    error: 'decision \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c approved \u0438\u043b\u0438 rejected',
+                });
+            }
+            const result = await updateTechInspectionDecision(
+                id,
+                { decision: body.decision, notes: body.notes },
+                { userId: user.userId, role: user.roles[0] ?? 'mechanic', organizationId: user.organizationId ?? null },
+            );
+            if (!result) {
+                return reply.status(404).send({ success: false, error: '\u041e\u0441\u043c\u043e\u0442\u0440 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d' });
+            }
+            return { success: true, data: result };
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(500).send({ success: false, error: error.message || '\u041e\u0448\u0438\u0431\u043a\u0430' });
+        }
+    });
+
+    app.post('/inspections/med/:id/decision', {
+        schema: { tags: ['\u041e\u0441\u043c\u043e\u0442\u0440\u044b'], summary: '\u0418\u0437\u043c\u0435\u043d\u0438\u0442\u044c \u0440\u0435\u0448\u0435\u043d\u0438\u0435 \u043f\u043e \u043c\u0435\u0434\u043e\u0441\u043c\u043e\u0442\u0440\u0443', description: '\u041b\u0451\u0433\u043a\u0430\u044f \u0441\u043c\u0435\u043d\u0430 \u0440\u0435\u0448\u0435\u043d\u0438\u044f approved/rejected \u0431\u0435\u0437 \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f \u043f\u043e\u043a\u0430\u0437\u0430\u0442\u0435\u043b\u0435\u0439. \u0422\u043e\u043b\u044c\u043a\u043e \u0434\u043b\u044f \u043c\u0435\u0434\u0438\u043a\u0430 (152-\u0424\u0417).' },
+        preHandler: [app.authenticate, requireAbility('manage', 'MedInspection')],
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            if (!user.roles.includes('medic') && !user.roles.includes('admin')) {
+                return reply.status(403).send({ success: false, error: '\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0442\u043e\u043b\u044c\u043a\u043e \u043c\u0435\u0434\u0438\u043a\u0443' });
+            }
+            const { id } = request.params as { id: string };
+            const body = request.body as { decision?: string; notes?: string };
+            if (body.decision !== 'approved' && body.decision !== 'rejected') {
+                return reply.status(400).send({
+                    success: false,
+                    error: 'decision \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c approved \u0438\u043b\u0438 rejected',
+                });
+            }
+            const result = await updateMedInspectionDecision(
+                id,
+                { decision: body.decision, notes: body.notes },
+                { userId: user.userId, role: user.roles[0] ?? 'medic', organizationId: user.organizationId ?? null },
+            );
+            if (!result) {
+                return reply.status(404).send({ success: false, error: '\u041e\u0441\u043c\u043e\u0442\u0440 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d' });
+            }
+            return { success: true, data: result };
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(500).send({ success: false, error: error.message || '\u041e\u0448\u0438\u0431\u043a\u0430' });
         }
     });
 }

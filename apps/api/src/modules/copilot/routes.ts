@@ -6,6 +6,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { userCanUseCopilot, type CopilotStreamEvent } from '@tms/shared';
 import { chat, listConversations, getConversationMessages, CopilotRateLimitError } from './service.js';
+import { requireFeature } from '../../auth/plan-guard.js';
 
 const ChatBodySchema = z.object({
     conversationId: z.string().uuid().optional().nullable(),
@@ -24,7 +25,7 @@ const copilotRoutes: FastifyPluginAsync = async (app) => {
             summary: 'Stream chat reply (SSE)',
             description: 'Server-Sent Events stream of co-pilot reply (text deltas, tool calls, results).',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('ai_copilot')],
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
         if (!userCanUseCopilot(user.roles)) {
@@ -77,7 +78,7 @@ const copilotRoutes: FastifyPluginAsync = async (app) => {
             tags: ['AI Co-pilot'],
             summary: "List user's conversations",
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('ai_copilot')],
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[] };
         if (!userCanUseCopilot(user.roles)) {
@@ -93,7 +94,7 @@ const copilotRoutes: FastifyPluginAsync = async (app) => {
             tags: ['AI Co-pilot'],
             summary: 'Replay conversation messages',
         },
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireFeature('ai_copilot')],
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[] };
         if (!userCanUseCopilot(user.roles)) {

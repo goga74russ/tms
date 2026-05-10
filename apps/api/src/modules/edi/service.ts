@@ -1,12 +1,21 @@
 // ============================================================
 // Wave 5 — EDI / Diadoc / SBIS / Kontur (mock).
-// Реальной интеграции нет — отправка эмулируется setTimeout
-// прогрессией: sent → signed_by_carrier (5s) → signed_by_client (10s).
+// Реальной интеграции нет — отправка эмулируется прогрессией статусов:
+// sent → signed_by_carrier (5s) → signed_by_client (10s).
+//
+// D20 (Round 3C): Mock progression теперь идёт через BullMQ delayed
+// jobs вместо setTimeout. Преимущества:
+//   - Переживает рестарт сервера (Redis хранит pending jobs).
+//   - Идемпотентен: повторный запуск worker'а просто проверит статус
+//     и no-op, если уже продвинут вручную.
+//   - Job ID детерминирован (`edi:{documentId}:{stage}`), что позволяет
+//     отменять pending переходы при ручной прогрессии.
 // ============================================================
 import { db } from '../../db/connection.js';
 import { transportDocuments, ediEvents } from '../../db/schema.js';
 import { eq, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { ediProgressionQueue } from '../../integrations/queues.js';
 
 export type EdiProvider = 'diadoc' | 'sbis' | 'kontur';
 export type EdiStatus =
@@ -21,17 +30,30 @@ export type EdiEventType = 'sent' | 'signed' | 'rejected';
 const SIGN_BY_CARRIER_DELAY_MS = 5000;
 const SIGN_BY_CLIENT_DELAY_MS = 10000;
 
-interface ScheduleHandle {
-    timers: NodeJS.Timeout[];
+type ProgressionStage = 'carrier' | 'client';
+
+export interface EdiProgressionJobData {
+    documentId: string;
+    provider: EdiProvider;
+    stage: ProgressionStage;
 }
 
-const scheduledByDocument = new Map<string, ScheduleHandle>();
+function progressionJobId(documentId: string, stage: ProgressionStage): string {
+    return `edi:${documentId}:${stage}`;
+}
 
-function cancelScheduled(documentId: string) {
-    const handle = scheduledByDocument.get(documentId);
-    if (!handle) return;
-    for (const t of handle.timers) clearTimeout(t);
-    scheduledByDocument.delete(documentId);
+async function cancelScheduled(documentId: string): Promise<void> {
+    // Best-effort cancellation. Missing Redis or already-removed jobs are not
+    // an error — they just mean the timer cannot fire any more.
+    for (const stage of ['carrier', 'client'] as const) {
+        try {
+            const id = progressionJobId(documentId, stage);
+            const job = await ediProgressionQueue.getJob(id);
+            if (job) await job.remove();
+        } catch {
+            // ignore — best-effort
+        }
+    }
 }
 
 async function insertEvent(
@@ -55,28 +77,27 @@ async function setEdiStatus(documentId: string, status: EdiStatus) {
         .where(eq(transportDocuments.id, documentId));
 }
 
-async function progressToCarrierSigned(documentId: string, provider: EdiProvider) {
-    // Только если документ всё ещё в статусе 'sent' — иначе кто-то
-    // уже продвинул вручную (например через mock-progress).
-    const [current] = await db
-        .select({ ediStatus: transportDocuments.ediStatus })
-        .from(transportDocuments)
-        .where(eq(transportDocuments.id, documentId))
-        .limit(1);
-    if (!current || current.ediStatus !== 'sent') return;
-    await setEdiStatus(documentId, 'signed_by_carrier');
-    await insertEvent(documentId, provider, 'signed', { by: 'carrier', mock: true });
-}
+/**
+ * Worker entry point — invoked from `integrations/workers/edi.worker.ts`.
+ * Idempotent: if the document is no longer in the expected source state
+ * (e.g. a manual progression already moved it forward), this is a no-op.
+ */
+export async function processEdiProgressionJob(data: EdiProgressionJobData): Promise<{ progressed: boolean }> {
+    const { documentId, provider, stage } = data;
+    const expectedFrom: EdiStatus = stage === 'carrier' ? 'sent' : 'signed_by_carrier';
+    const target: EdiStatus = stage === 'carrier' ? 'signed_by_carrier' : 'signed_by_client';
 
-async function progressToClientSigned(documentId: string, provider: EdiProvider) {
     const [current] = await db
         .select({ ediStatus: transportDocuments.ediStatus })
         .from(transportDocuments)
         .where(eq(transportDocuments.id, documentId))
         .limit(1);
-    if (!current || current.ediStatus !== 'signed_by_carrier') return;
-    await setEdiStatus(documentId, 'signed_by_client');
-    await insertEvent(documentId, provider, 'signed', { by: 'client', mock: true });
+    if (!current || current.ediStatus !== expectedFrom) {
+        return { progressed: false };
+    }
+    await setEdiStatus(documentId, target);
+    await insertEvent(documentId, provider, 'signed', { by: stage, mock: true });
+    return { progressed: true };
 }
 
 export interface SendDocumentResult {
@@ -120,20 +141,30 @@ export async function sendDocumentToEdi(
         mock: true,
     });
 
-    // Reset any prior schedule and arm new mock progression timers.
-    cancelScheduled(documentId);
-    const timers: NodeJS.Timeout[] = [];
-    timers.push(setTimeout(() => {
-        progressToCarrierSigned(documentId, provider).catch(() => undefined);
-    }, SIGN_BY_CARRIER_DELAY_MS));
-    timers.push(setTimeout(() => {
-        progressToClientSigned(documentId, provider).catch(() => undefined);
-    }, SIGN_BY_CLIENT_DELAY_MS));
-    // Don't keep the event loop alive for these mock timers in tests/CLI.
-    for (const t of timers) {
-        if (typeof (t as any).unref === 'function') (t as any).unref();
+    // D20: schedule durable mock progression via BullMQ. Cancel any prior
+    // jobs first so a re-send doesn't double-fire transitions.
+    await cancelScheduled(documentId);
+    try {
+        await ediProgressionQueue.add(
+            'edi.progress.carrier',
+            { documentId, provider, stage: 'carrier' },
+            {
+                jobId: progressionJobId(documentId, 'carrier'),
+                delay: SIGN_BY_CARRIER_DELAY_MS,
+            },
+        );
+        await ediProgressionQueue.add(
+            'edi.progress.client',
+            { documentId, provider, stage: 'client' },
+            {
+                jobId: progressionJobId(documentId, 'client'),
+                delay: SIGN_BY_CLIENT_DELAY_MS,
+            },
+        );
+    } catch {
+        // If Redis is down we silently degrade — the document still goes to
+        // 'sent' and admins can use mock-progress endpoints to advance it.
     }
-    scheduledByDocument.set(documentId, { timers });
 
     return {
         documentId,
@@ -200,8 +231,8 @@ export async function progressEdiManually(
 
     const provider = (doc.ediProvider ?? 'diadoc') as EdiProvider;
 
-    // Cancel any pending timers — admin принял решение вручную.
-    cancelScheduled(documentId);
+    // Cancel pending mock-progression jobs — admin принял решение вручную.
+    await cancelScheduled(documentId);
 
     await setEdiStatus(documentId, to);
     if (to === 'rejected') {

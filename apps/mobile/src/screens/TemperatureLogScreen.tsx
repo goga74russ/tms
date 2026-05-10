@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import {
     getTemperatureReadings,
@@ -63,6 +64,7 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
     const [submitting, setSubmitting] = useState(false);
     const [tempInput, setTempInput] = useState('');
     const [autoMode, setAutoMode] = useState(false);
+    const [pushPermission, setPushPermission] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
 
     const autoTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const mockValueRef = useRef<number | null>(null);
@@ -95,6 +97,34 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
             mountedRef.current = false;
         };
     }, [refresh]);
+
+    // D27 (Round 3C): request notification permission once on mount so cold-chain
+    // breaches can trigger a local push. We don't block UI on the result.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const existing = await Notifications.getPermissionsAsync();
+                if (existing.status === 'granted') {
+                    if (!cancelled) setPushPermission('granted');
+                    return;
+                }
+                if (existing.status === 'denied' && !existing.canAskAgain) {
+                    if (!cancelled) setPushPermission('denied');
+                    return;
+                }
+                const requested = await Notifications.requestPermissionsAsync();
+                if (!cancelled) {
+                    setPushPermission(requested.status === 'granted' ? 'granted' : 'denied');
+                }
+            } catch {
+                if (!cancelled) setPushPermission('denied');
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const captureLocation = useCallback(async (): Promise<{ latitude?: number; longitude?: number }> => {
         try {
@@ -289,6 +319,17 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                         {autoMode && (
                             <Text style={styles.autoActive}>● Авто-режим активен</Text>
                         )}
+                        {pushPermission === 'denied' && (
+                            <Text style={styles.pushHint}>
+                                Push-уведомления отключены — нарушения SLA будут видны только в этом
+                                экране. Включите уведомления в настройках устройства.
+                            </Text>
+                        )}
+                        {pushPermission === 'granted' && (
+                            <Text style={styles.pushHintOk}>
+                                Push-уведомления о нарушениях SLA включены.
+                            </Text>
+                        )}
                     </View>
 
                     <Text style={styles.sectionTitle}>Последние замеры</Text>
@@ -436,6 +477,16 @@ const styles = StyleSheet.create({
         marginTop: 10,
         color: '#2563eb',
         fontWeight: '700',
+        fontSize: 12,
+    },
+    pushHint: {
+        marginTop: 10,
+        color: '#dc2626',
+        fontSize: 12,
+    },
+    pushHintOk: {
+        marginTop: 10,
+        color: '#16a34a',
         fontSize: 12,
     },
     sectionTitle: {
