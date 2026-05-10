@@ -1,4 +1,4 @@
-﻿name: P0 Gate
+name: P0 Gate
 
 on:
   push:
@@ -37,6 +37,18 @@ jobs:
 
       - name: Mobile typecheck
         run: pnpm --filter @tms/mobile typecheck
+
+      - name: Lint
+        run: pnpm -r --if-present lint
+
+      - name: Test
+        run: pnpm --filter @tms/api test
+
+      - name: Security audit (advisory)
+        run: pnpm audit --prod --audit-level high || true
+
+      - name: Drizzle migration drift check (advisory)
+        run: pnpm --filter @tms/api exec drizzle-kit check || true
 
       - name: Validate compose config
         run: docker compose --env-file .env.example -f docker-compose.prod.yml config --quiet

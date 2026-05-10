@@ -22,6 +22,12 @@ async function seedDemo() {
         console.error('❌ SEED_PASSWORD environment variable is required');
         process.exit(1);
     }
+
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEMO_SEED !== 'true') {
+        console.error('❌ seed-demo creates a super-user with all roles and is not allowed in production. Set ALLOW_DEMO_SEED=true to override.');
+        process.exit(1);
+    }
+
     const passwordHash = await hashPassword(seedPassword);
 
     // === Apply triggers ===

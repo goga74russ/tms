@@ -61,6 +61,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
             const cookieToken = request.cookies?.[COOKIE_NAME];
             if (cookieToken) {
                 await request.jwtVerify({ onlyCookie: true });
+                {
+                    const payload = request.user as { organizationId?: string };
+                    (request as FastifyRequest).orgId = payload?.organizationId ?? null;
+                }
                 return;
             }
 
@@ -68,6 +72,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
             const authHeader = request.headers.authorization;
             if (authHeader?.startsWith('Bearer ')) {
                 await request.jwtVerify();
+                {
+                    const payload = request.user as { organizationId?: string };
+                    (request as FastifyRequest).orgId = payload?.organizationId ?? null;
+                }
                 return;
             }
 
