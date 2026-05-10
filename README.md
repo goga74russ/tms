@@ -43,11 +43,12 @@ docs            v2 documentation
 
 ## Next Priorities
 
-1. Increase test coverage — currently 0% across API/web; vitest is configured but unused.
-2. Harden CI gate — add lint, security audit, drizzle drift check.
-3. Centralize multi-tenant isolation via `request.orgId` instead of per-route manual checks.
-4. Replace mock integrations (Wialon/GIBDD/DaData/Fuel-card/geo) with real providers when entering pilot.
-5. Choose go-to-market track: compliance-first EPD/ETRN vs operational fleet maturity.
+The free-box ("бесплатный контур") is feature-complete: order → trip → waybill → inspections → release → delivery → document-return → billing all work end-to-end without paid integrations (Wialon/EDO/fuel-card/geocoder are realistic mocks). See `docs/operations/free-box-checklist.md`.
+
+1. Pilot deployment + smoke test — stand up a real org on staging and walk one trip through the full chain.
+2. Real provider integrations (Wialon, ЭДО, fuel cards) — paid tier; mocks already match the target contracts.
+3. Test coverage expansion — currently only RBAC + utils (42/42 passing); add module-level tests for trips, waybills, billing.
+4. Performance tuning + observability — replace remaining `console.log` with pino, add metrics/health probes.
 
 ## Quick Start
 

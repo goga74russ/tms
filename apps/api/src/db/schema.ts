@@ -1332,6 +1332,8 @@ export const fuelRecords = pgTable('fuel_records', {
     tripId: uuid('trip_id').references(() => trips.id, { onDelete: 'set null' }),
     driverId: uuid('driver_id').references(() => drivers.id),
     organizationId: uuid('organization_id').references(() => organizations.id),
+    // Wave 6: provenance — 'manual' (default), 'fuel_card_mock', or future real-provider tags.
+    source: varchar('source', { length: 50 }).notNull().default('manual'),
     createdBy: uuid('created_by').notNull().references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

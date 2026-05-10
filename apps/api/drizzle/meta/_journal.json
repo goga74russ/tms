@@ -120,6 +120,13 @@
       "when": 1773640834000,
       "tag": "0017_adr_edi_scoring",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1773640835000,
+      "tag": "0018_wave6_fuel_record_source",
+      "breakpoints": true
     }
   ]
 }
