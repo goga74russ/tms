@@ -161,6 +161,7 @@ await app.register(import('./modules/documents/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/sprint9/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/claims/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/uploads/routes.js'), { prefix: '/api' });
+await app.register(import('./modules/cold-chain/routes.js'), { prefix: '/api' });
 await app.register(import('./integrations/websocket.js'), { prefix: '/api' });
 
 // --- Health check ---

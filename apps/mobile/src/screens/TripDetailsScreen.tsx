@@ -7,7 +7,8 @@ import { database } from '../database';
 import Trip from '../database/models/Trip';
 import RoutePoint from '../database/models/RoutePoint';
 import { getQueueSummary } from '../api/offlineQueue';
-import { completeTrip, getTripOperationExceptions, OperationExceptionItem, OperationExceptionSummary, startTrip } from '../api/trips';
+import { completeTrip, getTripById, getTripOperationExceptions, OperationExceptionItem, OperationExceptionSummary, startTrip, TripSummary } from '../api/trips';
+import { getTemperatureSummary, TemperatureSummary } from '../api/temperature';
 
 const WAYBILL_VISIBLE_STATUSES = new Set([
     'waybill_issued',
@@ -47,6 +48,8 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
         hasRetries: false,
     });
     const [completionReason, setCompletionReason] = useState('');
+    const [tripDetail, setTripDetail] = useState<TripSummary | null>(null);
+    const [tempSummary, setTempSummary] = useState<TemperatureSummary | null>(null);
     const [loading, setLoading] = useState(true);
     const [odometerModal, setOdometerModal] = useState<null | 'start' | 'complete'>(null);
     const [odometerValue, setOdometerValue] = useState('');
@@ -63,13 +66,26 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
             const fetchedPoints = await database.collections.get<RoutePoint>('route_points').query(Q.where('trip_id', tripId)).fetch();
             setPoints(fetchedPoints);
 
-            const [exceptionData, queueSize] = await Promise.all([
+            const [exceptionData, queueSize, fetchedTripDetail] = await Promise.all([
                 getTripOperationExceptions(tripId),
                 getQueueSummary(),
+                getTripById(tripId).catch(() => null),
             ]);
             setExceptionSummary(exceptionData?.summary || null);
             setExceptions(exceptionData?.exceptions || []);
             setOfflineQueueSummary(queueSize);
+            setTripDetail(fetchedTripDetail);
+
+            const needsColdChain = Boolean(
+                fetchedTripDetail?.coldChainRequired ||
+                fetchedTripDetail?.orders?.some((o) => o.coldChainRequired)
+            );
+            if (needsColdChain) {
+                const ts = await getTemperatureSummary(tripId).catch(() => null);
+                setTempSummary(ts);
+            } else {
+                setTempSummary(null);
+            }
         } catch {
             Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u0440\u0435\u0439\u0441\u0430.');
         } finally {
@@ -83,6 +99,11 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
 
     const tripStatus = trip?.status;
     const showWaybillButton = !!tripStatus && WAYBILL_VISIBLE_STATUSES.has(tripStatus);
+    const showColdChainButton = Boolean(
+        tripDetail?.coldChainRequired ||
+        tripDetail?.orders?.some((o) => o.coldChainRequired)
+    );
+    const tempBreachCount = tempSummary?.breachCount || 0;
     const canStart = tripStatus === 'waybill_issued';
     const allPointsClosed = points.length > 0 && points.every((p) => p.status === 'completed' || p.status === 'skipped');
     const canComplete = tripStatus === 'in_transit' && allPointsClosed;
@@ -294,6 +315,18 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                     onPress={() => navigation.navigate('MyWaybill', { tripId })}
                 >
                     <Text style={styles.waybillButtonText}>\u041f\u0443\u0442\u0435\u0432\u043e\u0439 \u043b\u0438\u0441\u0442</Text>
+                </TouchableOpacity>
+            )}
+
+            {showColdChainButton && (
+                <TouchableOpacity
+                    style={styles.coldChainButton}
+                    onPress={() => navigation.navigate('TemperatureLog', { tripId })}
+                >
+                    <Text style={styles.coldChainButtonText}>{'\ud83c\udf21 \u0422\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u0430'}</Text>
+                    {tempBreachCount > 0 && (
+                        <Text style={styles.coldChainBreachBadge}>{`\u26a0 ${tempBreachCount}`}</Text>
+                    )}
                 </TouchableOpacity>
             )}
 
@@ -655,6 +688,27 @@ const styles = StyleSheet.create({
         marginTop: 12,
     },
     waybillButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    coldChainButton: {
+        flexDirection: 'row',
+        backgroundColor: '#0891b2',
+        padding: 14,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 8,
+        gap: 8,
+    },
+    coldChainButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    coldChainBreachBadge: {
+        color: '#fff',
+        backgroundColor: '#dc2626',
+        fontSize: 12,
+        fontWeight: '700',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
     startTripButton: {
         backgroundColor: '#2563eb',
         padding: 16,

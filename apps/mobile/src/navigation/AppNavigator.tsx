@@ -11,6 +11,7 @@ import TripCompletionScreen from '../screens/TripCompletionScreen';
 import DeliveryConfirmationScreen from '../screens/DeliveryConfirmationScreen';
 import MechanicInspectionScreen from '../screens/MechanicInspectionScreen';
 import MyWaybillScreen from '../screens/MyWaybillScreen';
+import TemperatureLogScreen from '../screens/TemperatureLogScreen';
 
 export type RootStackParamList = {
     Login: undefined;
@@ -21,6 +22,7 @@ export type RootStackParamList = {
     DeliveryConfirmation: { tripId: string };
     MechanicInspection: undefined;
     MyWaybill: { tripId: string };
+    TemperatureLog: { tripId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -82,6 +84,11 @@ export default function AppNavigator() {
                         name="MyWaybill"
                         component={MyWaybillScreen}
                         options={{ title: 'Путевой лист' }}
+                    />
+                    <Stack.Screen
+                        name="TemperatureLog"
+                        component={TemperatureLogScreen}
+                        options={{ title: 'Температура (холодовая цепь)' }}
                     />
                 </>
             ) : (

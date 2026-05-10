@@ -4,10 +4,20 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '@/lib/api';
-import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2, Play, Flag, FolderOpen } from 'lucide-react';
+import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2, Play, Flag, FolderOpen, Thermometer } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from '../fleet/components/vehicleProfile';
+import { TemperaturePanel } from '@/components/TemperaturePanel';
+
+interface ColdChainSummaryRow {
+    coldChainRequired: boolean;
+    breachCount: number;
+    minC: number | null;
+    maxC: number | null;
+    slaMinC: number | null;
+    slaMaxC: number | null;
+}
 
 interface Trip {
     id: string;
@@ -1746,6 +1756,7 @@ export default function TripsPage() {
     const [vehicleMap, setVehicleMap] = useState<Record<string, VehicleInfo>>({});
     const [trailerMap, setTrailerMap] = useState<Record<string, TrailerInfo>>({});
     const [tripOrderNumbers, setTripOrderNumbers] = useState<Record<string, string[]>>({});
+    const [tripColdChain, setTripColdChain] = useState<Record<string, ColdChainSummaryRow>>({});
     const [dossierTripId, setDossierTripId] = useState<string | null>(null);
     const [dossierLoading, setDossierLoading] = useState(false);
     const [dossierError, setDossierError] = useState('');
@@ -1859,25 +1870,75 @@ export default function TripsPage() {
 
         (async () => {
             const results = await Promise.allSettled(trips.map(async (trip) => {
-                const result = await api.get<{ success: boolean; data: { orders?: Array<{ number: string }> } }>(`/trips/${trip.id}`);
-                return [
-                    trip.id,
-                    result.success ? (result.data.orders || []).map(order => order.number) : [],
-                ] as const;
+                const result = await api.get<{ success: boolean; data: { orders?: Array<{ number: string; coldChainRequired?: boolean; temperatureMinC?: number | string | null; temperatureMaxC?: number | string | null }> } }>(`/trips/${trip.id}`);
+                const orders = result.success ? (result.data.orders || []) : [];
+                const numbers = orders.map(order => order.number);
+                const coldChainRequired = orders.some(order => order.coldChainRequired === true);
+                return {
+                    tripId: trip.id,
+                    numbers,
+                    coldChainRequired,
+                };
             }));
 
             if (cancelled) return;
 
-            const next: Record<string, string[]> = {};
+            const nextNumbers: Record<string, string[]> = {};
+            const coldTripIds: string[] = [];
             for (const result of results) {
                 if (result.status === 'fulfilled') {
-                    const [tripId, orderNumbers] = result.value;
-                    next[tripId] = orderNumbers;
+                    nextNumbers[result.value.tripId] = result.value.numbers;
+                    if (result.value.coldChainRequired) {
+                        coldTripIds.push(result.value.tripId);
+                    }
                 }
             }
-            setTripOrderNumbers(next);
+            setTripOrderNumbers(nextNumbers);
+
+            if (coldTripIds.length === 0) {
+                setTripColdChain({});
+                return;
+            }
+
+            // Fetch temperature summaries lazily for cold-chain trips only
+            const summaries = await Promise.allSettled(
+                coldTripIds.map(async (tripId) => {
+                    const r = await api.get<{ success: boolean; data: any }>(`/trips/${tripId}/temperature-summary`);
+                    return { tripId, summary: r.success ? r.data : null };
+                }),
+            );
+
+            if (cancelled) return;
+
+            const nextCold: Record<string, ColdChainSummaryRow> = {};
+            for (const result of summaries) {
+                if (result.status === 'fulfilled' && result.value.summary) {
+                    const s = result.value.summary;
+                    nextCold[result.value.tripId] = {
+                        coldChainRequired: true,
+                        breachCount: Number(s.breachCount || 0),
+                        minC: s.minC === null || s.minC === undefined ? null : Number(s.minC),
+                        maxC: s.maxC === null || s.maxC === undefined ? null : Number(s.maxC),
+                        slaMinC: s.slaMinC === null || s.slaMinC === undefined ? null : Number(s.slaMinC),
+                        slaMaxC: s.slaMaxC === null || s.slaMaxC === undefined ? null : Number(s.slaMaxC),
+                    };
+                } else if (result.status === 'fulfilled') {
+                    nextCold[result.value.tripId] = {
+                        coldChainRequired: true,
+                        breachCount: 0,
+                        minC: null,
+                        maxC: null,
+                        slaMinC: null,
+                        slaMaxC: null,
+                    };
+                }
+            }
+            setTripColdChain(nextCold);
         })().catch(() => {
-            if (!cancelled) setTripOrderNumbers({});
+            if (!cancelled) {
+                setTripOrderNumbers({});
+                setTripColdChain({});
+            }
         });
 
         return () => {
@@ -2092,7 +2153,32 @@ export default function TripsPage() {
                                         key={t.id}
                                         className={`hover:bg-slate-50 transition-colors cursor-pointer ${(tripOrderNumbers[t.id] || []).length > 1 ? 'bg-indigo-50/40' : ''}`}
                                     >
-                                        <td className="px-4 py-3 font-semibold text-indigo-600">{t.number}</td>
+                                        <td className="px-4 py-3 font-semibold text-indigo-600">
+                                            <div className="flex items-center gap-2">
+                                                <span>{t.number}</span>
+                                                {tripColdChain[t.id]?.coldChainRequired && (() => {
+                                                    const cc = tripColdChain[t.id];
+                                                    const hasBreach = cc.breachCount > 0;
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); openDossier(t.id); }}
+                                                            title={hasBreach
+                                                                ? `Нарушений SLA: ${cc.breachCount}`
+                                                                : 'Холодовая цепь'}
+                                                            className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold border transition-colors ${
+                                                                hasBreach
+                                                                    ? 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200'
+                                                                    : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                                            }`}
+                                                        >
+                                                            <Thermometer className="w-3 h-3" />
+                                                            {hasBreach ? `⚠ ${cc.breachCount}` : ''}
+                                                        </button>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </td>
                                         <td className="px-4 py-3">
                                             <div className="flex flex-col gap-1">
                                                 <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[t.status] || 'bg-slate-100 text-slate-700'}`}>
@@ -2445,6 +2531,19 @@ export default function TripsPage() {
                                     />
 
                                     <TransportDocumentsBlock dossier={dossier} />
+
+                                    {(() => {
+                                        const orders: any[] = dossier?.orders || [];
+                                        const hasCold = orders.some((o) => o?.coldChainRequired === true)
+                                            || tripColdChain[dossier?.trip?.id || dossierTripId || '']?.coldChainRequired;
+                                        if (!hasCold) return null;
+                                        return (
+                                            <TemperaturePanel
+                                                tripId={dossier?.trip?.id || dossierTripId || ''}
+                                                tripNumber={dossier?.trip?.number}
+                                            />
+                                        );
+                                    })()}
 
                                     <div className="grid gap-6 lg:grid-cols-2">
                                         <div className="rounded-2xl border border-slate-200">

@@ -30,6 +30,12 @@ async function authFetch(path: string, options: RequestInit = {}) {
 
 // --- Trips ---
 
+export interface TripOrderSummary {
+    id: string;
+    number?: string;
+    coldChainRequired?: boolean;
+}
+
 export interface TripSummary {
     id: string;
     number: string;
@@ -47,6 +53,8 @@ export interface TripSummary {
         sequence: number;
         status: string;
     }>;
+    orders?: TripOrderSummary[];
+    coldChainRequired?: boolean;
 }
 
 export interface OperationExceptionSummary {

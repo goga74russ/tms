@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Map as MapIcon, ArrowLeftRight, Clock, Loader2, Info, Truck, User, MapPin, Wifi, WifiOff, Search, AlertTriangle, CheckCircle2, X, FileDown } from 'lucide-react';
+import { Map as MapIcon, ArrowLeftRight, Clock, Loader2, Info, Truck, User, MapPin, Wifi, WifiOff, Search, AlertTriangle, CheckCircle2, X, FileDown, Thermometer } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { AssignmentPanel } from './components/AssignmentPanel';
 import { VehicleTimeline } from './components/VehicleTimeline';
@@ -144,6 +144,15 @@ export default function DispatcherPage() {
     const [orders, setOrders] = useState<UnassignedOrder[]>([]);
     const [trips, setTrips] = useState<TripForTimeline[]>([]);
     const [exceptions, setExceptions] = useState<OperationException[]>([]);
+    const [coldChainBreaches, setColdChainBreaches] = useState<Array<{
+        tripId: string;
+        tripNumber: string;
+        breachCount: number;
+        minC: number | null;
+        maxC: number | null;
+        lastAt: string | null;
+    }>>([]);
+    const [coldChainOpen, setColdChainOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [tripRoutePoints, setTripRoutePoints] = useState<RoutePoint[]>([]);
     const [activeTripDetails, setActiveTripDetails] = useState<ActiveTripDetails | null>(null);
@@ -226,6 +235,57 @@ export default function DispatcherPage() {
         const intervalId = setInterval(loadData, 30000); // reduced frequency since WS handles positions
         return () => clearInterval(intervalId);
     }, [loadData]);
+
+    // Cold-chain breach poller (every 60s) — iterates active trips and counts breaches in last 24h
+    const loadColdChainBreaches = useCallback(async () => {
+        try {
+            const activeTrips = trips.filter(t =>
+                t.status === 'in_transit' || t.status === 'loading' || t.status === 'waybill_issued',
+            );
+            if (activeTrips.length === 0) {
+                setColdChainBreaches([]);
+                return;
+            }
+            const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+            const results = await Promise.allSettled(
+                activeTrips.slice(0, 30).map(async (trip) => {
+                    const sumRes = await api.get<{ success: boolean; data: any }>(
+                        `/trips/${trip.id}/temperature-summary`,
+                    );
+                    if (!sumRes.success || !sumRes.data) return null;
+                    const s = sumRes.data;
+                    const breachCount = Number(s?.breachCount || 0);
+                    const lastAt = s?.lastAt ? String(s.lastAt) : null;
+                    if (breachCount <= 0) return null;
+                    if (lastAt && new Date(lastAt).getTime() < new Date(since).getTime()) {
+                        return null;
+                    }
+                    return {
+                        tripId: trip.id,
+                        tripNumber: trip.number,
+                        breachCount,
+                        minC: s?.minC === null || s?.minC === undefined ? null : Number(s.minC),
+                        maxC: s?.maxC === null || s?.maxC === undefined ? null : Number(s.maxC),
+                        lastAt,
+                    };
+                }),
+            );
+            const next: typeof coldChainBreaches = [];
+            for (const r of results) {
+                if (r.status === 'fulfilled' && r.value) next.push(r.value);
+            }
+            setColdChainBreaches(next);
+        } catch {
+            // silent
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [trips]);
+
+    useEffect(() => {
+        loadColdChainBreaches();
+        const id = setInterval(loadColdChainBreaches, 60000);
+        return () => clearInterval(id);
+    }, [loadColdChainBreaches]);
 
     // Fetch route points + trip details for selected vehicle
     useEffect(() => {
@@ -490,6 +550,76 @@ export default function DispatcherPage() {
                             ))}
                         </div>
                     )}
+                </CardContent>
+            </Card>
+
+            {/* Cold-chain alerts widget */}
+            <Card className={coldChainBreaches.length > 0 ? 'border-rose-300' : 'border-slate-200'}>
+                <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-2">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                coldChainBreaches.length > 0
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : 'bg-blue-50 text-blue-600'
+                            }`}>
+                                <Thermometer className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h2 className="text-sm font-semibold text-slate-900">Холодовая цепь</h2>
+                                <p className="text-xs text-slate-500">Активные нарушения SLA за 24ч</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className={`text-2xl font-bold ${
+                                coldChainBreaches.length > 0 ? 'text-rose-700' : 'text-slate-900'
+                            }`}>
+                                {coldChainBreaches.length}
+                            </div>
+                            {coldChainBreaches.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setColdChainOpen(v => !v)}
+                                    className="text-xs font-semibold text-rose-700 hover:underline"
+                                >
+                                    {coldChainOpen ? 'Скрыть' : 'Показать'} рейсы
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    {coldChainBreaches.length === 0 ? (
+                        <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                            <CheckCircle2 className="w-4 h-4" />
+                            Нарушений температурного режима не зафиксировано
+                        </div>
+                    ) : coldChainOpen ? (
+                        <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-2">
+                            {coldChainBreaches.map(item => (
+                                <a
+                                    key={item.tripId}
+                                    href={`/trips?focus=${item.tripId}`}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        window.location.href = `/trips`;
+                                    }}
+                                    className="rounded-lg border border-rose-200 bg-rose-50/60 px-3 py-2 hover:bg-rose-100 transition-colors"
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-sm font-semibold text-rose-800">
+                                            Рейс {item.tripNumber}
+                                        </span>
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-200 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
+                                            <AlertTriangle className="w-3 h-3" />
+                                            {item.breachCount}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-rose-700 mt-1">
+                                        Мин {item.minC !== null ? `${item.minC.toFixed(1)}°` : '—'} / макс {item.maxC !== null ? `${item.maxC.toFixed(1)}°` : '—'}
+                                    </div>
+                                </a>
+                            ))}
+                        </div>
+                    ) : null}
                 </CardContent>
             </Card>
 

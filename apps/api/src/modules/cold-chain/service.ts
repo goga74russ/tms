@@ -1,0 +1,257 @@
+// ============================================================
+// Wave 2 — Cold chain v0: SLA resolution, breach detection,
+// reading insertion, summary aggregation.
+// ============================================================
+import { and, asc, desc, eq, gte, lte, or, sql } from 'drizzle-orm';
+import { db } from '../../db/connection.js';
+import { incidents, orders, temperatureReadings, tripOrders } from '../../db/schema.js';
+import { recordEvent } from '../../events/journal.js';
+
+export interface SlaBounds {
+    minC: number | null;
+    maxC: number | null;
+}
+
+export interface ReadingInput {
+    tripId: string;
+    orderId?: string | null;
+    tempC: number;
+    recordedAt?: string;
+    sensorId?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    source?: 'sensor' | 'manual' | 'mock';
+}
+
+export interface InsertedReading {
+    id: string;
+    breach: boolean;
+    slaMinC: number | null;
+    slaMaxC: number | null;
+    recordedAt: Date;
+    tempC: number;
+    incidentId?: string;
+}
+
+/**
+ * Tightens trip-level SLA bounds across every order linked to a trip.
+ * Multi-lot trips use the strictest min/max so a single SLA violation
+ * is enough to flag a breach for the whole reading.
+ *
+ * Both `orders.tripId` (legacy direct link) and `trip_orders` (m:n
+ * junction) are scanned to stay compatible with existing flows.
+ */
+export async function resolveTripSla(tripId: string, orderId?: string | null): Promise<SlaBounds> {
+    if (orderId) {
+        const [row] = await db
+            .select({
+                minC: orders.temperatureMinC,
+                maxC: orders.temperatureMaxC,
+            })
+            .from(orders)
+            .where(eq(orders.id, orderId))
+            .limit(1);
+        if (row && (row.minC != null || row.maxC != null)) {
+            return {
+                minC: row.minC == null ? null : Number(row.minC),
+                maxC: row.maxC == null ? null : Number(row.maxC),
+            };
+        }
+    }
+
+    const rows = await db
+        .selectDistinct({
+            minC: orders.temperatureMinC,
+            maxC: orders.temperatureMaxC,
+        })
+        .from(orders)
+        .leftJoin(tripOrders, eq(tripOrders.orderId, orders.id))
+        .where(or(eq(orders.tripId, tripId), eq(tripOrders.tripId, tripId)));
+
+    let minC: number | null = null;
+    let maxC: number | null = null;
+    for (const row of rows) {
+        if (row.minC != null) {
+            const v = Number(row.minC);
+            if (minC == null || v > minC) minC = v;
+        }
+        if (row.maxC != null) {
+            const v = Number(row.maxC);
+            if (maxC == null || v < maxC) maxC = v;
+        }
+    }
+    return { minC, maxC };
+}
+
+export function detectBreach(tempC: number, sla: SlaBounds): boolean {
+    if (sla.minC != null && tempC < sla.minC) return true;
+    if (sla.maxC != null && tempC > sla.maxC) return true;
+    return false;
+}
+
+function severityForBreach(tempC: number, sla: SlaBounds): 'medium' | 'critical' {
+    let delta = 0;
+    if (sla.minC != null && tempC < sla.minC) {
+        delta = Math.max(delta, sla.minC - tempC);
+    }
+    if (sla.maxC != null && tempC > sla.maxC) {
+        delta = Math.max(delta, tempC - sla.maxC);
+    }
+    return delta > 5 ? 'critical' : 'medium';
+}
+
+export async function recordReading(
+    input: ReadingInput,
+    author: { userId: string; role: string },
+): Promise<InsertedReading> {
+    const sla = await resolveTripSla(input.tripId, input.orderId ?? null);
+    const breach = detectBreach(input.tempC, sla);
+    const recordedAt = input.recordedAt ? new Date(input.recordedAt) : new Date();
+
+    return db.transaction(async (tx) => {
+        const [reading] = await tx
+            .insert(temperatureReadings)
+            .values({
+                tripId: input.tripId,
+                orderId: input.orderId ?? null,
+                recordedAt,
+                tempC: input.tempC,
+                sensorId: input.sensorId ?? null,
+                latitude: input.latitude ?? null,
+                longitude: input.longitude ?? null,
+                source: input.source ?? 'manual',
+                breach,
+                breachMinC: breach ? sla.minC : null,
+                breachMaxC: breach ? sla.maxC : null,
+            })
+            .returning();
+
+        let incidentId: string | undefined;
+        if (breach) {
+            const severity = severityForBreach(input.tempC, sla);
+            const slaText = `SLA ${sla.minC ?? '−∞'}…${sla.maxC ?? '+∞'} °C, замер ${input.tempC} °C`;
+            const [incident] = await tx
+                .insert(incidents)
+                .values({
+                    type: 'cargo',
+                    severity,
+                    description: `Нарушение температурного режима. ${slaText}.`,
+                    tripId: input.tripId,
+                    createdBy: author.userId,
+                })
+                .returning();
+            incidentId = incident?.id;
+        }
+
+        await recordEvent({
+            authorId: author.userId,
+            authorRole: author.role,
+            eventType: 'temperature.recorded',
+            entityType: 'trip',
+            entityId: input.tripId,
+            data: {
+                readingId: reading.id,
+                tempC: input.tempC,
+                source: reading.source,
+                breach,
+                slaMinC: sla.minC,
+                slaMaxC: sla.maxC,
+            },
+        }, tx);
+
+        if (breach) {
+            await recordEvent({
+                authorId: author.userId,
+                authorRole: author.role,
+                eventType: 'temperature.breach',
+                entityType: 'trip',
+                entityId: input.tripId,
+                data: {
+                    readingId: reading.id,
+                    tempC: input.tempC,
+                    slaMinC: sla.minC,
+                    slaMaxC: sla.maxC,
+                    incidentId,
+                },
+            }, tx);
+        }
+
+        return {
+            id: reading.id,
+            breach,
+            slaMinC: sla.minC,
+            slaMaxC: sla.maxC,
+            recordedAt: reading.recordedAt,
+            tempC: Number(reading.tempC),
+            incidentId,
+        };
+    });
+}
+
+export interface ListFilters {
+    from?: string;
+    to?: string;
+    limit?: number;
+}
+
+export async function listReadings(tripId: string, filters: ListFilters) {
+    const limit = Math.min(Math.max(filters.limit ?? 200, 1), 1000);
+    const conditions = [eq(temperatureReadings.tripId, tripId)];
+    if (filters.from) conditions.push(gte(temperatureReadings.recordedAt, new Date(filters.from)));
+    if (filters.to) conditions.push(lte(temperatureReadings.recordedAt, new Date(filters.to)));
+
+    const rows = await db
+        .select()
+        .from(temperatureReadings)
+        .where(and(...conditions))
+        .orderBy(desc(temperatureReadings.recordedAt))
+        .limit(limit);
+
+    return rows.map((r) => ({
+        ...r,
+        tempC: Number(r.tempC),
+        breachMinC: r.breachMinC == null ? null : Number(r.breachMinC),
+        breachMaxC: r.breachMaxC == null ? null : Number(r.breachMaxC),
+    }));
+}
+
+export async function summarizeReadings(tripId: string) {
+    const sla = await resolveTripSla(tripId);
+
+    const [agg] = await db
+        .select({
+            count: sql<number>`count(*)::int`,
+            minC: sql<string | null>`min(${temperatureReadings.tempC})`,
+            maxC: sql<string | null>`max(${temperatureReadings.tempC})`,
+            avgC: sql<string | null>`avg(${temperatureReadings.tempC})`,
+            breachCount: sql<number>`sum(case when ${temperatureReadings.breach} then 1 else 0 end)::int`,
+        })
+        .from(temperatureReadings)
+        .where(eq(temperatureReadings.tripId, tripId));
+
+    const [first] = await db
+        .select({ at: temperatureReadings.recordedAt })
+        .from(temperatureReadings)
+        .where(eq(temperatureReadings.tripId, tripId))
+        .orderBy(asc(temperatureReadings.recordedAt))
+        .limit(1);
+
+    const [last] = await db
+        .select({ at: temperatureReadings.recordedAt })
+        .from(temperatureReadings)
+        .where(eq(temperatureReadings.tripId, tripId))
+        .orderBy(desc(temperatureReadings.recordedAt))
+        .limit(1);
+
+    return {
+        minC: agg?.minC == null ? null : Number(agg.minC),
+        maxC: agg?.maxC == null ? null : Number(agg.maxC),
+        avgC: agg?.avgC == null ? null : Math.round(Number(agg.avgC) * 100) / 100,
+        count: agg?.count ?? 0,
+        breachCount: agg?.breachCount ?? 0,
+        slaMinC: sla.minC,
+        slaMaxC: sla.maxC,
+        firstAt: first?.at ?? null,
+        lastAt: last?.at ?? null,
+    };
+}

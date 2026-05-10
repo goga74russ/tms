@@ -46,6 +46,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         cargoPlaces: '',
         multiTierAllowed: false,
         maxTiers: '1',
+        coldChainRequired: false,
         temperatureMin: '',
         temperatureMax: '',
         loadingType: '',
@@ -151,7 +152,31 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         if (!form.cargoWeightKg || parseFloat(form.cargoWeightKg) <= 0) nextErrors.cargoWeightKg = 'Укажите вес';
         if (!form.loadingAddress) nextErrors.loadingAddress = 'Укажите адрес погрузки';
         if (!form.unloadingAddress) nextErrors.unloadingAddress = 'Укажите адрес выгрузки';
-        if (form.temperatureMin && form.temperatureMax && parseFloat(form.temperatureMin) > parseFloat(form.temperatureMax)) {
+        if (form.coldChainRequired) {
+            const min = parseFloat(form.temperatureMin);
+            const max = parseFloat(form.temperatureMax);
+            if (!form.temperatureMin || !Number.isFinite(min)) {
+                nextErrors.temperatureMin = 'Укажите мин. температуру';
+            } else if (min < -50 || min > 50) {
+                nextErrors.temperatureMin = 'Допустимо от -50 до 50';
+            }
+            if (!form.temperatureMax || !Number.isFinite(max)) {
+                nextErrors.temperatureMax = 'Укажите макс. температуру';
+            } else if (max < -50 || max > 50) {
+                nextErrors.temperatureMax = 'Допустимо от -50 до 50';
+            }
+            if (
+                Number.isFinite(min) &&
+                Number.isFinite(max) &&
+                min > max
+            ) {
+                nextErrors.temperatureMin = 'Мин. > макс.';
+            }
+        } else if (
+            form.temperatureMin &&
+            form.temperatureMax &&
+            parseFloat(form.temperatureMin) > parseFloat(form.temperatureMax)
+        ) {
             nextErrors.temperatureMin = 'Мин. > макс.';
         }
         setErrors(nextErrors);
@@ -171,8 +196,12 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                 cargoPlaces: form.cargoPlaces ? parseInt(form.cargoPlaces, 10) : undefined,
                 multiTierAllowed: form.multiTierAllowed,
                 maxTiers: form.multiTierAllowed ? parseInt(form.maxTiers, 10) : 1,
-                temperatureMin: form.temperatureMin ? parseFloat(form.temperatureMin) : undefined,
-                temperatureMax: form.temperatureMax ? parseFloat(form.temperatureMax) : undefined,
+                coldChainRequired: form.coldChainRequired,
+                temperatureMinC: form.coldChainRequired && form.temperatureMin ? parseFloat(form.temperatureMin) : undefined,
+                temperatureMaxC: form.coldChainRequired && form.temperatureMax ? parseFloat(form.temperatureMax) : undefined,
+                // legacy field names — kept for backwards compatibility
+                temperatureMin: form.coldChainRequired && form.temperatureMin ? parseFloat(form.temperatureMin) : undefined,
+                temperatureMax: form.coldChainRequired && form.temperatureMax ? parseFloat(form.temperatureMax) : undefined,
                 loadingType: form.loadingType || undefined,
                 hydraulicLiftRequired: form.hydraulicLiftRequired,
                 loadingAddress: form.loadingAddress,
@@ -339,28 +368,56 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         )}
                     </div>
 
-                    <div>
-                        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={form.coldChainRequired}
+                                onChange={(e) => setForm((current) => ({
+                                    ...current,
+                                    coldChainRequired: e.target.checked,
+                                    temperatureMin: e.target.checked ? current.temperatureMin : '',
+                                    temperatureMax: e.target.checked ? current.temperatureMax : '',
+                                }))}
+                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            />
                             <Thermometer className="w-4 h-4 text-blue-500" />
-                            Температурный режим
+                            Требуется температурный контроль
                         </label>
-                        <div className="grid grid-cols-2 gap-3">
-                            <input
-                                type="number"
-                                value={form.temperatureMin}
-                                onChange={(e) => setForm((current) => ({ ...current, temperatureMin: e.target.value }))}
-                                className={fieldClass('temperatureMin')}
-                                placeholder="Мин. температура"
-                            />
-                            <input
-                                type="number"
-                                value={form.temperatureMax}
-                                onChange={(e) => setForm((current) => ({ ...current, temperatureMax: e.target.value }))}
-                                className={fieldClass()}
-                                placeholder="Макс. температура"
-                            />
-                        </div>
-                        {errors.temperatureMin && <p className="text-xs text-red-500 mt-1">{errors.temperatureMin}</p>}
+                        {form.coldChainRequired && (
+                            <div className="mt-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs text-slate-500 mb-1 block">Мин. °C <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="number"
+                                            min={-50}
+                                            max={50}
+                                            step="0.1"
+                                            value={form.temperatureMin}
+                                            onChange={(e) => setForm((current) => ({ ...current, temperatureMin: e.target.value }))}
+                                            className={fieldClass('temperatureMin')}
+                                            placeholder="например, 2"
+                                        />
+                                        {errors.temperatureMin && <p className="text-xs text-red-500 mt-1">{errors.temperatureMin}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-500 mb-1 block">Макс. °C <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="number"
+                                            min={-50}
+                                            max={50}
+                                            step="0.1"
+                                            value={form.temperatureMax}
+                                            onChange={(e) => setForm((current) => ({ ...current, temperatureMax: e.target.value }))}
+                                            className={fieldClass('temperatureMax')}
+                                            placeholder="например, 8"
+                                        />
+                                        {errors.temperatureMax && <p className="text-xs text-red-500 mt-1">{errors.temperatureMax}</p>}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">

@@ -27,7 +27,7 @@ function decodeQueue(encoded: string): string {
 
 export interface OfflineAction {
     id: string;
-    type: 'trip_status' | 'checkpoint_confirm' | 'inspection_submit' | 'delivery_confirmation';
+    type: 'trip_status' | 'checkpoint_confirm' | 'inspection_submit' | 'delivery_confirmation' | 'temperature_reading';
     endpoint: string;
     method: 'POST' | 'PATCH' | 'PUT';
     body: any;

@@ -7,6 +7,7 @@ import {
     timestamp, jsonb, index, uniqueIndex, pgEnum, serial,
     numeric, doublePrecision,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // ================================================================
 // Enums (PostgreSQL-native)
@@ -332,6 +333,10 @@ export const orders = pgTable('orders', {
     // Sprint 9: Температурный режим (рефрижераторы)
     temperatureMin: doublePrecision('temperature_min'),
     temperatureMax: doublePrecision('temperature_max'),
+    // Wave 2: Cold chain v0 — SLA bounds for refrigerated cargo
+    coldChainRequired: boolean('cold_chain_required').notNull().default(false),
+    temperatureMinC: numeric('temperature_min_c', { precision: 5, scale: 2 }).$type<number>(),
+    temperatureMaxC: numeric('temperature_max_c', { precision: 5, scale: 2 }).$type<number>(),
     // Sprint 9: Тип загрузки
     loadingType: varchar('loading_type', { length: 20 }),  // rear, side, top
     hydraulicLiftRequired: boolean('hydraulic_lift_required').notNull().default(false),
@@ -1355,5 +1360,33 @@ export const maintenanceSchedule = pgTable('maintenance_schedule', {
     index('idx_maintenance_status').on(table.status),
     index('idx_maintenance_planned_date').on(table.plannedDate),
     index('idx_maintenance_vehicle_status').on(table.vehicleId, table.status),
+]);
+
+// ================================================================
+// Wave 2 — Cold chain v0 (Temperature Readings)
+// ================================================================
+export const temperatureReadingSourceEnum = pgEnum('temperature_reading_source', [
+    'sensor', 'manual', 'mock',
+]);
+
+export const temperatureReadings = pgTable('temperature_readings', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tripId: uuid('trip_id').notNull().references(() => trips.id, { onDelete: 'cascade' }),
+    orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
+    recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
+    tempC: numeric('temp_c', { precision: 5, scale: 2 }).$type<number>().notNull(),
+    sensorId: text('sensor_id'),
+    latitude: doublePrecision('latitude'),
+    longitude: doublePrecision('longitude'),
+    source: temperatureReadingSourceEnum('source').notNull().default('mock'),
+    breach: boolean('breach').notNull().default(false),
+    breachMinC: numeric('breach_min_c', { precision: 5, scale: 2 }).$type<number>(),
+    breachMaxC: numeric('breach_max_c', { precision: 5, scale: 2 }).$type<number>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_temp_readings_trip_recorded').on(table.tripId, sql`${table.recordedAt} DESC`),
+    index('idx_temp_readings_order_recorded')
+        .on(table.orderId, sql`${table.recordedAt} DESC`)
+        .where(sql`${table.orderId} IS NOT NULL`),
 ]);
 

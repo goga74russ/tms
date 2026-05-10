@@ -58,6 +58,10 @@ export interface CreateOrderInput {
     maxTiers?: number;
     temperatureMin?: number;
     temperatureMax?: number;
+    // Wave 2: Cold chain v0
+    coldChainRequired?: boolean;
+    temperatureMinC?: number;
+    temperatureMaxC?: number;
     loadingType?: string;
     hydraulicLiftRequired?: boolean;
     // Addresses
@@ -117,6 +121,9 @@ export async function createOrder(
                     maxTiers: input.maxTiers,
                     temperatureMin: input.temperatureMin,
                     temperatureMax: input.temperatureMax,
+                    coldChainRequired: input.coldChainRequired,
+                    temperatureMinC: input.temperatureMinC,
+                    temperatureMaxC: input.temperatureMaxC,
                     loadingType: input.loadingType,
                     hydraulicLiftRequired: input.hydraulicLiftRequired,
                     // Addresses
