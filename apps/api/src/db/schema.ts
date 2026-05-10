@@ -271,6 +271,8 @@ export const vehicles = pgTable('vehicles', {
     fuelCardNumber: varchar('fuel_card_number', { length: 50 }),
     transponderNumber: varchar('transponder_number', { length: 50 }),
     hasHydraulicLift: boolean('has_hydraulic_lift').notNull().default(false),
+    // Wave 5: ADR (опасные грузы) — оборудование ADR на ТС
+    adrEquipped: boolean('adr_equipped').notNull().default(false),
     isArchived: boolean('is_archived').notNull().default(false),
     // Multitenancy (Sprint 14)
     organizationId: uuid('organization_id').references(() => organizations.id),
@@ -306,6 +308,8 @@ export const drivers = pgTable('drivers', {
     fuelCardNumber: varchar('fuel_card_number', { length: 50 }),
     // Sprint 19: Приказ Минтранса 390 — СНИЛС обязателен для путевого листа
     snils: varchar('snils', { length: 14 }),
+    // Wave 5: ADR-свидетельство (опасные грузы) — срок окончания
+    adrCertificateExpiry: timestamp('adr_certificate_expiry', { withTimezone: true }),
     isActive: boolean('is_active').notNull().default(true),
     // Multitenancy (Sprint 14)
     organizationId: uuid('organization_id').references(() => organizations.id),
@@ -343,6 +347,10 @@ export const orders = pgTable('orders', {
     // Sprint 9: Тип загрузки
     loadingType: varchar('loading_type', { length: 20 }),  // rear, side, top
     hydraulicLiftRequired: boolean('hydraulic_lift_required').notNull().default(false),
+    // Wave 5: ADR (опасные грузы) — UN ADR классы 1, 2, 3, 4.1, 4.2, 4.3,
+    // 5.1, 5.2, 6.1, 6.2, 7, 8, 9. NULL означает не-опасный груз.
+    adrClass: text('adr_class'),
+    adrUnNumber: text('adr_un_number'),
     // Адреса
     loadingAddress: text('loading_address').notNull(),
     loadingLat: doublePrecision('loading_lat'),
@@ -1180,6 +1188,13 @@ export const transportDocuments = pgTable('transport_documents', {
     history: jsonb('history').$type<Array<Record<string, unknown>>>().notNull().default([]),
     timeline: jsonb('timeline').$type<Array<Record<string, unknown>>>().notNull().default([]),
     metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+    // Wave 5: EDI / Diadoc / SBIS / Kontur (mock).
+    // ediStatus ∈ 'not_sent' | 'sent' | 'signed_by_carrier' | 'signed_by_client' | 'rejected'
+    // ediProvider ∈ 'diadoc' | 'sbis' | 'kontur'
+    ediStatus: text('edi_status'),
+    ediProvider: text('edi_provider'),
+    ediExternalId: text('edi_external_id'),
+    ediSentAt: timestamp('edi_sent_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -1189,6 +1204,21 @@ export const transportDocuments = pgTable('transport_documents', {
     index('idx_transport_documents_waybill').on(table.waybillId),
     index('idx_transport_documents_kind').on(table.artifactKind),
     index('idx_transport_documents_status').on(table.status),
+]);
+
+// ================================================================
+// Wave 5: EDI events log (Diadoc/SBIS/Kontur mock)
+// ================================================================
+export const ediEvents = pgTable('edi_events', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    documentId: uuid('document_id').notNull().references(() => transportDocuments.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    eventType: text('event_type').notNull(), // 'sent' | 'signed' | 'rejected'
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_edi_events_document').on(table.documentId),
+    index('idx_edi_events_created').on(sql`${table.createdAt} DESC`),
 ]);
 
 export const transportDocumentEvents = pgTable('transport_document_events', {

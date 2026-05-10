@@ -24,6 +24,8 @@ export type Order = {
     loadingWindowEnd?: string;
     unloadingWindowStart?: string;
     unloadingWindowEnd?: string;
+    adrClass?: string | null;
+    adrUnNumber?: string | null;
     createdAt: string;
 };
 

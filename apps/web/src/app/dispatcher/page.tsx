@@ -50,6 +50,8 @@ export type UnassignedOrder = {
     cargoWeightKg: number;
     loadingAddress: string;
     unloadingAddress: string;
+    adrClass?: string | null;
+    adrUnNumber?: string | null;
 };
 
 type TripForTimeline = {

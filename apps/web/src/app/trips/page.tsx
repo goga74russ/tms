@@ -897,7 +897,18 @@ function OperationalStructureBlock({
                                 <div key={order.id || order.number} className="px-3 py-3">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-slate-900">{order.number || order.id}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-semibold text-slate-900">{order.number || order.id}</p>
+                                                {order.adrClass && (
+                                                    <span
+                                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold border border-red-200"
+                                                        title={`ADR класс ${order.adrClass}${order.adrUnNumber ? ` · ${order.adrUnNumber}` : ''}`}
+                                                    >
+                                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                                        ADR-{order.adrClass}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="truncate text-xs text-slate-500">{order.cargoDescription || 'Cargo details not provided'}</p>
                                         </div>
                                         <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
@@ -1426,12 +1437,76 @@ function OperationalActionsBlock({
     );
 }
 
-function TransportDocumentsBlock({ dossier }: { dossier: any }) {
+function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: boolean }) {
     const transportDocuments = dossier?.transportDocuments;
     const etrn = dossier?.etrn;
     const tripId = dossier?.trip?.id;
     const [documentActionLoading, setDocumentActionLoading] = useState<string | null>(null);
     const [documentActionResult, setDocumentActionResult] = useState<string | null>(null);
+    const [ediActionLoading, setEdiActionLoading] = useState<string | null>(null);
+    const [ediStatuses, setEdiStatuses] = useState<Record<string, { status?: string; provider?: string; sentAt?: string }>>({});
+    const [ediHistoryDoc, setEdiHistoryDoc] = useState<any | null>(null);
+    const [ediHistory, setEdiHistory] = useState<any[]>([]);
+    const [ediHistoryLoading, setEdiHistoryLoading] = useState(false);
+
+    const refreshEdiStatus = async (docId: string) => {
+        try {
+            const res = await api.get<{ success: boolean; data: any[] }>(`/transport-documents/${docId}/edi/history`);
+            const events = Array.isArray(res?.data) ? res.data : [];
+            // Latest event determines status
+            const latest = events[0];
+            setEdiStatuses(prev => ({
+                ...prev,
+                [docId]: {
+                    status: latest?.eventType || prev[docId]?.status,
+                    provider: latest?.payload?.provider || prev[docId]?.provider,
+                    sentAt: latest?.createdAt || prev[docId]?.sentAt,
+                },
+            }));
+        } catch {
+            // silent
+        }
+    };
+
+    const sendEdi = async (docId: string, provider: 'diadoc' | 'sbis' | 'kontur') => {
+        setEdiActionLoading(`send-${docId}-${provider}`);
+        try {
+            await api.post(`/transport-documents/${docId}/edi/send`, { provider });
+            setDocumentActionResult(`EDI: документ отправлен через ${provider}`);
+            await refreshEdiStatus(docId);
+        } catch (err: any) {
+            setDocumentActionResult(err?.message || 'Не удалось отправить EDI');
+        } finally {
+            setEdiActionLoading(null);
+        }
+    };
+
+    const mockEdiProgress = async (docId: string, to: 'signed_by_carrier' | 'signed_by_client' | 'rejected') => {
+        setEdiActionLoading(`mock-${docId}-${to}`);
+        try {
+            await api.post(`/transport-documents/${docId}/edi/mock-progress`, { to });
+            setDocumentActionResult(`EDI mock: ${to}`);
+            await refreshEdiStatus(docId);
+        } catch (err: any) {
+            setDocumentActionResult(err?.message || 'Не удалось обновить EDI mock');
+        } finally {
+            setEdiActionLoading(null);
+        }
+    };
+
+    const openEdiHistory = async (doc: any) => {
+        setEdiHistoryDoc(doc);
+        setEdiHistory([]);
+        setEdiHistoryLoading(true);
+        try {
+            const res = await api.get<{ success: boolean; data: any[] }>(`/transport-documents/${doc.id}/edi/history`);
+            setEdiHistory(Array.isArray(res?.data) ? res.data : []);
+        } catch {
+            setEdiHistory([]);
+        } finally {
+            setEdiHistoryLoading(false);
+        }
+    };
 
     if (!transportDocuments && !etrn) return null;
 
@@ -1722,6 +1797,95 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                                 {doc.error || 'Документ требует повторной проверки перед retry'}
                             </div>
                         )}
+                        {(() => {
+                            const ediOverride = ediStatuses[doc.id] || {};
+                            const ediStatus = ediOverride.status || doc.ediStatus;
+                            const ediProvider = ediOverride.provider || doc.ediProvider;
+                            const ediSentAt = ediOverride.sentAt || doc.ediSentAt;
+                            const badge = (() => {
+                                switch (ediStatus) {
+                                    case 'sent':
+                                    case 'edi_sent':
+                                        return { label: '📤 Отправлено', cls: 'border-blue-200 bg-blue-50 text-blue-700' };
+                                    case 'signed_by_carrier':
+                                        return { label: '✓ Подписано перевозчиком', cls: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
+                                    case 'signed_by_client':
+                                        return { label: '✓✓ Подписано клиентом', cls: 'border-emerald-200 bg-emerald-100 text-emerald-800' };
+                                    case 'rejected':
+                                        return { label: '✕ Отклонено', cls: 'border-rose-200 bg-rose-50 text-rose-700' };
+                                    default:
+                                        return ediStatus
+                                            ? { label: ediStatus, cls: 'border-slate-200 bg-slate-50 text-slate-600' }
+                                            : null;
+                                }
+                            })();
+                            return (
+                                <div className="mt-3 space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/40 px-3 py-2">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">EDI</p>
+                                        {badge ? (
+                                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badge.cls}`}>
+                                                {badge.label}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] text-slate-400">не отправлено</span>
+                                        )}
+                                    </div>
+                                    {(ediProvider || ediSentAt) && (
+                                        <div className="flex flex-wrap gap-2 text-[10px] text-slate-600">
+                                            {ediProvider && <span className="rounded bg-white px-1.5 py-0.5 shadow-sm">{ediProvider}</span>}
+                                            {ediSentAt && <span className="rounded bg-white px-1.5 py-0.5 shadow-sm">{formatTimelineDate(ediSentAt)}</span>}
+                                        </div>
+                                    )}
+                                    {isAdmin && (
+                                        <>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {(['diadoc', 'sbis', 'kontur'] as const).map((prov) => (
+                                                    <button
+                                                        key={prov}
+                                                        type="button"
+                                                        disabled={ediActionLoading === `send-${doc.id}-${prov}`}
+                                                        onClick={() => sendEdi(doc.id, prov)}
+                                                        className="rounded-md border border-indigo-200 bg-white px-2 py-1 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                                                    >
+                                                        {ediActionLoading === `send-${doc.id}-${prov}`
+                                                            ? '...'
+                                                            : prov === 'diadoc' ? 'Диадок' : prov === 'sbis' ? 'СБИС' : 'Контур'}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                <span className="text-[10px] text-slate-500">Mock:</span>
+                                                <select
+                                                    onChange={(e) => {
+                                                        const value = e.target.value as 'signed_by_carrier' | 'signed_by_client' | 'rejected' | '';
+                                                        if (value) {
+                                                            mockEdiProgress(doc.id, value);
+                                                            e.target.value = '';
+                                                        }
+                                                    }}
+                                                    disabled={Boolean(ediActionLoading?.startsWith(`mock-${doc.id}`))}
+                                                    className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700 disabled:opacity-50"
+                                                    defaultValue=""
+                                                >
+                                                    <option value="">Перейти в...</option>
+                                                    <option value="signed_by_carrier">signed_by_carrier</option>
+                                                    <option value="signed_by_client">signed_by_client</option>
+                                                    <option value="rejected">rejected</option>
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => openEdiHistory(doc)}
+                                        className="text-[10px] font-semibold text-indigo-600 underline-offset-2 hover:underline"
+                                    >
+                                        История EDI
+                                    </button>
+                                </div>
+                            );
+                        })()}
                     </div>
                 ))}
             </div>
@@ -1809,6 +1973,34 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                     )}
                 </div>
             </div>
+
+            <Dialog
+                open={Boolean(ediHistoryDoc)}
+                onClose={() => setEdiHistoryDoc(null)}
+                title={ediHistoryDoc ? `История EDI · ${transportDocumentLabel(ediHistoryDoc.type)} ${ediHistoryDoc.externalId || ''}` : 'История EDI'}
+            >
+                {ediHistoryLoading ? (
+                    <div className="py-6 text-center text-sm text-slate-500">Загрузка...</div>
+                ) : ediHistory.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-slate-400">Событий нет</div>
+                ) : (
+                    <ul className="space-y-2">
+                        {ediHistory.map((evt: any, idx: number) => (
+                            <li key={idx} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-bold text-slate-800">{evt.eventType}</span>
+                                    <span className="text-[10px] text-slate-500">{formatTimelineDate(evt.createdAt)}</span>
+                                </div>
+                                {evt.payload && (
+                                    <pre className="mt-1 max-h-32 overflow-auto rounded bg-white p-1.5 text-[10px] text-slate-600">
+                                        {typeof evt.payload === 'string' ? evt.payload : JSON.stringify(evt.payload, null, 2)}
+                                    </pre>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Dialog>
         </div>
     );
 }
@@ -2776,7 +2968,7 @@ export default function TripsPage() {
                                         );
                                     })()}
 
-                                    <TransportDocumentsBlock dossier={dossier} />
+                                    <TransportDocumentsBlock dossier={dossier} isAdmin={Boolean(user?.roles?.includes('admin'))} />
 
                                     {(() => {
                                         const orders: any[] = dossier?.orders || [];
@@ -2801,7 +2993,18 @@ export default function TripsPage() {
                                                     <div key={order.id} className="p-4">
                                                         <div className="flex items-start justify-between gap-3">
                                                             <div>
-                                                                <div className="text-sm font-semibold text-slate-900">{order.number}</div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="text-sm font-semibold text-slate-900">{order.number}</div>
+                                                                    {order.adrClass && (
+                                                                        <span
+                                                                            className="inline-flex items-center gap-0.5 rounded border border-red-200 bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700"
+                                                                            title={`ADR класс ${order.adrClass}${order.adrUnNumber ? ` · ${order.adrUnNumber}` : ''}`}
+                                                                        >
+                                                                            <AlertTriangle className="w-2.5 h-2.5" />
+                                                                            ADR-{order.adrClass}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 <div className="text-xs text-slate-500">{order.cargoDescription || 'Без описания груза'}</div>
                                                                 <div className="mt-2 text-xs text-slate-500">
                                                                     Контрагент: {order.contractor?.name || 'Не указан'}

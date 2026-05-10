@@ -113,6 +113,13 @@
       "when": 1773640833000,
       "tag": "0016_carrier_subcontracting",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1773640834000,
+      "tag": "0017_adr_edi_scoring",
+      "breakpoints": true
     }
   ]
 }

@@ -26,6 +26,7 @@ export function AddVehicleModal({ onClose, onCreated }: AddVehicleModalProps) {
         payloadVolumeM3: 20,
         fuelTankLiters: 120,
         fuelNormPer100Km: 18,
+        adrEquipped: false,
     });
     const vehicleProfile = getVehicleProfile(form.bodyType, form.payloadCapacityKg);
     const waybillCue = getVehicleWaybillCue(form.bodyType, form.payloadCapacityKg);
@@ -256,6 +257,20 @@ export function AddVehicleModal({ onClose, onCreated }: AddVehicleModalProps) {
                                     focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                             />
                         </div>
+                    </div>
+
+                    {/* ADR */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={form.adrEquipped}
+                                onChange={e => updateField('adrEquipped', e.target.checked)}
+                                className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                            />
+                            Оборудовано для ADR
+                        </label>
+                        <p className="mt-1 text-xs text-slate-500">ТС соответствует требованиям перевозки опасных грузов.</p>
                     </div>
 
                     {/* Submit */}

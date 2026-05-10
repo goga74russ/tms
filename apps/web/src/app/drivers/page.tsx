@@ -167,6 +167,7 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
     const [licenseCategories, setLicenseCategories] = useState('');
     const [licenseExpiry, setLicenseExpiry] = useState('');
     const [medCertExpiry, setMedCertExpiry] = useState('');
+    const [adrCertExpiry, setAdrCertExpiry] = useState('');
     const [phone, setPhone] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -185,6 +186,7 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
                 licenseCategories: licenseCategories.split(',').map(s => s.trim()).filter(Boolean),
                 licenseExpiry: licenseExpiry || undefined,
                 medCertificateExpiry: medCertExpiry || undefined,
+                adrCertificateExpiry: adrCertExpiry || undefined,
                 phone: phone || undefined,
             });
             if (result.success) {
@@ -239,6 +241,12 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
                             <input type="date" value={medCertExpiry} onChange={e => setMedCertExpiry(e.target.value)}
                                 className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                         </div>
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">ADR-сертификат до</label>
+                        <input type="date" value={adrCertExpiry} onChange={e => setAdrCertExpiry(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        <p className="text-xs text-slate-400 mt-1">Срок действия свидетельства о подготовке водителей ТС, перевозящих опасные грузы.</p>
                     </div>
                     <div>
                         <label className="text-sm font-medium text-slate-700 mb-1.5 block">Телефон</label>

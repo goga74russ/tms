@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Package, Truck, ArrowRight, Check, MapPin, User, Weight, X } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { Package, Truck, ArrowRight, Check, MapPin, User, Weight, X, AlertTriangle } from 'lucide-react';
 import { Combobox } from '@/components/ui/Combobox';
 import { api } from '@/lib/api';
 import type { Vehicle, UnassignedOrder } from '../page';
@@ -53,6 +53,37 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
     const [loadingTo, setLoadingTo] = useState('');
     const [unloadingFrom, setUnloadingFrom] = useState('');
     const [unloadingTo, setUnloadingTo] = useState('');
+    const [adrWarnings, setAdrWarnings] = useState<string[]>([]);
+
+    // ADR validation: when both order and vehicle/driver picked, fetch warnings
+    useEffect(() => {
+        if (!selectedOrder || !selectedVehicle) {
+            setAdrWarnings([]);
+            return;
+        }
+        const params = new URLSearchParams();
+        if (selectedVehicle.id) params.set('vehicleId', selectedVehicle.id);
+        // driverId — best-effort: we don't have it directly here, but vehicles often carry one
+        const orderObj: any = orders.find(o => o.id === selectedOrder);
+        if (!orderObj?.adrClass) {
+            setAdrWarnings([]);
+            return;
+        }
+        let cancelled = false;
+        api.get<{ success: boolean; data: { ok: boolean; errors: string[] } }>(
+            `/orders/${selectedOrder}/adr-validation?${params.toString()}`,
+        )
+            .then(res => {
+                if (cancelled) return;
+                if (res?.data && Array.isArray(res.data.errors)) {
+                    setAdrWarnings(res.data.errors);
+                } else {
+                    setAdrWarnings([]);
+                }
+            })
+            .catch(() => { if (!cancelled) setAdrWarnings([]); });
+        return () => { cancelled = true; };
+    }, [selectedOrder, selectedVehicle, orders]);
 
     // Search vehicles via API
     const searchVehicles = useCallback(async (query: string): Promise<VehicleSearchResult[]> => {
@@ -144,6 +175,24 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
             )}
 
             <div className="flex-1 overflow-y-auto p-3 space-y-4">
+                {/* ============= ADR validation warnings ============= */}
+                {adrWarnings.length > 0 && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                        <div className="flex items-start gap-2">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">ADR — внимание</p>
+                                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-amber-800">
+                                    {adrWarnings.map((err, i) => (
+                                        <li key={i}>{err}</li>
+                                    ))}
+                                </ul>
+                                <p className="mt-1.5 text-[10px] text-amber-600">Назначение не блокируется — проверьте перед подтверждением.</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* ============= Vehicle Search ============= */}
                 <div>
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -322,8 +371,17 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                                         }`}
                                 >
                                     <div className="flex justify-between items-center mb-0.5">
-                                        <span className="font-bold text-indigo-600 font-mono">
+                                        <span className="font-bold text-indigo-600 font-mono inline-flex items-center gap-1.5">
                                             {order.number}
+                                            {order.adrClass && (
+                                                <span
+                                                    className="inline-flex items-center gap-0.5 rounded border border-red-200 bg-red-100 px-1 py-0 text-[9px] font-bold text-red-700"
+                                                    title={`ADR класс ${order.adrClass}${order.adrUnNumber ? ` · ${order.adrUnNumber}` : ''}`}
+                                                >
+                                                    <AlertTriangle className="w-2 h-2" />
+                                                    ADR-{order.adrClass}
+                                                </span>
+                                            )}
                                         </span>
                                         <span className="font-semibold text-slate-600">
                                             {order.cargoWeightKg >= 1000

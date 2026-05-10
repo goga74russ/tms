@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck } from 'lucide-react';
+import { X, Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { Order } from '../page';
 
@@ -22,6 +22,9 @@ interface ContractorAddress {
 
 type AddressKind = 'loading' | 'unloading';
 type ConfirmationMode = 'none' | 'optional' | 'required';
+
+const ADR_CLASSES = ['1', '2', '3', '4.1', '4.2', '4.3', '5.1', '5.2', '6.1', '6.2', '7', '8', '9'];
+const ADR_UN_REGEX = /^UN\d{4}$/;
 
 function sortContractorAddresses(addresses: ContractorAddress[]) {
     return [...addresses].sort((left, right) => {
@@ -62,6 +65,9 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         vehicleRequirements: '',
         notes: '',
         confirmationMode: 'none' as ConfirmationMode,
+        adrEnabled: false,
+        adrClass: '',
+        adrUnNumber: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -179,6 +185,14 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         ) {
             nextErrors.temperatureMin = 'Мин. > макс.';
         }
+        if (form.adrEnabled) {
+            if (!form.adrClass) nextErrors.adrClass = 'Выберите класс ADR';
+            if (!form.adrUnNumber) {
+                nextErrors.adrUnNumber = 'Укажите UN-номер';
+            } else if (!ADR_UN_REGEX.test(form.adrUnNumber)) {
+                nextErrors.adrUnNumber = 'Формат: UN1234';
+            }
+        }
         setErrors(nextErrors);
         return Object.keys(nextErrors).length === 0;
     };
@@ -215,6 +229,8 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                 vehicleRequirements: form.vehicleRequirements || undefined,
                 notes: form.notes || undefined,
                 confirmationMode: form.confirmationMode,
+                adrClass: form.adrEnabled ? form.adrClass : undefined,
+                adrUnNumber: form.adrEnabled ? form.adrUnNumber : undefined,
             };
 
             const result = await api.post<any>('/orders', payload);
@@ -415,6 +431,54 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                         />
                                         {errors.temperatureMax && <p className="text-xs text-red-500 mt-1">{errors.temperatureMax}</p>}
                                     </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={form.adrEnabled}
+                                onChange={(e) => setForm((current) => ({
+                                    ...current,
+                                    adrEnabled: e.target.checked,
+                                    adrClass: e.target.checked ? current.adrClass : '',
+                                    adrUnNumber: e.target.checked ? current.adrUnNumber : '',
+                                }))}
+                                className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                            />
+                            <AlertTriangle className="w-4 h-4 text-red-500" />
+                            Опасный груз (ADR)
+                        </label>
+                        {form.adrEnabled && (
+                            <div className="mt-3 grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs text-slate-500 mb-1 block">Класс ADR <span className="text-red-500">*</span></label>
+                                    <select
+                                        value={form.adrClass}
+                                        onChange={(e) => setForm((current) => ({ ...current, adrClass: e.target.value }))}
+                                        className={fieldClass('adrClass')}
+                                    >
+                                        <option value="">Выберите класс</option>
+                                        {ADR_CLASSES.map((cls) => (
+                                            <option key={cls} value={cls}>Класс {cls}</option>
+                                        ))}
+                                    </select>
+                                    {errors.adrClass && <p className="text-xs text-red-500 mt-1">{errors.adrClass}</p>}
+                                </div>
+                                <div>
+                                    <label className="text-xs text-slate-500 mb-1 block">UN-номер <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={form.adrUnNumber}
+                                        onChange={(e) => setForm((current) => ({ ...current, adrUnNumber: e.target.value.toUpperCase() }))}
+                                        className={fieldClass('adrUnNumber')}
+                                        placeholder="UN1234"
+                                        maxLength={6}
+                                    />
+                                    {errors.adrUnNumber && <p className="text-xs text-red-500 mt-1">{errors.adrUnNumber}</p>}
                                 </div>
                             </div>
                         )}

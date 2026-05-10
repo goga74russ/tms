@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { endOfMonth, format, startOfMonth, subMonths } from "date-fns";
+import { endOfMonth, format, startOfMonth, subDays, subMonths } from "date-fns";
 import { api } from "@/lib/api";
 import {
     Bar,
@@ -20,6 +20,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog } from "@/components/ui/dialog";
 
 interface KpiData {
     revenue: number | string | null;
@@ -114,6 +115,178 @@ const formatCompactMoney = (value: number | string | null | undefined) => {
     if (Math.abs(amount) >= 1_000) return `${(amount / 1_000).toFixed(0)}K ₽`;
     return formatMoney(amount);
 };
+
+interface DriverScoreEntry {
+    id?: string;
+    driverId?: string;
+    name?: string;
+    fullName?: string;
+    score?: number | string;
+    tripsCount?: number;
+    onTimePercent?: number;
+    coldBreaches?: number;
+    rtoBreaches?: number;
+    fines?: number;
+}
+
+interface DriverScoreDetail {
+    tripsCount: number;
+    onTimePercent: number;
+    coldBreaches: number;
+    rtoBreaches: number;
+    fines: number;
+    score: number;
+}
+
+function DriverScoreboardSection() {
+    const today = new Date();
+    const [from, setFrom] = useState(format(subDays(today, 30), "yyyy-MM-dd"));
+    const [to, setTo] = useState(format(today, "yyyy-MM-dd"));
+    const [top, setTop] = useState<DriverScoreEntry[]>([]);
+    const [bottom, setBottom] = useState<DriverScoreEntry[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [selected, setSelected] = useState<DriverScoreEntry | null>(null);
+    const [detail, setDetail] = useState<DriverScoreDetail | null>(null);
+    const [detailLoading, setDetailLoading] = useState(false);
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await api.get<{ success: boolean; data: { top: DriverScoreEntry[]; bottom: DriverScoreEntry[] } }>(
+                `/drivers/scoreboard?from=${from}&to=${to}&limit=5`,
+            );
+            setTop(res.data?.top || []);
+            setBottom(res.data?.bottom || []);
+        } catch (err: any) {
+            setError(err?.message || "Не удалось загрузить рейтинг");
+        } finally {
+            setLoading(false);
+        }
+    }, [from, to]);
+
+    useEffect(() => {
+        void load();
+    }, [load]);
+
+    const openDriver = async (entry: DriverScoreEntry) => {
+        const id = entry.driverId || entry.id;
+        if (!id) return;
+        setSelected(entry);
+        setDetail(null);
+        setDetailLoading(true);
+        try {
+            const res = await api.get<{ success: boolean; data: DriverScoreDetail }>(
+                `/drivers/${id}/score?from=${from}&to=${to}`,
+            );
+            setDetail(res.data || null);
+        } catch {
+            setDetail(null);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
+    const renderRow = (entry: DriverScoreEntry, idx: number, tone: "green" | "red") => {
+        const name = entry.name || entry.fullName || (entry.driverId || entry.id || "—").slice(0, 8);
+        const scoreNum = typeof entry.score === "string" ? parseFloat(entry.score) : entry.score;
+        const accent = tone === "green" ? "text-emerald-600" : "text-red-600";
+        const bg = tone === "green" ? "bg-emerald-100" : "bg-red-100";
+        return (
+            <button
+                key={`${entry.id || entry.driverId || idx}`}
+                type="button"
+                onClick={() => openDriver(entry)}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-slate-50"
+            >
+                <div className="flex items-center gap-3 min-w-0">
+                    <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${bg} ${accent}`}>
+                        {idx + 1}
+                    </span>
+                    <span className="truncate text-slate-800">{name}</span>
+                </div>
+                <span className={`font-bold ${accent}`}>{scoreNum != null && Number.isFinite(scoreNum) ? scoreNum.toFixed(1) : "—"}</span>
+            </button>
+        );
+    };
+
+    return (
+        <Card>
+            <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <CardTitle className="text-lg font-semibold text-slate-900">Рейтинг водителей</CardTitle>
+                <div className="flex items-center gap-2">
+                    <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-36" />
+                    <span className="text-slate-400">-</span>
+                    <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-36" />
+                    <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+                        {loading ? "..." : "Обновить"}
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent>
+                {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-600">Top 5</p>
+                        {top.length === 0 ? (
+                            <p className="py-4 text-center text-sm text-slate-400">Нет данных</p>
+                        ) : (
+                            <div className="space-y-1">{top.map((e, i) => renderRow(e, i, "green"))}</div>
+                        )}
+                    </div>
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-600">Bottom 5</p>
+                        {bottom.length === 0 ? (
+                            <p className="py-4 text-center text-sm text-slate-400">Нет данных</p>
+                        ) : (
+                            <div className="space-y-1">{bottom.map((e, i) => renderRow(e, i, "red"))}</div>
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+
+            <Dialog
+                open={Boolean(selected)}
+                onClose={() => { setSelected(null); setDetail(null); }}
+                title={`Детали водителя · ${selected?.name || selected?.fullName || ""}`}
+            >
+                {detailLoading ? (
+                    <p className="py-6 text-center text-sm text-slate-500">Загрузка...</p>
+                ) : !detail ? (
+                    <p className="py-6 text-center text-sm text-slate-400">Данных нет</p>
+                ) : (
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-xs text-slate-500">Рейсов</p>
+                            <p className="text-lg font-bold text-slate-900">{detail.tripsCount}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-xs text-slate-500">В срок (%)</p>
+                            <p className="text-lg font-bold text-slate-900">{detail.onTimePercent}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-xs text-slate-500">Cold breaches</p>
+                            <p className="text-lg font-bold text-slate-900">{detail.coldBreaches}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-xs text-slate-500">RTO breaches</p>
+                            <p className="text-lg font-bold text-slate-900">{detail.rtoBreaches}</p>
+                        </div>
+                        <div className="rounded-lg bg-slate-50 px-3 py-2">
+                            <p className="text-xs text-slate-500">Штрафы</p>
+                            <p className="text-lg font-bold text-slate-900">{detail.fines}</p>
+                        </div>
+                        <div className="rounded-lg bg-emerald-50 px-3 py-2">
+                            <p className="text-xs text-emerald-600">Score</p>
+                            <p className="text-lg font-bold text-emerald-700">{detail.score}</p>
+                        </div>
+                    </div>
+                )}
+            </Dialog>
+        </Card>
+    );
+}
 
 export default function KPIDashboard() {
     const [mounted, setMounted] = useState(false);
@@ -332,7 +505,7 @@ export default function KPIDashboard() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-lg font-semibold text-slate-900">Топ водителей</CardTitle>
+                        <CardTitle className="text-lg font-semibold text-slate-900">Топ водителей (KPI)</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto">
@@ -367,6 +540,8 @@ export default function KPIDashboard() {
                     </CardContent>
                 </Card>
             </div>
+
+            <DriverScoreboardSection />
         </div>
     );
 }

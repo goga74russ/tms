@@ -165,6 +165,10 @@ await app.register(import('./modules/uploads/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/cold-chain/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/rto/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/carriers/routes.js'), { prefix: '/api' });
+// Wave 5: ADR / EDI / Driver scoring
+await app.register(import('./modules/adr/routes.js'), { prefix: '/api' });
+await app.register(import('./modules/edi/routes.js'), { prefix: '/api' });
+await app.register(import('./modules/scoring/routes.js'), { prefix: '/api' });
 await app.register(import('./integrations/websocket.js'), { prefix: '/api' });
 
 // --- Health check ---

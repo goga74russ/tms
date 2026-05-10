@@ -50,7 +50,16 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
                 <span className="text-xs font-bold text-indigo-600 font-mono">
                     {order.number}
                 </span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
+                    {order.adrClass && (
+                        <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold border border-red-200"
+                            title={`ADR класс ${order.adrClass}${order.adrUnNumber ? ` · ${order.adrUnNumber}` : ''}`}
+                        >
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            ADR-{order.adrClass}
+                        </span>
+                    )}
                     <div
                         className="w-2 h-2 rounded-full animate-pulse"
                         style={{ backgroundColor: sla.color }}

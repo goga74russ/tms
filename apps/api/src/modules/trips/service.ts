@@ -801,6 +801,36 @@ export async function assignTrip(
         });
     }
 
+    // Wave 5: ADR / hazmat (WARN-ONLY).
+    // Если у любой связанной заявки есть adr_class — проверяем совместимость
+    // ТС/водителя. Любая ошибка ADR — это soft-warning (журналируется как
+    // trip.adr_warning, не блокирует назначение).
+    {
+        const hazmatOrders = (trip.orders ?? []).filter((o: any) => o.adrClass);
+        if (hazmatOrders.length > 0) {
+            const { validateAdrCompatibility } = await import('../adr/service.js');
+            for (const hazmatOrder of hazmatOrders) {
+                const adrResult = await validateAdrCompatibility(
+                    hazmatOrder.id,
+                    vehicleId,
+                    driverId,
+                    now,
+                );
+                if (!adrResult.ok) {
+                    for (const message of adrResult.errors) {
+                        warnings.push({
+                            type: 'soft',
+                            code: 'ADR_INCOMPATIBLE',
+                            message: `ADR (${hazmatOrder.adrClass}${
+                                hazmatOrder.adrUnNumber ? ` ${hazmatOrder.adrUnNumber}` : ''
+                            }): ${message}`,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
     const blockingIncidents = await getBlockingIncidents({
         tripId,
         vehicleId,
@@ -864,6 +894,23 @@ export async function assignTrip(
                 warnings: warnings.filter(w => w.type === 'soft'),
             },
         }, tx);
+
+        // Wave 5: отдельно журналируем ADR-предупреждения (WARN-ONLY).
+        const adrWarnings = warnings.filter(w => w.code === 'ADR_INCOMPATIBLE');
+        if (adrWarnings.length > 0) {
+            await recordEvent({
+                authorId: author.userId,
+                authorRole: author.role,
+                eventType: 'trip.adr_warning',
+                entityType: 'trip',
+                entityId: tripId,
+                data: {
+                    vehicleId,
+                    driverId,
+                    warnings: adrWarnings,
+                },
+            }, tx);
+        }
 
         return result;
     });
