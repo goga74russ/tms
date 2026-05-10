@@ -437,6 +437,56 @@ export default async function inspectionRoutes(app: FastifyInstance) {
     });
 
     // ============================================================
+    // PDF — акты техосмотра и медосмотра
+    // ============================================================
+    const { generateTechInspectionPdf } = await import('../documents/tech-inspection-pdf.js');
+    const { generateMedInspectionPdf } = await import('../documents/med-inspection-pdf.js');
+
+    app.get('/inspections/tech/:id/pdf', {
+        schema: { tags: ['Осмотры'], summary: 'PDF акта техосмотра', description: 'Скачать акт предрейсового технического осмотра в PDF.' },
+        preHandler: [app.authenticate, requireAbility('read', 'TechInspection')],
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const user = request.user as { organizationId?: string };
+            const { id } = request.params as { id: string };
+            const inspection = await getTechInspectionById(id, user.organizationId);
+            if (!inspection) {
+                return reply.status(404).send({ success: false, error: 'Осмотр не найден' });
+            }
+            const pdf = await generateTechInspectionPdf(id);
+            reply.header('Content-Type', 'application/pdf');
+            reply.header('Content-Disposition', `inline; filename="tech-inspection-${id}.pdf"`);
+            reply.header('Content-Length', pdf.length);
+            return reply.send(pdf);
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(error.statusCode || 500).send({ success: false, error: error.message || 'Ошибка генерации PDF' });
+        }
+    });
+
+    app.get('/inspections/med/:id/pdf', {
+        schema: { tags: ['Осмотры'], summary: 'PDF акта медосмотра', description: 'Скачать акт предрейсового медицинского осмотра в PDF (152-ФЗ — доступно только медику).' },
+        preHandler: [app.authenticate, requireAbility('read', 'MedInspectionDetails')],
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+            const { id } = request.params as { id: string };
+            const inspection = await getMedInspectionById(id, true, user.userId, user.organizationId, request.ip);
+            if (!inspection) {
+                return reply.status(404).send({ success: false, error: 'Осмотр не найден' });
+            }
+            const pdf = await generateMedInspectionPdf(id);
+            reply.header('Content-Type', 'application/pdf');
+            reply.header('Content-Disposition', `inline; filename="med-inspection-${id}.pdf"`);
+            reply.header('Content-Length', pdf.length);
+            return reply.send(pdf);
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(error.statusCode || 500).send({ success: false, error: error.message || 'Ошибка генерации PDF' });
+        }
+    });
+
+    // ============================================================
     // POST-TRIP INSPECTIONS
     // ============================================================
 

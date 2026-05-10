@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '@/lib/api';
-import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2, Play, Flag, FolderOpen } from 'lucide-react';
+import { Dialog } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from '../fleet/components/vehicleProfile';
 
 interface Trip {
@@ -1755,6 +1757,89 @@ export default function TripsPage() {
     const [statusFilter, setStatusFilter] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
 
+    // Wave 1: trip lifecycle (start/complete) modals
+    const [startTripFor, setStartTripFor] = useState<Trip | null>(null);
+    const [completeTripFor, setCompleteTripFor] = useState<Trip | null>(null);
+    const [lifecycleOdometer, setLifecycleOdometer] = useState('');
+    const [lifecycleNotes, setLifecycleNotes] = useState('');
+    const [lifecycleSubmitting, setLifecycleSubmitting] = useState(false);
+    const [lifecycleError, setLifecycleError] = useState('');
+    const [lifecycleToast, setLifecycleToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    useEffect(() => {
+        if (lifecycleToast) {
+            const timer = setTimeout(() => setLifecycleToast(null), 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [lifecycleToast]);
+
+    const openStartTripModal = (trip: Trip) => {
+        setStartTripFor(trip);
+        setLifecycleOdometer('');
+        setLifecycleNotes('');
+        setLifecycleError('');
+    };
+
+    const openCompleteTripModal = (trip: Trip) => {
+        setCompleteTripFor(trip);
+        setLifecycleOdometer('');
+        setLifecycleNotes('');
+        setLifecycleError('');
+    };
+
+    const closeLifecycleModals = () => {
+        setStartTripFor(null);
+        setCompleteTripFor(null);
+        setLifecycleOdometer('');
+        setLifecycleNotes('');
+        setLifecycleError('');
+    };
+
+    const submitStartTrip = async () => {
+        if (!startTripFor) return;
+        const odometer = Number(lifecycleOdometer);
+        if (!Number.isFinite(odometer) || odometer < 0) {
+            setLifecycleError('Введите корректное значение одометра');
+            return;
+        }
+        try {
+            setLifecycleSubmitting(true);
+            setLifecycleError('');
+            await api.post(`/trips/${startTripFor.id}/start`, { odometerStart: odometer });
+            setLifecycleToast({ message: `Рейс ${startTripFor.number} запущен`, type: 'success' });
+            closeLifecycleModals();
+            await loadTrips();
+        } catch (err: any) {
+            setLifecycleError(err?.message || 'Не удалось запустить рейс');
+        } finally {
+            setLifecycleSubmitting(false);
+        }
+    };
+
+    const submitCompleteTrip = async () => {
+        if (!completeTripFor) return;
+        const odometer = Number(lifecycleOdometer);
+        if (!Number.isFinite(odometer) || odometer < 0) {
+            setLifecycleError('Введите корректное значение одометра');
+            return;
+        }
+        try {
+            setLifecycleSubmitting(true);
+            setLifecycleError('');
+            await api.post(`/trips/${completeTripFor.id}/complete`, {
+                odometerEnd: odometer,
+                notes: lifecycleNotes.trim() || undefined,
+            });
+            setLifecycleToast({ message: `Рейс ${completeTripFor.number} завершён`, type: 'success' });
+            closeLifecycleModals();
+            await loadTrips();
+        } catch (err: any) {
+            setLifecycleError(err?.message || 'Не удалось завершить рейс');
+        } finally {
+            setLifecycleSubmitting(false);
+        }
+    };
+
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(search), 300);
         return () => clearTimeout(timer);
@@ -2095,14 +2180,44 @@ export default function TripsPage() {
                                         <td className="px-4 py-3 text-slate-400 text-xs">
                                             <div className="flex flex-col items-end gap-2">
                                                 <span>{formatDate(t.createdAt)}</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openDossier(t.id)}
-                                                    className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
-                                                >
-                                                    <FileText className="w-3.5 h-3.5" />
-                                                    Досье
-                                                </button>
+                                                <div className="flex flex-col items-end gap-1.5">
+                                                    {t.status === 'waybill_issued' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); openStartTripModal(t); }}
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+                                                        >
+                                                            <Play className="w-3.5 h-3.5" />
+                                                            🚀 Начать рейс
+                                                        </button>
+                                                    )}
+                                                    {t.status === 'in_transit' && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); openCompleteTripModal(t); }}
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                                                        >
+                                                            <Flag className="w-3.5 h-3.5" />
+                                                            🏁 Завершить рейс
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); router.push(`/trips/${t.id}/documents`); }}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                                                    >
+                                                        <FolderOpen className="w-3.5 h-3.5" />
+                                                        Документы
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); openDossier(t.id); }}
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+                                                    >
+                                                        <FileText className="w-3.5 h-3.5" />
+                                                        Досье
+                                                    </button>
+                                                </div>
                                             </div>
                                         </td>
                                     </tr>
@@ -2112,6 +2227,109 @@ export default function TripsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Wave 1: Toast */}
+            {lifecycleToast && (
+                <div className={`fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${lifecycleToast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                    {lifecycleToast.message}
+                </div>
+            )}
+
+            {/* Wave 1: Start trip modal */}
+            <Dialog
+                open={!!startTripFor}
+                onClose={closeLifecycleModals}
+                title={startTripFor ? `Начать рейс ${startTripFor.number}` : 'Начать рейс'}
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-500">
+                        Укажите показания одометра на момент начала рейса.
+                    </p>
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                            Одометр (км) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            inputMode="numeric"
+                            value={lifecycleOdometer}
+                            onChange={(e) => setLifecycleOdometer(e.target.value)}
+                            placeholder="например 145320"
+                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                        />
+                    </div>
+                    {lifecycleError && (
+                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                            {lifecycleError}
+                        </div>
+                    )}
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" size="sm" onClick={closeLifecycleModals} disabled={lifecycleSubmitting}>
+                            Отмена
+                        </Button>
+                        <Button size="sm" onClick={submitStartTrip} disabled={lifecycleSubmitting || !lifecycleOdometer}>
+                            {lifecycleSubmitting && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                            Начать рейс
+                        </Button>
+                    </div>
+                </div>
+            </Dialog>
+
+            {/* Wave 1: Complete trip modal */}
+            <Dialog
+                open={!!completeTripFor}
+                onClose={closeLifecycleModals}
+                title={completeTripFor ? `Завершить рейс ${completeTripFor.number}` : 'Завершить рейс'}
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-500">
+                        Зафиксируйте показания одометра на финише и при необходимости оставьте комментарий.
+                    </p>
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                            Одометр (км) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            inputMode="numeric"
+                            value={lifecycleOdometer}
+                            onChange={(e) => setLifecycleOdometer(e.target.value)}
+                            placeholder="например 145890"
+                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                            Комментарий
+                        </label>
+                        <textarea
+                            value={lifecycleNotes}
+                            onChange={(e) => setLifecycleNotes(e.target.value)}
+                            rows={3}
+                            placeholder="Опционально"
+                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                    </div>
+                    {lifecycleError && (
+                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                            {lifecycleError}
+                        </div>
+                    )}
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" size="sm" onClick={closeLifecycleModals} disabled={lifecycleSubmitting}>
+                            Отмена
+                        </Button>
+                        <Button size="sm" onClick={submitCompleteTrip} disabled={lifecycleSubmitting || !lifecycleOdometer}>
+                            {lifecycleSubmitting && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                            Завершить рейс
+                        </Button>
+                    </div>
+                </div>
+            </Dialog>
 
             {dossierTripId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

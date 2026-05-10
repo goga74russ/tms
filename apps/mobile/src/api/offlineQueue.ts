@@ -80,30 +80,42 @@ function isLocalPhotoUri(uri: string): boolean {
     return uri.startsWith('file://') || uri.startsWith('content://') || uri.startsWith('ph://');
 }
 
+async function uploadIfLocal(items: unknown[]): Promise<string[]> {
+    const out: string[] = [];
+    for (const item of items) {
+        if (typeof item !== 'string') continue;
+        if (isLocalPhotoUri(item)) {
+            out.push(await uploadPhoto(item));
+        } else {
+            out.push(item);
+        }
+    }
+    return out;
+}
+
 async function prepareBodyForReplay(action: OfflineAction): Promise<any> {
     if (action.type !== 'delivery_confirmation') {
         return action.body;
     }
 
-    const photos = Array.isArray(action.body?.photos) ? action.body.photos : [];
-    if (photos.length === 0) {
-        return action.body;
+    const isV2 = typeof action.endpoint === 'string' && action.endpoint.endsWith('/delivery-confirmation/v2');
+
+    // Legacy body shape: { ..., photos: string[] }
+    // v2 body shape:    { ..., photoUrls: string[], photos?: string[] (queue-only local URIs) }
+    const legacyPhotos = Array.isArray(action.body?.photos) ? action.body.photos : [];
+    const v2PhotoUrls = Array.isArray(action.body?.photoUrls) ? action.body.photoUrls : [];
+
+    if (!isV2) {
+        if (legacyPhotos.length === 0) return action.body;
+        return { ...action.body, photos: await uploadIfLocal(legacyPhotos) };
     }
 
-    const uploadedPhotos = await Promise.all(
-        photos.map(async (photo: unknown) => {
-            if (typeof photo === 'string' && isLocalPhotoUri(photo)) {
-                return uploadPhoto(photo);
-            }
-
-            return photo;
-        })
-    );
-
-    return {
-        ...action.body,
-        photos: uploadedPhotos,
-    };
+    // v2 — merge any queued local URIs (under photos) into the uploaded
+    // photoUrls array, then drop the local-only field.
+    const merged = [...v2PhotoUrls, ...(await uploadIfLocal(legacyPhotos))];
+    const replayBody: Record<string, unknown> = { ...action.body, photoUrls: merged };
+    delete replayBody.photos;
+    return replayBody;
 }
 
 export async function replayQueue(): Promise<{ success: number; failed: number }> {

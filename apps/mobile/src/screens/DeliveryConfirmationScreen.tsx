@@ -19,6 +19,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { uploadPhoto } from '../api/upload';
 import { enqueueAction } from '../api/offlineQueue';
 import { useAuth } from '../context/AuthContext';
+import { DeliveryCondition, DeliveryConfirmationV2Body } from '../api/trips';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
@@ -26,6 +27,12 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DeliveryConfirmation'>;
 type CargoCondition = 'intact' | 'damaged' | 'partial';
 type Step = 'form' | 'camera' | 'photoReview' | 'signature';
 type SubmissionStatus = 'idle' | 'sending' | 'queued';
+
+const CONDITION_MAP: Record<CargoCondition, DeliveryCondition> = {
+    intact: 'ok',
+    partial: 'short',
+    damaged: 'damaged',
+};
 
 interface EvidenceMeta {
     capturedAt: string;
@@ -123,24 +130,38 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
                 photoUrl = photo;
             }
 
-            const body = {
-                recipientName,
-                recipientPosition: recipientPosition || undefined,
-                recipientDocument: recipientDocument || undefined,
-                recipientSignaturePath: sig || undefined,
-                photos: photoUrl ? [photoUrl] : [],
-                cargoCondition,
-                notes: notes || undefined,
-                gpsLat: evidenceMeta?.gpsLat,
-                gpsLng: evidenceMeta?.gpsLng,
+            const recipientNotes = [
+                recipientPosition ? `Должность: ${recipientPosition}` : null,
+                recipientDocument ? `Документ: ${recipientDocument}` : null,
+                notes || null,
+                evidenceMeta?.gpsLat != null && evidenceMeta?.gpsLng != null
+                    ? `GPS: ${evidenceMeta.gpsLat.toFixed(5)}, ${evidenceMeta.gpsLng.toFixed(5)}`
+                    : null,
+            ]
+                .filter(Boolean)
+                .join('\n');
+
+            const body: DeliveryConfirmationV2Body & { photos?: string[] } = {
+                signedByName: recipientName,
+                signatureDataUrl: sig || '',
+                photoUrls: photoUrl ? [photoUrl] : [],
+                condition: CONDITION_MAP[cargoCondition],
+                notes: recipientNotes || undefined,
             };
 
             if (shouldQueue) {
+                // For replay, keep raw local photo URI(s) under `photos` so the
+                // offline queue can re-upload them on its way out, then convert
+                // to `photoUrls` before POSTing.
+                const queuedBody = {
+                    ...body,
+                    photos: photo ? [photo] : [],
+                };
                 await enqueueAction({
                     type: 'delivery_confirmation',
-                    endpoint: `/trips/${tripId}/delivery-confirmation`,
+                    endpoint: `/trips/${tripId}/delivery-confirmation/v2`,
                     method: 'POST',
-                    body,
+                    body: queuedBody,
                 });
                 Alert.alert(
                     '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e \u0432 \u043e\u0447\u0435\u0440\u0435\u0434\u0438',
@@ -150,7 +171,7 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
                 return;
             }
 
-            const res = await fetch(`${API_URL}/trips/${tripId}/delivery-confirmation`, {
+            const res = await fetch(`${API_URL}/trips/${tripId}/delivery-confirmation/v2`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

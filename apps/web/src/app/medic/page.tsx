@@ -634,6 +634,10 @@ export default function MedicPage() {
                 {/* Queue Tab */}
                 {activeTab === 'queue' && !selectedDriver && (
                     <div>
+                        {/* TODO(wave1): Add inline "Допустить" / "Не допускать" buttons per queue row.
+                          * Skipped: backend has no POST /inspections/med/:id/decision endpoint —
+                          * approval requires full vitals + signature (POST /inspections/med),
+                          * so per-row quick approve cannot be wired without a new API endpoint. */}
                         <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                             <Users className="w-5 h-5 text-rose-500" />
                             Очередь на медосмотр
@@ -713,12 +717,13 @@ export default function MedicPage() {
                                         <th className="text-left px-4 py-3 font-semibold text-slate-600">Водитель</th>
                                         <th className="text-left px-4 py-3 font-semibold text-slate-600">ПЛ</th>
                                         <th className="text-left px-4 py-3 font-semibold text-slate-600">Решение</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">Акт</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {journal.length === 0 ? (
                                         <tr>
-                                            <td colSpan={4} className="text-center py-10 text-slate-400">
+                                            <td colSpan={5} className="text-center py-10 text-slate-400">
                                                 Нет записей
                                             </td>
                                         </tr>
@@ -768,6 +773,18 @@ export default function MedicPage() {
                                                             <><XCircle className="w-3 h-3" /> Не допущен</>
                                                         )}
                                                     </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <a
+                                                        href={`/api/inspections/med/${record.id}/pdf`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 transition"
+                                                        title="Скачать акт PDF"
+                                                    >
+                                                        <FileText className="w-3.5 h-3.5" />
+                                                        PDF акт
+                                                    </a>
                                                 </td>
                                             </tr>
                                         ))

@@ -157,6 +157,7 @@ await app.register(import('./modules/analytics/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/settings/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/operations/routes.js'), { prefix: '/api' });
 
+await app.register(import('./modules/documents/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/sprint9/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/claims/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/uploads/routes.js'), { prefix: '/api' });

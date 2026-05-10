@@ -7,7 +7,7 @@ import { api } from '../../lib/api';
 import {
     Wrench, CheckCircle2, XCircle, AlertTriangle, Clock,
     ChevronRight, Shield, Fuel, FileCheck, Calendar,
-    Thermometer, Eye, ClipboardCheck, RotateCcw, Truck,
+    Thermometer, Eye, ClipboardCheck, RotateCcw, Truck, FileText,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { getVehicleProfile } from '../fleet/components/vehicleProfile';
@@ -550,6 +550,10 @@ export default function MechanicPage() {
                 {/* Queue Tab */}
                 {activeTab === 'queue' && !selectedVehicle && (
                     <div>
+                        {/* TODO(wave1): Add inline "Допустить" / "Не допускать" buttons per queue row.
+                          * Skipped: backend has no POST /inspections/tech/:id/decision endpoint —
+                          * approval requires a full checklist (POST /inspections/tech with items+signature),
+                          * so per-row quick approve cannot be wired without a new API endpoint. */}
                         <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                             <Truck className="w-5 h-5 text-orange-500" />
                             Очередь на техосмотр
@@ -638,12 +642,13 @@ export default function MechanicPage() {
                                         <th className="text-left px-4 py-3 font-semibold text-slate-600">ПЛ</th>
                                         <th className="text-left px-4 py-3 font-semibold text-slate-600">Решение</th>
                                         <th className="text-left px-4 py-3 font-semibold text-slate-600">Неисправности</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">Акт</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {journal.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="text-center py-10 text-slate-400">
+                                            <td colSpan={6} className="text-center py-10 text-slate-400">
                                                 Нет записей
                                             </td>
                                         </tr>
@@ -702,6 +707,18 @@ export default function MechanicPage() {
                                                         ?.filter(i => i.result === 'fault')
                                                         .map(i => i.name)
                                                         .join(', ') || '—'}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <a
+                                                        href={`/api/inspections/tech/${record.id}/pdf`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition"
+                                                        title="Скачать акт PDF"
+                                                    >
+                                                        <FileText className="w-3.5 h-3.5" />
+                                                        PDF акт
+                                                    </a>
                                                 </td>
                                             </tr>
                                         ))

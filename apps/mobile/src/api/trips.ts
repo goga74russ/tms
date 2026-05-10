@@ -110,6 +110,60 @@ export async function updateTripStatus(tripId: string, newStatus: string): Promi
 }
 
 /**
+ * Start a trip (driver presses "Начать рейс"). Records starting odometer and
+ * issues the waybill on the server. Returns { trip, waybill }.
+ */
+export async function startTrip(
+    tripId: string,
+    payload: { odometerStart: number }
+): Promise<{ trip: any; waybill: any }> {
+    const data = await authFetch(`/trips/${tripId}/start`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    return data.data || data;
+}
+
+/**
+ * Complete a trip (driver presses "Завершить рейс"). Records final odometer
+ * and optional notes. Returns { trip, waybill }.
+ */
+export async function completeTrip(
+    tripId: string,
+    payload: { odometerEnd: number; notes?: string }
+): Promise<{ trip: any; waybill: any }> {
+    const data = await authFetch(`/trips/${tripId}/complete`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    return data.data || data;
+}
+
+export type DeliveryCondition = 'ok' | 'damaged' | 'short';
+
+export interface DeliveryConfirmationV2Body {
+    signedByName: string;
+    signatureDataUrl: string;
+    photoUrls?: string[];
+    condition: DeliveryCondition;
+    notes?: string;
+}
+
+/**
+ * Submit the v2 delivery confirmation. Photos must already be uploaded —
+ * pass server URLs in `photoUrls`.
+ */
+export async function submitDeliveryConfirmationV2(
+    tripId: string,
+    body: DeliveryConfirmationV2Body
+): Promise<any> {
+    return authFetch(`/trips/${tripId}/delivery-confirmation/v2`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+}
+
+/**
  * Confirm a route point (checkpoint arrival).
  */
 export async function confirmRoutePoint(

@@ -748,6 +748,7 @@ function DetailModal({
     dossier,
     onClose,
     onCloseWaybill,
+    onSyncStatus,
     onUploadAttachment,
     onDeleteAttachment,
     onDownloadAttachment,
@@ -759,6 +760,7 @@ function DetailModal({
     dossier?: any | null;
     onClose: () => void;
     onCloseWaybill: () => void;
+    onSyncStatus?: () => void | Promise<void>;
     onUploadAttachment: (file: File) => Promise<void>;
     onDeleteAttachment: (attachmentId: string) => Promise<void>;
     onDownloadAttachment: (attachment: WaybillAttachment) => Promise<void>;
@@ -1145,6 +1147,18 @@ function DetailModal({
                         Выдан: {new Date(waybill.issuedAt).toLocaleString('ru-RU')}
                         {waybill.closedAt && ' Закрыт: ' + new Date(waybill.closedAt).toLocaleString('ru-RU')}
                     </div>
+                    {/* Sync status button */}
+                    {onSyncStatus && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full mt-2"
+                            onClick={() => { void onSyncStatus(); }}
+                        >
+                            <RotateCcw className="w-4 h-4 mr-1.5" />
+                            Пересчитать статус
+                        </Button>
+                    )}
                     {/* Close button if not yet closed */}
                     {waybill.status === 'issued' && (
                         <Button
@@ -1552,6 +1566,22 @@ export default function WaybillsPage() {
                                                     <Eye className="w-4 h-4 text-slate-400" />
                                                 </button>
                                                 <button
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        try {
+                                                            await api.post(`/waybills/${wb.id}/sync-status`);
+                                                            setToast({ message: '✅ Статус ПЛ пересчитан', type: 'success' });
+                                                            await loadWaybills();
+                                                        } catch (err: any) {
+                                                            setToast({ message: err?.message || 'Не удалось пересчитать статус', type: 'error' });
+                                                        }
+                                                    }}
+                                                    className="p-1 rounded hover:bg-amber-100 transition-colors"
+                                                    title="Пересчитать статус"
+                                                >
+                                                    <RotateCcw className="w-4 h-4 text-amber-600" />
+                                                </button>
+                                                <button
                                                     onClick={(e) => { e.stopPropagation(); void downloadFromApi(`/api/waybills/${wb.id}/etrn`, `etrn_${wb.number}.xml`); }}
                                                     className="p-1 rounded hover:bg-emerald-100 transition-colors" title="Скачать ЭТрН XML"
                                                 >
@@ -1625,6 +1655,16 @@ export default function WaybillsPage() {
                     onClose={() => setDetailWaybill(null)}
                     onCloseWaybill={() => {
                         setCloseWaybill(detailWaybill);
+                    }}
+                    onSyncStatus={async () => {
+                        try {
+                            await api.post(`/waybills/${detailWaybill.id}/sync-status`);
+                            setToast({ message: '✅ Статус ПЛ пересчитан', type: 'success' });
+                            await openDetail(detailWaybill.id);
+                            await loadWaybills();
+                        } catch (err: any) {
+                            setToast({ message: err?.message || 'Не удалось пересчитать статус', type: 'error' });
+                        }
                     }}
                     onUploadAttachment={handleUploadAttachment}
                     onDeleteAttachment={handleDeleteAttachment}

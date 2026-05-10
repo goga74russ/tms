@@ -10,6 +10,7 @@ import CheckpointScreen from '../screens/CheckpointScreen';
 import TripCompletionScreen from '../screens/TripCompletionScreen';
 import DeliveryConfirmationScreen from '../screens/DeliveryConfirmationScreen';
 import MechanicInspectionScreen from '../screens/MechanicInspectionScreen';
+import MyWaybillScreen from '../screens/MyWaybillScreen';
 
 export type RootStackParamList = {
     Login: undefined;
@@ -19,6 +20,7 @@ export type RootStackParamList = {
     TripCompletion: { tripId: string; correctionReason?: string };
     DeliveryConfirmation: { tripId: string };
     MechanicInspection: undefined;
+    MyWaybill: { tripId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -75,6 +77,11 @@ export default function AppNavigator() {
                         name="DeliveryConfirmation"
                         component={DeliveryConfirmationScreen}
                         options={{ title: 'Подтверждение доставки' }}
+                    />
+                    <Stack.Screen
+                        name="MyWaybill"
+                        component={MyWaybillScreen}
+                        options={{ title: 'Путевой лист' }}
                     />
                 </>
             ) : (

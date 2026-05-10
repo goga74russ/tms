@@ -1,5 +1,5 @@
-﻿import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ActivityIndicator, Alert, TextInput } from 'react-native';
+﻿import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ActivityIndicator, Alert, TextInput, Modal, Platform } from 'react-native';
 import { Q } from '@nozbe/watermelondb';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -7,7 +7,15 @@ import { database } from '../database';
 import Trip from '../database/models/Trip';
 import RoutePoint from '../database/models/RoutePoint';
 import { getQueueSummary } from '../api/offlineQueue';
-import { getTripOperationExceptions, OperationExceptionItem, OperationExceptionSummary } from '../api/trips';
+import { completeTrip, getTripOperationExceptions, OperationExceptionItem, OperationExceptionSummary, startTrip } from '../api/trips';
+
+const WAYBILL_VISIBLE_STATUSES = new Set([
+    'waybill_issued',
+    'loading',
+    'in_transit',
+    'completed',
+    'billed',
+]);
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripDetails'>;
 
@@ -40,34 +48,79 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
     });
     const [completionReason, setCompletionReason] = useState('');
     const [loading, setLoading] = useState(true);
+    const [odometerModal, setOdometerModal] = useState<null | 'start' | 'complete'>(null);
+    const [odometerValue, setOdometerValue] = useState('');
+    const [completionNotes, setCompletionNotes] = useState('');
+    const [actionInFlight, setActionInFlight] = useState(false);
+
+    const fetchData = useCallback(async () => {
+        try {
+            const fetchedTrips = await database.collections.get<Trip>('trips').query(Q.where('trip_id', tripId)).fetch();
+            if (fetchedTrips.length > 0) {
+                setTrip(fetchedTrips[0]);
+            }
+
+            const fetchedPoints = await database.collections.get<RoutePoint>('route_points').query(Q.where('trip_id', tripId)).fetch();
+            setPoints(fetchedPoints);
+
+            const [exceptionData, queueSize] = await Promise.all([
+                getTripOperationExceptions(tripId),
+                getQueueSummary(),
+            ]);
+            setExceptionSummary(exceptionData?.summary || null);
+            setExceptions(exceptionData?.exceptions || []);
+            setOfflineQueueSummary(queueSize);
+        } catch {
+            Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u0440\u0435\u0439\u0441\u0430.');
+        } finally {
+            setLoading(false);
+        }
+    }, [tripId]);
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const fetchedTrips = await database.collections.get<Trip>('trips').query(Q.where('trip_id', tripId)).fetch();
-                if (fetchedTrips.length > 0) {
-                    setTrip(fetchedTrips[0]);
-                }
+        void fetchData();
+    }, [fetchData]);
 
-                const fetchedPoints = await database.collections.get<RoutePoint>('route_points').query(Q.where('trip_id', tripId)).fetch();
-                setPoints(fetchedPoints);
+    const tripStatus = trip?.status;
+    const showWaybillButton = !!tripStatus && WAYBILL_VISIBLE_STATUSES.has(tripStatus);
+    const canStart = tripStatus === 'waybill_issued';
+    const allPointsClosed = points.length > 0 && points.every((p) => p.status === 'completed' || p.status === 'skipped');
+    const canComplete = tripStatus === 'in_transit' && allPointsClosed;
 
-                const [exceptionData, queueSize] = await Promise.all([
-                    getTripOperationExceptions(tripId),
-                    getQueueSummary(),
-                ]);
-                setExceptionSummary(exceptionData?.summary || null);
-                setExceptions(exceptionData?.exceptions || []);
-                setOfflineQueueSummary(queueSize);
-            } catch {
-                Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u0440\u0435\u0439\u0441\u0430.');
-            } finally {
-                setLoading(false);
+    const openOdometerModal = (mode: 'start' | 'complete') => {
+        setOdometerValue('');
+        setCompletionNotes('');
+        setOdometerModal(mode);
+    };
+
+    const submitOdometer = async () => {
+        const parsed = Number(odometerValue.replace(',', '.'));
+        if (!Number.isFinite(parsed) || parsed < 0) {
+            Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0439 \u043f\u0440\u043e\u0431\u0435\u0433 (\u043a\u043c).');
+            return;
+        }
+        const mode = odometerModal;
+        if (!mode) return;
+
+        setActionInFlight(true);
+        try {
+            if (mode === 'start') {
+                await startTrip(tripId, { odometerStart: parsed });
+            } else {
+                await completeTrip(tripId, {
+                    odometerEnd: parsed,
+                    notes: completionNotes.trim() || undefined,
+                });
             }
-        };
-
-        fetchData();
-    }, [tripId]);
+            setOdometerModal(null);
+            await fetchData();
+            Alert.alert('\u0413\u043e\u0442\u043e\u0432\u043e', mode === 'start' ? '\u0420\u0435\u0439\u0441 \u043d\u0430\u0447\u0430\u0442' : '\u0420\u0435\u0439\u0441 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d');
+        } catch (e: any) {
+            Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', e?.message || '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u044c \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435');
+        } finally {
+            setActionInFlight(false);
+        }
+    };
 
     const openNavigation = (address: string) => {
         const query = encodeURIComponent(address);
@@ -235,13 +288,101 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                 )}
             />
 
+            {showWaybillButton && (
+                <TouchableOpacity
+                    style={styles.waybillButton}
+                    onPress={() => navigation.navigate('MyWaybill', { tripId })}
+                >
+                    <Text style={styles.waybillButtonText}>\u041f\u0443\u0442\u0435\u0432\u043e\u0439 \u043b\u0438\u0441\u0442</Text>
+                </TouchableOpacity>
+            )}
+
+            {canStart && (
+                <TouchableOpacity
+                    style={styles.startTripButton}
+                    onPress={() => openOdometerModal('start')}
+                >
+                    <Text style={styles.completeTripText}>{'\ud83d\ude80 \u041d\u0430\u0447\u0430\u0442\u044c \u0440\u0435\u0439\u0441'}</Text>
+                </TouchableOpacity>
+            )}
+
+            {canComplete && (
+                <TouchableOpacity
+                    style={styles.finishTripButton}
+                    onPress={() => openOdometerModal('complete')}
+                >
+                    <Text style={styles.completeTripText}>{'\ud83c\udfc1 \u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u0440\u0435\u0439\u0441'}</Text>
+                </TouchableOpacity>
+            )}
+
             <TouchableOpacity
                 style={[styles.completeTripButton, !canCompleteTrip && styles.completeTripButtonWarning, !canSubmitCompletion && styles.disabledButton]}
                 onPress={markCompleted}
                 disabled={!canSubmitCompletion}
             >
-                <Text style={styles.completeTripText}>{'\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u0440\u0435\u0439\u0441'}</Text>
+                <Text style={styles.completeTripText}>{'\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u0440\u0435\u0439\u0441 (\u043b\u0435\u0433\u0430\u0441\u0438)'}</Text>
             </TouchableOpacity>
+
+            <Modal
+                visible={odometerModal !== null}
+                transparent
+                animationType="fade"
+                onRequestClose={() => !actionInFlight && setOdometerModal(null)}
+            >
+                <View style={styles.modalBackdrop}>
+                    <View style={styles.modalCard}>
+                        <Text style={styles.modalTitle}>
+                            {odometerModal === 'start' ? '\u041d\u0430\u0447\u0430\u043b\u043e \u0440\u0435\u0439\u0441\u0430' : '\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0438\u0435 \u0440\u0435\u0439\u0441\u0430'}
+                        </Text>
+                        <Text style={styles.modalLabel}>
+                            {odometerModal === 'start' ? '\u0421\u0442\u0430\u0440\u0442\u043e\u0432\u044b\u0439 \u043e\u0434\u043e\u043c\u0435\u0442\u0440 (\u043a\u043c)' : '\u0424\u0438\u043d\u0430\u043b\u044c\u043d\u044b\u0439 \u043e\u0434\u043e\u043c\u0435\u0442\u0440 (\u043a\u043c)'}
+                        </Text>
+                        <TextInput
+                            style={styles.modalInput}
+                            value={odometerValue}
+                            onChangeText={setOdometerValue}
+                            placeholder="123456"
+                            keyboardType={Platform.OS === 'ios' ? 'decimal-pad' : 'numeric'}
+                            editable={!actionInFlight}
+                        />
+                        {odometerModal === 'complete' && (
+                            <>
+                                <Text style={styles.modalLabel}>\u0417\u0430\u043c\u0435\u0442\u043a\u0438</Text>
+                                <TextInput
+                                    style={[styles.modalInput, styles.modalNotes]}
+                                    value={completionNotes}
+                                    onChangeText={setCompletionNotes}
+                                    placeholder="\u041d\u0435\u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u044c\u043d\u043e"
+                                    multiline
+                                    editable={!actionInFlight}
+                                />
+                            </>
+                        )}
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                style={[styles.modalCancelBtn, actionInFlight && styles.disabledButton]}
+                                onPress={() => setOdometerModal(null)}
+                                disabled={actionInFlight}
+                            >
+                                <Text style={styles.modalCancelText}>\u041e\u0442\u043c\u0435\u043d\u0430</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalSubmitBtn, actionInFlight && styles.disabledButton]}
+                                onPress={submitOdometer}
+                                disabled={actionInFlight}
+                            >
+                                {actionInFlight ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.modalSubmitText}>
+                                        {odometerModal === 'start' ? '\u041d\u0430\u0447\u0430\u0442\u044c' : '\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c'}
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -506,4 +647,61 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
     },
+    waybillButton: {
+        backgroundColor: '#0f172a',
+        padding: 14,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 12,
+    },
+    waybillButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+    startTripButton: {
+        backgroundColor: '#2563eb',
+        padding: 16,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 12,
+    },
+    finishTripButton: {
+        backgroundColor: '#10b981',
+        padding: 16,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 12,
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.55)',
+        justifyContent: 'center',
+        padding: 16,
+    },
+    modalCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+    },
+    modalTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 12 },
+    modalLabel: { fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 4 },
+    modalInput: {
+        borderWidth: 1,
+        borderColor: '#cbd5e1',
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+        marginBottom: 12,
+        backgroundColor: '#f8fafc',
+    },
+    modalNotes: { minHeight: 80, textAlignVertical: 'top' },
+    modalActions: { flexDirection: 'row', gap: 8, justifyContent: 'flex-end' },
+    modalCancelBtn: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8 },
+    modalCancelText: { color: '#475569', fontSize: 15, fontWeight: '600' },
+    modalSubmitBtn: {
+        backgroundColor: '#2563eb',
+        paddingHorizontal: 18,
+        paddingVertical: 12,
+        borderRadius: 8,
+        minWidth: 110,
+        alignItems: 'center',
+    },
+    modalSubmitText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
