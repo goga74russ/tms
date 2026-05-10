@@ -136,6 +136,13 @@
       "breakpoints": true
     },
     {
+      "idx": 19,
+      "version": "7",
+      "when": 1773640837000,
+      "tag": "0020_signup_onboarding",
+      "breakpoints": true
+    },
+    {
       "idx": 20,
       "version": "7",
       "when": 1773640838000,

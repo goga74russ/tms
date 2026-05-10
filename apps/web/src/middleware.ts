@@ -16,7 +16,7 @@ import { jwtVerify } from 'jose';
 // must match the secret used by @tms/api for tokens to verify.
 // ----------------------------------------------------------------
 
-const publicRoutes = ['/login', '/_not-found'];
+const publicRoutes = ['/login', '/_not-found', '/signup', '/signup/verify', '/onboarding'];
 const excludedPrefixes = ['/api', '/_next/static', '/_next/image', '/favicon.ico'];
 
 const routeRoles: Array<[string, string[]]> = [

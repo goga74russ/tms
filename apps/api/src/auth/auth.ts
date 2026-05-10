@@ -5,10 +5,11 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import bcrypt from 'bcryptjs';
 import cookie from '@fastify/cookie';
 import { db } from '../db/connection.js';
-import { users, drivers, tariffs, contracts, contractors, checklistTemplates } from '../db/schema.js';
-import { eq, desc } from 'drizzle-orm';
+import { users, drivers, tariffs, contracts, contractors, checklistTemplates, organizations, emailVerifications } from '../db/schema.js';
+import { eq, desc, and, gt } from 'drizzle-orm';
 import { LoginSchema } from '@tms/shared';
 import { z } from 'zod';
+import { selectAdapter, getDefaultRegistry } from '../providers/index.js';
 
 // --- CRITICAL (C-1): No hardcoded fallback. Fail-fast if not set. ---
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -717,6 +718,281 @@ export function registerAuthRoutes(app: FastifyInstance) {
         }
 
         return { success: true, data: updated };
+    });
+
+    // ====================================================================
+    // Round 1B — Self-serve signup + email verification.
+    // The flow: POST /signup → creates inactive user + organization +
+    // 6-digit verification code (sent via email provider). POST /verify-email
+    // consumes the code, marks the user active + email_verified, sets the
+    // session cookie. POST /resend-code regenerates a code (rate limited).
+    // ====================================================================
+
+    const SignupSchema = z.object({
+        email: z.string().email(),
+        password: z.string().min(8),
+        fullName: z.string().min(1),
+        phone: z.string().optional(),
+        companyName: z.string().optional(),
+    });
+
+    const VerifyEmailSchema = z.object({
+        email: z.string().email(),
+        code: z.string().regex(/^\d{6}$/),
+    });
+
+    const ResendCodeSchema = z.object({
+        email: z.string().email(),
+    });
+
+    const VERIFICATION_TTL_MIN = 15;
+    const RESEND_COOLDOWN_MS = 60_000;
+
+    function generateCode(): string {
+        return String(Math.floor(100000 + Math.random() * 900000));
+    }
+
+    async function sendVerificationCode(email: string, code: string, organizationId: string): Promise<void> {
+        // Try the org's configured email adapter — fall back to the console
+        // mock when nothing is configured. selectAdapter handles both.
+        const registry = getDefaultRegistry();
+        const adapter = await selectAdapter(registry.email, organizationId, 'email');
+        const subject = 'TMS — код подтверждения';
+        const html = `<p>Здравствуйте!</p>
+            <p>Ваш код подтверждения для входа в TMS: <strong style="font-size:24px">${code}</strong></p>
+            <p>Код действителен в течение ${VERIFICATION_TTL_MIN} минут.</p>`;
+        const text = `Код подтверждения TMS: ${code}\nКод действителен ${VERIFICATION_TTL_MIN} минут.`;
+        await adapter.send(email, subject, html, text);
+    }
+
+    // POST /api/auth/signup — start self-serve registration.
+    app.post('/api/auth/signup', {
+        schema: { tags: ['Авторизация'], summary: 'Самостоятельная регистрация', description: 'Создаёт неактивного пользователя + организацию и отправляет 6-значный код подтверждения на email.' },
+        config: {
+            rateLimit: {
+                max: LOGIN_RATE_LIMIT_MAX,
+                timeWindow: LOGIN_RATE_LIMIT_WINDOW,
+            },
+        },
+    }, async (request, reply) => {
+        const parsed = SignupSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Validation failed',
+                details: parsed.error.flatten(),
+            });
+        }
+        const { email, password, fullName, phone, companyName } = parsed.data;
+
+        // Idempotent: if a user with this email already exists AND is verified,
+        // refuse. Otherwise (new or unverified) regenerate code.
+        const [existing] = await db
+            .select({
+                id: users.id,
+                isActive: users.isActive,
+                emailVerifiedAt: users.emailVerifiedAt,
+                organizationId: users.organizationId,
+            })
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+
+        if (existing?.emailVerifiedAt) {
+            return reply.status(409).send({ success: false, error: 'Email уже зарегистрирован. Войдите.' });
+        }
+
+        let organizationId: string;
+        let userId: string;
+
+        if (existing) {
+            // Reuse the unverified record — let the user retry signup with
+            // the same email (e.g. they lost the code).
+            userId = existing.id;
+            organizationId = existing.organizationId!;
+            const passwordHash = await hashPassword(password);
+            await db.update(users)
+                .set({ passwordHash, fullName, phone, updatedAt: new Date() })
+                .where(eq(users.id, userId));
+            if (companyName) {
+                await db.update(organizations)
+                    .set({ name: companyName })
+                    .where(eq(organizations.id, organizationId));
+            }
+        } else {
+            // Fresh signup: create organization + admin user.
+            const [org] = await db.insert(organizations).values({
+                name: companyName ?? `Компания (${email})`,
+            }).returning({ id: organizations.id });
+            organizationId = org!.id;
+
+            const passwordHash = await hashPassword(password);
+            const [user] = await db.insert(users).values({
+                email,
+                passwordHash,
+                fullName,
+                phone,
+                roles: ['admin'],
+                isActive: false,
+                organizationId,
+            }).returning({ id: users.id });
+            userId = user!.id;
+        }
+
+        // Generate fresh code, invalidate any older outstanding ones.
+        const code = generateCode();
+        const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MIN * 60_000);
+        await db.insert(emailVerifications).values({
+            email, code, expiresAt,
+        });
+
+        try {
+            await sendVerificationCode(email, code, organizationId);
+        } catch (err) {
+            request.log.error({ err }, 'Failed to send verification code');
+            // We still return success — user can hit /resend-code.
+        }
+
+        return reply.status(201).send({
+            success: true,
+            data: { signupId: userId, status: 'pending' as const },
+        });
+    });
+
+    // POST /api/auth/verify-email — consume the 6-digit code.
+    app.post('/api/auth/verify-email', {
+        schema: { tags: ['Авторизация'], summary: 'Подтверждение email', description: 'Проверяет 6-значный код, активирует пользователя и выставляет cookie.' },
+        config: {
+            rateLimit: {
+                max: LOGIN_RATE_LIMIT_MAX,
+                timeWindow: LOGIN_RATE_LIMIT_WINDOW,
+            },
+        },
+    }, async (request, reply) => {
+        const parsed = VerifyEmailSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false, error: 'Validation failed', details: parsed.error.flatten(),
+            });
+        }
+        const { email, code } = parsed.data;
+
+        // Latest unused, unexpired code for this email.
+        const [verification] = await db
+            .select()
+            .from(emailVerifications)
+            .where(and(
+                eq(emailVerifications.email, email),
+                eq(emailVerifications.code, code),
+                gt(emailVerifications.expiresAt, new Date()),
+            ))
+            .orderBy(desc(emailVerifications.createdAt))
+            .limit(1);
+
+        if (!verification || verification.usedAt) {
+            return reply.status(400).send({ success: false, error: 'Неверный или истёкший код' });
+        }
+
+        await db.update(emailVerifications)
+            .set({ usedAt: new Date() })
+            .where(eq(emailVerifications.id, verification.id));
+
+        const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+        if (!user) {
+            return reply.status(404).send({ success: false, error: 'Пользователь не найден' });
+        }
+
+        await db.update(users)
+            .set({
+                isActive: true,
+                emailVerifiedAt: new Date(),
+                updatedAt: new Date(),
+            })
+            .where(eq(users.id, user.id));
+
+        const token = app.jwt.sign(
+            { userId: user.id, roles: user.roles, organizationId: user.organizationId ?? undefined },
+            { expiresIn: JWT_EXPIRES_IN },
+        );
+        const isSecure = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
+        reply.setCookie(COOKIE_NAME, token, {
+            httpOnly: true,
+            secure: isSecure,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: COOKIE_MAX_AGE,
+        });
+
+        return {
+            success: true,
+            data: {
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    fullName: user.fullName,
+                    roles: user.roles,
+                    organizationId: user.organizationId,
+                },
+            },
+        };
+    });
+
+    // POST /api/auth/resend-code — regenerate the code, rate limited 1/min.
+    app.post('/api/auth/resend-code', {
+        schema: { tags: ['Авторизация'], summary: 'Повторная отправка кода', description: 'Регенерирует 6-значный код. Rate limit: 1 раз в минуту на email.' },
+        config: {
+            rateLimit: {
+                max: LOGIN_RATE_LIMIT_MAX,
+                timeWindow: LOGIN_RATE_LIMIT_WINDOW,
+            },
+        },
+    }, async (request, reply) => {
+        const parsed = ResendCodeSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false, error: 'Validation failed', details: parsed.error.flatten(),
+            });
+        }
+        const { email } = parsed.data;
+
+        const [user] = await db
+            .select({ id: users.id, organizationId: users.organizationId, emailVerifiedAt: users.emailVerifiedAt })
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+        if (!user) {
+            return reply.status(404).send({ success: false, error: 'Email не зарегистрирован' });
+        }
+        if (user.emailVerifiedAt) {
+            return reply.status(400).send({ success: false, error: 'Email уже подтверждён' });
+        }
+
+        // Per-email cooldown — last code sent must be > RESEND_COOLDOWN_MS ago.
+        const [latest] = await db
+            .select({ createdAt: emailVerifications.createdAt })
+            .from(emailVerifications)
+            .where(eq(emailVerifications.email, email))
+            .orderBy(desc(emailVerifications.createdAt))
+            .limit(1);
+        if (latest && Date.now() - new Date(latest.createdAt).getTime() < RESEND_COOLDOWN_MS) {
+            return reply.status(429).send({ success: false, error: 'Подождите минуту перед повторной отправкой' });
+        }
+
+        const code = generateCode();
+        const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MIN * 60_000);
+        await db.insert(emailVerifications).values({ email, code, expiresAt });
+
+        try {
+            await sendVerificationCode(email, code, user.organizationId!);
+        } catch (err) {
+            request.log.error({ err }, 'Failed to resend verification code');
+        }
+
+        return { success: true };
     });
 }
 

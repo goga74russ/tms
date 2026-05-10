@@ -154,6 +154,15 @@ export const organizations = pgTable('organizations', {
     inn: varchar('inn', { length: 12 }),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    // Round 1B — onboarding wizard state. See `// === ONBOARDING (Round 1B) ===`.
+    onboardingStep: integer('onboarding_step').notNull().default(0),
+    onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
+    onboardingScenario: text('onboarding_scenario'),
+    kpp: text('kpp'),
+    ogrn: text('ogrn'),
+    legalAddress: text('legal_address'),
+    bankBik: text('bank_bik'),
+    bankAccount: text('bank_account'),
 });
 
 // ================================================================
@@ -171,6 +180,8 @@ export const users = pgTable('users', {
     contractorId: uuid('contractor_id').references(() => contractors.id),
     // Multitenancy (Sprint 14): isolate data by organization
     organizationId: uuid('organization_id').references(() => organizations.id),
+    // Round 1B — set when the user verifies their email via 6-digit code.
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -1529,5 +1540,25 @@ export const copilotMessages = pgTable('copilot_messages', {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
     index('idx_copilot_messages_conv_created').on(table.conversationId, table.createdAt),
+]);
+
+// === ONBOARDING (Round 1B) ===
+// Self-serve signup + 6-step onboarding wizard. The signup flow
+// creates an inactive `users` row (isActive=false, emailVerifiedAt=null)
+// plus an organization, and sends a 6-digit code stored here. The
+// onboarding wizard then walks the new admin through ИНН lookup,
+// company profile, scenario pick, EDI/signature provider hookup, and
+// teammate invites. `organizations.onboarding_step` is the resumable
+// pointer; `onboarding_completed_at` flips when step 6 finishes.
+export const emailVerifications = pgTable('email_verifications', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: varchar('email', { length: 255 }).notNull(),
+    code: varchar('code', { length: 6 }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_email_verifications_email').on(table.email),
+    index('idx_email_verifications_created').on(sql`${table.createdAt} DESC`),
 ]);
 

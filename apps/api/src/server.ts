@@ -173,6 +173,8 @@ await app.register(import('./modules/scoring/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/copilot/routes.js'), { prefix: '/api' });
 // Round 1C: provider framework — credential management
 await app.register(import('./modules/integrations/credentials/routes.js'), { prefix: '/api' });
+// Round 1B: self-serve signup + onboarding wizard
+await app.register(import('./modules/onboarding/routes.js'), { prefix: '/api' });
 await app.register(import('./integrations/websocket.js'), { prefix: '/api' });
 
 // --- Health check ---
