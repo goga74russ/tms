@@ -163,6 +163,8 @@ export const organizations = pgTable('organizations', {
     legalAddress: text('legal_address'),
     bankBik: text('bank_bik'),
     bankAccount: text('bank_account'),
+    // Round 2A: when true, ADR validation failures block trip assignment.
+    adrStrictMode: boolean('adr_strict_mode').notNull().default(false),
 });
 
 // ================================================================
@@ -321,6 +323,9 @@ export const drivers = pgTable('drivers', {
     snils: varchar('snils', { length: 14 }),
     // Wave 5: ADR-свидетельство (опасные грузы) — срок окончания
     adrCertificateExpiry: timestamp('adr_certificate_expiry', { withTimezone: true }),
+    // Round 2A: тахограф — номер карты водителя (СКЗИ). Используется для
+    // привязки записей при загрузке .DDD.
+    tachographCardNumber: varchar('tachograph_card_number', { length: 32 }),
     isActive: boolean('is_active').notNull().default(true),
     // Multitenancy (Sprint 14)
     organizationId: uuid('organization_id').references(() => organizations.id),
@@ -1562,3 +1567,127 @@ export const emailVerifications = pgTable('email_verifications', {
     index('idx_email_verifications_created').on(sql`${table.createdAt} DESC`),
 ]);
 
+// === COMPLIANCE (Round 2A) ===
+// РФ-специфичные интеграции: РСА-ОСАГО, ЦРПТ (Честный знак), тахограф.
+// Все таблицы scope-аются по organization_id, чтобы один тенант не видел
+// чужие данные. Реальные провайдеры в `apps/api/src/providers/{osago,marking}`,
+// при отсутствии креденшелов используется mock-адаптер.
+export const osagoChecks = pgTable('osago_checks', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id, { onDelete: 'cascade' }),
+    checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+    valid: boolean('valid').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    insurer: text('insurer'),
+    policyNumber: text('policy_number'),
+    rawResponse: jsonb('raw_response').$type<Record<string, unknown>>(),
+    providerName: text('provider_name').notNull().default('mock'),
+}, (table) => [
+    index('idx_osago_checks_vehicle').on(table.vehicleId, sql`${table.checkedAt} DESC`),
+    index('idx_osago_checks_org').on(table.organizationId, sql`${table.checkedAt} DESC`),
+]);
+
+export const markingVerifications = pgTable('marking_verifications', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    lotId: uuid('lot_id').references(() => shipmentLots.id, { onDelete: 'set null' }),
+    code: text('code').notNull(),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }).notNull().defaultNow(),
+    valid: boolean('valid').notNull(),
+    category: text('category'),
+    productName: text('product_name'),
+    gtin: text('gtin'),
+    serial: text('serial'),
+    rawResponse: jsonb('raw_response').$type<Record<string, unknown>>(),
+    providerName: text('provider_name').notNull().default('mock'),
+}, (table) => [
+    index('idx_marking_verifications_org_code').on(table.organizationId, table.code),
+    index('idx_marking_verifications_lot').on(table.lotId),
+]);
+
+export const tachographUploads = pgTable('tachograph_uploads', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    driverId: uuid('driver_id').references(() => drivers.id, { onDelete: 'set null' }),
+    driverCardNumber: varchar('driver_card_number', { length: 32 }),
+    vehicleVin: varchar('vehicle_vin', { length: 17 }),
+    periodFrom: timestamp('period_from', { withTimezone: true }),
+    periodTo: timestamp('period_to', { withTimezone: true }),
+    fileName: text('file_name'),
+    fileSizeBytes: integer('file_size_bytes'),
+    recordsInserted: integer('records_inserted').notNull().default(0),
+    totalDrivingMinutes: integer('total_driving_minutes').notNull().default(0),
+    uploadedBy: uuid('uploaded_by').references(() => users.id),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+    parseWarnings: jsonb('parse_warnings').$type<string[]>(),
+}, (table) => [
+    index('idx_tachograph_uploads_org').on(table.organizationId, sql`${table.uploadedAt} DESC`),
+    index('idx_tachograph_uploads_driver').on(table.driverId, sql`${table.uploadedAt} DESC`),
+]);
+
+// === MONETIZATION (Round 2B) ===
+// Plan catalogue + per-organization subscriptions, payment history, monthly
+// usage counters. Plans seeded by 0023_monetization.sql migration; new orgs
+// default to 'free' (no subscription row required).
+export const plans = pgTable('plans', {
+    id: text('id').primaryKey(), // 'free' | 'pro' | 'business' | 'enterprise'
+    nameRu: text('name_ru').notNull(),
+    priceMonthlyKopecks: integer('price_monthly_kopecks').notNull().default(0),
+    vehicleLimit: integer('vehicle_limit'),
+    monthlyOrdersLimit: integer('monthly_orders_limit'),
+    copilotMessagesDaily: integer('copilot_messages_daily'),
+    features: jsonb('features').$type<Record<string, boolean>>().notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const subscriptions = pgTable('subscriptions', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    planId: text('plan_id').notNull().references(() => plans.id),
+    // 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled'
+    status: text('status').notNull().default('trial'),
+    trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
+    currentPeriodStart: timestamp('current_period_start', { withTimezone: true }).notNull().defaultNow(),
+    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }).notNull(),
+    cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+    paymentProvider: text('payment_provider'),
+    paymentExternalId: text('payment_external_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('uniq_subscriptions_org').on(table.organizationId),
+    index('idx_subscriptions_status').on(table.status),
+    index('idx_subscriptions_period_end').on(table.currentPeriodEnd),
+]);
+
+export const payments = pgTable('payments', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    subscriptionId: uuid('subscription_id').notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
+    amountKopecks: integer('amount_kopecks').notNull(),
+    // 'pending' | 'succeeded' | 'failed' | 'refunded'
+    status: text('status').notNull().default('pending'),
+    providerPaymentId: text('provider_payment_id'),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    receiptUrl: text('receipt_url'),
+    failureReason: text('failure_reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_payments_subscription').on(table.subscriptionId, sql`${table.createdAt} DESC`),
+    index('idx_payments_provider_id').on(table.providerPaymentId),
+]);
+
+export const usageCounters = pgTable('usage_counters', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    /** First day of month, UTC midnight. */
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+    vehiclesCount: integer('vehicles_count').notNull().default(0),
+    ordersCount: integer('orders_count').notNull().default(0),
+    copilotMessagesCount: integer('copilot_messages_count').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('uniq_usage_counters_org_period').on(table.organizationId, table.periodStart),
+]);

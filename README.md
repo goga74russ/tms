@@ -81,3 +81,9 @@ Free-box feature checklist: [docs/operations/free-box-checklist.md](docs/operati
    pnpm dev:api
    pnpm dev:web
    ```
+
+## Public landing & user-facing docs
+
+- **Public landing:** `/landing` (unauthenticated visitors are redirected here from `/`).
+- **User documentation:** see [`docs/users/`](docs/users/) — quickstart, onboarding, role-specific guides (dispatcher / driver / accountant), integrations setup, cold chain, troubleshooting.
+- **Legal documents:** see [`docs/legal/`](docs/legal/) — privacy policy, terms of service, 152-ФЗ согласие. Web pages render at `/legal/privacy`, `/legal/terms`, `/legal/personal-data`. **DRAFTS — require legal review before publication.**

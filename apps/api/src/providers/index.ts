@@ -15,6 +15,11 @@ import { mockMarkingProvider } from './marking/mock.js';
 import { mockPaymentProvider } from './payment/mock.js';
 import { consoleEmailProvider } from './email/console.js';
 import { SmtpEmailProvider } from './email/smtp.js';
+import { mockOsagoProvider } from './osago/mock.js';
+import { rsaOsagoProvider } from './osago/rsa.js';
+import type { OsagoProvider } from './osago/interface.js';
+import { mockOfdProvider } from './ofd/mock.js';
+import type { OfdProvider } from './ofd/interface.js';
 import type { ProviderAdapter, ProviderType } from './base.js';
 import type { SignatureProvider } from './signature/interface.js';
 import type { EdiProvider } from './edi/interface.js';
@@ -83,3 +88,34 @@ export type {
     ProviderAdapter, ProviderType, ProviderMode, ProviderStatus, ProviderHealth,
     LoadedCredential,
 } from './base.js';
+
+// Round 2A — OSAGO sits outside the formal ProviderType enum (Round 1C
+// fixed that set). Expose its adapters via a parallel registry until the
+// type set is opened up.
+export const osagoAdapters: OsagoProvider[] = [mockOsagoProvider, rsaOsagoProvider];
+
+export function getOsagoAdapter(name?: string): OsagoProvider {
+    if (name) {
+        const match = osagoAdapters.find(a => a.name === name);
+        if (match) return match;
+    }
+    return mockOsagoProvider;
+}
+
+export type { OsagoProvider } from './osago/interface.js';
+export type { OsagoCredentials, OsagoStatus } from './osago/interface.js';
+
+// Round 2B — ОФД 54-ФЗ adapters live in their own registry (parallel to OSAGO)
+// because the global ProviderType enum is owned by Round 1C.
+export const ofdAdapters: OfdProvider[] = [mockOfdProvider];
+
+export function getOfdAdapter(name?: string): OfdProvider {
+    if (name) {
+        const match = ofdAdapters.find(a => a.name === name);
+        if (match) return match;
+    }
+    return mockOfdProvider;
+}
+
+export type { OfdProvider } from './ofd/interface.js';
+export type { OfdCredentials, OfdReceipt, OfdFiscalizeInput } from './ofd/interface.js';

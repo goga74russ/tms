@@ -16,7 +16,8 @@ import { jwtVerify } from 'jose';
 // must match the secret used by @tms/api for tokens to verify.
 // ----------------------------------------------------------------
 
-const publicRoutes = ['/login', '/_not-found', '/signup', '/signup/verify', '/onboarding'];
+const publicRoutes = ['/login', '/_not-found', '/signup', '/signup/verify', '/onboarding', '/landing'];
+const publicPrefixes = ['/legal/'];
 const excludedPrefixes = ['/api', '/_next/static', '/_next/image', '/favicon.ico'];
 
 const routeRoles: Array<[string, string[]]> = [
@@ -73,6 +74,10 @@ export async function middleware(request: NextRequest) {
     }
 
     if (publicRoutes.includes(pathname)) {
+        return NextResponse.next();
+    }
+
+    if (publicPrefixes.some((prefix) => pathname.startsWith(prefix))) {
         return NextResponse.next();
     }
 

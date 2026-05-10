@@ -175,6 +175,10 @@ await app.register(import('./modules/copilot/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/integrations/credentials/routes.js'), { prefix: '/api' });
 // Round 1B: self-serve signup + onboarding wizard
 await app.register(import('./modules/onboarding/routes.js'), { prefix: '/api' });
+// Round 2B: monetization — plans, subscriptions, payments, usage
+await app.register(import('./modules/billing/routes.js'), { prefix: '/api' });
+// Round 2A: compliance breadth — tachograph DDD, ОСАГО, ЦРПТ, ADR strict mode
+await app.register(import('./modules/compliance/routes.js'), { prefix: '/api' });
 await app.register(import('./integrations/websocket.js'), { prefix: '/api' });
 
 // --- Health check ---

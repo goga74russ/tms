@@ -148,6 +148,20 @@
       "when": 1773640838000,
       "tag": "0021_provider_framework",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1773640839000,
+      "tag": "0022_compliance",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1773640840000,
+      "tag": "0023_monetization",
+      "breakpoints": true
     }
   ]
 }

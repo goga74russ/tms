@@ -1,0 +1,109 @@
+// ============================================================
+// Round 2B — Paywall modal.
+// Drop-in for feature-gated screens: <Paywall open feature="ai_copilot" plan="free" onClose={...} />
+// ============================================================
+'use client';
+
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { Lock, Sparkles, X } from 'lucide-react';
+import type { PlanId } from '@tms/shared';
+
+const FEATURE_LABELS: Record<string, string> = {
+    ai_copilot: 'AI Co-pilot',
+    edi: 'Электронный документооборот',
+    marking: 'Честный знак',
+    multi_tenant: 'Мульти-арендность',
+    sso: 'Единый вход (SSO)',
+    api_export: 'API экспорт',
+    priority_support: 'Приоритетная поддержка',
+    custom_integrations: 'Персональные интеграции',
+};
+
+const PLAN_LABELS: Record<PlanId, string> = {
+    free: 'Free',
+    pro: 'Pro',
+    business: 'Business',
+    enterprise: 'Enterprise',
+};
+
+export interface PaywallProps {
+    open: boolean;
+    feature?: string;
+    /** Current plan (shown as "Ваш тариф: Free"). */
+    currentPlan?: PlanId;
+    /** Plan that unlocks the feature. Default 'pro'. */
+    requiredPlan?: PlanId;
+    /** Custom message — defaults to a feature-aware sentence. */
+    message?: string;
+    onClose: () => void;
+}
+
+export function Paywall({
+    open,
+    feature,
+    currentPlan = 'free',
+    requiredPlan = 'pro',
+    message,
+    onClose,
+}: PaywallProps) {
+    const router = useRouter();
+    if (!open) return null;
+
+    const featureLabel = feature ? FEATURE_LABELS[feature] ?? feature : 'эта функция';
+    const text = message
+        ?? `«${featureLabel}» доступна на тарифах ${PLAN_LABELS[requiredPlan]} и выше. Перейдите на платный тариф, чтобы продолжить.`;
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="paywall-title"
+        >
+            <div
+                className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <button
+                    onClick={onClose}
+                    className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100"
+                    aria-label="Закрыть"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
+                        <Lock className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                        <h2 id="paywall-title" className="font-semibold text-slate-900">Требуется тариф {PLAN_LABELS[requiredPlan]}</h2>
+                        <p className="text-xs text-slate-500">Ваш текущий тариф: {PLAN_LABELS[currentPlan]}</p>
+                    </div>
+                </div>
+
+                <p className="text-sm text-slate-700 leading-relaxed mb-6">{text}</p>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => router.push('/billing')}
+                        className="flex-1 inline-flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-indigo-700 text-sm"
+                    >
+                        <Sparkles className="w-4 h-4" />
+                        Перейти к тарифам
+                    </button>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
+                    >
+                        Не сейчас
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default Paywall;
