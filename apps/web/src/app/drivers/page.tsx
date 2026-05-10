@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Search, Plus, Users, X, Loader2 } from 'lucide-react';
+import { Search, Plus, Users, X, Loader2, AlertTriangle, Timer } from 'lucide-react';
+import { Dialog } from '@/components/ui/dialog';
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { format, subDays } from 'date-fns';
 
 interface Driver {
     id: string;
@@ -14,6 +17,20 @@ interface Driver {
     phone?: string;
     isActive: boolean;
     createdAt: string;
+}
+
+interface HosStatus {
+    dayHours: number;
+    weekHours: number;
+    dayLimit: number;
+    weekLimit: number;
+    breach: boolean;
+}
+
+interface HoursSummary {
+    dailyHours: Array<{ date: string; hours: number }>;
+    weeklyHours: Array<{ weekStart: string; hours: number }>;
+    breaches: Array<{ date: string; reason: string }>;
 }
 
 function formatDate(d?: string) {
@@ -28,6 +45,120 @@ function expiryColor(d?: string) {
     if (diff < 7) return 'text-red-600';
     if (diff <= 30) return 'text-amber-600';
     return 'text-emerald-600';
+}
+
+function HosBadge({ driverId }: { driverId: string }) {
+    const [status, setStatus] = useState<HosStatus | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [hover, setHover] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        api.get<{ success: boolean; data: HosStatus }>(`/drivers/${driverId}/hos-status`)
+            .then(res => {
+                if (cancelled) return;
+                if (res?.success && res.data) setStatus(res.data);
+            })
+            .catch(() => { /* silent */ })
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; };
+    }, [driverId]);
+
+    if (loading && !status) {
+        return <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-300" />;
+    }
+    if (!status) return <span className="text-xs text-slate-300">—</span>;
+
+    const breach = status.breach;
+    return (
+        <div className="relative inline-block" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+            {breach ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-xs font-semibold">
+                    <AlertTriangle className="w-3 h-3" />
+                    <span>⚠</span>
+                </span>
+            ) : (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-xs font-medium">
+                    <Timer className="w-3 h-3" />
+                    {status.dayHours.toFixed(1)}ч
+                </span>
+            )}
+            {hover && (
+                <div className="absolute z-10 left-0 top-full mt-1 w-56 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs shadow-lg pointer-events-none">
+                    <div>Сегодня: {status.dayHours.toFixed(1)} / {status.dayLimit} ч</div>
+                    <div>Неделя: {status.weekHours.toFixed(1)} / {status.weekLimit} ч</div>
+                    {breach && <div className="text-red-300 mt-0.5 font-semibold">Нарушение режима</div>}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function HoursChartDialog({ driver, onClose }: { driver: Driver; onClose: () => void }) {
+    const [summary, setSummary] = useState<HoursSummary | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const to = new Date();
+        const from = subDays(to, 6);
+        const fromStr = format(from, 'yyyy-MM-dd');
+        const toStr = format(to, 'yyyy-MM-dd');
+        setLoading(true);
+        api.get<{ success: boolean; data: HoursSummary }>(
+            `/drivers/${driver.id}/hours-summary?from=${fromStr}&to=${toStr}`,
+        )
+            .then(res => {
+                if (res?.success && res.data) setSummary(res.data);
+            })
+            .catch(() => { /* silent */ })
+            .finally(() => setLoading(false));
+    }, [driver.id]);
+
+    const chartData = (summary?.dailyHours || []).map(d => ({
+        day: format(new Date(d.date), 'dd.MM'),
+        hours: Number(d.hours.toFixed(2)),
+    }));
+
+    return (
+        <Dialog open onClose={onClose} title={`РТО — ${driver.fullName}`}>
+            <div className="space-y-3">
+                <p className="text-sm text-slate-500">Часы работы за последние 7 дней</p>
+                {loading ? (
+                    <div className="flex items-center justify-center py-12">
+                        <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+                    </div>
+                ) : chartData.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-8">Нет данных за период</p>
+                ) : (
+                    <div style={{ width: '100%', height: 240 }}>
+                        <ResponsiveContainer>
+                            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                                <YAxis tick={{ fontSize: 12 }} domain={[0, 12]} />
+                                <RechartTooltip />
+                                <ReferenceLine y={9} stroke="#dc2626" strokeDasharray="4 2" label={{ value: 'Лимит 9ч', position: 'right', fontSize: 10, fill: '#dc2626' }} />
+                                <Bar dataKey="hours" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
+                {summary?.breaches && summary.breaches.length > 0 && (
+                    <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs space-y-1">
+                        <div className="font-semibold text-rose-700 flex items-center gap-1">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            Нарушения ({summary.breaches.length})
+                        </div>
+                        {summary.breaches.slice(0, 5).map((b, i) => (
+                            <div key={i} className="text-rose-700">
+                                {format(new Date(b.date), 'dd.MM')}: {b.reason}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </Dialog>
+    );
 }
 
 function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
@@ -136,17 +267,14 @@ export default function DriversPage() {
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [hosDriver, setHosDriver] = useState<Driver | null>(null);
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(search), 300);
         return () => clearTimeout(timer);
     }, [search]);
 
-    useEffect(() => {
-        loadDrivers();
-    }, [debouncedSearch]);
-
-    async function loadDrivers() {
+    const loadDrivers = useCallback(async () => {
         setLoading(true);
         try {
             const result = await api.get<any>(`/fleet/drivers?search=${debouncedSearch}&limit=100`);
@@ -156,7 +284,11 @@ export default function DriversPage() {
         } finally {
             setLoading(false);
         }
-    }
+    }, [debouncedSearch]);
+
+    useEffect(() => {
+        loadDrivers();
+    }, [loadDrivers]);
 
     const activeCount = drivers.filter(d => d.isActive).length;
 
@@ -216,12 +348,17 @@ export default function DriversPage() {
                                     <th className="px-4 py-3 font-medium">Категории</th>
                                     <th className="px-4 py-3 font-medium">Срок ВУ</th>
                                     <th className="px-4 py-3 font-medium">Медсправка</th>
+                                    <th className="px-4 py-3 font-medium">РТО</th>
                                     <th className="px-4 py-3 font-medium">Статус</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {drivers.map(d => (
-                                    <tr key={d.id} className="hover:bg-slate-50 transition-colors">
+                                    <tr
+                                        key={d.id}
+                                        className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                        onClick={() => setHosDriver(d)}
+                                    >
                                         <td className="px-4 py-3 font-medium text-slate-900">{d.fullName}</td>
                                         <td className="px-4 py-3 font-mono text-slate-600">{d.licenseNumber}</td>
                                         <td className="px-4 py-3">
@@ -238,6 +375,9 @@ export default function DriversPage() {
                                         </td>
                                         <td className={`px-4 py-3 text-sm ${expiryColor(d.medCertificateExpiry)}`}>
                                             {formatDate(d.medCertificateExpiry)}
+                                        </td>
+                                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                                            {d.isActive ? <HosBadge driverId={d.id} /> : <span className="text-xs text-slate-300">—</span>}
                                         </td>
                                         <td className="px-4 py-3">
                                             <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium
@@ -258,6 +398,10 @@ export default function DriversPage() {
                     onClose={() => setShowCreateModal(false)}
                     onCreated={() => { setShowCreateModal(false); loadDrivers(); }}
                 />
+            )}
+
+            {hosDriver && (
+                <HoursChartDialog driver={hosDriver} onClose={() => setHosDriver(null)} />
             )}
         </div>
     );

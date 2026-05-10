@@ -22,10 +22,24 @@ interface AddressSuggestion {
     fiasId: string;
 }
 
+export interface AssignmentWindows {
+    loadingFrom?: string | null;
+    loadingTo?: string | null;
+    unloadingFrom?: string | null;
+    unloadingTo?: string | null;
+}
+
 interface AssignmentPanelProps {
     orders: UnassignedOrder[];
     vehicles: Vehicle[];
-    onAssign?: (orderId: string, vehicleId: string) => Promise<void>;
+    onAssign?: (orderId: string, vehicleId: string, windows?: AssignmentWindows) => Promise<void>;
+}
+
+function localToIso(value: string): string | null {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
 }
 
 export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelProps) {
@@ -35,6 +49,10 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
     const [isAssigning, setIsAssigning] = useState(false);
     const [cityFilter, setCityFilter] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [loadingFrom, setLoadingFrom] = useState('');
+    const [loadingTo, setLoadingTo] = useState('');
+    const [unloadingFrom, setUnloadingFrom] = useState('');
+    const [unloadingTo, setUnloadingTo] = useState('');
 
     // Search vehicles via API
     const searchVehicles = useCallback(async (query: string): Promise<VehicleSearchResult[]> => {
@@ -78,11 +96,20 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
         setIsAssigning(true);
         try {
             if (onAssign) {
-                await onAssign(selectedOrder, selectedVehicle.id);
+                await onAssign(selectedOrder, selectedVehicle.id, {
+                    loadingFrom: localToIso(loadingFrom),
+                    loadingTo: localToIso(loadingTo),
+                    unloadingFrom: localToIso(unloadingFrom),
+                    unloadingTo: localToIso(unloadingTo),
+                });
             }
             setAssignSuccess(`${order?.number} → ${selectedVehicle.plateNumber}`);
             setSelectedOrder(null);
             setSelectedVehicle(null);
+            setLoadingFrom('');
+            setLoadingTo('');
+            setUnloadingFrom('');
+            setUnloadingTo('');
             setTimeout(() => setAssignSuccess(null), 3000);
         } catch (error: any) {
             setToast({ message: `Ошибка назначения: ${error.message || 'Неизвестная ошибка'}`, type: 'error' });
@@ -216,6 +243,52 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                             </span>
                         </div>
                     )}
+                </div>
+
+                {/* ============= Time Windows ============= */}
+                <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5" />
+                        Окна доставки
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div>
+                            <label className="text-[10px] font-medium text-slate-500 mb-1 block">Погрузка с</label>
+                            <input
+                                type="datetime-local"
+                                value={loadingFrom}
+                                onChange={e => setLoadingFrom(e.target.value)}
+                                className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-medium text-slate-500 mb-1 block">Погрузка до</label>
+                            <input
+                                type="datetime-local"
+                                value={loadingTo}
+                                onChange={e => setLoadingTo(e.target.value)}
+                                className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-medium text-slate-500 mb-1 block">Выгрузка с</label>
+                            <input
+                                type="datetime-local"
+                                value={unloadingFrom}
+                                onChange={e => setUnloadingFrom(e.target.value)}
+                                className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-medium text-slate-500 mb-1 block">Выгрузка до</label>
+                            <input
+                                type="datetime-local"
+                                value={unloadingTo}
+                                onChange={e => setUnloadingTo(e.target.value)}
+                                className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 {/* ============= Orders ============= */}

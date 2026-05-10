@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ActivityIndicator, Alert, TextInput, Modal, Platform } from 'react-native';
 import { Q } from '@nozbe/watermelondb';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -9,6 +9,7 @@ import RoutePoint from '../database/models/RoutePoint';
 import { getQueueSummary } from '../api/offlineQueue';
 import { completeTrip, getTripById, getTripOperationExceptions, OperationExceptionItem, OperationExceptionSummary, startTrip, TripSummary } from '../api/trips';
 import { getTemperatureSummary, TemperatureSummary } from '../api/temperature';
+import { startWialonMock, stopWialonMock } from '../api/wialonMock';
 
 const WAYBILL_VISIBLE_STATUSES = new Set([
     'waybill_issued',
@@ -26,6 +27,25 @@ const routePointStatusLabels: Record<string, string> = {
     completed: '\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0430',
     skipped: '\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0430',
 };
+
+function formatWindow(fromIso?: string | null, toIso?: string | null): string | null {
+    if (!fromIso && !toIso) return null;
+    const fromD = fromIso ? new Date(fromIso) : null;
+    const toD = toIso ? new Date(toIso) : null;
+    const fmtTime = (d: Date) =>
+        `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const fmtDate = (d: Date) =>
+        `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const refDate = fromD && !Number.isNaN(fromD.getTime())
+        ? fromD
+        : toD && !Number.isNaN(toD.getTime())
+            ? toD
+            : null;
+    const fromTime = fromD && !Number.isNaN(fromD.getTime()) ? fmtTime(fromD) : '—';
+    const toTime = toD && !Number.isNaN(toD.getTime()) ? fmtTime(toD) : '—';
+    const datePart = refDate ? ` (${fmtDate(refDate)})` : '';
+    return `Окно: ${fromTime} – ${toTime}${datePart}`;
+}
 
 const exceptionSeverityLabels: Record<string, string> = {
     blocking: '\u0411\u043b\u043e\u043a\u0435\u0440',
@@ -97,6 +117,14 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
         void fetchData();
     }, [fetchData]);
 
+    const windowsByPointId = useMemo(() => {
+        const map = new Map<string, { from?: string | null; to?: string | null }>();
+        (tripDetail?.routePoints || []).forEach((rp) => {
+            map.set(rp.id, { from: rp.windowFrom ?? null, to: rp.windowTo ?? null });
+        });
+        return map;
+    }, [tripDetail]);
+
     const tripStatus = trip?.status;
     const showWaybillButton = !!tripStatus && WAYBILL_VISIBLE_STATUSES.has(tripStatus);
     const showColdChainButton = Boolean(
@@ -127,11 +155,28 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
         try {
             if (mode === 'start') {
                 await startTrip(tripId, { odometerStart: parsed });
+                // Best-effort: kick the GPS mock so the dispatcher sees movement.
+                const vehicleId = trip?.vehicleId;
+                if (vehicleId) {
+                    try {
+                        await startWialonMock(vehicleId, tripId);
+                    } catch (err) {
+                        console.warn('[wialon-mock] start failed', err);
+                    }
+                }
             } else {
                 await completeTrip(tripId, {
                     odometerEnd: parsed,
                     notes: completionNotes.trim() || undefined,
                 });
+                const vehicleId = trip?.vehicleId;
+                if (vehicleId) {
+                    try {
+                        await stopWialonMock(vehicleId);
+                    } catch (err) {
+                        console.warn('[wialon-mock] stop failed', err);
+                    }
+                }
             }
             setOdometerModal(null);
             await fetchData();
@@ -280,8 +325,21 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                         )}
                     </View>
                 )}
-                renderItem={({ item, index }) => (
-                    <View style={styles.pointCard}>
+                renderItem={({ item, index }) => {
+                    const apiWin = windowsByPointId.get(item.routePointId);
+                    const fromIso = apiWin?.from ?? (item.windowStart ? item.windowStart.toISOString() : null);
+                    const toIso = apiWin?.to ?? (item.windowEnd ? item.windowEnd.toISOString() : null);
+                    const windowLabel = formatWindow(fromIso, toIso);
+                    const toMs = toIso ? new Date(toIso).getTime() : null;
+                    const isOverdue =
+                        toMs !== null &&
+                        !Number.isNaN(toMs) &&
+                        toMs < Date.now() &&
+                        item.status !== 'completed' &&
+                        item.status !== 'skipped';
+
+                    return (
+                    <View style={[styles.pointCard, isOverdue && styles.pointCardOverdue]}>
                         <View style={styles.pointHeader}>
                             <Text style={styles.pointTitle}>
                                 {`${index + 1}. ${item.type === 'loading' ? '\u041f\u043e\u0433\u0440\u0443\u0437\u043a\u0430' : '\u0412\u044b\u0433\u0440\u0443\u0437\u043a\u0430'}`}
@@ -289,6 +347,13 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                             <Text style={styles.statusBadge}>{routePointStatusLabels[item.status] ?? item.status}</Text>
                         </View>
                         <Text style={styles.address}>{item.address}</Text>
+                        {windowLabel && (
+                            <View style={styles.windowRow}>
+                                <Text style={[styles.windowText, isOverdue && styles.windowTextOverdue]}>
+                                    {isOverdue ? `\u26a0 ${windowLabel} \u2014 \u043f\u0440\u043e\u0441\u0440\u043e\u0447\u0435\u043d\u043e` : windowLabel}
+                                </Text>
+                            </View>
+                        )}
 
                         <View style={styles.actionsRow}>
                             <TouchableOpacity style={styles.navButton} onPress={() => openNavigation(item.address)}>
@@ -306,7 +371,8 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                             </TouchableOpacity>
                         </View>
                     </View>
-                )}
+                    );
+                }}
             />
 
             {showWaybillButton && (
@@ -609,6 +675,22 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 2,
         shadowOffset: { width: 0, height: 1 },
+    },
+    pointCardOverdue: {
+        borderWidth: 2,
+        borderColor: '#dc2626',
+    },
+    windowRow: {
+        marginBottom: 12,
+    },
+    windowText: {
+        fontSize: 13,
+        color: '#475569',
+        fontWeight: '600',
+    },
+    windowTextOverdue: {
+        color: '#b91c1c',
+        fontWeight: '700',
     },
     pointHeader: {
         flexDirection: 'row',

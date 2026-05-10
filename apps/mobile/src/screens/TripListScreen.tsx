@@ -1,10 +1,11 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Q } from '@nozbe/watermelondb';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { database } from '../database';
 import Trip from '../database/models/Trip';
+import RoutePoint from '../database/models/RoutePoint';
 import { RootStackParamList } from '../navigation/AppNavigator';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripList'>;
@@ -30,8 +31,23 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 export default function TripListScreen({ navigation }: Props) {
     const { user } = useAuth();
     const [trips, setTrips] = useState<Trip[]>([]);
+    const [overdueTripIds, setOverdueTripIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<FilterKey>('active');
+
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerRight: () => (
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('MyHours')}
+                    style={styles.headerBtn}
+                    accessibilityLabel="\u041c\u043e\u0438 \u0447\u0430\u0441\u044b"
+                >
+                    <Text style={styles.headerBtnText}>\u23f1</Text>
+                </TouchableOpacity>
+            ),
+        });
+    }, [navigation]);
 
     useEffect(() => {
         const fetchTrips = async () => {
@@ -45,6 +61,25 @@ export default function TripListScreen({ navigation }: Props) {
                     .query(Q.where('driver_id', user.driverId ?? user.id))
                     .fetch();
                 setTrips(fetchedTrips);
+
+                // Compute overdue trips: any route point whose windowEnd < now and status != completed.
+                const now = Date.now();
+                const overdue = new Set<string>();
+                const tripIds = fetchedTrips.map((t) => t.tripId);
+                if (tripIds.length > 0) {
+                    const allPoints = await database.collections
+                        .get<RoutePoint>('route_points')
+                        .query(Q.where('trip_id', Q.oneOf(tripIds)))
+                        .fetch();
+                    for (const p of allPoints) {
+                        if (p.status === 'completed' || p.status === 'skipped') continue;
+                        const winEnd = p.windowEnd ? p.windowEnd.getTime() : null;
+                        if (winEnd !== null && winEnd < now) {
+                            overdue.add(p.tripId);
+                        }
+                    }
+                }
+                setOverdueTripIds(overdue);
             } catch {
                 Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0441\u043f\u0438\u0441\u043e\u043a \u0440\u0435\u0439\u0441\u043e\u0432.');
             } finally {
@@ -71,11 +106,18 @@ export default function TripListScreen({ navigation }: Props) {
             stopsCount = Array.isArray(parsedRoute) ? parsedRoute.length : 0;
         } catch {}
 
+        const isOverdue = overdueTripIds.has(item.tripId) && !COMPLETED_STATUSES.has(item.status);
+
         return (
             <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('TripDetails', { tripId: item.tripId })}>
                 <Text style={styles.title}>{`\u0420\u0435\u0439\u0441 #${item.tripId.slice(0, 8)}`}</Text>
                 <Text style={styles.text}>{`\u0421\u0442\u0430\u0442\u0443\u0441: ${item.status}`}</Text>
                 <Text style={styles.text}>{`\u0422\u043e\u0447\u0435\u043a: ${stopsCount}`}</Text>
+                {isOverdue && (
+                    <View style={styles.overdueChip}>
+                        <Text style={styles.overdueChipText}>\u23f0 \u041f\u0440\u043e\u0441\u0440\u043e\u0447\u0435\u043d\u043e</Text>
+                    </View>
+                )}
             </TouchableOpacity>
         );
     };
@@ -172,5 +214,27 @@ const styles = StyleSheet.create({
     },
     chipTextActive: {
         color: '#fff',
+    },
+    headerBtn: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+    },
+    headerBtnText: {
+        fontSize: 22,
+    },
+    overdueChip: {
+        alignSelf: 'flex-start',
+        marginTop: 8,
+        backgroundColor: '#fee2e2',
+        borderColor: '#fca5a5',
+        borderWidth: 1,
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 999,
+    },
+    overdueChipText: {
+        color: '#b91c1c',
+        fontSize: 12,
+        fontWeight: '700',
     },
 });

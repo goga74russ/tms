@@ -290,6 +290,8 @@ export const RoutePointSchema = z.object({
     lon: z.number().optional(),
     windowStart: dateStr.optional(),
     windowEnd: dateStr.optional(),
+    windowFrom: dateStr.optional(),
+    windowTo: dateStr.optional(),
     arrivedAt: dateStr.optional(),
     completedAt: dateStr.optional(),
     signatureUrl: z.string().optional(),

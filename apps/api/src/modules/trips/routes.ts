@@ -29,7 +29,7 @@ import {
     updatePersistedTransportDocumentStatus,
 } from './transport-documents-store.js';
 import { db } from '../../db/connection.js';
-import { drivers, orders, documentDossierItems, trips, waybills, odometerReadings } from '../../db/schema.js';
+import { drivers, orders, documentDossierItems, trips, waybills, odometerReadings, routePoints } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import { z } from 'zod';
@@ -522,24 +522,36 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
     });
 
     // --- POST /trips/:id/points ---
+    const RoutePointCreateSchema = z.object({
+        orderId: z.string().uuid().optional(),
+        type: z.enum(['loading', 'unloading']),
+        address: z.string().min(1),
+        lat: z.number().optional(),
+        lon: z.number().optional(),
+        windowStart: z.string().datetime().optional(),
+        windowEnd: z.string().datetime().optional(),
+        windowFrom: z.string().datetime().optional(),
+        windowTo: z.string().datetime().optional(),
+        notes: z.string().optional(),
+        sealNumbers: z.array(z.string()).optional(),
+        packagingCondition: z.string().optional(),
+    });
+
     app.post('/trips/:id/points', {
         schema: { tags: ['Рейсы'], summary: 'Добавить точку', description: 'Добавление новой точки маршрута к рейсу.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
         await assertTripAccess(id, request.user as { userId: string; roles: string[]; organizationId?: string | null });
-        const body = request.body as {
-            orderId?: string;
-            type: 'loading' | 'unloading';
-            address: string;
-            lat?: number;
-            lon?: number;
-            windowStart?: string;
-            windowEnd?: string;
-            notes?: string;
-        };
-
-        const point = await addRoutePoint(id, body);
+        const parsed = RoutePointCreateSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Validation failed',
+                details: parsed.error.flatten(),
+            });
+        }
+        const point = await addRoutePoint(id, parsed.data);
         return reply.status(201).send({ success: true, data: point });
     });
 
@@ -566,6 +578,103 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         }
 
         return { success: true, data: point };
+    });
+
+    // --- POST /trips/:id/sort-route-points — сортировка с учётом окон доставки ---
+    app.post('/trips/:id/sort-route-points', {
+        schema: {
+            tags: ['Рейсы'],
+            summary: 'Отсортировать точки маршрута',
+            description: 'Сортирует точки маршрута: по windowFrom (если у всех заполнено), иначе loading→unloading с сохранением исходного порядка. Перенумеровывает sequence_number 1..N. Возвращает предупреждения о невыполнимых окнах.',
+        },
+        preHandler: [app.authenticate, requireAbility('manage', 'Trip')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            await assertTripAccess(id, user);
+
+            const points = await getRoutePoints(id);
+            if (points.length === 0) {
+                return { success: true, data: { sortedPoints: [], warnings: [] } };
+            }
+
+            const allHaveWindowFrom = points.every((p: any) => p.windowFrom != null);
+            const original = [...points];
+            let sorted: any[];
+
+            if (allHaveWindowFrom) {
+                sorted = [...points].sort((a: any, b: any) => {
+                    const av = new Date(a.windowFrom as Date).getTime();
+                    const bv = new Date(b.windowFrom as Date).getTime();
+                    return av - bv;
+                });
+            } else {
+                const indexOf = new Map<string, number>();
+                original.forEach((p: any, idx: number) => indexOf.set(p.id, idx));
+                sorted = [...points].sort((a: any, b: any) => {
+                    const groupA = a.type === 'loading' ? 0 : 1;
+                    const groupB = b.type === 'loading' ? 0 : 1;
+                    if (groupA !== groupB) return groupA - groupB;
+                    return (indexOf.get(a.id) ?? 0) - (indexOf.get(b.id) ?? 0);
+                });
+            }
+
+            // Warn-only: windowFrom > следующего windowTo
+            const warnings: Array<{ pointId: string; nextPointId: string; message: string }> = [];
+            for (let i = 0; i < sorted.length - 1; i++) {
+                const cur = sorted[i] as any;
+                const next = sorted[i + 1] as any;
+                if (cur.windowFrom && next.windowTo) {
+                    const curStart = new Date(cur.windowFrom).getTime();
+                    const nextEnd = new Date(next.windowTo).getTime();
+                    if (curStart > nextEnd) {
+                        warnings.push({
+                            pointId: cur.id,
+                            nextPointId: next.id,
+                            message: `windowFrom точки ${cur.sequenceNumber} позже windowTo следующей (${next.sequenceNumber})`,
+                        });
+                    }
+                }
+            }
+
+            // Перенумеровываем 1..N в одной транзакции
+            const updated = await db.transaction(async (tx: any) => {
+                const result: any[] = [];
+                for (let i = 0; i < sorted.length; i++) {
+                    const point = sorted[i] as any;
+                    const newSeq = i + 1;
+                    if (point.sequenceNumber !== newSeq) {
+                        const [row] = await tx
+                            .update(routePoints)
+                            .set({ sequenceNumber: newSeq })
+                            .where(eq(routePoints.id, point.id))
+                            .returning();
+                        result.push(row ?? { ...point, sequenceNumber: newSeq });
+                    } else {
+                        result.push(point);
+                    }
+                }
+                return result;
+            });
+
+            await recordEvent({
+                authorId: user.userId,
+                authorRole: user.roles[0] ?? 'system',
+                eventType: 'trip.route_points_sorted',
+                entityType: 'trip',
+                entityId: id,
+                data: {
+                    strategy: allHaveWindowFrom ? 'window_from' : 'type_then_sequence',
+                    pointsCount: updated.length,
+                    warnings,
+                },
+            });
+
+            return { success: true, data: { sortedPoints: updated, warnings } };
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
     });
 
     // --- DELETE /trips/:id/points/:pointId ---

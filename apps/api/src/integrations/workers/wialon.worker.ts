@@ -6,10 +6,11 @@ import { Worker, Job } from 'bullmq';
 import { redisConnectionConfig } from '../redis.js';
 import { QUEUE_WIALON_SYNC } from '../queues.js';
 import { db } from '../../db/connection.js';
-import { vehicles } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { vehicles, trips, routePoints, vehiclePositions } from '../../db/schema.js';
+import { and, eq } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import * as WialonMock from '../mocks/wialon.mock.js';
+import { simulateTrack, type TrackWaypoint } from '../mocks/wialon-track-generator.js';
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -54,6 +55,49 @@ async function processWialonSync(job: Job): Promise<{
                     plateNumber: v.plateNumber,
                     oldOdometer: v.currentOdometerKm,
                 });
+            }
+
+            // Wave 3: если у ТС активный рейс с точками маршрута,
+            // пишем реалистичный сэмпл трека в vehicle_positions.
+            // Иначе — оставляем стандартное mock-поведение (только odometer).
+            try {
+                const [activeTrip] = await db
+                    .select({ id: trips.id })
+                    .from(trips)
+                    .where(and(eq(trips.vehicleId, v.id), eq(trips.status, 'in_transit')))
+                    .limit(1);
+                if (activeTrip) {
+                    const points = await db
+                        .select({ lat: routePoints.lat, lon: routePoints.lon })
+                        .from(routePoints)
+                        .where(eq(routePoints.tripId, activeTrip.id))
+                        .orderBy(routePoints.sequenceNumber);
+                    const waypoints: TrackWaypoint[] = points
+                        .filter((p) => p.lat != null && p.lon != null)
+                        .map((p) => ({ lat: p.lat as number, lon: p.lon as number }));
+                    if (waypoints.length >= 2) {
+                        const samples = simulateTrack(waypoints, {
+                            startedAt: new Date(),
+                            intervalMs: 10_000,
+                            maxSamples: 1,
+                        });
+                        const sample = samples[0];
+                        if (sample) {
+                            await db.insert(vehiclePositions).values({
+                                vehicleId: v.id,
+                                recordedAt: new Date(sample.timestamp),
+                                latitude: sample.latitude,
+                                longitude: sample.longitude,
+                                speedKmh: sample.speedKmh,
+                                headingDeg: sample.headingDeg,
+                                source: 'mock',
+                            });
+                        }
+                    }
+                }
+            } catch (trackErr) {
+                // Best-effort — не валим основной sync
+                job.log(`Track sample skipped for ${v.plateNumber}: ${(trackErr as Error).message}`);
             }
         } catch (err: any) {
             errors++;

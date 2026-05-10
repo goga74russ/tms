@@ -108,6 +108,10 @@ type RoutePoint = {
     status?: string | null;
     plannedArrivalAt?: string | null;
     actualArrivalAt?: string | null;
+    windowFrom?: string | null;
+    windowTo?: string | null;
+    lat?: number | null;
+    lon?: number | null;
 };
 
 type TripLoadPlan = {
@@ -666,14 +670,45 @@ function DossierNextActions({
     );
 }
 
+function formatWindow(from?: string | null, to?: string | null) {
+    if (!from && !to) return null;
+    const fmt = (v?: string | null) => {
+        if (!v) return '—';
+        try {
+            const d = new Date(v);
+            if (Number.isNaN(d.getTime())) return v;
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mi = String(d.getMinutes()).padStart(2, '0');
+            return `${dd}.${mm} ${hh}:${mi}`;
+        } catch { return v; }
+    };
+    return `${fmt(from)} – ${fmt(to)}`;
+}
+
+function isWindowOverdue(point: RoutePoint, now = Date.now()): boolean {
+    if (!point.windowTo) return false;
+    if (point.status === 'completed') return false;
+    const t = new Date(point.windowTo).getTime();
+    if (Number.isNaN(t)) return false;
+    return now > t;
+}
+
 function OperationalStructureBlock({
     dossier,
     loadPlan,
     routePoints,
+    canSort,
+    onSortRoute,
+    sorting,
 }: {
     dossier: any;
     loadPlan?: TripLoadPlan | null;
     routePoints: RoutePoint[];
+    canSort?: boolean;
+    onSortRoute?: () => void;
+    sorting?: boolean;
 }) {
     const orders = Array.isArray(dossier?.orders) ? dossier.orders : [];
     const assignments = Array.isArray(loadPlan?.assignments) ? loadPlan.assignments : [];
@@ -783,28 +818,52 @@ function OperationalStructureBlock({
                 </div>
 
                 <div className="rounded-xl border border-slate-200">
-                    <div className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Route sequence
+                    <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Route sequence</span>
+                        {canSort && (
+                            <button
+                                type="button"
+                                onClick={onSortRoute}
+                                disabled={sorting || sortedPoints.length === 0}
+                                className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {sorting && <Loader2 className="h-3 w-3 animate-spin" />}
+                                Сортировать маршрут
+                            </button>
+                        )}
                     </div>
                     <div className="divide-y divide-slate-100">
                         {sortedPoints.length === 0 ? (
                             <div className="px-3 py-4 text-sm text-slate-500">
                                 No route points returned. The route timeline will appear after points are generated.
                             </div>
-                        ) : sortedPoints.map((point, index) => (
-                            <div key={point.id} className="flex gap-3 px-3 py-3">
-                                <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
-                                    {routePointOrder(point, index)}
-                                </span>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-semibold text-slate-900">{routePointTypeLabel(point.type)}</p>
-                                    <p className="truncate text-xs text-slate-500">{point.address || 'Address not provided'}</p>
-                                    <p className="mt-1 text-[11px] text-slate-400">
-                                        {point.status || 'planned'} | plan {formatTimelineDate(point.plannedArrivalAt)} | fact {formatTimelineDate(point.actualArrivalAt)}
-                                    </p>
+                        ) : sortedPoints.map((point, index) => {
+                            const overdue = isWindowOverdue(point);
+                            const window = formatWindow(point.windowFrom, point.windowTo);
+                            return (
+                                <div
+                                    key={point.id}
+                                    className={`flex gap-3 px-3 py-3 ${overdue ? 'bg-rose-50' : ''}`}
+                                >
+                                    <span className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${overdue ? 'bg-rose-200 text-rose-800' : 'bg-indigo-100 text-indigo-700'}`}>
+                                        {routePointOrder(point, index)}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-semibold text-slate-900">{routePointTypeLabel(point.type)}</p>
+                                        <p className="truncate text-xs text-slate-500">{point.address || 'Address not provided'}</p>
+                                        <p className="mt-1 text-[11px] text-slate-400">
+                                            {point.status || 'planned'} | plan {formatTimelineDate(point.plannedArrivalAt)} | fact {formatTimelineDate(point.actualArrivalAt)}
+                                        </p>
+                                        {window && (
+                                            <p className={`mt-1 text-[11px] font-medium ${overdue ? 'text-rose-700' : 'text-slate-500'}`}>
+                                                Окно: {window}
+                                                {overdue && <span className="ml-1 font-semibold">· просрочено</span>}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -1764,6 +1823,16 @@ export default function TripsPage() {
     const [dossierRoutePoints, setDossierRoutePoints] = useState<RoutePoint[]>([]);
     const [dossierLoadPlan, setDossierLoadPlan] = useState<TripLoadPlan | null>(null);
     const [preferredDossierAction, setPreferredDossierAction] = useState<OperationalAction | null>(null);
+    const [sortingRoute, setSortingRoute] = useState(false);
+    const [tripsToast, setTripsToast] = useState<{ message: string; tone: 'success' | 'error' | 'warning' } | null>(null);
+
+    const canSortRoute = !!user?.roles?.some(r => r === 'dispatcher' || r === 'logist' || r === 'admin');
+
+    useEffect(() => {
+        if (!tripsToast) return;
+        const id = setTimeout(() => setTripsToast(null), 4000);
+        return () => clearTimeout(id);
+    }, [tripsToast]);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -2029,6 +2098,34 @@ export default function TripsPage() {
         setPreferredDossierAction(null);
     };
 
+    const handleSortRoute = async () => {
+        if (!dossierTripId || sortingRoute) return;
+        setSortingRoute(true);
+        try {
+            const res = await api.post<{ success: boolean; data?: { sortedPoints?: RoutePoint[]; warnings?: string[] }; error?: string }>(
+                `/trips/${dossierTripId}/sort-route-points`,
+            );
+            if (!res.success) throw new Error(res.error || 'Не удалось отсортировать маршрут');
+            // Refetch points to ensure consistent state
+            const pointsResult = await api.get<any>(`/trips/${dossierTripId}/points`).catch(() => ({ success: false, data: [] }));
+            if (pointsResult.success) {
+                setDossierRoutePoints(pointsResult.data || []);
+            } else if (Array.isArray(res.data?.sortedPoints)) {
+                setDossierRoutePoints(res.data!.sortedPoints!);
+            }
+            const warnings = res.data?.warnings || [];
+            if (warnings.length > 0) {
+                setTripsToast({ message: `Маршрут отсортирован. Предупреждения: ${warnings.join('; ')}`, tone: 'warning' });
+            } else {
+                setTripsToast({ message: 'Маршрут отсортирован', tone: 'success' });
+            }
+        } catch (err: any) {
+            setTripsToast({ message: err?.message || 'Ошибка сортировки маршрута', tone: 'error' });
+        } finally {
+            setSortingRoute(false);
+        }
+    };
+
     // Status counters
     const statusCounts = trips.reduce((acc, t) => {
         acc[t.status] = (acc[t.status] || 0) + 1;
@@ -2054,6 +2151,19 @@ export default function TripsPage() {
 
     return (
         <div className="space-y-6">
+            {tripsToast && (
+                <div
+                    className={`fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${
+                        tripsToast.tone === 'success'
+                            ? 'bg-emerald-600'
+                            : tripsToast.tone === 'warning'
+                                ? 'bg-amber-500'
+                                : 'bg-red-600'
+                    }`}
+                >
+                    {tripsToast.message}
+                </div>
+            )}
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -2519,6 +2629,9 @@ export default function TripsPage() {
                                         dossier={dossier}
                                         loadPlan={dossierLoadPlan}
                                         routePoints={dossierRoutePoints}
+                                        canSort={canSortRoute}
+                                        onSortRoute={handleSortRoute}
+                                        sorting={sortingRoute}
                                     />
 
                                     <CloseGateBlock closeGate={dossier.closeGate} />

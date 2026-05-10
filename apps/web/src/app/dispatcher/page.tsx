@@ -10,7 +10,10 @@ import { Combobox } from '@/components/ui/Combobox';
 import { api } from '@/lib/api';
 import { downloadFromApi } from '@/lib/download';
 import { useVehiclePositions } from '@/hooks/useVehiclePositions';
+import { useWialonPositions, type ActiveVehicleSubscription } from '@/hooks/useWialonPositions';
+import { useUser } from '@/lib/user-context';
 import type { RoutePoint } from './components/TripRouteLayer';
+import type { LiveGpsMarker } from './components/DispatcherMap';
 
 // Leaflet must be loaded client-side only
 const DispatcherMap = dynamic(
@@ -177,6 +180,41 @@ export default function DispatcherPage() {
     }, []);
     // Real-time vehicle positions via WebSocket
     const { positions: wsPositions, isConnected: wsConnected } = useVehiclePositions();
+
+    const { user } = useUser();
+    const isAdmin = !!user?.roles?.includes('admin');
+
+    // Derive list of active-trip vehicles for live GPS subscription
+    const activeTripSubs = useMemo<ActiveVehicleSubscription[]>(() => {
+        const activeStatuses = new Set(['in_transit', 'loading', 'waybill_issued']);
+        const seen = new Map<string, ActiveVehicleSubscription>();
+        for (const t of trips) {
+            if (!t.vehicleId || !activeStatuses.has(t.status)) continue;
+            if (seen.has(t.vehicleId)) continue;
+            const v = vehicles.find(x => x.id === t.vehicleId);
+            seen.set(t.vehicleId, { vehicleId: t.vehicleId, plateNumber: v?.plateNumber || t.vehicle?.plateNumber });
+        }
+        return Array.from(seen.values());
+    }, [trips, vehicles]);
+
+    const liveWialonMarkers = useWialonPositions(activeTripSubs);
+
+    const liveMarkersList = useMemo<LiveGpsMarker[]>(() => {
+        return Object.values(liveWialonMarkers).map(m => ({
+            vehicleId: m.vehicleId,
+            plateNumber: m.plateNumber,
+            latitude: m.position.latitude,
+            longitude: m.position.longitude,
+            speedKmh: m.position.speedKmh,
+            headingDeg: m.position.headingDeg,
+            recordedAt: m.position.recordedAt,
+        }));
+    }, [liveWialonMarkers]);
+
+    // Mock simulator state (admin-only)
+    const [simulatorOpen, setSimulatorOpen] = useState(false);
+    const [runningSims, setRunningSims] = useState<Record<string, boolean>>({});
+    const [simBusy, setSimBusy] = useState<Record<string, boolean>>({});
 
     // Merge WS positions into vehicles for the map
     const enrichedVehicles = useMemo(() => {
@@ -710,6 +748,7 @@ export default function DispatcherPage() {
                             onSelectVehicle={setSelectedVehicle}
                             tripRoutePoints={tripRoutePoints}
                             onMapReady={setMapInstance}
+                            liveMarkers={liveMarkersList}
                         />
                     ) : (
                         <VehicleTimeline data={timelineData} />
@@ -983,10 +1022,93 @@ export default function DispatcherPage() {
                             </div>
                         </CardContent>
                     </Card>
+                    {isAdmin && (
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Wifi className="w-4 h-4 text-purple-500" />
+                                    <h3 className="text-sm font-bold text-slate-800">Симулятор GPS</h3>
+                                    <span className="ml-auto text-xs text-slate-400">{activeTripSubs.length} активных</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSimulatorOpen(o => !o)}
+                                        className="text-xs font-semibold text-purple-700 hover:underline"
+                                    >
+                                        {simulatorOpen ? 'Скрыть' : 'Показать'}
+                                    </button>
+                                </div>
+                                {simulatorOpen && (
+                                    <div className="space-y-1.5 max-h-[260px] overflow-y-auto">
+                                        {trips
+                                            .filter(t => t.vehicleId && (t.status === 'in_transit' || t.status === 'loading' || t.status === 'waybill_issued'))
+                                            .map(trip => {
+                                                const v = vehicles.find(x => x.id === trip.vehicleId);
+                                                const plate = v?.plateNumber || trip.vehicle?.plateNumber || trip.vehicleId;
+                                                const running = !!runningSims[trip.vehicleId!];
+                                                const busy = !!simBusy[trip.vehicleId!];
+                                                return (
+                                                    <div key={trip.id} className="flex items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-100 bg-slate-50">
+                                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${running ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-xs font-semibold text-slate-800 truncate">{plate}</p>
+                                                            <p className="text-[10px] text-slate-400 truncate">Рейс {trip.number}</p>
+                                                        </div>
+                                                        {running ? (
+                                                            <button
+                                                                disabled={busy}
+                                                                onClick={async () => {
+                                                                    if (!trip.vehicleId) return;
+                                                                    setSimBusy(s => ({ ...s, [trip.vehicleId!]: true }));
+                                                                    try {
+                                                                        await api.post('/integrations/wialon-mock/stop', { vehicleId: trip.vehicleId });
+                                                                        setRunningSims(s => ({ ...s, [trip.vehicleId!]: false }));
+                                                                        showToast('Симуляция остановлена', 'success');
+                                                                    } catch (e: any) {
+                                                                        showToast(e?.message || 'Ошибка остановки');
+                                                                    } finally {
+                                                                        setSimBusy(s => ({ ...s, [trip.vehicleId!]: false }));
+                                                                    }
+                                                                }}
+                                                                className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-rose-100 text-rose-700 hover:bg-rose-200 disabled:opacity-50"
+                                                            >
+                                                                {busy ? '…' : '⏹ Стоп'}
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                disabled={busy}
+                                                                onClick={async () => {
+                                                                    if (!trip.vehicleId) return;
+                                                                    setSimBusy(s => ({ ...s, [trip.vehicleId!]: true }));
+                                                                    try {
+                                                                        await api.post('/integrations/wialon-mock/start', { vehicleId: trip.vehicleId, tripId: trip.id });
+                                                                        setRunningSims(s => ({ ...s, [trip.vehicleId!]: true }));
+                                                                        showToast('Симуляция запущена', 'success');
+                                                                    } catch (e: any) {
+                                                                        showToast(e?.message || 'Ошибка запуска');
+                                                                    } finally {
+                                                                        setSimBusy(s => ({ ...s, [trip.vehicleId!]: false }));
+                                                                    }
+                                                                }}
+                                                                className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-emerald-100 text-emerald-700 hover:bg-emerald-200 disabled:opacity-50"
+                                                            >
+                                                                {busy ? '…' : '▶ Старт'}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        {activeTripSubs.length === 0 && (
+                                            <p className="text-xs text-slate-400 text-center py-3">Нет активных рейсов</p>
+                                        )}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
                     <AssignmentPanel
                         orders={orders}
                         vehicles={enrichedVehicles.filter(v => v.status === 'available')}
-                        onAssign={async (orderId, vehicleId) => {
+                        onAssign={async (orderId, vehicleId, windows) => {
                             const order = orders.find(o => o.id === orderId);
                             if (!order) return;
 
@@ -994,9 +1116,21 @@ export default function DispatcherPage() {
                                 vehicleId,
                                 orderIds: [orderId],
                                 routePoints: [
-                                    { type: 'loading', address: order.loadingAddress, sequenceNumber: 1 },
-                                    { type: 'unloading', address: order.unloadingAddress, sequenceNumber: 2 }
-                                ]
+                                    {
+                                        type: 'loading',
+                                        address: order.loadingAddress,
+                                        sequenceNumber: 1,
+                                        windowFrom: windows?.loadingFrom || undefined,
+                                        windowTo: windows?.loadingTo || undefined,
+                                    },
+                                    {
+                                        type: 'unloading',
+                                        address: order.unloadingAddress,
+                                        sequenceNumber: 2,
+                                        windowFrom: windows?.unloadingFrom || undefined,
+                                        windowTo: windows?.unloadingTo || undefined,
+                                    },
+                                ],
                             });
 
                             loadData();

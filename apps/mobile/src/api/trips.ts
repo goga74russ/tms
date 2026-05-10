@@ -52,6 +52,8 @@ export interface TripSummary {
         lon: number | null;
         sequence: number;
         status: string;
+        windowFrom?: string | null;
+        windowTo?: string | null;
     }>;
     orders?: TripOrderSummary[];
     coldChainRequired?: boolean;

@@ -1157,6 +1157,8 @@ export async function addRoutePoint(
         lon?: number;
         windowStart?: string;
         windowEnd?: string;
+        windowFrom?: string;
+        windowTo?: string;
         notes?: string;
         sealNumbers?: string[];
         packagingCondition?: string;
@@ -1193,6 +1195,8 @@ export async function addRoutePoint(
             lon: point.lon,
             windowStart: point.windowStart ? new Date(point.windowStart) : undefined,
             windowEnd: point.windowEnd ? new Date(point.windowEnd) : undefined,
+            windowFrom: point.windowFrom ? new Date(point.windowFrom) : undefined,
+            windowTo: point.windowTo ? new Date(point.windowTo) : undefined,
             notes: point.notes,
             sealNumbers: point.sealNumbers,
             packagingCondition: point.packagingCondition,
@@ -1223,6 +1227,10 @@ export async function updateRoutePoint(
         vehicleArrivedAt: string;
         waitingStartedAt: string;
         waitingEndedAt: string;
+        windowStart: string | null;
+        windowEnd: string | null;
+        windowFrom: string | null;
+        windowTo: string | null;
     }>,
 ) {
     const setFields: Record<string, any> = {};
@@ -1241,6 +1249,10 @@ export async function updateRoutePoint(
     if (updates.vehicleArrivedAt !== undefined) setFields.vehicleArrivedAt = updates.vehicleArrivedAt ? new Date(updates.vehicleArrivedAt) : null;
     if (updates.waitingStartedAt !== undefined) setFields.waitingStartedAt = updates.waitingStartedAt ? new Date(updates.waitingStartedAt) : null;
     if (updates.waitingEndedAt !== undefined) setFields.waitingEndedAt = updates.waitingEndedAt ? new Date(updates.waitingEndedAt) : null;
+    if (updates.windowStart !== undefined) setFields.windowStart = updates.windowStart ? new Date(updates.windowStart) : null;
+    if (updates.windowEnd !== undefined) setFields.windowEnd = updates.windowEnd ? new Date(updates.windowEnd) : null;
+    if (updates.windowFrom !== undefined) setFields.windowFrom = updates.windowFrom ? new Date(updates.windowFrom) : null;
+    if (updates.windowTo !== undefined) setFields.windowTo = updates.windowTo ? new Date(updates.windowTo) : null;
 
     const [updated] = await db
         .update(routePoints)

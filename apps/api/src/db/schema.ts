@@ -475,6 +475,9 @@ export const routePoints = pgTable('route_points', {
     lon: doublePrecision('lon'),
     windowStart: timestamp('window_start', { withTimezone: true }),
     windowEnd: timestamp('window_end', { withTimezone: true }),
+    // Wave 3: Дополнительные окна доставки (РТО)
+    windowFrom: timestamp('window_from', { withTimezone: true }),
+    windowTo: timestamp('window_to', { withTimezone: true }),
     arrivedAt: timestamp('arrived_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     signatureUrl: text('signature_url'),
@@ -1388,5 +1391,24 @@ export const temperatureReadings = pgTable('temperature_readings', {
     index('idx_temp_readings_order_recorded')
         .on(table.orderId, sql`${table.recordedAt} DESC`)
         .where(sql`${table.orderId} IS NOT NULL`),
+]);
+
+// ================================================================
+// Wave 3: Vehicle Positions (история GPS)
+// Хранит исторические позиции ТС для ETA/треков. WS broadcast
+// читает эту таблицу или fallback на mock-телеметрию.
+// ================================================================
+export const vehiclePositions = pgTable('vehicle_positions', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id, { onDelete: 'cascade' }),
+    recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
+    latitude: doublePrecision('latitude').notNull(),
+    longitude: doublePrecision('longitude').notNull(),
+    speedKmh: doublePrecision('speed_kmh'),
+    headingDeg: doublePrecision('heading_deg'),
+    source: text('source').notNull().default('mock'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_vehicle_positions_vehicle_recorded').on(table.vehicleId, sql`${table.recordedAt} DESC`),
 ]);
 
