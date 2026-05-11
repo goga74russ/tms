@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '@/lib/api';
-import { Wrench, Plus, X, Loader2 } from 'lucide-react';
+import { Wrench, Plus, X } from 'lucide-react';
 import { RepairKanban } from './components/RepairKanban';
 import { RepairCatalogManager } from './components/RepairCatalogManager';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Stat } from '@/components/ui/stat';
+import { useToast } from '@/components/ui/toast';
 
 type RepairDraft = {
     vehicleId?: string;
@@ -27,6 +28,7 @@ function CreateRepairModal({
     onClose: () => void;
     onCreated: () => void;
 }) {
+    const { toast } = useToast();
     const [vehicles, setVehicles] = useState<any[]>([]);
     const [vehicleId, setVehicleId] = useState(initialDraft?.vehicleId || '');
     const [description, setDescription] = useState(initialDraft?.description || '');
@@ -53,12 +55,15 @@ function CreateRepairModal({
                 source: initialDraft?.source || 'mechanic',
             });
             if (result.success) {
+                toast({ variant: 'success', title: 'Заявка на ремонт создана' });
                 onCreated();
             } else {
                 throw new Error(result.error || 'Ошибка');
             }
         } catch (err: any) {
-            setError(err.message || 'Ошибка сервера');
+            const msg = err.message || 'Ошибка сервера';
+            setError(msg);
+            toast({ variant: 'error', title: 'Ошибка', description: msg });
         } finally {
             setSubmitting(false);
         }
@@ -114,17 +119,10 @@ function CreateRepairModal({
                     {error && <p className="text-sm text-red-600">{error}</p>}
                 </div>
                 <div className="px-6 py-4 border-t border-slate-100 flex gap-3 justify-end">
-                    <button onClick={onClose} disabled={submitting} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">
-                        Отмена
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={submitting}
-                        className="px-5 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                    >
-                        {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {submitting ? 'Создание...' : 'Создать'}
-                    </button>
+                    <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
+                    <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
+                        Создать
+                    </Button>
                 </div>
             </div>
         </div>
@@ -190,28 +188,26 @@ export default function RepairPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Ремонтная служба</h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Заявки на ремонт и техническое обслуживание
-                    </p>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <Wrench className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-slate-900">Ремонтная служба</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                            Заявки на ремонт и техническое обслуживание
+                        </p>
+                    </div>
                 </div>
-                <Button
-                    className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
-                    onClick={() => setShowCreateModal(true)}
-                >
-                    <Plus className="w-4 h-4" />
-                    Новая заявка
-                </Button>
-                <Button
-                    variant="outline"
-                    className="ml-3 gap-2 border-slate-200 text-slate-700 hover:bg-slate-50"
-                    onClick={() => setShowCatalogModal(true)}
-                >
-                    <Wrench className="w-4 h-4" />
-                    Каталог з/ч
-                </Button>
+                <div className="flex items-center gap-3">
+                    <Button variant="outline" leftIcon={<Wrench className="w-4 h-4" />} onClick={() => setShowCatalogModal(true)}>
+                        Каталог з/ч
+                    </Button>
+                    <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
+                        Новая заявка
+                    </Button>
+                </div>
             </div>
 
             {initialDraft?.tripId && (
@@ -221,23 +217,16 @@ export default function RepairPage() {
             )}
 
             {/* Stats bar */}
-            <div className="grid grid-cols-4 gap-4">
-                {['created', 'waiting_parts', 'in_progress', 'done'].map(status => {
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {(['created', 'waiting_parts', 'in_progress', 'done'] as const).map(status => {
                     const st = statusLabels[status];
                     const count = stats.find(s => s.status === status)?.count || 0;
-                    return (
-                        <Card key={status}>
-                            <CardContent className="p-4">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className={`w-2 h-2 rounded-full ${st.color}`} />
-                                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                        {st.label}
-                                    </span>
-                                </div>
-                                <p className="text-2xl font-bold text-slate-900">{count}</p>
-                            </CardContent>
-                        </Card>
-                    );
+                    const tone: 'warning' | 'info' | 'brand' | 'success' =
+                        status === 'created' ? 'warning'
+                            : status === 'waiting_parts' ? 'info'
+                                : status === 'in_progress' ? 'brand'
+                                    : 'success';
+                    return <Stat key={status} label={st.label} value={count} tone={tone} />;
                 })}
             </div>
 

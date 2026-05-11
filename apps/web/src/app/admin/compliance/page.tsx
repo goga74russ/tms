@@ -9,12 +9,15 @@
 // ============================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ShieldCheck, Upload, RefreshCw, AlertTriangle, CheckCircle2, BarChart3 } from 'lucide-react';
+import { ShieldCheck, Upload, RefreshCw, AlertTriangle, CheckCircle2, BarChart3, FileText, Database, ScanLine } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { SkeletonTable } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 import {
     classifyOsagoExpiry,
     type OsagoStatusRow,
@@ -30,14 +33,16 @@ type ApiResp<T> = { success: boolean; data?: T; error?: string };
 export default function CompliancePage() {
     return (
         <div className="p-6 max-w-6xl mx-auto space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                    <ShieldCheck className="w-6 h-6 text-indigo-600" />
-                    Compliance: ОСАГО, тахограф, маркировка, ADR
-                </h1>
-                <p className="text-sm text-slate-500 mt-1">
-                    Контроль обязательной отчётности РФ. Все интеграции работают в mock-режиме до момента, когда будут получены реальные ключи API.
-                </p>
+            <div className="flex items-center gap-3">
+                <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                    <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-semibold text-slate-900">Compliance: ОСАГО, тахограф, маркировка, ADR</h1>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                        Контроль обязательной отчётности РФ. Все интеграции работают в mock-режиме до получения реальных ключей API.
+                    </p>
+                </div>
             </div>
 
             <Tabs defaultValue="osago">
@@ -126,7 +131,11 @@ function OsagoTab() {
                         </thead>
                         <tbody>
                             {rows.length === 0 && (
-                                <tr><td colSpan={7} className="py-6 text-center text-slate-400">ТС пока нет</td></tr>
+                                <tr><td colSpan={7}>
+                                    <div className="p-6">
+                                        <EmptyState icon={ShieldCheck} title="ТС пока нет" description="Полисы ОСАГО появятся после добавления ТС в автопарк." />
+                                    </div>
+                                </td></tr>
                             )}
                             {rows.map(r => {
                                 const band = classifyOsagoExpiry(r.valid, r.expiresAt);
@@ -251,7 +260,11 @@ function TachographTab() {
                         </thead>
                         <tbody>
                             {rows.length === 0 && (
-                                <tr><td colSpan={7} className="py-6 text-center text-slate-400">Загрузок ещё нет</td></tr>
+                                <tr><td colSpan={7}>
+                                    <div className="p-6">
+                                        <EmptyState icon={Database} title="Загрузок ещё нет" description="Загрузите .DDD/.ESM, чтобы увидеть журнал." />
+                                    </div>
+                                </td></tr>
                             )}
                             {rows.map(r => (
                                 <tr key={r.id} className="border-b border-slate-100">
@@ -355,7 +368,11 @@ function MarkingTab() {
                         </thead>
                         <tbody>
                             {rows.length === 0 && (
-                                <tr><td colSpan={5} className="py-6 text-center text-slate-400">Проверок ещё нет</td></tr>
+                                <tr><td colSpan={5}>
+                                    <div className="p-6">
+                                        <EmptyState icon={ScanLine} title="Проверок ещё нет" description="Здесь появятся результаты валидации кодов маркировки." />
+                                    </div>
+                                </td></tr>
                             )}
                             {rows.slice(0, 50).map(r => (
                                 <tr key={r.id} className="border-b border-slate-100">
@@ -466,8 +483,8 @@ function ErrorBox({ message }: { message: string }) {
     );
 }
 
-function Loading() {
-    return <div className="text-slate-500 text-sm py-6">Загружаем…</div>;
+function Loading({ columns = 4 }: { columns?: number }) {
+    return <SkeletonTable rows={5} columns={columns} />;
 }
 
 function formatDate(iso: string | null): string {

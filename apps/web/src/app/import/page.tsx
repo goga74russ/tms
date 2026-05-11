@@ -8,6 +8,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/components/ui/toast';
 import {
     Upload, Truck, Users, Building2, Package, CheckCircle2,
     AlertCircle, Loader2, Download, FileSpreadsheet, X,
@@ -71,11 +72,16 @@ export default function ImportPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-slate-900">Импорт данных</h1>
-                <p className="text-sm text-slate-500 mt-1">
-                    Скачайте шаблон Excel, заполните и загрузите обратно. Перед записью в БД покажем предпросмотр с подсветкой ошибок.
-                </p>
+            <div className="flex items-center gap-3">
+                <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                    <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-semibold text-slate-900">Импорт данных</h1>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                        Скачайте шаблон Excel, заполните и загрузите обратно. Перед записью покажем предпросмотр с подсветкой ошибок.
+                    </p>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

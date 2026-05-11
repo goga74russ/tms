@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { AlertTriangle, Plus, Search, X } from 'lucide-react';
+import { AlertTriangle, Plus, Search, X, ShieldAlert } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Stat } from '@/components/ui/stat';
+import { SkeletonTable } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 
 interface Incident {
     id: string;
@@ -68,6 +74,7 @@ function getIncidentBadgeClass(
     return styles[normalizedValue] ?? fallbackClass;
 }
 function CreateIncidentModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+    const { toast } = useToast();
     const [form, setForm] = useState({
         type: 'road',
         severity: 'medium',
@@ -91,9 +98,12 @@ function CreateIncidentModal({ onClose, onCreated }: { onClose: () => void; onCr
                 ...form,
                 description: form.description.trim(),
             });
+            toast({ variant: 'success', title: 'Инцидент создан' });
             onCreated();
         } catch (err: any) {
-            setError(err.message || 'Не удалось создать инцидент');
+            const msg = err.message || 'Не удалось создать инцидент';
+            setError(msg);
+            toast({ variant: 'error', title: 'Ошибка', description: msg });
         } finally {
             setSubmitting(false);
         }
@@ -138,10 +148,10 @@ function CreateIncidentModal({ onClose, onCreated }: { onClose: () => void; onCr
                 </div>
                 {error && <p className="px-6 pb-2 text-sm text-red-600">{error}</p>}
                 <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100">
-                    <button onClick={onClose} className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium">Отмена</button>
-                    <button onClick={handleSubmit} disabled={submitting} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
-                        {submitting ? 'Сохраняю...' : 'Создать инцидент'}
-                    </button>
+                    <Button variant="outline" onClick={onClose}>Отмена</Button>
+                    <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
+                        Создать инцидент
+                    </Button>
                 </div>
             </div>
         </div>
@@ -183,24 +193,38 @@ export default function IncidentsPage() {
         return () => clearTimeout(timer);
     }, [search]);
 
+    const openCount = incidents.filter(i => i.status === 'open').length;
+    const criticalCount = incidents.filter(i => i.severity === 'critical').length;
+    const blockingCount = incidents.filter(i => i.blocksRelease).length;
+
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Инциденты</h1>
-                    <p className="text-sm text-slate-500 mt-1">Sprint 9: инциденты по осмотрам, дороге и грузу</p>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <ShieldAlert className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-slate-900">Инциденты</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">Инциденты по осмотрам, дороге и грузу</p>
+                    </div>
                 </div>
-                <button onClick={() => setShowCreate(true)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
-                    <Plus className="w-4 h-4" />
+                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
                     Новый инцидент
-                </button>
+                </Button>
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Stat label="Всего" value={incidents.length} icon={AlertTriangle} tone="neutral" />
+                <Stat label="Открыто" value={openCount} icon={AlertTriangle} tone={openCount > 0 ? 'warning' : 'neutral'} />
+                <Stat label="Критичные" value={criticalCount} icon={ShieldAlert} tone={criticalCount > 0 ? 'danger' : 'neutral'} />
+                <Stat label="Блокируют выпуск" value={blockingCount} icon={ShieldAlert} tone={blockingCount > 0 ? 'danger' : 'neutral'} />
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 shadow-soft">
                 <div className="p-4 border-b border-slate-200 flex flex-wrap gap-3">
-                    <div className="relative flex-1 min-w-[220px] max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по описанию" className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm" />
+                    <div className="flex-1 min-w-[220px] max-w-sm">
+                        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по описанию" leftAddon={<Search className="w-4 h-4" />} />
                     </div>
                     <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="px-4 py-2 rounded-lg border border-slate-200 text-sm">
                         <option value="">Все приоритеты</option>
@@ -218,13 +242,20 @@ export default function IncidentsPage() {
                 </div>
 
                 {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                    </div>
+                    <div className="p-4"><SkeletonTable rows={6} columns={6} /></div>
                 ) : incidents.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                        <AlertTriangle className="w-12 h-12 mb-3" />
-                        <p className="text-sm">Инциденты не найдены</p>
+                    <div className="p-6">
+                        <EmptyState
+                            icon={AlertTriangle}
+                            title={search || status || severity ? 'Инциденты не найдены' : 'Пока нет инцидентов'}
+                            description={search || status || severity ? 'Попробуйте сбросить фильтры.' : 'Здесь появятся зарегистрированные инциденты.'}
+                            tone="brand"
+                            action={!search && !status && !severity ? (
+                                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
+                                    Новый инцидент
+                                </Button>
+                            ) : undefined}
+                        />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">

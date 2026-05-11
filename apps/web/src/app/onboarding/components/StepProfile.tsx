@@ -1,7 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
 
 interface DaDataResult {
     inn: string;
@@ -26,22 +30,58 @@ export function StepProfile({ initial, onNext, onBack }: Props) {
     const [bankBik, setBankBik] = useState('');
     const [bankAccount, setBankAccount] = useState('');
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    const { toast } = useToast();
+
+    const validate = () => {
+        const e: Record<string, string> = {};
+        if (!name.trim()) e.name = 'Укажите название';
+        if (!/^\d{10}(\d{2})?$/.test(inn)) e.inn = 'ИНН: 10 или 12 цифр';
+        if (kpp && !/^\d{9}$/.test(kpp)) e.kpp = 'КПП: 9 цифр';
+        if (ogrn && !/^\d{13,15}$/.test(ogrn)) e.ogrn = 'ОГРН: 13 или 15 цифр';
+        if (bankBik && !/^\d{9}$/.test(bankBik)) e.bankBik = 'БИК: 9 цифр';
+        if (bankAccount && !/^\d{20}$/.test(bankAccount)) e.bankAccount = 'Счёт: 20 цифр';
+        return e;
+    };
 
     const submit = async () => {
-        setError(null);
+        const e = validate();
+        setErrors(e);
+        if (Object.keys(e).length > 0) {
+            toast({
+                variant: 'warning',
+                title: 'Проверьте поля',
+                description: 'Заполните обязательные поля корректно.',
+            });
+            return;
+        }
         setSaving(true);
         try {
             const res = await api.post<{ success: boolean; error?: string }>('/onboarding/profile', {
-                inn, name, kpp, ogrn, legalAddress, bankBik, bankAccount,
+                inn,
+                name,
+                kpp,
+                ogrn,
+                legalAddress,
+                bankBik,
+                bankAccount,
             });
             if (!res.success) {
-                setError(res.error ?? 'Ошибка сохранения');
+                toast({
+                    variant: 'error',
+                    title: 'Не удалось сохранить',
+                    description: res.error ?? 'Попробуйте ещё раз.',
+                });
                 return;
             }
+            toast({ variant: 'success', title: 'Реквизиты сохранены' });
             onNext();
         } catch (err: unknown) {
-            setError((err as Error).message);
+            toast({
+                variant: 'error',
+                title: 'Ошибка соединения',
+                description: (err as Error).message ?? 'Попробуйте ещё раз',
+            });
         } finally {
             setSaving(false);
         }
@@ -49,44 +89,86 @@ export function StepProfile({ initial, onNext, onBack }: Props) {
 
     return (
         <div className="space-y-5">
-            <div>
-                <h2 className="text-xl font-semibold text-slate-900">Шаг 2: Реквизиты компании</h2>
-                <p className="text-sm text-slate-500 mt-1">Проверьте автозаполнение и добавьте банковские реквизиты.</p>
+            <p className="text-sm text-neutral-600">
+                Проверьте автозаполнение и добавьте банковские реквизиты для исходящих счетов.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                    <Input
+                        label="Название организации"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        error={errors.name}
+                    />
+                </div>
+                <Input
+                    label="ИНН"
+                    required
+                    inputMode="numeric"
+                    maxLength={12}
+                    value={inn}
+                    onChange={(e) => setInn(e.target.value.replace(/\D/g, ''))}
+                    error={errors.inn}
+                />
+                <Input
+                    label="КПП"
+                    inputMode="numeric"
+                    maxLength={9}
+                    value={kpp}
+                    onChange={(e) => setKpp(e.target.value.replace(/\D/g, ''))}
+                    error={errors.kpp}
+                    helperText="Не требуется для ИП"
+                />
+                <div className="sm:col-span-2">
+                    <Input
+                        label="ОГРН / ОГРНИП"
+                        inputMode="numeric"
+                        maxLength={15}
+                        value={ogrn}
+                        onChange={(e) => setOgrn(e.target.value.replace(/\D/g, ''))}
+                        error={errors.ogrn}
+                    />
+                </div>
+                <div className="sm:col-span-2">
+                    <Input
+                        label="Юридический адрес"
+                        value={legalAddress}
+                        onChange={(e) => setLegalAddress(e.target.value)}
+                    />
+                </div>
+                <Input
+                    label="БИК банка"
+                    inputMode="numeric"
+                    maxLength={9}
+                    value={bankBik}
+                    onChange={(e) => setBankBik(e.target.value.replace(/\D/g, ''))}
+                    error={errors.bankBik}
+                />
+                <Input
+                    label="Расчётный счёт"
+                    inputMode="numeric"
+                    maxLength={20}
+                    value={bankAccount}
+                    onChange={(e) => setBankAccount(e.target.value.replace(/\D/g, ''))}
+                    error={errors.bankAccount}
+                />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-                <Field label="Название *"><input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} /></Field>
-                <Field label="ИНН *"><input value={inn} onChange={(e) => setInn(e.target.value)} className={inputCls} /></Field>
-                <Field label="КПП"><input value={kpp} onChange={(e) => setKpp(e.target.value)} className={inputCls} /></Field>
-                <Field label="ОГРН"><input value={ogrn} onChange={(e) => setOgrn(e.target.value)} className={inputCls} /></Field>
-                <Field label="Юр. адрес" colspan={2}><input value={legalAddress} onChange={(e) => setLegalAddress(e.target.value)} className={inputCls} /></Field>
-                <Field label="БИК банка"><input value={bankBik} onChange={(e) => setBankBik(e.target.value)} className={inputCls} /></Field>
-                <Field label="Расчётный счёт"><input value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} className={inputCls} /></Field>
-            </div>
-
-            {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">{error}</div>}
-
-            <div className="flex justify-between">
-                <button onClick={onBack} className="text-sm text-slate-600 hover:underline">← Назад</button>
-                <button
+            <div className="flex items-center justify-between pt-4 border-t border-neutral-100">
+                <Button variant="ghost" onClick={onBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+                    Назад
+                </Button>
+                <Button
+                    variant="brand"
                     onClick={submit}
-                    disabled={saving || !name || !inn}
-                    className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:bg-indigo-300"
+                    isLoading={saving}
+                    rightIcon={!saving ? <ArrowRight className="w-4 h-4" /> : undefined}
                 >
-                    {saving ? 'Сохраняем...' : 'Далее →'}
-                </button>
+                    Далее
+                </Button>
             </div>
-        </div>
-    );
-}
-
-const inputCls = 'w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500';
-
-function Field({ label, children, colspan }: { label: string; children: React.ReactNode; colspan?: number }) {
-    return (
-        <div className={colspan === 2 ? 'col-span-2 space-y-1' : 'space-y-1'}>
-            <label className="text-xs font-medium text-slate-600">{label}</label>
-            {children}
         </div>
     );
 }

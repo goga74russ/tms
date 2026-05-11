@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
-import { Search, Plus, Building2, X, Loader2 } from 'lucide-react';
+import { Search, Plus, Building2, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Stat } from '@/components/ui/stat';
+import { SkeletonTable } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 
 interface Contractor {
     id: string;
@@ -18,6 +24,7 @@ interface Contractor {
 }
 
 function CreateContractorModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+    const { toast } = useToast();
     const [name, setName] = useState('');
     const [inn, setInn] = useState('');
     const [kpp, setKpp] = useState('');
@@ -42,12 +49,15 @@ function CreateContractorModal({ onClose, onCreated }: { onClose: () => void; on
                 email: email || undefined, contactPerson: contactPerson || undefined,
             });
             if (result.success) {
+                toast({ variant: 'success', title: 'Контрагент создан' });
                 onCreated();
             } else {
                 throw new Error(result.error || 'Ошибка');
             }
         } catch (err: any) {
-            setError(err.message || 'Ошибка сервера');
+            const msg = err.message || 'Ошибка сервера';
+            setError(msg);
+            toast({ variant: 'error', title: 'Ошибка', description: msg });
         } finally {
             setSubmitting(false);
         }
@@ -111,12 +121,8 @@ function CreateContractorModal({ onClose, onCreated }: { onClose: () => void; on
                     {error && <p className="text-sm text-red-600">{error}</p>}
                 </div>
                 <div className="px-6 py-4 border-t border-slate-100 flex gap-3 justify-end">
-                    <button onClick={onClose} disabled={submitting} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Отмена</button>
-                    <button onClick={handleSubmit} disabled={submitting}
-                        className="px-5 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
-                        {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {submitting ? 'Создание...' : 'Создать'}
-                    </button>
+                    <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
+                    <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>Создать</Button>
                 </div>
             </div>
         </div>
@@ -156,48 +162,58 @@ export default function ContractorsPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Контрагенты</h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Реестр контрагентов • {activeCount} активных из {contractors.length}
-                    </p>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <Building2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-slate-900">Контрагенты</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">Реестр клиентов, перевозчиков и поставщиков</p>
+                    </div>
                 </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg
-                    text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
-                    <Plus className="w-4 h-4" />
+                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
                     Добавить контрагента
-                </button>
+                </Button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <Stat label="Всего" value={contractors.length} icon={Building2} tone="neutral" />
+                <Stat label="Активные" value={activeCount} icon={Building2} tone="success" />
+                <Stat label="Архив" value={contractors.length - activeCount} icon={Building2} tone="neutral" />
             </div>
 
             {/* Content Card */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+            <div className="bg-white rounded-xl shadow-soft border border-slate-200">
                 {/* Search */}
                 <div className="p-4 border-b border-slate-200">
-                    <div className="relative max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
+                    <div className="max-w-sm">
+                        <Input
                             type="text"
                             placeholder="Поиск по названию, ИНН..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm
-                                focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            leftAddon={<Search className="w-4 h-4" />}
                         />
                     </div>
                 </div>
 
                 {/* Table */}
                 {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                    </div>
+                    <div className="p-4"><SkeletonTable rows={6} columns={7} /></div>
                 ) : contractors.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                        <Building2 className="w-12 h-12 mb-3" />
-                        <p className="text-sm">Контрагенты не найдены</p>
+                    <div className="p-6">
+                        <EmptyState
+                            icon={Building2}
+                            title={search ? 'Контрагенты не найдены' : 'Пока нет контрагентов'}
+                            description={search ? 'Попробуйте изменить запрос.' : 'Добавьте первого контрагента.'}
+                            tone="brand"
+                            action={!search ? (
+                                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
+                                    Добавить контрагента
+                                </Button>
+                            ) : undefined}
+                        />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">

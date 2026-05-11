@@ -1,23 +1,65 @@
 import Link from 'next/link';
+import { Truck, ArrowLeft, ShieldCheck, FileText, UserCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
+
+const NAV = [
+    { href: '/legal/privacy', label: 'Конфиденциальность', icon: ShieldCheck },
+    { href: '/legal/terms', label: 'Условия', icon: FileText },
+    { href: '/legal/personal-data', label: 'Согласие 152-ФЗ', icon: UserCheck },
+];
 
 export default function LegalLayout({ children }: { children: ReactNode }) {
     return (
-        <div className="min-h-screen bg-slate-50">
-            <header className="bg-white border-b border-slate-200">
-                <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <Link href="/landing" className="font-bold text-slate-900">TMS</Link>
-                    <nav className="flex gap-4 text-sm text-slate-600">
-                        <Link href="/legal/privacy" className="hover:text-slate-900">Конфиденциальность</Link>
-                        <Link href="/legal/terms" className="hover:text-slate-900">Условия</Link>
-                        <Link href="/legal/personal-data" className="hover:text-slate-900">Согласие 152-ФЗ</Link>
+        <div className="min-h-screen bg-neutral-50">
+            <header className="bg-white border-b border-neutral-200 sticky top-0 z-30 backdrop-blur-md bg-white/85">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <Link href="/landing" className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center">
+                                <Truck className="w-4 h-4" />
+                            </div>
+                            <span className="font-bold text-neutral-900">TMS</span>
+                        </Link>
+                        <Link
+                            href="/landing"
+                            className="hidden sm:inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-900"
+                        >
+                            <ArrowLeft className="w-3 h-3" /> На главную
+                        </Link>
+                    </div>
+                    <nav className="flex gap-1 text-xs">
+                        {NAV.map((l) => {
+                            const Icon = l.icon;
+                            return (
+                                <Link
+                                    key={l.href}
+                                    href={l.href}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 font-medium"
+                                >
+                                    <Icon className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline">{l.label}</span>
+                                </Link>
+                            );
+                        })}
                     </nav>
                 </div>
             </header>
-            <main className="max-w-3xl mx-auto px-6 py-10">
-                <article className="bg-white rounded-2xl border border-slate-200 p-8 md:p-12 prose prose-slate max-w-none [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:font-semibold [&_h3]:mt-5 [&_h3]:mb-2 [&_p]:text-slate-700 [&_p]:leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_li]:text-slate-700 [&_li]:mb-1 [&_li]:leading-relaxed">
+
+            <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+                <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-6 sm:p-10 lg:p-12">
                     {children}
-                </article>
+                </div>
+                <footer className="mt-8 text-center text-xs text-neutral-500">
+                    Другие документы:{' '}
+                    {NAV.map((l, idx) => (
+                        <span key={l.href}>
+                            <Link href={l.href} className="text-brand-600 hover:underline">
+                                {l.label}
+                            </Link>
+                            {idx < NAV.length - 1 && <span> · </span>}
+                        </span>
+                    ))}
+                </footer>
             </main>
         </div>
     );

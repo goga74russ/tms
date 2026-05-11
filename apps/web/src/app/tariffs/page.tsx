@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Stat } from "@/components/ui/stat";
+import { SkeletonTable } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/components/ui/toast";
+import { Receipt, FileText, CheckCircle2 } from "lucide-react";
 
 // ——— Types (structured for future API) ———
 interface Tariff {
@@ -46,18 +51,18 @@ const TYPE_OPTIONS = [
 ];
 
 export default function TariffsPage() {
+    const { toast } = useToast();
     const [tariffs, setTariffs] = useState<Tariff[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [filterType, setFilterType] = useState('');
 
     useEffect(() => {
         api.get<{ success: boolean; data: Tariff[] }>('/auth/tariffs')
             .then(res => setTariffs(res.data))
-            .catch(err => setError(err.message))
+            .catch(err => toast({ variant: 'error', title: 'Не удалось загрузить тарифы', description: err?.message }))
             .finally(() => setLoading(false));
-    }, []);
+    }, [toast]);
 
     const filtered = tariffs.filter(t => {
         if (filterType && t.type !== filterType) return false;
@@ -65,19 +70,29 @@ export default function TariffsPage() {
         return true;
     });
 
-    if (loading) return <div className="p-8">Загрузка тарифов...</div>;
-    if (error) return <div className="p-8 text-red-600">Ошибка: {error}</div>;
+    const activeCount = tariffs.filter(t => t.active).length;
 
     return (
-        <div className="p-8 space-y-8 bg-slate-50 min-h-screen text-slate-900">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Тарифы</h1>
-                    <p className="text-slate-500">Управление тарифными сетками по договорам с контрагентами.</p>
+        <div className="p-8 space-y-6 bg-slate-50 min-h-screen text-slate-900">
+            <div className="flex justify-between items-center flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <Receipt className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Тарифы</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">Тарифные сетки по договорам с контрагентами</p>
+                    </div>
                 </div>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white" disabled>
+                <Button variant="brand" disabled>
                     + Новый тариф (скоро)
                 </Button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <Stat label="Всего тарифов" value={tariffs.length} icon={Receipt} tone="neutral" />
+                <Stat label="Активные" value={activeCount} icon={CheckCircle2} tone="success" />
+                <Stat label="Архив" value={tariffs.length - activeCount} icon={FileText} tone="neutral" />
             </div>
 
             <Card>
@@ -100,6 +115,15 @@ export default function TariffsPage() {
                         </div>
                     </div>
 
+                    {loading ? (
+                        <SkeletonTable rows={6} columns={8} />
+                    ) : filtered.length === 0 ? (
+                        <EmptyState
+                            icon={Receipt}
+                            title={tariffs.length === 0 ? 'Тарифов пока нет' : 'Ничего не найдено'}
+                            description={tariffs.length === 0 ? 'Тарифы появятся после настройки договоров с контрагентами.' : 'Попробуйте сбросить фильтры.'}
+                        />
+                    ) : (
                     <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
@@ -153,6 +177,7 @@ export default function TariffsPage() {
                             </TableBody>
                         </Table>
                     </div>
+                    )}
                 </div>
             </Card>
         </div>

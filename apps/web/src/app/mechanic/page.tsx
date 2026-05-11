@@ -10,6 +10,10 @@ import {
     Thermometer, Eye, ClipboardCheck, RotateCcw, Truck, FileText,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Stat } from '@/components/ui/stat';
+import { SkeletonTable } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 import { getVehicleProfile } from '../fleet/components/vehicleProfile';
 
 // ================================================================
@@ -144,7 +148,15 @@ export default function MechanicPage() {
     const [tripReferences, setTripReferences] = useState<Record<string, TripReference>>({});
     const [activeTab, setActiveTab] = useState<'queue' | 'journal'>('queue');
     const [inspectionType, setInspectionType] = useState<'pre_trip' | 'periodic'>('pre_trip');
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const { toast: toastFn } = useToast();
+    const setToast = useCallback((value: { message: string; type: 'success' | 'error' } | null) => {
+        if (!value) return;
+        toastFn({
+            variant: value.type === 'error' ? 'error' : 'success',
+            title: value.type === 'error' ? 'Ошибка' : 'Готово',
+            description: value.message,
+        });
+    }, [toastFn]);
 
     // Load queue
     const loadQueue = useCallback(async () => {
@@ -321,13 +333,7 @@ export default function MechanicPage() {
         }
     };
 
-    // Auto-dismiss toast
-    useEffect(() => {
-        if (toast) {
-            const timer = setTimeout(() => setToast(null), 4000);
-            return () => clearTimeout(timer);
-        }
-    }, [toast]);
+    // Auto-dismiss handled by ToastProvider
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -375,15 +381,32 @@ export default function MechanicPage() {
                 </div>
             </header>
 
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm animate-in slide-in-from-top ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
-                    }`}>
-                    {toast.message}
-                </div>
-            )}
+            <div className="p-6 space-y-6">
+                {/* Stat cards */}
+                {!selectedVehicle && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Stat label="В очереди" value={queue.length} icon={Truck} tone="warning" />
+                        <Stat
+                            label="Записей в журнале"
+                            value={journal.length}
+                            icon={FileCheck}
+                            tone="info"
+                        />
+                        <Stat
+                            label="Допущено сегодня"
+                            value={journal.filter(r => r.decision === 'approved' && r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()).length}
+                            icon={CheckCircle2}
+                            tone="success"
+                        />
+                        <Stat
+                            label="Не допущено сегодня"
+                            value={journal.filter(r => r.decision === 'rejected' && r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()).length}
+                            icon={XCircle}
+                            tone="danger"
+                        />
+                    </div>
+                )}
 
-            <div className="p-6">
                 {/* Inspection Form (selected vehicle) */}
                 {selectedVehicle && activeTab === 'queue' && (
                     <div className="mb-6 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -575,15 +598,20 @@ export default function MechanicPage() {
                         </h2>
 
                         {loading ? (
-                            <div className="flex items-center justify-center py-20">
-                                <div className="w-10 h-10 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                    <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5">
+                                        <SkeletonTable rows={3} columns={2} />
+                                    </div>
+                                ))}
                             </div>
                         ) : queue.length === 0 ? (
-                            <div className="text-center py-20 bg-white rounded-2xl border border-slate-200">
-                                <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
-                                <p className="text-lg font-semibold text-slate-600">Все ТС осмотрены</p>
-                                <p className="text-sm text-slate-400 mt-1">Новые ТС появятся после назначения рейсов</p>
-                            </div>
+                            <EmptyState
+                                icon={CheckCircle2}
+                                title="Все ТС осмотрены"
+                                description="Новые ТС появятся после назначения рейсов."
+                                tone="success"
+                            />
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                 {queue.map((item) => (
@@ -663,8 +691,14 @@ export default function MechanicPage() {
                                 <tbody>
                                     {journal.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="text-center py-10 text-slate-400">
-                                                Нет записей
+                                            <td colSpan={6}>
+                                                <div className="p-6">
+                                                    <EmptyState
+                                                        icon={FileCheck}
+                                                        title="Журнал пуст"
+                                                        description="Здесь появятся записи о техосмотрах."
+                                                    />
+                                                </div>
                                             </td>
                                         </tr>
                                     ) : (

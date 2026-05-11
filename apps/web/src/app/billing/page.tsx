@@ -5,7 +5,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, X, ExternalLink, AlertCircle, Sparkles } from 'lucide-react';
+import { Check, X, ExternalLink, AlertCircle, Sparkles, CreditCard } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import {
     formatKopecks,
@@ -110,8 +111,13 @@ export default function BillingPage() {
 
     if (loading) {
         return (
-            <div className="p-8 flex items-center justify-center">
-                <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+            <div className="max-w-6xl mx-auto p-6 space-y-6">
+                <Skeleton className="h-8 w-64" />
+                <div className="grid md:grid-cols-3 gap-4">
+                    <Skeleton className="h-48 w-full" />
+                    <Skeleton className="h-48 w-full" />
+                    <Skeleton className="h-48 w-full" />
+                </div>
             </div>
         );
     }
@@ -121,10 +127,15 @@ export default function BillingPage() {
 
     return (
         <div className="max-w-6xl mx-auto p-6 space-y-6">
-            <header className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Тарифы и подписка</h1>
-                    <p className="text-sm text-slate-500 mt-1">Управление подпиской и расходом лимитов.</p>
+            <header className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <CreditCard className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-slate-900">Тарифы и подписка</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">Управление подпиской и расходом лимитов</p>
+                    </div>
                 </div>
             </header>
 

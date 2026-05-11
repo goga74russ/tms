@@ -1,27 +1,40 @@
-import Link from 'next/link';
-import { Check } from 'lucide-react';
+'use client';
 
-const PLANS = [
+import { useState } from 'react';
+import Link from 'next/link';
+import { Check, Sparkles } from 'lucide-react';
+
+type Billing = 'monthly' | 'yearly';
+
+interface Plan {
+    name: string;
+    description: string;
+    priceMonthly: number; // ₽ / month
+    features: string[];
+    cta: string;
+    href: string;
+    accent?: boolean;
+}
+
+const PLANS: Plan[] = [
     {
-        name: 'Бесплатный',
-        price: '0 ₽',
-        period: 'навсегда',
+        name: 'Free',
+        description: 'Для микропарка и тестирования',
+        priceMonthly: 0,
         features: [
             'До 5 машин',
             'До 50 заказов в месяц',
-            'Ручной ввод данных',
             'Путевые листы и осмотры',
             'Базовый биллинг',
             'Сообщество и e-mail-поддержка',
         ],
-        cta: 'Начать',
+        cta: 'Начать бесплатно',
         href: '/signup',
-        accent: false,
     },
     {
         name: 'Pro',
-        price: '4 990 ₽',
-        period: 'в месяц',
+        description: 'Для растущих перевозчиков',
+        priceMonthly: 4990,
         features: [
             'До 30 машин',
             'Безлимит заказов',
@@ -29,7 +42,7 @@ const PLANS = [
             'ЭДО (Диадок, СБИС, Калуга, Такском)',
             'Маркировка «Честный знак»',
             'ОСАГО-мониторинг',
-            'Приоритетная поддержка',
+            'Приоритетная поддержка 4 часа',
         ],
         cta: 'Попробовать Pro',
         href: '/signup?plan=pro',
@@ -37,73 +50,147 @@ const PLANS = [
     },
     {
         name: 'Business',
-        price: '14 990 ₽',
-        period: 'в месяц',
+        description: 'Для крупных автопарков',
+        priceMonthly: 14990,
         features: [
             'До 100 машин',
             'Безлимит заказов',
-            'ИИ-копилот: 2000 запросов/день',
-            'Все интеграции (Wialon live, тахограф DDD)',
-            'KS-2 / KS-3 (стройка)',
+            'ИИ-копилот: 2 000 запросов/день',
+            'Wialon live, тахограф DDD',
+            'КС-2 / КС-3 для стройки',
             'Cold chain SLA',
             'Выделенный аккаунт-менеджер',
         ],
         cta: 'Перейти на Business',
         href: '/signup?plan=business',
-        accent: false,
     },
 ];
 
-export function Pricing() {
-    return (
-        <section id="pricing" className="max-w-6xl mx-auto px-6 py-20">
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">Тарифы</h2>
-            <p className="text-slate-500 mb-12">Старт без оплаты, оплата только за реально нужные функции.</p>
+function formatPrice(n: number): string {
+    if (n === 0) return '0 ₽';
+    return `${n.toLocaleString('ru-RU')} ₽`;
+}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {PLANS.map((p) => (
-                    <div
-                        key={p.name}
-                        className={`rounded-2xl border p-7 flex flex-col ${
-                            p.accent
-                                ? 'bg-indigo-600 border-indigo-700 text-white shadow-xl scale-[1.02]'
-                                : 'bg-white border-slate-200'
+export function Pricing() {
+    const [billing, setBilling] = useState<Billing>('monthly');
+    const discount = 0.8; // 20% off yearly
+
+    return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
+            <div className="text-center max-w-2xl mx-auto mb-10">
+                <div className="text-xs font-semibold text-brand-600 uppercase tracking-wider mb-2">Тарифы</div>
+                <h2 className="text-3xl sm:text-4xl font-bold text-neutral-900 tracking-tight mb-3">
+                    Старт без оплаты. Платите только за нужные функции.
+                </h2>
+                <p className="text-neutral-600 leading-relaxed">
+                    Бесплатно навсегда для микропарка. Платные тарифы — с месячной или годовой оплатой.
+                </p>
+                <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-100 border border-neutral-200 text-xs text-neutral-700">
+                    Enterprise — <span className="font-semibold text-neutral-900">по запросу</span>
+                </div>
+            </div>
+
+            {/* Billing toggle */}
+            <div className="flex justify-center mb-10">
+                <div className="inline-flex items-center bg-neutral-100 rounded-xl p-1">
+                    <button
+                        type="button"
+                        onClick={() => setBilling('monthly')}
+                        className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                            billing === 'monthly'
+                                ? 'bg-white text-neutral-900 shadow-sm'
+                                : 'text-neutral-600 hover:text-neutral-900'
                         }`}
                     >
-                        <h3 className={`text-lg font-semibold mb-2 ${p.accent ? 'text-white' : 'text-slate-900'}`}>{p.name}</h3>
-                        <div className="flex items-baseline gap-2 mb-6">
-                            <span className={`text-3xl font-bold ${p.accent ? 'text-white' : 'text-slate-900'}`}>{p.price}</span>
-                            <span className={`text-sm ${p.accent ? 'text-indigo-200' : 'text-slate-500'}`}>{p.period}</span>
-                        </div>
+                        Помесячно
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setBilling('yearly')}
+                        className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all inline-flex items-center gap-1.5 ${
+                            billing === 'yearly'
+                                ? 'bg-white text-neutral-900 shadow-sm'
+                                : 'text-neutral-600 hover:text-neutral-900'
+                        }`}
+                    >
+                        Годовой
+                        <span className="text-[10px] font-bold uppercase text-success-700 bg-success-50 border border-success-100 px-1.5 py-0.5 rounded-full">
+                            −20%
+                        </span>
+                    </button>
+                </div>
+            </div>
 
-                        <ul className="space-y-2.5 mb-8 flex-1">
-                            {p.features.map((f) => (
-                                <li key={f} className="flex items-start gap-2 text-sm">
-                                    <Check className={`w-4 h-4 flex-shrink-0 mt-0.5 ${p.accent ? 'text-indigo-200' : 'text-indigo-600'}`} />
-                                    <span className={p.accent ? 'text-indigo-50' : 'text-slate-700'}>{f}</span>
-                                </li>
-                            ))}
-                        </ul>
-
-                        <Link
-                            href={p.href}
-                            className={`block w-full text-center font-semibold px-4 py-3 rounded-xl transition-colors ${
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                {PLANS.map((p) => {
+                    const monthly =
+                        billing === 'yearly' ? Math.round(p.priceMonthly * discount) : p.priceMonthly;
+                    return (
+                        <div
+                            key={p.name}
+                            className={`relative rounded-2xl border p-7 flex flex-col transition-shadow ${
                                 p.accent
-                                    ? 'bg-white text-indigo-700 hover:bg-indigo-50'
-                                    : 'bg-slate-900 text-white hover:bg-slate-700'
+                                    ? 'bg-white border-brand-500 ring-2 ring-brand-500 shadow-xl lg:scale-[1.03]'
+                                    : 'bg-white border-neutral-200 hover:shadow-md'
                             }`}
                         >
-                            {p.cta}
-                        </Link>
-                    </div>
-                ))}
+                            {p.accent && (
+                                <div className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-brand-600 text-white text-xs font-semibold shadow-md">
+                                    <Sparkles className="w-3 h-3" /> Рекомендуется
+                                </div>
+                            )}
+
+                            <div>
+                                <h3 className="text-lg font-bold text-neutral-900">{p.name}</h3>
+                                <p className="text-sm text-neutral-500 mt-1">{p.description}</p>
+                            </div>
+
+                            <div className="mt-6 flex items-baseline gap-1.5">
+                                <span className="text-4xl font-bold text-neutral-900 tracking-tight">
+                                    {formatPrice(monthly)}
+                                </span>
+                                <span className="text-sm text-neutral-500">
+                                    {monthly === 0 ? 'навсегда' : '/ мес'}
+                                </span>
+                            </div>
+                            {billing === 'yearly' && p.priceMonthly > 0 && (
+                                <div className="mt-1 text-xs text-success-700 font-medium">
+                                    Экономия {formatPrice((p.priceMonthly - monthly) * 12)} в год
+                                </div>
+                            )}
+
+                            <ul className="mt-6 space-y-2.5 flex-1">
+                                {p.features.map((f) => (
+                                    <li key={f} className="flex items-start gap-2 text-sm">
+                                        <Check className={`w-4 h-4 flex-shrink-0 mt-0.5 ${p.accent ? 'text-brand-600' : 'text-success-600'}`} />
+                                        <span className="text-neutral-700">{f}</span>
+                                    </li>
+                                ))}
+                            </ul>
+
+                            <Link
+                                href={p.href}
+                                className={`mt-7 block w-full text-center font-semibold px-4 py-2.5 rounded-xl transition-colors ${
+                                    p.accent
+                                        ? 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm'
+                                        : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                                }`}
+                            >
+                                {p.cta}
+                            </Link>
+                        </div>
+                    );
+                })}
             </div>
 
-            <div className="mt-10 text-center">
-                <p className="text-sm text-slate-500">
-                    Нужно больше? <a href="mailto:sales@tms-prod.ru" className="text-indigo-600 font-semibold underline">Enterprise — индивидуально</a>
-                </p>
-            </div>
-        </section>
+            <p className="text-center text-xs text-neutral-500 mt-8 max-w-xl mx-auto">
+                Цены указаны без НДС. Без долгосрочных обязательств — можно отменить или сменить тариф в любой момент.
+                Нужно больше 100 машин или on-premise?{' '}
+                <a href="mailto:sales@tms-prod.ru" className="text-brand-600 font-semibold underline">
+                    Напишите в Enterprise-отдел
+                </a>
+                .
+            </p>
+        </div>
     );
 }

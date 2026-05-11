@@ -1,11 +1,22 @@
 'use client';
 
 import { useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, Clock, FileText, Info } from 'lucide-react';
 import type { ProviderName } from '@tms/shared';
 import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/toast';
 
-const EDI_OPTIONS: Array<{ id: ProviderName; title: string; description: string }> = [
-    { id: 'diadoc', title: 'Контур.Диадок', description: 'Самый популярный ЭДО — ТТН, СФ, акты' },
+interface EdiOption {
+    id: ProviderName;
+    title: string;
+    description: string;
+    badge?: string;
+}
+
+const EDI_OPTIONS: EdiOption[] = [
+    { id: 'diadoc', title: 'Контур.Диадок', description: 'Самый популярный ЭДО — ТТН, СФ, акты', badge: 'Популярный' },
     { id: 'sbis', title: 'СБИС', description: 'Альтернатива Диадоку, тот же функционал' },
     { id: 'kaluga_astral', title: 'Калуга Астрал', description: 'Бюджетный вариант для малого бизнеса' },
     { id: 'taxcom', title: 'Такском', description: 'Старейший оператор ЭДО в РФ' },
@@ -19,26 +30,44 @@ interface Props {
 export function StepEdi({ onNext, onBack }: Props) {
     const [choice, setChoice] = useState<ProviderName | null>(null);
     const [defer, setDefer] = useState(false);
+    const [login, setLogin] = useState('');
+    const [apiKey, setApiKey] = useState('');
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const { toast } = useToast();
 
     const submit = async () => {
         if (!choice && !defer) return;
-        setError(null);
         setSaving(true);
         try {
-            const res = await api.post<{ success: boolean; error?: string }>('/onboarding/save-integration-choice', {
-                providerType: 'edi',
-                providerName: choice ?? 'mock',
-                defer,
-            });
+            const res = await api.post<{ success: boolean; error?: string }>(
+                '/onboarding/save-integration-choice',
+                {
+                    providerType: 'edi',
+                    providerName: choice ?? 'mock',
+                    defer,
+                    credentials: choice && !defer && (login || apiKey) ? { login, apiKey } : undefined,
+                },
+            );
             if (!res.success) {
-                setError(res.error ?? 'Ошибка');
+                toast({
+                    variant: 'error',
+                    title: 'Не удалось сохранить',
+                    description: res.error ?? 'Попробуйте ещё раз.',
+                });
                 return;
             }
+            toast({
+                variant: 'success',
+                title: defer ? 'Решение отложено' : 'ЭДО подключён',
+                description: defer ? 'Настроите позже в админке.' : 'Готов к выпуску ЭТрН.',
+            });
             onNext();
         } catch (err: unknown) {
-            setError((err as Error).message);
+            toast({
+                variant: 'error',
+                title: 'Ошибка',
+                description: (err as Error).message ?? 'Попробуйте ещё раз',
+            });
         } finally {
             setSaving(false);
         }
@@ -46,46 +75,127 @@ export function StepEdi({ onNext, onBack }: Props) {
 
     return (
         <div className="space-y-5">
-            <div>
-                <h2 className="text-xl font-semibold text-slate-900">Шаг 4: Электронный документооборот</h2>
-                <p className="text-sm text-slate-500 mt-1">С каким оператором ЭДО вы работаете? Ключи API введёте позже в кабинете.</p>
-            </div>
+            <p className="text-sm text-neutral-600">
+                С каким оператором ЭДО вы работаете? Ключи API можно ввести сейчас или позже.
+            </p>
 
-            <div className="space-y-2">
-                {EDI_OPTIONS.map((opt) => (
-                    <button
-                        key={opt.id}
-                        onClick={() => { setChoice(opt.id); setDefer(false); }}
-                        className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                            choice === opt.id && !defer ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-slate-300'
-                        }`}
-                    >
-                        <div className="font-semibold text-slate-900">{opt.title}</div>
-                        <div className="text-xs text-slate-500">{opt.description}</div>
-                    </button>
-                ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {EDI_OPTIONS.map((opt) => {
+                    const isActive = choice === opt.id && !defer;
+                    return (
+                        <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => {
+                                setChoice(opt.id);
+                                setDefer(false);
+                            }}
+                            className={`relative text-left p-4 rounded-xl border-2 transition-all ${
+                                isActive
+                                    ? 'border-brand-500 bg-brand-50/50 shadow-md'
+                                    : 'border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50'
+                            }`}
+                        >
+                            {isActive && (
+                                <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center">
+                                    <Check className="w-3 h-3" />
+                                </div>
+                            )}
+                            <div className="flex items-center gap-2.5 mb-1">
+                                <div
+                                    className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                                        isActive ? 'bg-brand-600 text-white' : 'bg-neutral-100 text-neutral-600'
+                                    }`}
+                                >
+                                    <FileText className="w-4 h-4" />
+                                </div>
+                                <div className="font-semibold text-neutral-900 text-sm">{opt.title}</div>
+                                {opt.badge && (
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-success-700 bg-success-50 border border-success-100 px-1.5 py-0.5 rounded-full">
+                                        {opt.badge}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-neutral-500 pl-11.5">{opt.description}</p>
+                        </button>
+                    );
+                })}
+
                 <button
-                    onClick={() => { setChoice(null); setDefer(true); }}
-                    className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                        defer ? 'border-slate-400 bg-slate-50' : 'border-slate-200 hover:border-slate-300'
+                    type="button"
+                    onClick={() => {
+                        setChoice(null);
+                        setDefer(true);
+                    }}
+                    className={`sm:col-span-2 relative text-left p-4 rounded-xl border-2 transition-all ${
+                        defer
+                            ? 'border-neutral-400 bg-neutral-50'
+                            : 'border-neutral-200 hover:border-neutral-300'
                     }`}
                 >
-                    <div className="font-semibold text-slate-700">Подключу позже</div>
-                    <div className="text-xs text-slate-500">Можно настроить в админке /admin/integrations</div>
+                    {defer && (
+                        <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-neutral-600 text-white flex items-center justify-center">
+                            <Check className="w-3 h-3" />
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2.5">
+                        <div
+                            className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                                defer ? 'bg-neutral-600 text-white' : 'bg-neutral-100 text-neutral-500'
+                            }`}
+                        >
+                            <Clock className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <div className="font-semibold text-neutral-700 text-sm">Подключу позже</div>
+                            <p className="text-xs text-neutral-500">
+                                Можно настроить в админке /admin/integrations
+                            </p>
+                        </div>
+                    </div>
                 </button>
             </div>
 
-            {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">{error}</div>}
+            {choice && !defer && (
+                <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-4 space-y-3 animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="flex items-start gap-2 text-xs text-brand-700">
+                        <Info className="w-3.5 h-3.5 mt-0.5" />
+                        <span>
+                            Введите учётные данные API. Поля необязательные — можно заполнить позже в админке.
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Input label="Логин / Box ID" value={login} onChange={(e) => setLogin(e.target.value)} />
+                        <Input
+                            label="API-ключ"
+                            type="password"
+                            value={apiKey}
+                            onChange={(e) => setApiKey(e.target.value)}
+                        />
+                    </div>
+                </div>
+            )}
 
-            <div className="flex justify-between">
-                <button onClick={onBack} className="text-sm text-slate-600 hover:underline">← Назад</button>
-                <button
+            {defer && (
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600 leading-relaxed">
+                    Без ЭДО можно работать в бесплатном режиме — путевые листы и осмотры формируются локально.
+                    ЭТрН и обмен с контрагентами доступны на тарифах Pro и Business после подключения оператора.
+                </div>
+            )}
+
+            <div className="flex items-center justify-between pt-4 border-t border-neutral-100">
+                <Button variant="ghost" onClick={onBack} leftIcon={<ArrowLeft className="w-4 h-4" />}>
+                    Назад
+                </Button>
+                <Button
+                    variant="brand"
                     onClick={submit}
-                    disabled={saving || (!choice && !defer)}
-                    className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:bg-indigo-300"
+                    isLoading={saving}
+                    disabled={(!choice && !defer) || saving}
+                    rightIcon={!saving ? <ArrowRight className="w-4 h-4" /> : undefined}
                 >
-                    {saving ? 'Сохраняем...' : 'Далее →'}
-                </button>
+                    Далее
+                </Button>
             </div>
         </div>
     );

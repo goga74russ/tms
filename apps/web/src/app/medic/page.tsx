@@ -10,6 +10,10 @@ import {
     Activity, Thermometer, Wine, FileText, Calendar,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Stat } from '@/components/ui/stat';
+import { SkeletonTable } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 
 // ================================================================
 // Types
@@ -129,7 +133,15 @@ export default function MedicPage() {
     const [tripReferences, setTripReferences] = useState<Record<string, TripReference>>({});
     const [activeTab, setActiveTab] = useState<'queue' | 'journal' | 'stats'>('queue');
     const [inspectionType, setInspectionType] = useState<'pre_trip' | 'periodic'>('pre_trip');
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const { toast: toastFn } = useToast();
+    const setToast = useCallback((value: { message: string; type: 'success' | 'error' } | null) => {
+        if (!value) return;
+        toastFn({
+            variant: value.type === 'error' ? 'error' : 'success',
+            title: value.type === 'error' ? 'Ошибка' : 'Готово',
+            description: value.message,
+        });
+    }, [toastFn]);
 
     const loadQueue = useCallback(async () => {
         try {
@@ -325,12 +337,7 @@ export default function MedicPage() {
         }
     };
 
-    useEffect(() => {
-        if (toast) {
-            const timer = setTimeout(() => setToast(null), 4000);
-            return () => clearTimeout(timer);
-        }
-    }, [toast]);
+    // Auto-dismiss handled by ToastProvider
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -387,15 +394,17 @@ export default function MedicPage() {
                 </div>
             </header>
 
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
-                    }`}>
-                    {toast.message}
-                </div>
-            )}
+            <div className="p-6 space-y-6">
+                {/* Stat cards */}
+                {!selectedDriver && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Stat label="В очереди" value={queue.length} icon={Users} tone="warning" />
+                        <Stat label="Истекают справки" value={expiringCerts.length} icon={Calendar} tone={expiringCerts.length > 0 ? 'warning' : 'success'} hint="в течение 30 дней" />
+                        <Stat label="Допущено сегодня" value={journal.filter(r => r.decision === 'approved' && r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()).length} icon={CheckCircle2} tone="success" />
+                        <Stat label="Отстранено сегодня" value={journal.filter(r => r.decision === 'rejected' && r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()).length} icon={XCircle} tone="danger" />
+                    </div>
+                )}
 
-            <div className="p-6">
                 {/* Expiring certificates warning */}
                 {expiringCerts.length > 0 && activeTab === 'queue' && !selectedDriver && (
                     <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
@@ -660,15 +669,20 @@ export default function MedicPage() {
                         </h2>
 
                         {loading ? (
-                            <div className="flex items-center justify-center py-20">
-                                <div className="w-10 h-10 border-4 border-rose-200 border-t-rose-600 rounded-full animate-spin" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                    <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5">
+                                        <SkeletonTable rows={3} columns={2} />
+                                    </div>
+                                ))}
                             </div>
                         ) : queue.length === 0 ? (
-                            <div className="text-center py-20 bg-white rounded-2xl border border-slate-200">
-                                <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
-                                <p className="text-lg font-semibold text-slate-600">Все водители осмотрены</p>
-                                <p className="text-sm text-slate-400 mt-1">Новые водители появятся после назначения рейсов</p>
-                            </div>
+                            <EmptyState
+                                icon={CheckCircle2}
+                                title="Все водители осмотрены"
+                                description="Новые водители появятся после назначения рейсов."
+                                tone="success"
+                            />
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                                 {queue.map((item) => (
@@ -739,8 +753,14 @@ export default function MedicPage() {
                                 <tbody>
                                     {journal.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="text-center py-10 text-slate-400">
-                                                Нет записей
+                                            <td colSpan={5}>
+                                                <div className="p-6">
+                                                    <EmptyState
+                                                        icon={FileText}
+                                                        title="Журнал пуст"
+                                                        description="Здесь появятся записи о медосмотрах."
+                                                    />
+                                                </div>
                                             </td>
                                         </tr>
                                     ) : (

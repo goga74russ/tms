@@ -5,6 +5,10 @@ import { api } from '@/lib/api';
 import { downloadFromApi } from '@/lib/download';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Stat } from '@/components/ui/stat';
+import { SkeletonRow } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 import {
     FileText, Search, Filter, X, Eye, Lock, CheckCircle2,
     Clock, RotateCcw, ChevronDown, Truck, User, Download, FileDown, Printer, Paperclip, Upload, Trash2, RefreshCcw,
@@ -1198,7 +1202,15 @@ export default function WaybillsPage() {
     // Modals
     const [detailWaybill, setDetailWaybill] = useState<WaybillDetail | null>(null);
     const [closeWaybill, setCloseWaybill] = useState<WaybillDetail | null>(null);
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const { toast: toastFn } = useToast();
+    const setToast = useCallback((value: { message: string; type: 'success' | 'error' } | null) => {
+        if (!value) return;
+        toastFn({
+            variant: value.type === 'error' ? 'error' : 'success',
+            title: value.type === 'error' ? 'Ошибка' : 'Готово',
+            description: value.message,
+        });
+    }, [toastFn]);
     const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
     const loadWaybills = useCallback(async () => {
@@ -1335,14 +1347,9 @@ export default function WaybillsPage() {
         loadWaybills();
     };
 
-    useEffect(() => {
-        if (toast) {
-            const timer = setTimeout(() => setToast(null), 4000);
-            return () => clearTimeout(timer);
-        }
-    }, [toast]);
+    // Toast auto-dismiss handled by ToastProvider
 
-    // Server-side filtering вЂ” API returns pre-filtered results
+    // Server-side filtering — API returns pre-filtered results
     const filteredWaybills = waybills;
 
     const totalPages = Math.ceil(total / limit);
@@ -1368,12 +1375,13 @@ export default function WaybillsPage() {
                 </div>
             </header>
 
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
-                    {toast.message}
-                </div>
-            )}
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <Stat label="Всего" value={total} icon={FileText} tone="neutral" />
+                <Stat label="Сформированы" value={waybills.filter(w => w.status === 'draft').length} icon={Clock} tone="info" />
+                <Stat label="Выданы" value={waybills.filter(w => w.status === 'issued').length} icon={Truck} tone="warning" />
+                <Stat label="Закрыты" value={waybills.filter(w => w.status === 'closed').length} icon={CheckCircle2} tone="success" />
+            </div>
 
             {/* Filters */}
             <div className="flex flex-wrap gap-3 mb-4">
@@ -1435,15 +1443,17 @@ export default function WaybillsPage() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr>
-                                    <td colSpan={8} className="text-center py-16">
-                                        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
-                                    </td>
-                                </tr>
+                                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} columns={8} />)
                             ) : filteredWaybills.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className="text-center py-16 text-slate-400">
-                                        {waybills.length === 0 ? 'Нет путевых листов' : 'Ничего не найдено'}
+                                    <td colSpan={8}>
+                                        <div className="p-6">
+                                            <EmptyState
+                                                icon={FileText}
+                                                title={waybills.length === 0 ? 'Нет путевых листов' : 'Ничего не найдено'}
+                                                description={waybills.length === 0 ? 'Путевые листы появятся после оформления рейсов.' : 'Попробуйте сбросить фильтры.'}
+                                            />
+                                        </div>
                                     </td>
                                 </tr>
                             ) : (

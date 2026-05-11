@@ -2,8 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Search, Plus, Users, X, Loader2, AlertTriangle, Timer } from 'lucide-react';
+import { Search, Plus, Users, X, Loader2, AlertTriangle, Timer, ShieldCheck, HeartPulse, UserCheck } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Stat } from '@/components/ui/stat';
+import { SkeletonTable } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { format, subDays } from 'date-fns';
 
@@ -162,6 +168,7 @@ function HoursChartDialog({ driver, onClose }: { driver: Driver; onClose: () => 
 }
 
 function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+    const { toast } = useToast();
     const [fullName, setFullName] = useState('');
     const [licenseNumber, setLicenseNumber] = useState('');
     const [licenseCategories, setLicenseCategories] = useState('');
@@ -170,15 +177,16 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
     const [adrCertExpiry, setAdrCertExpiry] = useState('');
     const [phone, setPhone] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState('');
+    const [fieldError, setFieldError] = useState<{ fullName?: string; licenseNumber?: string }>({});
 
     async function handleSubmit() {
-        if (!fullName || !licenseNumber) {
-            setError('Укажите ФИО и номер ВУ');
-            return;
-        }
+        const errs: { fullName?: string; licenseNumber?: string } = {};
+        if (!fullName.trim()) errs.fullName = 'Укажите ФИО';
+        if (!licenseNumber.trim()) errs.licenseNumber = 'Укажите номер ВУ';
+        setFieldError(errs);
+        if (Object.keys(errs).length > 0) return;
+
         setSubmitting(true);
-        setError('');
         try {
             const result = await api.post<any>('/fleet/drivers', {
                 fullName,
@@ -190,12 +198,13 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
                 phone: phone || undefined,
             });
             if (result.success) {
+                toast({ variant: 'success', title: 'Готово', description: `Водитель ${fullName} добавлен` });
                 onCreated();
             } else {
                 throw new Error(result.error || 'Ошибка');
             }
         } catch (err: any) {
-            setError(err.message || 'Ошибка сервера');
+            toast({ variant: 'error', title: 'Ошибка', description: err.message || 'Не удалось создать водителя' });
         } finally {
             setSubmitting(false);
         }
@@ -207,62 +216,57 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                     <h2 className="text-lg font-bold text-slate-900">Новый водитель</h2>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="w-5 h-5" /></button>
+                    <button onClick={onClose} aria-label="Закрыть" className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="px-6 py-5 space-y-4">
-                    <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">ФИО *</label>
-                        <input type="text" value={fullName} onChange={e => setFullName(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="Иванов Иван Иванович" />
+                    <Input
+                        label="ФИО"
+                        required
+                        value={fullName}
+                        onChange={e => setFullName(e.target.value)}
+                        placeholder="Иванов Иван Иванович"
+                        error={fieldError.fullName}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                        <Input
+                            label="Номер ВУ"
+                            required
+                            value={licenseNumber}
+                            onChange={e => setLicenseNumber(e.target.value)}
+                            placeholder="77 01 123456"
+                            error={fieldError.licenseNumber}
+                        />
+                        <Input
+                            label="Категории"
+                            value={licenseCategories}
+                            onChange={e => setLicenseCategories(e.target.value)}
+                            placeholder="B, C, CE"
+                        />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Номер ВУ *</label>
-                            <input type="text" value={licenseNumber} onChange={e => setLicenseNumber(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="77 01 123456" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Категории</label>
-                            <input type="text" value={licenseCategories} onChange={e => setLicenseCategories(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="B, C, CE" />
-                        </div>
+                        <Input label="Срок ВУ" type="date" value={licenseExpiry} onChange={e => setLicenseExpiry(e.target.value)} />
+                        <Input label="Медсправка до" type="date" value={medCertExpiry} onChange={e => setMedCertExpiry(e.target.value)} />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Срок ВУ</label>
-                            <input type="date" value={licenseExpiry} onChange={e => setLicenseExpiry(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Медсправка до</label>
-                            <input type="date" value={medCertExpiry} onChange={e => setMedCertExpiry(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">ADR-сертификат до</label>
-                        <input type="date" value={adrCertExpiry} onChange={e => setAdrCertExpiry(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                        <p className="text-xs text-slate-400 mt-1">Срок действия свидетельства о подготовке водителей ТС, перевозящих опасные грузы.</p>
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">Телефон</label>
-                        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="+7 (999) 123-45-67" />
-                    </div>
-                    {error && <p className="text-sm text-red-600">{error}</p>}
+                    <Input
+                        label="ADR-сертификат до"
+                        type="date"
+                        value={adrCertExpiry}
+                        onChange={e => setAdrCertExpiry(e.target.value)}
+                        helperText="Срок действия свидетельства о подготовке водителей ТС, перевозящих опасные грузы."
+                    />
+                    <Input
+                        label="Телефон"
+                        type="tel"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                        placeholder="+7 (999) 123-45-67"
+                    />
                 </div>
                 <div className="px-6 py-4 border-t border-slate-100 flex gap-3 justify-end">
-                    <button onClick={onClose} disabled={submitting} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Отмена</button>
-                    <button onClick={handleSubmit} disabled={submitting}
-                        className="px-5 py-2 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2">
-                        {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
+                    <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
                         {submitting ? 'Создание...' : 'Создать'}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>
@@ -270,6 +274,7 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
 }
 
 export default function DriversPage() {
+    const { toast } = useToast();
     const [drivers, setDrivers] = useState<Driver[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -287,69 +292,97 @@ export default function DriversPage() {
         try {
             const result = await api.get<any>(`/fleet/drivers?search=${debouncedSearch}&limit=100`);
             setDrivers(result.data || []);
-        } catch (err) {
-            console.error('Failed to load drivers:', err);
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Не удалось загрузить водителей', description: err?.message || 'Сетевая ошибка' });
         } finally {
             setLoading(false);
         }
-    }, [debouncedSearch]);
+    }, [debouncedSearch, toast]);
 
     useEffect(() => {
         loadDrivers();
     }, [loadDrivers]);
 
     const activeCount = drivers.filter(d => d.isActive).length;
+    const inactiveCount = drivers.length - activeCount;
+    const now = Date.now();
+    const licenseExpiringSoon = drivers.filter(d => {
+        if (!d.licenseExpiry) return false;
+        const diff = (new Date(d.licenseExpiry).getTime() - now) / (1000 * 60 * 60 * 24);
+        return diff <= 30;
+    }).length;
+    const medExpiringSoon = drivers.filter(d => {
+        if (!d.medCertificateExpiry) return false;
+        const diff = (new Date(d.medCertificateExpiry).getTime() - now) / (1000 * 60 * 60 * 24);
+        return diff <= 30;
+    }).length;
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Водители</h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Реестр водителей • {activeCount} активных из {drivers.length}
-                    </p>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-slate-900">Водители</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                            Реестр водителей, документы, режим труда и отдыха
+                        </p>
+                    </div>
                 </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg
-                    text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
-                    <Plus className="w-4 h-4" />
+                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
                     Добавить водителя
-                </button>
+                </Button>
+            </div>
+
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Stat label="Всего" value={drivers.length} icon={Users} tone="neutral" />
+                <Stat label="Активные" value={activeCount} icon={UserCheck} tone="success" hint={inactiveCount ? `${inactiveCount} неактивных` : undefined} />
+                <Stat label="ВУ — истекают" value={licenseExpiringSoon} icon={ShieldCheck} tone={licenseExpiringSoon > 0 ? 'warning' : 'neutral'} hint="в течение 30 дней" />
+                <Stat label="Медсправки — истекают" value={medExpiringSoon} icon={HeartPulse} tone={medExpiringSoon > 0 ? 'warning' : 'neutral'} hint="в течение 30 дней" />
             </div>
 
             {/* Content Card */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+            <div className="bg-white rounded-xl shadow-soft border border-slate-200">
                 {/* Search */}
                 <div className="p-4 border-b border-slate-200">
-                    <div className="relative max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
+                    <div className="max-w-sm">
+                        <Input
                             type="text"
                             placeholder="Поиск по ФИО, номеру ВУ..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm
-                                focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            leftAddon={<Search className="h-4 w-4" />}
                         />
                     </div>
                 </div>
 
                 {/* Table */}
                 {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                    <div className="p-4">
+                        <SkeletonTable rows={6} columns={7} />
                     </div>
                 ) : drivers.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                        <Users className="w-12 h-12 mb-3" />
-                        <p className="text-sm">Водители не найдены</p>
+                    <div className="p-6">
+                        <EmptyState
+                            icon={Users}
+                            title={debouncedSearch ? 'Водители не найдены' : 'Пока нет водителей'}
+                            description={debouncedSearch ? 'Попробуйте изменить условия поиска.' : 'Добавьте первого водителя, чтобы начать.'}
+                            tone="brand"
+                            action={!debouncedSearch ? (
+                                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
+                                    Добавить водителя
+                                </Button>
+                            ) : undefined}
+                        />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                            <thead>
+                            <thead className="sticky top-0 z-10 bg-white shadow-soft">
                                 <tr className="bg-slate-50 text-slate-500 text-left">
                                     <th className="px-4 py-3 font-medium">ФИО</th>
                                     <th className="px-4 py-3 font-medium">Номер ВУ</th>
@@ -364,7 +397,7 @@ export default function DriversPage() {
                                 {drivers.map(d => (
                                     <tr
                                         key={d.id}
-                                        className="hover:bg-slate-50 transition-colors cursor-pointer"
+                                        className="hover:bg-neutral-50 transition-colors cursor-pointer"
                                         onClick={() => setHosDriver(d)}
                                     >
                                         <td className="px-4 py-3 font-medium text-slate-900">{d.fullName}</td>
@@ -404,7 +437,7 @@ export default function DriversPage() {
             {showCreateModal && (
                 <CreateDriverModal
                     onClose={() => setShowCreateModal(false)}
-                    onCreated={() => { setShowCreateModal(false); loadDrivers(); }}
+                    onCreated={() => { setShowCreateModal(false); void loadDrivers(); }}
                 />
             )}
 

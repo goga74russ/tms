@@ -5,11 +5,15 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { api } from "@/lib/api";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Stat } from "@/components/ui/stat";
+import { SkeletonRow } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/components/ui/toast";
+import { AlertOctagon, FileText, Search, ShieldAlert, Plus, CheckCircle2, FilePlus2 } from "lucide-react";
 
 // ——— Types ———
 interface Claim {
@@ -181,6 +185,7 @@ interface CreateModalProps {
 }
 
 function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
+    const { toast } = useToast();
     const [form, setForm] = useState({
         tripId: '',
         orderId: '',
@@ -232,9 +237,12 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                 description: form.description,
                 settlementNote: form.settlementNote || null,
             });
+            toast({ variant: 'success', title: 'Готово', description: 'Претензия создана' });
             onCreated();
         } catch (err: any) {
-            setError(err.message ?? 'Ошибка создания претензии');
+            const msg = err.message ?? 'Ошибка создания претензии';
+            setError(msg);
+            toast({ variant: 'error', title: 'Ошибка', description: msg });
         } finally {
             setSaving(false);
         }
@@ -341,8 +349,8 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                     {error && <p className="text-red-600 text-sm">{error}</p>}
                     <div className="flex justify-end gap-2 pt-2">
                         <Button type="button" variant="outline" onClick={onClose}>Отмена</Button>
-                        <Button type="submit" disabled={saving}>
-                            {saving ? 'Сохранение...' : 'Создать'}
+                        <Button type="submit" variant="brand" isLoading={saving}>
+                            Создать
                         </Button>
                     </div>
                 </form>
@@ -359,6 +367,7 @@ interface ResolveModalProps {
 }
 
 function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
+    const { toast } = useToast();
     const [form, setForm] = useState({
         status: 'resolved' as 'resolved' | 'rejected',
         resolvedAmount: '',
@@ -382,9 +391,15 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
                 resolution: form.resolution,
                 settlementNote: form.settlementNote || null,
             });
+            toast({
+                variant: form.status === 'resolved' ? 'success' : 'info',
+                title: form.status === 'resolved' ? 'Претензия урегулирована' : 'Претензия отклонена',
+            });
             onResolved();
         } catch (err: any) {
-            setError(err.message ?? 'Ошибка');
+            const msg = err.message ?? 'Ошибка';
+            setError(msg);
+            toast({ variant: 'error', title: 'Ошибка', description: msg });
         } finally {
             setSaving(false);
         }
@@ -442,8 +457,8 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
                     {error && <p className="text-red-600 text-sm">{error}</p>}
                     <div className="flex justify-end gap-2 pt-2">
                         <Button type="button" variant="outline" onClick={onClose}>Отмена</Button>
-                        <Button type="submit" disabled={saving}>
-                            {saving ? 'Сохранение...' : 'Закрыть претензию'}
+                        <Button type="submit" variant="brand" isLoading={saving}>
+                            Закрыть претензию
                         </Button>
                     </div>
                 </form>
@@ -454,6 +469,7 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
 
 // ——— Main Page ———
 export default function ClaimsPage() {
+    const { toast } = useToast();
     const [claims, setClaims] = useState<Claim[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('');
@@ -469,10 +485,12 @@ export default function ClaimsPage() {
             if (statusFilter) params.set('status', statusFilter);
             const res = await api.get<ApiResponse<Claim[]>>(`/claims${params.toString() ? '?' + params : ''}`);
             setClaims(res.data ?? []);
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Не удалось загрузить претензии', description: err?.message });
         } finally {
             setLoading(false);
         }
-    }, [statusFilter]);
+    }, [statusFilter, toast]);
 
     useEffect(() => { loadClaims(); }, [loadClaims]);
 
@@ -480,7 +498,10 @@ export default function ClaimsPage() {
         setTogglingId(claim.id);
         try {
             await api.patch(`/claims/${claim.id}/status`, { status: 'investigating' });
+            toast({ variant: 'success', title: 'В работу', description: 'Претензия переведена в расследование' });
             await loadClaims();
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Ошибка', description: err?.message });
         } finally {
             setTogglingId(null);
         }
@@ -519,71 +540,30 @@ export default function ClaimsPage() {
 
     return (
         <div className="p-6 space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">Претензии</h1>
-                <Button onClick={() => setShowCreate(true)}>+ Новая претензия</Button>
+            <div className="flex justify-between items-center flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <AlertOctagon className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-slate-900">Претензии</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">Реестр претензий, расследование и урегулирование</p>
+                    </div>
+                </div>
+                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
+                    Новая претензия
+                </Button>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 xl:grid-cols-7 gap-4">
-                <Card>
-                    <CardContent className="pt-4">
-                        <div className="text-2xl font-bold text-blue-600">{stats.open}</div>
-                        <div className="text-xs text-gray-500">Открыто</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-4">
-                        <div className="text-2xl font-bold text-yellow-600">{stats.investigating}</div>
-                        <div className="text-xs text-gray-500">На рассмотрении</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-4">
-                        <div className="text-2xl font-bold text-green-600">{stats.resolved}</div>
-                        <div className="text-xs text-gray-500">Урегулировано</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-4">
-                        <div className="text-2xl font-bold">
-                            {money(stats.totalAmount)}
-                        </div>
-                        <div className="text-xs text-gray-500">Заявлено</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-4">
-                        <div className="text-2xl font-bold text-green-700">
-                            {money(stats.resolvedAmount)}
-                        </div>
-                        <div className="text-xs text-gray-500">Выплачено</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-4">
-                        <div className="text-2xl font-bold text-amber-700">
-                            {money(stats.reserveAmount)}
-                        </div>
-                        <div className="text-xs text-gray-500">Reserve</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-4">
-                        <div className="text-2xl font-bold text-sky-700">
-                            {money(stats.estimatedAmount)}
-                        </div>
-                        <div className="text-xs text-gray-500">Estimated</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="pt-4">
-                        <div className="text-2xl font-bold text-orange-700">
-                            {money(stats.effectiveExposure)}
-                        </div>
-                        <div className="text-xs text-gray-500">Effective exposure</div>
-                    </CardContent>
-                </Card>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-4">
+                <Stat label="Открыто" value={stats.open} icon={AlertOctagon} tone="info" />
+                <Stat label="Расследование" value={stats.investigating} icon={ShieldAlert} tone="warning" />
+                <Stat label="Урегулировано" value={stats.resolved} icon={CheckCircle2} tone="success" />
+                <Stat label="Заявлено" value={money(stats.totalAmount)} tone="neutral" />
+                <Stat label="Выплачено" value={money(stats.resolvedAmount)} tone="success" />
+                <Stat label="Reserve" value={money(stats.reserveAmount)} tone="warning" />
+                <Stat label="Effective exposure" value={money(stats.effectiveExposure)} tone="danger" hint="open + investigating" />
             </div>
 
             {/* Filters */}
@@ -594,10 +574,11 @@ export default function ClaimsPage() {
                             placeholder="Поиск по описанию, рейсу, контрагенту..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
+                            leftAddon={<Search className="h-4 w-4" />}
                             className="w-72"
                         />
                         <select
-                            className="border rounded px-2 py-1.5 text-sm"
+                            className="border border-slate-200 rounded-lg px-3 py-2 text-sm h-10"
                             value={statusFilter}
                             onChange={e => setStatusFilter(e.target.value)}
                         >
@@ -612,6 +593,22 @@ export default function ClaimsPage() {
             {/* Table */}
             <Card>
                 <CardContent className="p-0">
+                    {!loading && filtered.length === 0 ? (
+                        <div className="p-6">
+                            <EmptyState
+                                icon={search || statusFilter ? Search : FilePlus2}
+                                title={search || statusFilter ? 'Претензий не найдено' : 'Пока нет претензий'}
+                                description={search || statusFilter ? 'Попробуйте сбросить фильтры.' : 'Создайте первую претензию, чтобы начать.'}
+                                tone="brand"
+                                action={!search && !statusFilter ? (
+                                    <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
+                                        Новая претензия
+                                    </Button>
+                                ) : undefined}
+                            />
+                        </div>
+                    ) : (
+                    <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -627,17 +624,7 @@ export default function ClaimsPage() {
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-8 text-gray-400">
-                                        Загрузка...
-                                    </TableCell>
-                                </TableRow>
-                            ) : filtered.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-8 text-gray-400">
-                                        Претензий не найдено
-                                    </TableCell>
-                                </TableRow>
+                                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} columns={8} />)
                             ) : filtered.map(claim => (
                                 <TableRow key={claim.id} className="hover:bg-gray-50">
                                     <TableCell className="font-medium">
@@ -727,6 +714,8 @@ export default function ClaimsPage() {
                             ))}
                         </TableBody>
                     </Table>
+                    </div>
+                    )}
                 </CardContent>
             </Card>
 

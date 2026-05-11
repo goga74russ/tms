@@ -4,9 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Stat } from '@/components/ui/stat';
+import { SkeletonRow } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 import {
     Users, Plus, X, Edit2, CheckCircle2, XCircle,
-    Shield, Search,
+    Shield, Search, UserCog, UserPlus,
 } from 'lucide-react';
 
 // ================================================================
@@ -54,6 +59,7 @@ function UserFormModal({
     onClose: () => void;
     onSuccess: () => void;
 }) {
+    const { toast } = useToast();
     const isEdit = !!user;
     const [form, setForm] = useState({
         email: user?.email || '',
@@ -110,7 +116,9 @@ function UserFormModal({
 
             onSuccess();
         } catch (err: any) {
-            setError(err.message || 'Ошибка');
+            const msg = err.message || 'Ошибка';
+            setError(msg);
+            toast({ variant: 'error', title: 'Ошибка', description: msg });
         } finally {
             setSubmitting(false);
         }
@@ -210,8 +218,8 @@ function UserFormModal({
 
                     <div className="flex gap-3 pt-2">
                         <Button variant="outline" className="flex-1" onClick={onClose}>Отмена</Button>
-                        <Button className="flex-1" onClick={handleSubmit} disabled={submitting}>
-                            {submitting ? 'Сохраняю...' : isEdit ? 'Сохранить' : 'Создать'}
+                        <Button variant="brand" className="flex-1" isLoading={submitting} onClick={handleSubmit}>
+                            {isEdit ? 'Сохранить' : 'Создать'}
                         </Button>
                     </div>
                 </CardContent>
@@ -224,65 +232,67 @@ function UserFormModal({
 // Main Page
 // ================================================================
 export default function AdminUsersPage() {
+    const { toast } = useToast();
     const [users, setUsers] = useState<UserRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [modal, setModal] = useState<{ mode: 'create' | 'edit'; user: UserRecord | null } | null>(null);
-    const [toast, setToast] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         try {
             setLoading(true);
             const result = await api.get<{ success: boolean; data: UserRecord[] }>('/auth/users');
             if (result.success) setUsers(result.data);
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Не удалось загрузить пользователей', description: err?.message });
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [toast]);
 
     useEffect(() => { load(); }, [load]);
-    useEffect(() => {
-        if (toast) { const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); }
-    }, [toast]);
 
     const filtered = users.filter(u =>
         u.fullName.toLowerCase().includes(search.toLowerCase()) ||
         u.email.toLowerCase().includes(search.toLowerCase())
     );
+    const activeCount = users.filter(u => u.isActive).length;
+    const adminCount = users.filter(u => u.roles.includes('admin')).length;
+    const driverCount = users.filter(u => u.roles.includes('driver')).length;
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                        <Users className="w-6 h-6 text-indigo-600" />
-                        Пользователи
-                    </h1>
-                    <p className="text-sm text-slate-500 mt-1">{users.length} пользователей</p>
+        <div className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-slate-900">Пользователи</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">Учётные записи и роли в системе</p>
+                    </div>
                 </div>
-                <Button onClick={() => setModal({ mode: 'create', user: null })}>
-                    <Plus className="w-4 h-4 mr-1.5" />
+                <Button variant="brand" leftIcon={<UserPlus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', user: null })}>
                     Добавить
                 </Button>
             </div>
 
-            {toast && (
-                <div className="fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg bg-emerald-600 text-white text-sm font-medium">
-                    {toast}
-                </div>
-            )}
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Stat label="Всего" value={users.length} icon={Users} tone="neutral" />
+                <Stat label="Активные" value={activeCount} icon={CheckCircle2} tone="success" />
+                <Stat label="Администраторы" value={adminCount} icon={Shield} tone="warning" />
+                <Stat label="Водители" value={driverCount} icon={UserCog} tone="info" />
+            </div>
 
             {/* Search */}
-            <div className="relative mb-4 max-w-sm">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
+            <div className="max-w-sm">
+                <Input
                     type="text"
                     placeholder="Поиск по имени или email"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    leftAddon={<Search className="w-4 h-4" />}
                 />
             </div>
 
@@ -301,11 +311,23 @@ export default function AdminUsersPage() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={6} className="text-center py-16">
-                                    <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
-                                </td></tr>
+                                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} columns={6} />)
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={6} className="text-center py-16 text-slate-400">Нет пользователей</td></tr>
+                                <tr><td colSpan={6}>
+                                    <div className="p-6">
+                                        <EmptyState
+                                            icon={search ? Search : Users}
+                                            title={search ? 'Ничего не найдено' : 'Пока нет пользователей'}
+                                            description={search ? 'Попробуйте изменить запрос.' : 'Создайте первого пользователя для входа в систему.'}
+                                            tone="brand"
+                                            action={!search ? (
+                                                <Button variant="brand" leftIcon={<UserPlus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', user: null })}>
+                                                    Добавить
+                                                </Button>
+                                            ) : undefined}
+                                        />
+                                    </div>
+                                </td></tr>
                             ) : (
                                 filtered.map(u => (
                                     <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50">
@@ -355,8 +377,9 @@ export default function AdminUsersPage() {
                     user={modal.user}
                     onClose={() => setModal(null)}
                     onSuccess={() => {
+                        const created = modal.mode === 'create';
                         setModal(null);
-                        setToast(modal.mode === 'create' ? '✅ Пользователь создан' : '✅ Пользователь обновлён');
+                        toast({ variant: 'success', title: created ? 'Пользователь создан' : 'Пользователь обновлён' });
                         load();
                     }}
                 />

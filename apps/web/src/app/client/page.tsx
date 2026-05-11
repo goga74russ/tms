@@ -9,6 +9,11 @@ import {
     Clock, CheckCircle2, Truck, AlertCircle,
     RefreshCw, ChevronRight, Search,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Stat } from '@/components/ui/stat';
+import { SkeletonTable } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Order {
     id: string;
@@ -122,69 +127,27 @@ export default function ClientPortalPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Портал клиента</h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Отслеживание заявок, рейсов и счетов
-                    </p>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <Package className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-slate-900">Портал клиента</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">Отслеживание заявок, рейсов и счетов</p>
+                    </div>
                 </div>
-                <button
-                    onClick={loadData}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600
-                        hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                    <RefreshCw className="w-4 h-4" />
+                <Button variant="outline" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={loadData}>
                     Обновить
-                </button>
+                </Button>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                            <Package className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-slate-900">{activeOrders}</p>
-                            <p className="text-xs text-slate-500">Активных заявок</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-100 rounded-lg">
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-slate-900">{completedOrders}</p>
-                            <p className="text-xs text-slate-500">Завершённых</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-100 rounded-lg">
-                            <FileText className="w-5 h-5 text-amber-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-slate-900">{unpaidInvoices.length}</p>
-                            <p className="text-xs text-slate-500">Неоплаченных счетов</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-red-100 rounded-lg">
-                            <DollarSign className="w-5 h-5 text-red-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-slate-900">{formatMoney(unpaidTotal)}</p>
-                            <p className="text-xs text-slate-500">К оплате</p>
-                        </div>
-                    </div>
-                </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Stat label="Активных заявок" value={activeOrders} icon={Package} tone="info" />
+                <Stat label="Завершённых" value={completedOrders} icon={CheckCircle2} tone="success" />
+                <Stat label="Неоплаченных счетов" value={unpaidInvoices.length} icon={FileText} tone={unpaidInvoices.length > 0 ? 'warning' : 'neutral'} />
+                <Stat label="К оплате" value={formatMoney(unpaidTotal)} icon={DollarSign} tone={unpaidTotal > 0 ? 'danger' : 'success'} />
             </div>
 
             {/* Tabs + Search */}
@@ -208,23 +171,19 @@ export default function ClientPortalPage() {
                             Счета ({invoices.length})
                         </button>
                     </div>
-                    <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
+                    <div className="flex-1 max-w-sm">
+                        <Input
                             type="text"
                             placeholder="Поиск..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm
-                                focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            leftAddon={<Search className="w-4 h-4" />}
                         />
                     </div>
                 </div>
 
                 {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                    </div>
+                    <div className="p-4"><SkeletonTable rows={6} columns={6} /></div>
                 ) : activeTab === 'orders' ? (
                     /* Orders Table */
                     <div className="overflow-x-auto">
@@ -242,8 +201,14 @@ export default function ClientPortalPage() {
                             <tbody className="divide-y divide-slate-100">
                                 {filteredOrders.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
-                                            Заявки не найдены
+                                        <td colSpan={6}>
+                                            <div className="p-6">
+                                                <EmptyState
+                                                    icon={Package}
+                                                    title="Заявок пока нет"
+                                                    description="Заявки появятся здесь после оформления."
+                                                />
+                                            </div>
                                         </td>
                                     </tr>
                                 ) : filteredOrders.map(order => {
@@ -286,8 +251,14 @@ export default function ClientPortalPage() {
                             <tbody className="divide-y divide-slate-100">
                                 {filteredInvoices.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-12 text-center text-slate-400">
-                                            Счета не найдены
+                                        <td colSpan={5}>
+                                            <div className="p-6">
+                                                <EmptyState
+                                                    icon={FileText}
+                                                    title="Счетов пока нет"
+                                                    description="Здесь появятся счета по выполненным заявкам."
+                                                />
+                                            </div>
                                         </td>
                                     </tr>
                                 ) : filteredInvoices.map(inv => {

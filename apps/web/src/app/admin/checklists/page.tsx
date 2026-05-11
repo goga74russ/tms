@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 import { ClipboardCheck, Plus, X, Edit2, Trash2 } from 'lucide-react';
 
 // ================================================================
@@ -224,10 +227,14 @@ function ChecklistFormModal({
 // Main Page
 // ================================================================
 export default function AdminChecklistsPage() {
+    const { toast: toastFn } = useToast();
+    const setToast = useCallback((message: string | null) => {
+        if (!message) return;
+        toastFn({ variant: 'success', title: 'Готово', description: message });
+    }, [toastFn]);
     const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<{ mode: 'create' | 'edit'; template: ChecklistTemplate | null } | null>(null);
-    const [toast, setToast] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         try {
@@ -239,39 +246,43 @@ export default function AdminChecklistsPage() {
     }, []);
 
     useEffect(() => { load(); }, [load]);
-    useEffect(() => {
-        if (toast) { const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); }
-    }, [toast]);
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                        <ClipboardCheck className="w-6 h-6 text-indigo-600" />
-                        Шаблоны чек-листов
-                    </h1>
-                    <p className="text-sm text-slate-500 mt-1">{templates.length} шаблонов</p>
+        <div className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <ClipboardCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-slate-900">Шаблоны чек-листов</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">{templates.length} шаблонов</p>
+                    </div>
                 </div>
-                <Button onClick={() => setModal({ mode: 'create', template: null })}>
-                    <Plus className="w-4 h-4 mr-1.5" />
+                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', template: null })}>
                     Добавить
                 </Button>
             </div>
 
-            {toast && (
-                <div className="fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg bg-emerald-600 text-white text-sm font-medium">
-                    {toast}
-                </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {loading ? (
-                    <div className="col-span-3 text-center py-16">
-                        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
-                    </div>
+                    Array.from({ length: 6 }).map((_, i) => (
+                        <Card key={i}><CardContent className="p-5 space-y-3">
+                            <Skeleton className="h-5 w-40" />
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-20 w-full" />
+                        </CardContent></Card>
+                    ))
                 ) : templates.length === 0 ? (
-                    <div className="col-span-3 text-center py-16 text-slate-400">Нет шаблонов</div>
+                    <div className="col-span-3">
+                        <EmptyState
+                            icon={ClipboardCheck}
+                            title="Шаблонов пока нет"
+                            description="Создайте первый шаблон чек-листа."
+                            tone="brand"
+                            action={<Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', template: null })}>Добавить</Button>}
+                        />
+                    </div>
                 ) : (
                     templates.map(tmpl => (
                         <Card key={tmpl.id} className="hover:shadow-md transition">

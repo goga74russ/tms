@@ -7,7 +7,9 @@ import { OrderFilters } from './components/OrderFilters';
 import { CreateOrderModal } from './components/CreateOrderModal';
 import { CreateTripModal } from './components/CreateTripModal';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Stat } from '@/components/ui/stat';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 
 export type Order = {
@@ -38,13 +40,13 @@ const STATUS_COLUMNS = [
 ];
 
 export default function LogistPage() {
+    const { toast } = useToast();
     const [ordersList, setOrdersList] = useState<Order[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showTripModal, setShowTripModal] = useState(false);
     const [filtersVisible, setFiltersVisible] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [activeFilters, setActiveFilters] = useState<{
         contractorId?: string;
         dateFrom?: string;
@@ -54,9 +56,8 @@ export default function LogistPage() {
 
     // Show toast notification
     const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 4000);
-    }, []);
+        toast({ variant: type === 'error' ? 'error' : 'success', title: type === 'error' ? 'Ошибка' : 'Готово', description: message });
+    }, [toast]);
 
     // Load orders from API — no fallback, show empty state on error
     const loadOrders = useCallback(async () => {
@@ -156,16 +157,6 @@ export default function LogistPage() {
 
     return (
         <div className="space-y-6">
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium animate-in slide-in-from-top-2 duration-300 ${toast.type === 'error'
-                    ? 'bg-red-50 text-red-700 border border-red-200'
-                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    }`}>
-                    {toast.message}
-                </div>
-            )}
-
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -204,44 +195,56 @@ export default function LogistPage() {
                         Новый рейс
                     </Button>
                     <Button
+                        variant="brand"
+                        leftIcon={<Plus className="w-4 h-4" />}
                         onClick={() => setShowCreateModal(true)}
-                        className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 gap-2"
                     >
-                        <Plus className="w-4 h-4" />
                         Новая заявка
                     </Button>
                 </div>
             </div>
 
             {/* Stats bar */}
-            <div className="grid grid-cols-5 gap-3">
-                {stats.map(s => (
-                    <Card key={s.key} className="hover:border-slate-300 transition-colors">
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-2 mb-1">
-                                <div
-                                    className="w-2.5 h-2.5 rounded-full"
-                                    style={{ backgroundColor: s.color }}
-                                />
-                                <span className="text-xs font-medium text-slate-500">{s.label}</span>
-                            </div>
-                            <span className="text-2xl font-bold text-slate-900">{s.count}</span>
-                        </CardContent>
-                    </Card>
-                ))}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {stats.map(s => {
+                    const tone: 'neutral' | 'brand' | 'info' | 'warning' | 'success' =
+                        s.key === 'draft' ? 'neutral'
+                            : s.key === 'confirmed' ? 'info'
+                                : s.key === 'assigned' ? 'brand'
+                                    : s.key === 'in_transit' ? 'warning'
+                                        : 'success';
+                    return <Stat key={s.key} label={s.label} value={s.count} tone={tone} />;
+                })}
             </div>
 
             {/* Error state */}
             {error && ordersList.length === 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
-                    <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-red-700 mb-1">{error}</p>
-                    <p className="text-xs text-red-500 mb-4">Проверьте подключение к серверу</p>
-                    <Button variant="outline" onClick={loadOrders} className="gap-2">
-                        <RefreshCw className="w-4 h-4" />
-                        Повторить
-                    </Button>
-                </div>
+                <EmptyState
+                    icon={AlertCircle}
+                    title={error}
+                    description="Проверьте подключение к серверу"
+                    tone="danger"
+                    action={
+                        <Button variant="outline" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={loadOrders}>
+                            Повторить
+                        </Button>
+                    }
+                />
+            )}
+
+            {/* Empty (loaded, no orders, no filter) */}
+            {!error && !loading && ordersList.length === 0 && (
+                <EmptyState
+                    icon={ClipboardList}
+                    title="Пока нет заявок"
+                    description="Создайте первую заявку, чтобы начать работу."
+                    tone="brand"
+                    action={
+                        <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
+                            Новая заявка
+                        </Button>
+                    }
+                />
             )}
 
             {/* Filters */}

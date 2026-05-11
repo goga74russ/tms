@@ -8,6 +8,8 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/toast';
 
 interface CredentialRow {
     id: string;
@@ -37,6 +39,7 @@ const PROVIDER_CATALOG: Array<{
 ];
 
 export default function AdminIntegrationsPage() {
+    const { toast } = useToast();
     const [rows, setRows] = useState<CredentialRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -66,8 +69,11 @@ export default function AdminIntegrationsPage() {
     const test = async (id: string) => {
         try {
             await api.post(`/integrations/credentials/${id}/test`, {});
+            toast({ variant: 'success', title: 'Тест успешен' });
         } catch (err: unknown) {
-            setError((err as Error).message);
+            const msg = (err as Error).message;
+            setError(msg);
+            toast({ variant: 'error', title: 'Ошибка теста', description: msg });
         } finally {
             await refresh();
         }
@@ -75,20 +81,30 @@ export default function AdminIntegrationsPage() {
 
     return (
         <div className="p-6 max-w-5xl mx-auto space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                    <Plug className="w-6 h-6 text-indigo-600" />
-                    Кабинет интеграций
-                </h1>
-                <p className="text-sm text-slate-500 mt-1">
-                    Управление подключениями к ЭДО, телематике, ГИС и платёжным шлюзам. Ключи API хранятся в зашифрованном виде (AES-256-GCM).
-                </p>
+            <div className="flex items-center gap-3">
+                <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                    <Plug className="w-5 h-5" />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-semibold text-slate-900">Кабинет интеграций</h1>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                        Подключения к ЭДО, телематике, ГИС и платёжным шлюзам. Ключи API хранятся в зашифрованном виде (AES-256-GCM).
+                    </p>
+                </div>
             </div>
 
             {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">{error}</div>}
 
             {loading ? (
-                <p className="text-slate-500">Загружаем...</p>
+                <div className="space-y-4">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <Card key={i} className="p-5 space-y-2">
+                            <Skeleton className="h-5 w-48" />
+                            <Skeleton className="h-3 w-72" />
+                            <Skeleton className="h-12 w-full mt-3" />
+                        </Card>
+                    ))}
+                </div>
             ) : (
                 <div className="space-y-6">
                     {PROVIDER_CATALOG.map((cat) => (

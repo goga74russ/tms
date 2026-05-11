@@ -10,6 +10,9 @@ import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Truck, Plus } from 'lucide-react';
+import { SkeletonRow } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
 
 // ============================================================
 // Types
@@ -43,12 +46,16 @@ interface ContractorOption {
 // Page
 // ============================================================
 export default function AdminCarriersPage() {
+    const { toast: toastFn } = useToast();
+    const setToast = useCallback((message: string | null) => {
+        if (!message) return;
+        toastFn({ variant: 'success', title: 'Готово', description: message });
+    }, [toastFn]);
     const [carriers, setCarriers] = useState<Carrier[]>([]);
     const [contractors, setContractors] = useState<ContractorOption[]>([]);
     const [contractorsAvailable, setContractorsAvailable] = useState(true);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [toast, setToast] = useState<string | null>(null);
 
     // New contract dialog
     const [contractFor, setContractFor] = useState<Carrier | null>(null);
@@ -95,11 +102,7 @@ export default function AdminCarriersPage() {
         fetchContractors();
     }, [fetchCarriers, fetchContractors]);
 
-    useEffect(() => {
-        if (!toast) return;
-        const id = setTimeout(() => setToast(null), 3500);
-        return () => clearTimeout(id);
-    }, [toast]);
+    // Toast auto-dismiss handled by ToastProvider
 
     const openContractDialog = (carrier: Carrier) => {
         setContractFor(carrier);
@@ -166,20 +169,19 @@ export default function AdminCarriersPage() {
 
     return (
         <div className="space-y-6">
-            {toast && (
-                <div className="fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-lg bg-emerald-600 text-white text-sm font-medium">
-                    {toast}
-                </div>
-            )}
-
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 mb-1">Перевозчики</h1>
-                    <p className="text-sm text-slate-500">Контрагенты с признаком перевозчика и их активные договоры</p>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <Truck className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Перевозчики</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">Контрагенты с признаком перевозчика и активные договоры</p>
+                    </div>
                 </div>
                 {contractorsAvailable && (
-                    <Button onClick={() => setPromoteOpen(true)}>
-                        <Plus className="w-4 h-4 mr-1" /> Сделать перевозчиком
+                    <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setPromoteOpen(true)}>
+                        Сделать перевозчиком
                     </Button>
                 )}
             </div>
@@ -200,9 +202,13 @@ export default function AdminCarriersPage() {
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="text-center py-12 text-slate-400">Загрузка...</div>
+                        <Table>
+                            <TableBody>
+                                {Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} columns={6} />)}
+                            </TableBody>
+                        </Table>
                     ) : carriers.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400">Перевозчики не найдены</div>
+                        <EmptyState icon={Truck} title="Перевозчики не найдены" description="Назначьте контрагенту признак перевозчика, чтобы он появился в списке." />
                     ) : (
                         <Table>
                             <TableHeader>

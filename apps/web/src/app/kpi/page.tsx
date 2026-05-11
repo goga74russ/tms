@@ -21,6 +21,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
+import { BarChart3, RefreshCw } from "lucide-react";
 
 interface KpiData {
     revenue: number | string | null;
@@ -356,19 +358,24 @@ export default function KPIDashboard() {
     }));
 
     return (
-        <div className="min-h-screen space-y-8 bg-slate-50 p-8 text-slate-900">
+        <div className="min-h-screen space-y-6 bg-slate-50 p-8 text-slate-900">
             <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-                <div>
-                    <h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900">Панель KPI</h1>
-                    <p className="text-slate-500">Ключевые показатели эффективности бизнеса и аналитика затрат.</p>
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <BarChart3 className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Панель KPI</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">Ключевые показатели бизнеса и аналитика затрат</p>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                     <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40" />
-                    <span className="text-slate-400">-</span>
+                    <span className="text-slate-400">—</span>
                     <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40" />
-                    <Button variant="outline" onClick={() => void fetchData()} disabled={loading}>
-                        {loading ? "Загрузка..." : "Обновить"}
+                    <Button variant="outline" leftIcon={<RefreshCw className="w-4 h-4" />} isLoading={loading} onClick={() => void fetchData()}>
+                        Обновить
                     </Button>
                 </div>
             </div>

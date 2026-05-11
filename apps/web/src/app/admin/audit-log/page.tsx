@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { SkeletonRow } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
     History, Download, Filter, ChevronLeft, ChevronRight, ChevronDown, Loader2, X,
 } from 'lucide-react';
@@ -166,17 +168,19 @@ export default function AuditLogPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <History className="w-6 h-6 text-indigo-600" />
-                        Журнал событий
-                    </h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Append-only журнал всех действий пользователей. {total > 0 && <>Всего записей: <strong>{total}</strong></>}
-                    </p>
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <History className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-slate-900">Журнал событий</h1>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                            Append-only журнал всех действий пользователей. {total > 0 && <>Всего записей: <strong>{total}</strong></>}
+                        </p>
+                    </div>
                 </div>
-                <Button onClick={exportCsv} variant="outline" className="gap-2">
-                    <Download className="w-4 h-4" />Экспорт CSV
+                <Button onClick={exportCsv} variant="outline" leftIcon={<Download className="w-4 h-4" />}>
+                    Экспорт CSV
                 </Button>
             </div>
 
@@ -255,13 +259,17 @@ export default function AuditLogPage() {
                         </thead>
                         <tbody>
                             {loading && rows.length === 0 && (
-                                <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-400">
-                                    <Loader2 className="w-5 h-5 inline-block animate-spin mr-2" />Загрузка...
-                                </td></tr>
+                                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} columns={6} />)
                             )}
                             {!loading && rows.length === 0 && (
-                                <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-400">
-                                    Нет событий по выбранным фильтрам
+                                <tr><td colSpan={6}>
+                                    <div className="p-6">
+                                        <EmptyState
+                                            icon={History}
+                                            title="Нет событий"
+                                            description={filtersActive ? 'Попробуйте сбросить фильтры.' : 'События появятся, когда пользователи начнут работать с системой.'}
+                                        />
+                                    </div>
                                 </td></tr>
                             )}
                             {rows.map((r) => {

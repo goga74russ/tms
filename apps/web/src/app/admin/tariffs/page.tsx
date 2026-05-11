@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SkeletonRow } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/toast';
 import { Edit2, FileText, Plus, Search, X } from 'lucide-react';
 
 interface Tariff {
@@ -347,10 +349,14 @@ function TariffModal({
 }
 
 export default function AdminTariffsPage() {
+    const { toast: toastFn } = useToast();
+    const setToast = useCallback((message: string | null) => {
+        if (!message) return;
+        toastFn({ variant: 'success', title: 'Готово', description: message });
+    }, [toastFn]);
     const [tariffs, setTariffs] = useState<Tariff[]>([]);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<{ mode: 'create' | 'edit'; tariff: Tariff | null } | null>(null);
-    const [toast, setToast] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState('');
 
@@ -369,12 +375,6 @@ export default function AdminTariffsPage() {
     useEffect(() => {
         load();
     }, [load]);
-
-    useEffect(() => {
-        if (!toast) return;
-        const timer = setTimeout(() => setToast(null), 4000);
-        return () => clearTimeout(timer);
-    }, [toast]);
 
     const filteredTariffs = tariffs.filter(t => {
         const q = search.trim().toLowerCase();
@@ -395,26 +395,21 @@ export default function AdminTariffsPage() {
     return (
         <div>
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                    <h1 className="flex items-center gap-2 text-xl font-bold text-slate-900">
-                        <FileText className="h-6 w-6 text-indigo-600" />
-                        Тарифы
-                    </h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        {tariffs.length} тарифов в системе • {visibleCount} в текущем фильтре
-                    </p>
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <FileText className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-slate-900">Тарифы</h1>
+                        <p className="mt-0.5 text-sm text-slate-500">
+                            {tariffs.length} тарифов в системе • {visibleCount} в текущем фильтре
+                        </p>
+                    </div>
                 </div>
-                <Button onClick={() => setModal({ mode: 'create', tariff: null })}>
-                    <Plus className="mr-1.5 h-4 w-4" />
+                <Button variant="brand" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setModal({ mode: 'create', tariff: null })}>
                     Добавить тариф
                 </Button>
             </div>
-
-            {toast && (
-                <div className="fixed right-4 top-4 z-50 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-medium text-white shadow-lg">
-                    {toast}
-                </div>
-            )}
 
             <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <Card className="border-slate-200/80 shadow-sm">
@@ -519,11 +514,7 @@ export default function AdminTariffsPage() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr>
-                                    <td colSpan={7} className="py-16 text-center">
-                                        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
-                                    </td>
-                                </tr>
+                                Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} columns={7} />)
                             ) : filteredTariffs.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="py-16 text-center">

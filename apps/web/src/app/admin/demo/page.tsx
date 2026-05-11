@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
 import {
     Sparkles, Trash2, CheckCircle2, AlertCircle, Loader2, Info,
 } from 'lucide-react';
@@ -28,6 +29,7 @@ interface CleanupResult {
 }
 
 export default function AdminDemoPage() {
+    const { toast } = useToast();
     const [busy, setBusy] = useState<'generate' | 'cleanup' | null>(null);
     const [progress, setProgress] = useState(0);
     const [generated, setGenerated] = useState<GenerateResult | null>(null);
@@ -48,8 +50,11 @@ export default function AdminDemoPage() {
             const res = await api.post<{ success: boolean; data: GenerateResult }>('/demo/generate');
             setProgress(100);
             setGenerated(res.data);
+            toast({ variant: 'success', title: res.data.alreadyExisted ? 'Демо уже создано' : 'Демо-данные созданы' });
         } catch (err: any) {
-            setError(err?.message ?? 'Не удалось создать демо-данные');
+            const msg = err?.message ?? 'Не удалось создать демо-данные';
+            setError(msg);
+            toast({ variant: 'error', title: 'Ошибка', description: msg });
         } finally {
             clearInterval(interval);
             setTimeout(() => {
@@ -68,8 +73,11 @@ export default function AdminDemoPage() {
         try {
             const res = await api.delete<{ success: boolean; data: CleanupResult }>('/demo/cleanup');
             setCleanup(res.data);
+            toast({ variant: 'success', title: 'Демо удалено' });
         } catch (err: any) {
-            setError(err?.message ?? 'Не удалось удалить демо-данные');
+            const msg = err?.message ?? 'Не удалось удалить демо-данные';
+            setError(msg);
+            toast({ variant: 'error', title: 'Ошибка', description: msg });
         } finally {
             setBusy(null);
         }
@@ -77,12 +85,16 @@ export default function AdminDemoPage() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-slate-900">Демо-данные</h1>
-                <p className="text-sm text-slate-500 mt-1">
-                    Создайте минимальный набор данных, чтобы посмотреть, как работает система:
-                    1 контрагент, 2 ТС, 2 водителя, завершённый и активный рейсы, заявка с холодильной цепью.
-                </p>
+            <div className="flex items-center gap-3">
+                <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-semibold text-slate-900">Демо-данные</h1>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                        Минимальный набор данных для знакомства с системой: 1 контрагент, 2 ТС, 2 водителя, завершённый и активный рейсы, заявка с холодильной цепью.
+                    </p>
+                </div>
             </div>
 
             <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 flex gap-3">
@@ -112,12 +124,13 @@ export default function AdminDemoPage() {
                         </ul>
                         <Button
                             onClick={handleGenerate}
-                            disabled={busy !== null}
-                            className="w-full"
+                            variant="brand"
+                            fullWidth
+                            isLoading={busy === 'generate'}
+                            disabled={busy !== null && busy !== 'generate'}
+                            leftIcon={<Sparkles className="w-4 h-4" />}
                         >
-                            {busy === 'generate'
-                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Создаём...</>
-                                : <><Sparkles className="w-4 h-4 mr-2" />Создать демо-данные</>}
+                            Создать демо-данные
                         </Button>
                         {busy === 'generate' && progress > 0 && (
                             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -143,13 +156,13 @@ export default function AdminDemoPage() {
                         </p>
                         <Button
                             onClick={handleCleanup}
-                            disabled={busy !== null}
                             variant="destructive"
-                            className="w-full"
+                            fullWidth
+                            isLoading={busy === 'cleanup'}
+                            disabled={busy !== null && busy !== 'cleanup'}
+                            leftIcon={<Trash2 className="w-4 h-4" />}
                         >
-                            {busy === 'cleanup'
-                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Удаляем...</>
-                                : <><Trash2 className="w-4 h-4 mr-2" />Удалить демо</>}
+                            Удалить демо
                         </Button>
                     </CardContent>
                 </Card>

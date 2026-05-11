@@ -7,6 +7,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { formatKopecks, PLAN_IDS, type PlanId, type SubscriptionStatus } from '@tms/shared';
+import { Stat } from '@/components/ui/stat';
+import { SkeletonRow } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
+import { CreditCard, Building2, TrendingUp, AlertCircle, Receipt } from 'lucide-react';
 
 interface AdminBillingRow {
     organizationId: string;
@@ -29,16 +34,20 @@ const STATUS_LABEL: Record<SubscriptionStatus, string> = {
 const STATUS_FILTER: Array<'' | SubscriptionStatus> = ['', 'trial', 'active', 'past_due', 'suspended', 'cancelled'];
 
 export default function AdminBillingPage() {
+    const { toast } = useToast();
     const [rows, setRows] = useState<AdminBillingRow[] | null>(null);
     const [statusFilter, setStatusFilter] = useState<'' | SubscriptionStatus>('');
     const [planFilter, setPlanFilter] = useState<'' | PlanId>('');
-    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         api.get<{ success: boolean; data: AdminBillingRow[] }>('/admin/billing/overview')
             .then((res) => setRows(res.data ?? []))
-            .catch((e) => setError(e instanceof Error ? e.message : 'Ошибка загрузки'));
-    }, []);
+            .catch((e) => {
+                const msg = e instanceof Error ? e.message : 'Ошибка загрузки';
+                toast({ variant: 'error', title: 'Не удалось загрузить биллинг', description: msg });
+                setRows([]);
+            });
+    }, [toast]);
 
     const filtered = useMemo(() => {
         if (!rows) return [];
@@ -60,38 +69,26 @@ export default function AdminBillingPage() {
         return acc;
     }, [filtered]);
 
+    const pastDueCount = (rows ?? []).filter(r => r.status === 'past_due' || r.status === 'suspended').length;
+
     return (
         <div className="space-y-6">
-            <header>
-                <h1 className="text-2xl font-bold text-slate-900">Биллинг — обзор</h1>
-                <p className="text-sm text-slate-500 mt-1">Все организации, их тарифы и статусы.</p>
+            <header className="flex items-center gap-3">
+                <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                    <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-semibold text-slate-900">Биллинг — обзор</h1>
+                    <p className="text-sm text-slate-500 mt-0.5">Все организации, их тарифы и статусы</p>
+                </div>
             </header>
 
-            {error && (
-                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">{error}</div>
-            )}
-
-            {/* KPI cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white border border-slate-200 rounded-xl p-5">
-                    <p className="text-xs uppercase text-slate-500 tracking-wide">Всего организаций</p>
-                    <p className="text-2xl font-bold text-slate-900 mt-2">{filtered.length}</p>
-                </div>
-                <div className="bg-white border border-slate-200 rounded-xl p-5">
-                    <p className="text-xs uppercase text-slate-500 tracking-wide">MRR (только active)</p>
-                    <p className="text-2xl font-bold text-emerald-600 mt-2">{formatKopecks(totalMrr)}</p>
-                </div>
-                <div className="bg-white border border-slate-200 rounded-xl p-5">
-                    <p className="text-xs uppercase text-slate-500 tracking-wide">По тарифам</p>
-                    <div className="text-sm text-slate-700 mt-2 space-y-0.5">
-                        {PLAN_IDS.map((p) => (
-                            <div key={p} className="flex justify-between">
-                                <span className="capitalize">{p}</span>
-                                <strong>{byPlan[p] ?? 0}</strong>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Stat label="Организаций" value={filtered.length} icon={Building2} tone="neutral" />
+                <Stat label="MRR (active)" value={formatKopecks(totalMrr)} icon={TrendingUp} tone="success" />
+                <Stat label="Просрочки" value={pastDueCount} icon={AlertCircle} tone={pastDueCount > 0 ? 'danger' : 'neutral'} />
+                <Stat label="Тарифов" value={PLAN_IDS.length} icon={Receipt} tone="info" hint={PLAN_IDS.map(p => `${p}: ${byPlan[p] ?? 0}`).join(' · ')} />
             </div>
 
             {/* Filters */}
@@ -138,9 +135,17 @@ export default function AdminBillingPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {rows === null ? (
-                            <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Загрузка…</td></tr>
+                            Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} columns={6} />)
                         ) : filtered.length === 0 ? (
-                            <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Нет данных</td></tr>
+                            <tr><td colSpan={6}>
+                                <div className="p-6">
+                                    <EmptyState
+                                        icon={Building2}
+                                        title="Нет организаций"
+                                        description={statusFilter || planFilter ? 'Попробуйте сбросить фильтры.' : 'Организаций ещё не зарегистрировано.'}
+                                    />
+                                </div>
+                            </td></tr>
                         ) : filtered.map((r) => (
                             <tr key={r.organizationId} className="hover:bg-slate-50">
                                 <td className="px-4 py-2.5 text-slate-900">{r.organizationName}</td>
