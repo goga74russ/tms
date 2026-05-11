@@ -7,6 +7,10 @@ import { api } from '@/lib/api';
 import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2, Play, Flag, FolderOpen, Thermometer } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Stat } from '@/components/ui/stat';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SkeletonRow } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/toast';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from '../fleet/components/vehicleProfile';
 import { TemperaturePanel } from '@/components/TemperaturePanel';
 
@@ -2418,7 +2422,8 @@ export default function TripsPage() {
         <div className="space-y-6">
             {tripsToast && (
                 <div
-                    className={`fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${
+                    role="status"
+                    className={`fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-soft-lg text-white font-medium text-sm animate-fade-in ${
                         tripsToast.tone === 'success'
                             ? 'bg-emerald-600'
                             : tripsToast.tone === 'warning'
@@ -2430,32 +2435,32 @@ export default function TripsPage() {
                 </div>
             )}
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Рейсы</h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Все рейсы вЂў {trips.length} записей
-                    </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-soft-md shrink-0">
+                        <Map className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                        <h1 className="text-2xl font-bold text-slate-900 leading-tight">Рейсы</h1>
+                        <p className="text-sm text-slate-500 truncate">Все рейсы — {trips.length} записей</p>
+                    </div>
                 </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    isLoading={loading}
+                    leftIcon={<RefreshCcw className="w-3.5 h-3.5" />}
+                    onClick={() => loadTrips()}
+                >
+                    Обновить
+                </Button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Всего рейсов</p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900">{trips.length}</p>
-                </div>
-                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-indigo-500">Сборных рейсов</p>
-                    <p className="mt-2 text-2xl font-bold text-indigo-700">{multiOrderTripsCount}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">С ТС</p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900">{withVehicleCount}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">С прицепом</p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900">{withTrailerCount}</p>
-                </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <Stat label="Всего рейсов" value={trips.length} icon={Map} tone="neutral" />
+                <Stat label="Сборных рейсов" value={multiOrderTripsCount} icon={FileText} tone="brand" />
+                <Stat label="С ТС" value={withVehicleCount} icon={Truck} tone="info" />
+                <Stat label="С прицепом" value={withTrailerCount} icon={Truck} tone="success" />
             </div>
 
             {/* Status pills */}
@@ -2498,14 +2503,33 @@ export default function TripsPage() {
 
                 {/* Table */}
                 {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <tbody>
+                                {Array.from({ length: 6 }).map((_, i) => (
+                                    <SkeletonRow key={i} columns={9} />
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 ) : trips.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                        <Map className="w-12 h-12 mb-3" />
-                        <p className="text-sm">Рейсы не найдены</p>
-                    </div>
+                    <EmptyState
+                        icon={Map}
+                        title={statusFilter || debouncedSearch ? 'Рейсы по фильтру не найдены' : 'Пока нет рейсов'}
+                        description={statusFilter || debouncedSearch
+                            ? 'Попробуйте сбросить фильтры или изменить поисковый запрос.'
+                            : 'Рейсы создаются из диспетчерской после назначения ТС на заявку.'}
+                        action={(statusFilter || debouncedSearch) ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => { setStatusFilter(''); setSearch(''); }}
+                            >
+                                Сбросить фильтры
+                            </Button>
+                        ) : undefined}
+                        className="border-0 bg-transparent"
+                    />
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">

@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Map as MapIcon, ArrowLeftRight, Clock, Loader2, Info, Truck, User, MapPin, Wifi, WifiOff, Search, AlertTriangle, CheckCircle2, X, FileDown, Thermometer } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Map as MapIcon, ArrowLeftRight, Clock, Loader2, Info, Truck, User, MapPin, Wifi, WifiOff, Search, AlertTriangle, CheckCircle2, X, FileDown, Thermometer, RefreshCw } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { AssignmentPanel } from './components/AssignmentPanel';
 import { VehicleTimeline } from './components/VehicleTimeline';
 import { Card, CardContent } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/Combobox';
+import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Stat } from '@/components/ui/stat';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { downloadFromApi } from '@/lib/download';
 import { useVehiclePositions } from '@/hooks/useVehiclePositions';
@@ -216,14 +221,15 @@ export default function DispatcherPage() {
     const [selectedCity, setSelectedCity] = useState<CitySearchResult | null>(null);
     const [vehicleSearch, setVehicleSearch] = useState('');
     const [vehicleStatusFilter, setVehicleStatusFilter] = useState('');
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-    const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+    const { toast } = useToast();
 
     const showToast = useCallback((message: string, type: 'success' | 'error' = 'error') => {
-        setToast({ message, type });
-        if (toastTimer.current) clearTimeout(toastTimer.current);
-        toastTimer.current = setTimeout(() => setToast(null), 4000);
-    }, []);
+        toast({
+            variant: type === 'success' ? 'success' : 'error',
+            title: type === 'success' ? 'Готово' : 'Ошибка',
+            description: message,
+        });
+    }, [toast]);
     // Real-time vehicle positions via WebSocket
     const { positions: wsPositions, isConnected: wsConnected } = useVehiclePositions();
 
@@ -512,77 +518,68 @@ export default function DispatcherPage() {
                 storageKey="tms_tour_completed_dispatcher_v1"
                 steps={DISPATCHER_TOUR_STEPS}
             />
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
-                    {toast.message}
-                </div>
-            )}
 
             {/* Header */}
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-soft-md shrink-0">
                         <MapIcon className="w-5 h-5 text-white" />
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Диспетчерская</h1>
-                        <p className="text-sm text-slate-500">Управление рейсами и транспортом</p>
+                    <div className="min-w-0">
+                        <h1 className="text-2xl font-bold text-slate-900 leading-tight">Диспетчерская</h1>
+                        <p className="text-sm text-slate-500 truncate">Управление рейсами и транспортом в реальном времени</p>
                     </div>
                 </div>
-                {loading && (
-                    <div className="flex items-center gap-2 text-slate-400 text-sm">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Синхронизация...</span>
+                <div className="flex items-center gap-3">
+                    <div
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                            wsConnected
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-slate-50 text-slate-500 border-slate-200'
+                        }`}
+                        aria-live="polite"
+                    >
+                        {wsConnected ? (
+                            <>
+                                <Wifi className="w-3.5 h-3.5" />
+                                <span>Live</span>
+                            </>
+                        ) : (
+                            <>
+                                <WifiOff className="w-3.5 h-3.5" />
+                                <span>Offline</span>
+                            </>
+                        )}
                     </div>
-                )}
-                <div className="flex items-center gap-2 text-xs">
-                    {wsConnected ? (
-                        <><Wifi className="w-3.5 h-3.5 text-emerald-500" /><span className="text-emerald-600">Live</span></>
-                    ) : (
-                        <><WifiOff className="w-3.5 h-3.5 text-slate-400" /><span className="text-slate-400">Offline</span></>
-                    )}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        isLoading={loading}
+                        leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+                        onClick={() => loadData()}
+                    >
+                        Обновить
+                    </Button>
                 </div>
             </div>
 
             {/* Vehicle stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-tour="dispatcher-stats">
-                <Card className="hover:border-slate-300 transition-colors">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-1">
-                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                            <span className="text-xs font-medium text-slate-500">Свободны</span>
+                {loading && vehicles.length === 0 ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft">
+                            <Skeleton className="h-3 w-20 mb-3" />
+                            <Skeleton className="h-7 w-12" />
                         </div>
-                        <span className="text-2xl font-bold text-slate-900">{vehicleStats.available}</span>
-                    </CardContent>
-                </Card>
-                <Card className="hover:border-slate-300 transition-colors">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-1">
-                            <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                            <span className="text-xs font-medium text-slate-500">Назначены</span>
-                        </div>
-                        <span className="text-2xl font-bold text-slate-900">{vehicleStats.assigned}</span>
-                    </CardContent>
-                </Card>
-                <Card className="hover:border-slate-300 transition-colors">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-1">
-                            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                            <span className="text-xs font-medium text-slate-500">В рейсе</span>
-                        </div>
-                        <span className="text-2xl font-bold text-slate-900">{vehicleStats.inTrip}</span>
-                    </CardContent>
-                </Card>
-                <Card className="hover:border-slate-300 transition-colors">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-1">
-                            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                            <span className="text-xs font-medium text-slate-500">Проблемы</span>
-                        </div>
-                        <span className="text-2xl font-bold text-slate-900">{vehicleStats.problem}</span>
-                    </CardContent>
-                </Card>
+                    ))
+                ) : (
+                    <>
+                        <Stat label="Свободны" value={vehicleStats.available} icon={Truck} tone="success" />
+                        <Stat label="Назначены" value={vehicleStats.assigned} icon={User} tone="warning" />
+                        <Stat label="В рейсе" value={vehicleStats.inTrip} icon={MapIcon} tone="info" />
+                        <Stat label="Проблемы" value={vehicleStats.problem} icon={AlertTriangle} tone="danger" />
+                    </>
+                )}
             </div>
 
             {/* Operational cockpit */}
@@ -1041,7 +1038,26 @@ export default function DispatcherPage() {
                             </div>
                             <div className="space-y-1 max-h-[320px] overflow-y-auto">
                                 {vehiclesOnMap.length === 0 && (
-                                    <p className="text-xs text-slate-400 text-center py-4">Нет ТС с координатами</p>
+                                    loading ? (
+                                        <div className="space-y-2 py-2">
+                                            {Array.from({ length: 4 }).map((_, i) => (
+                                                <div key={i} className="flex items-center gap-2.5 px-2 py-2">
+                                                    <Skeleton className="w-2 h-2 rounded-full" />
+                                                    <div className="flex-1 space-y-1">
+                                                        <Skeleton className="h-3 w-20" />
+                                                        <Skeleton className="h-2 w-32" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <EmptyState
+                                            icon={Truck}
+                                            title="Нет ТС с координатами"
+                                            description="Подключите GPS-устройство или дождитесь первого пинга."
+                                            className="min-h-[160px] py-8"
+                                        />
+                                    )
                                 )}
                                 {vehiclesOnMap.map(v => {
                                     const statusColors: Record<string, string> = {
@@ -1169,26 +1185,31 @@ export default function DispatcherPage() {
                             const order = orders.find(o => o.id === orderId);
                             if (!order) return;
 
-                            await api.post('/trips', {
-                                vehicleId,
-                                orderIds: [orderId],
-                                routePoints: [
-                                    {
-                                        type: 'loading',
-                                        address: order.loadingAddress,
-                                        sequenceNumber: 1,
-                                        windowFrom: windows?.loadingFrom || undefined,
-                                        windowTo: windows?.loadingTo || undefined,
-                                    },
-                                    {
-                                        type: 'unloading',
-                                        address: order.unloadingAddress,
-                                        sequenceNumber: 2,
-                                        windowFrom: windows?.unloadingFrom || undefined,
-                                        windowTo: windows?.unloadingTo || undefined,
-                                    },
-                                ],
-                            });
+                            try {
+                                await api.post('/trips', {
+                                    vehicleId,
+                                    orderIds: [orderId],
+                                    routePoints: [
+                                        {
+                                            type: 'loading',
+                                            address: order.loadingAddress,
+                                            sequenceNumber: 1,
+                                            windowFrom: windows?.loadingFrom || undefined,
+                                            windowTo: windows?.loadingTo || undefined,
+                                        },
+                                        {
+                                            type: 'unloading',
+                                            address: order.unloadingAddress,
+                                            sequenceNumber: 2,
+                                            windowFrom: windows?.unloadingFrom || undefined,
+                                            windowTo: windows?.unloadingTo || undefined,
+                                        },
+                                    ],
+                                });
+                                showToast(`Рейс по заявке ${order.number} создан`, 'success');
+                            } catch (e: any) {
+                                showToast(e?.message || 'Не удалось создать рейс', 'error');
+                            }
 
                             loadData();
                         }}
