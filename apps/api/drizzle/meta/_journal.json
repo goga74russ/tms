@@ -169,6 +169,13 @@
       "when": 1773640841000,
       "tag": "0024_perf_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1773640842000,
+      "tag": "0025_inspection_decision_trigger",
+      "breakpoints": true
     }
   ]
 }

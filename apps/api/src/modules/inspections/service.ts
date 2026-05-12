@@ -484,7 +484,8 @@ export async function getMedInspectionQueue(organizationId?: string | null) {
         .select()
         .from(drivers)
         .where(inArray(drivers.id, needDriverIds));
-    const driverMap = new Map(allDrivers.map((d: any) => [d.id, d]));
+    type DriverRow = typeof drivers.$inferSelect;
+    const driverMap = new Map<string, DriverRow>(allDrivers.map((d) => [d.id, d]));
 
     const allWaybills = tripIds.length > 0
         ? await db
@@ -505,9 +506,9 @@ export async function getMedInspectionQueue(organizationId?: string | null) {
             const waybill = waybillMap.get(trip.tripId);
 
             let medCertStatus: 'green' | 'yellow' | 'red' | 'unknown' = 'unknown';
-            if ((driver as any).medCertificateExpiry) {
-                if ((driver as any).medCertificateExpiry < now) medCertStatus = 'red';
-                else if ((driver as any).medCertificateExpiry < thirtyDays) medCertStatus = 'yellow';
+            if (driver.medCertificateExpiry) {
+                if (driver.medCertificateExpiry < now) medCertStatus = 'red';
+                else if (driver.medCertificateExpiry < thirtyDays) medCertStatus = 'yellow';
                 else medCertStatus = 'green';
             }
 
@@ -520,13 +521,13 @@ export async function getMedInspectionQueue(organizationId?: string | null) {
                     waybillNumber: waybill?.number ?? null,
                 },
                 driver: {
-                    id: (driver as any).id,
-                    fullName: (driver as any).fullName,
-                    birthDate: (driver as any).birthDate,
-                    licenseNumber: (driver as any).licenseNumber,
-                    licenseCategories: (driver as any).licenseCategories,
-                    personalDataConsent: (driver as any).personalDataConsent,
-                    medCertificateExpiry: (driver as any).medCertificateExpiry,
+                    id: driver.id,
+                    fullName: driver.fullName,
+                    birthDate: driver.birthDate,
+                    licenseNumber: driver.licenseNumber,
+                    licenseCategories: driver.licenseCategories,
+                    personalDataConsent: driver.personalDataConsent,
+                    medCertificateExpiry: driver.medCertificateExpiry,
                     medCertStatus,
                 },
             };

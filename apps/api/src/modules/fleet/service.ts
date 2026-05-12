@@ -219,7 +219,7 @@ export async function createVehicle(
             maintenanceNextDate: data.maintenanceNextDate ? new Date(data.maintenanceNextDate) : undefined,
             maintenanceNextKm: data.maintenanceNextKm,
             tachographCalibrationExpiry: data.tachographCalibrationExpiry ? new Date(data.tachographCalibrationExpiry) : undefined,
-            organizationId: (user as any).organizationId ?? null,
+            organizationId: user.organizationId ?? null,
         }).returning();
 
         await recordEvent({
@@ -411,7 +411,7 @@ export async function createDriver(
             medCertificateExpiry: data.medCertificateExpiry ? new Date(data.medCertificateExpiry) : undefined,
             personalDataConsent: data.personalDataConsent,
             personalDataConsentDate: data.personalDataConsentDate ? new Date(data.personalDataConsentDate) : undefined,
-            organizationId: (user as any).organizationId ?? null,
+            organizationId: user.organizationId ?? null,
         }).returning();
 
         await recordEvent({
@@ -686,7 +686,7 @@ export async function createContractor(
             legalAddress,
             phone: data.phone,
             email: data.email,
-            organizationId: (user as any).organizationId ?? null,
+            organizationId: user.organizationId ?? null,
         }).returning();
 
         await recordEvent({

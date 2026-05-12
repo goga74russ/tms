@@ -212,7 +212,7 @@ function formatEtaBadge(etaIso?: string | null, reason?: string): string {
 }
 
 function formatDate(d?: string) {
-    if (!d) return 'вЂ”';
+    if (!d) return '—';
     return new Date(d).toLocaleDateString('ru-RU', {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
@@ -220,7 +220,7 @@ function formatDate(d?: string) {
 }
 
 function formatTimelineDate(value?: string | null) {
-    if (!value) return 'вЂ”';
+    if (!value) return '—';
     return new Date(value).toLocaleString('ru-RU', {
         day: '2-digit',
         month: '2-digit',
@@ -1514,10 +1514,21 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
 
     if (!transportDocuments && !etrn) return null;
 
-    const docs = (transportDocuments?.documents || []) as any[];
-    const docProblems = (transportDocuments?.problems || []) as any[];
-    const etrnTitles = (etrn?.titles || []) as any[];
-    const etrnProblems = (etrn?.problems || []) as any[];
+    // TODO(type): formalize TransportDocument / ETRN shapes in @tms/shared and replace these locals
+    type TransportDoc = {
+        providerName?: string; retryCount?: number;
+        providerDocumentId?: string; providerMessageId?: string; acceptedAt?: string;
+        nextRetryAt?: string; lastAttemptAt?: string; lastRetryAt?: string; sentAt?: string;
+        type?: string; status?: string; updatedAt?: string;
+        [k: string]: unknown;
+    };
+    type DocProblem = { code?: string; severity?: string; message?: string; [k: string]: unknown };
+    type EtrnTitle = { type?: string; status?: string; [k: string]: unknown };
+    type EtrnProblem = { code?: string; severity?: string; message?: string; [k: string]: unknown };
+    const docs = (transportDocuments?.documents || []) as TransportDoc[];
+    const docProblems = (transportDocuments?.problems || []) as DocProblem[];
+    const etrnTitles = (etrn?.titles || []) as EtrnTitle[];
+    const etrnProblems = (etrn?.problems || []) as EtrnProblem[];
     const exchangeTotals = {
         providers: new Set(docs.map((doc: any) => doc.providerName || 'internal')).size,
         retries: docs.reduce((total: number, doc: any) => total + Number(doc.retryCount || 0), 0),
@@ -2292,7 +2303,7 @@ export default function TripsPage() {
             const [result, pointsResult, loadPlanResult] = await Promise.all([
                 api.get<any>(`/trips/${tripId}/dossier`),
                 api.get<any>(`/trips/${tripId}/points`).catch(() => ({ success: false, data: [] })),
-                api.get<{ success: boolean; data: TripLoadPlan }>(`/trips/${tripId}/load-plan`).catch(() => ({ success: false, data: null as any })),
+                api.get<{ success: boolean; data: TripLoadPlan | null }>(`/trips/${tripId}/load-plan`).catch(() => ({ success: false, data: null as TripLoadPlan | null })),
             ]);
             setDossier(result.data || null);
             setDossierRoutePoints(pointsResult.success ? (pointsResult.data || []) : []);
@@ -2329,7 +2340,7 @@ export default function TripsPage() {
             try {
                 const res = await api.get<{ success: boolean; data: { etaIso: string | null; distanceKm?: number } | null; reason?: string }>(`/trips/${dossierTripId}/eta`);
                 if (cancelled) return;
-                setTripEta({ etaIso: res.data?.etaIso ?? null, reason: (res as any).reason });
+                setTripEta({ etaIso: res.data?.etaIso ?? null, reason: res.reason });
             } catch {
                 if (!cancelled) setTripEta({ etaIso: null, reason: 'no_gps' });
             }
@@ -2585,7 +2596,7 @@ export default function TripsPage() {
                                                 </span>
                                                 {(tripOrderNumbers[t.id] || []).length > 1 && (
                                                     <span className="inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700">
-                                                        Сборный рейс вЂў {(tripOrderNumbers[t.id] || []).length} заявок
+                                                        Сборный рейс • {(tripOrderNumbers[t.id] || []).length} заявок
                                                     </span>
                                                 )}
                                                 {t.carrierContractorId && (
@@ -2613,7 +2624,7 @@ export default function TripsPage() {
                                                         <span className="inline-flex w-fit rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
                                                             {getVehicleWaybillCue(vehicleMap[t.vehicleId].bodyType, undefined, {
                                                                 trailerPlate: trailerMap[t.vehicleId]?.plateNumber || null,
-                                                            }).tone === 'ready' ? 'ПЛ ready' : 'ПЛ check'}
+                                                            }).tone === 'ready' ? 'ПЛ ✓' : 'ПЛ ⚠'}
                                                         </span>
                                                     )}
                                                     {vehicleMap[t.vehicleId]?.bodyType && (
@@ -2634,7 +2645,7 @@ export default function TripsPage() {
                                                         </span>
                                                     )}
                                                 </div>
-                                            ) : 'вЂ”'}
+                                            ) : '—'}
                                         </td>
                                         <td className="px-4 py-3 text-slate-600">
                                             {(tripOrderNumbers[t.id] || []).length > 0 ? (
@@ -2653,10 +2664,10 @@ export default function TripsPage() {
                                                         </span>
                                                     )}
                                                 </div>
-                                            ) : 'вЂ”'}
+                                            ) : '—'}
                                         </td>
                                         <td className="px-4 py-3 text-slate-600">
-                                            {t.plannedDistanceKm ? `${t.plannedDistanceKm} км` : 'вЂ”'}
+                                            {t.plannedDistanceKm ? `${t.plannedDistanceKm} км` : '—'}
                                             {t.actualDistanceKm ? (
                                                 <span className="text-emerald-600 ml-1">
                                                     <ArrowRight className="w-3 h-3 inline" />
@@ -3041,11 +3052,11 @@ export default function TripsPage() {
                                                         <div className="mt-3 grid gap-2 text-xs text-slate-500">
                                                             <div className="flex items-start gap-2">
                                                                 <MapPin className="mt-0.5 w-3.5 h-3.5 text-slate-400" />
-                                                                <span>Погрузка: {order.loadingAddress || 'вЂ”'}</span>
+                                                                <span>Погрузка: {order.loadingAddress || '—'}</span>
                                                             </div>
                                                             <div className="flex items-start gap-2">
                                                                 <MapPin className="mt-0.5 w-3.5 h-3.5 text-slate-400" />
-                                                                <span>Выгрузка: {order.unloadingAddress || 'вЂ”'}</span>
+                                                                <span>Выгрузка: {order.unloadingAddress || '—'}</span>
                                                             </div>
                                                         </div>
                                                     </div>

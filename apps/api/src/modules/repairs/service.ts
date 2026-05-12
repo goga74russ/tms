@@ -843,7 +843,7 @@ export async function listRepairs(
     const p = paginationDefaults(pagination);
     const conditions = [];
 
-    if (filters.status) conditions.push(eq(repairRequests.status, filters.status as any));
+    if (filters.status) conditions.push(eq(repairRequests.status, filters.status as 'created' | 'waiting_parts' | 'in_progress' | 'done'));
     if (filters.vehicleId) conditions.push(eq(repairRequests.vehicleId, filters.vehicleId));
     if (filters.search) {
         conditions.push(
@@ -923,7 +923,7 @@ export async function createRepair(
 
         // Set vehicle status based on priority
         await tx.update(vehicles)
-            .set({ status: vehicleStatus as any, updatedAt: new Date() })
+            .set({ status: vehicleStatus, updatedAt: new Date() })
             .where(user.organizationId
                 ? and(eq(vehicles.id, data.vehicleId), eq(vehicles.organizationId, user.organizationId))
                 : eq(vehicles.id, data.vehicleId));
@@ -1005,7 +1005,7 @@ export async function updateRepairStatus(
 
             if (otherActiveRepairs.length === 0) {
                 await tx.update(vehicles)
-                    .set({ status: 'available' as any, updatedAt: new Date() })
+                    .set({ status: 'available', updatedAt: new Date() })
                     .where(eq(vehicles.id, repair.vehicleId));
             }
             // else: vehicle stays in maintenance/broken — other repairs still active
@@ -1111,7 +1111,7 @@ export async function checkScheduledMaintenance(systemUserId: string) {
         .where(
             and(
                 eq(vehicles.isArchived, false),
-                eq(vehicles.status, 'available' as any),
+                eq(vehicles.status, 'available'),
                 or(
                     lte(vehicles.maintenanceNextDate, now),
                     sql`${vehicles.currentOdometerKm} >= ${vehicles.maintenanceNextKm}`,
@@ -1136,11 +1136,11 @@ export async function checkScheduledMaintenance(systemUserId: string) {
             .where(
                 and(
                     eq(repairRequests.vehicleId, vehicle.id),
-                    eq(repairRequests.source, 'scheduled' as any),
+                    eq(repairRequests.source, 'scheduled'),
                     or(
-                        eq(repairRequests.status, 'created' as any),
-                        eq(repairRequests.status, 'waiting_parts' as any),
-                        eq(repairRequests.status, 'in_progress' as any),
+                        eq(repairRequests.status, 'created'),
+                        eq(repairRequests.status, 'waiting_parts'),
+                        eq(repairRequests.status, 'in_progress'),
                     ),
                 ),
             );

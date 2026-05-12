@@ -23,6 +23,8 @@ import {
     updateMedInspectionDecision,
 } from './service.js';
 
+type AuthUser = { userId: string; roles: string[]; organizationId?: string | null };
+
 function parsePage(value: string | undefined) {
     const parsed = Number.parseInt(value || '1', 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
@@ -178,9 +180,9 @@ export default async function inspectionRoutes(app: FastifyInstance) {
                 });
             }
 
-            await assertVehicleAccess(body.vehicleId, request.user as any);
+            await assertVehicleAccess(body.vehicleId, request.user as AuthUser);
             if (body.tripId) {
-                await assertTripAccess(body.tripId, request.user as any);
+                await assertTripAccess(body.tripId, request.user as AuthUser);
             }
             const inspection = await createTechInspection(body, user.userId, user.roles[0]);
             return reply.status(201).send({ success: true, data: inspection });
@@ -422,9 +424,9 @@ export default async function inspectionRoutes(app: FastifyInstance) {
                 });
             }
 
-            await assertDriverAccess(body.driverId, request.user as any);
+            await assertDriverAccess(body.driverId, request.user as AuthUser);
             if (body.tripId) {
-                await assertTripAccess(body.tripId, request.user as any);
+                await assertTripAccess(body.tripId, request.user as AuthUser);
             }
             const inspection = await createMedInspection(body, user.userId, user.roles[0]);
             return reply.status(201).send({ success: true, data: inspection });
@@ -531,8 +533,8 @@ export default async function inspectionRoutes(app: FastifyInstance) {
                 });
             }
 
-            await assertVehicleAccess(body.vehicleId, request.user as any);
-            await assertTripAccess(body.tripId, request.user as any);
+            await assertVehicleAccess(body.vehicleId, request.user as AuthUser);
+            await assertTripAccess(body.tripId, request.user as AuthUser);
             const inspection = await createPostTripTechInspection(body, user.userId, user.roles[0]);
             return reply.status(201).send({ success: true, data: inspection });
         } catch (error: any) {
@@ -586,8 +588,8 @@ export default async function inspectionRoutes(app: FastifyInstance) {
                 });
             }
 
-            await assertDriverAccess(body.driverId, request.user as any);
-            await assertTripAccess(body.tripId, request.user as any);
+            await assertDriverAccess(body.driverId, request.user as AuthUser);
+            await assertTripAccess(body.tripId, request.user as AuthUser);
             const inspection = await createPostTripMedInspection(body, user.userId, user.roles[0]);
             return reply.status(201).send({ success: true, data: inspection });
         } catch (error: any) {

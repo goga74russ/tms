@@ -441,12 +441,12 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 status: waybill.status,
                 // \u041c\u0438\u043d\u0442\u0440\u0430\u043d\u0441 \u2116390
                 driverSnils,
-                issuedByName: (waybill as any).issuedByName ?? null,
-                issuedByPosition: (waybill as any).issuedByPosition ?? null,
-                validFrom: (waybill as any).validFrom ?? null,
-                validTo: (waybill as any).validTo ?? null,
-                transportServiceType: (waybill as any).transportServiceType ?? null,
-                transportMode: (waybill as any).transportMode ?? null,
+                issuedByName: waybill.issuedByName ?? null,
+                issuedByPosition: waybill.issuedByPosition ?? null,
+                validFrom: waybill.validFrom ?? null,
+                validTo: waybill.validTo ?? null,
+                transportServiceType: waybill.transportServiceType ?? null,
+                transportMode: waybill.transportMode ?? null,
             });
 
             reply.header('Content-Type', 'application/pdf');

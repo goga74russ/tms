@@ -160,7 +160,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function formatComplianceDate(value?: string | null) {
-    if (!value) return 'вЂ”';
+    if (!value) return '—';
     return new Date(value).toLocaleString('ru-RU', {
         day: '2-digit',
         month: '2-digit',
@@ -684,7 +684,7 @@ function CloseWaybillModal({
                         </button>
                     </div>
                     <p className="text-sm text-slate-500 mt-1">
-                        {waybill.number} вЂў {waybill.vehicle?.plateNumber}
+                        {waybill.number} • {waybill.vehicle?.plateNumber}
                     </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -950,7 +950,7 @@ function DetailModal({
                                 <div className="rounded-xl bg-white px-3 py-2">ПЛ: {dossier.summary?.hasWaybill ? 'да' : 'нет'}</div>
                             </div>
                             <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-500">
-                                {dossier.parties?.length || 0} участников вЂў {dossier.orders?.length || 0} заявок в досье
+                                {dossier.parties?.length || 0} участников • {dossier.orders?.length || 0} заявок в досье
                             </div>
                         </div>
                     )}
@@ -1005,19 +1005,19 @@ function DetailModal({
                         <div className="p-3 bg-emerald-50 rounded-xl">
                             <p className="text-xs text-emerald-500 mb-1">Одометр возврата</p>
                             <p className="text-lg font-bold text-emerald-700">
-                                {waybill.odometerIn ? `${waybill.odometerIn.toLocaleString()} км` : 'вЂ”'}
+                                {waybill.odometerIn ? `${waybill.odometerIn.toLocaleString()} км` : '—'}
                             </p>
                         </div>
                         <div className="p-3 bg-slate-50 rounded-xl">
                             <p className="text-xs text-slate-400 mb-1">Выезд</p>
                             <p className="text-sm font-medium text-slate-700">
-                                {waybill.departureAt ? new Date(waybill.departureAt).toLocaleString('ru-RU') : 'вЂ”'}
+                                {waybill.departureAt ? new Date(waybill.departureAt).toLocaleString('ru-RU') : '—'}
                             </p>
                         </div>
                         <div className="p-3 bg-slate-50 rounded-xl">
                             <p className="text-xs text-slate-400 mb-1">Возврат</p>
                             <p className="text-sm font-medium text-slate-700">
-                                {waybill.returnAt ? new Date(waybill.returnAt).toLocaleString('ru-RU') : 'вЂ”'}
+                                {waybill.returnAt ? new Date(waybill.returnAt).toLocaleString('ru-RU') : '—'}
                             </p>
                         </div>
                     </div>
@@ -1034,13 +1034,13 @@ function DetailModal({
                         <div className="p-3 bg-orange-50 rounded-xl">
                             <p className="text-xs text-orange-500 mb-1">Подпись механика</p>
                             <p className="text-sm font-medium text-orange-700">
-                                {waybill.mechanicSignature ? 'вњ“ ПЭП' : 'вЂ”'}
+                                {waybill.mechanicSignature ? '✓ ПЭП' : '—'}
                             </p>
                         </div>
                         <div className="p-3 bg-rose-50 rounded-xl">
                             <p className="text-xs text-rose-500 mb-1">Подпись медика</p>
                             <p className="text-sm font-medium text-rose-700">
-                                {waybill.medicSignature ? 'вњ“ ПЭП' : 'вЂ”'}
+                                {waybill.medicSignature ? '✓ ПЭП' : '—'}
                             </p>
                         </div>
                     </div>
@@ -1059,9 +1059,9 @@ function DetailModal({
                                             {link.isPrimary && <p className="text-emerald-600 font-semibold">Основной</p>}
                                             {(link.shiftStart || link.shiftEnd) && (
                                                 <p>
-                                                    {link.shiftStart ? new Date(link.shiftStart).toLocaleString('ru-RU') : 'вЂ”'}
+                                                    {link.shiftStart ? new Date(link.shiftStart).toLocaleString('ru-RU') : '—'}
                                                     {' в†’ '}
-                                                    {link.shiftEnd ? new Date(link.shiftEnd).toLocaleString('ru-RU') : 'вЂ”'}
+                                                    {link.shiftEnd ? new Date(link.shiftEnd).toLocaleString('ru-RU') : '—'}
                                                 </p>
                                             )}
                                         </div>
@@ -1343,7 +1343,7 @@ export default function WaybillsPage() {
     const handleCloseSuccess = () => {
         setCloseWaybill(null);
         setDetailWaybill(null);
-        setToast({ message: 'вњ… Путевой лист закрыт', type: 'success' });
+        setToast({ message: '✅ Путевой лист закрыт', type: 'success' });
         loadWaybills();
     };
 
@@ -1558,7 +1558,7 @@ export default function WaybillsPage() {
                                         <td className="px-4 py-3 text-slate-600 text-xs">
                                             {wb.departureAt ? new Date(wb.departureAt).toLocaleString('ru-RU', {
                                                 day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-                                            }) : 'вЂ”'}
+                                            }) : '—'}
                                         </td>
                                         <td className="px-4 py-3 text-slate-600 text-xs">
                                             {wb.odometerOut.toLocaleString()} в†’{' '}
@@ -1631,7 +1631,7 @@ export default function WaybillsPage() {
                 {totalPages > 1 && (
                     <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
                         <p className="text-xs text-slate-500">
-                            Показано {((page - 1) * limit) + 1}вЂ“{Math.min(page * limit, total)} из {total}
+                            Показано {((page - 1) * limit) + 1}–{Math.min(page * limit, total)} из {total}
                         </p>
                         <div className="flex gap-1">
                             <Button

@@ -38,9 +38,9 @@ async function generateTripNumber(tx: { execute: typeof db.execute }): Promise<s
     );
 
     let seq = 1;
-    const rows = result as any[];
+    const rows = result as unknown as Array<{ number: string }>;
     if (rows.length > 0 && rows[0].number) {
-        const parts = (rows[0].number as string).split('-');
+        const parts = rows[0].number.split('-');
         seq = parseInt(parts[2], 10) + 1;
     }
 
@@ -324,7 +324,7 @@ async function syncLinkedOrdersForTripStatus(
                 entityId: order.id,
                 data: { tripId, previousStatus: order.status, newStatus: OrderStatus.ASSIGNED, source: 'waybill_issued' },
             }, tx);
-        } else if (newStatus === TripStatus.IN_TRANSIT && [OrderStatus.ASSIGNED, OrderStatus.CONFIRMED].includes(order.status as any)) {
+        } else if (newStatus === TripStatus.IN_TRANSIT && ([OrderStatus.ASSIGNED, OrderStatus.CONFIRMED] as string[]).includes(order.status)) {
             await tx
                 .update(orders)
                 .set({ status: OrderStatus.IN_TRANSIT, updatedAt: new Date() })
@@ -338,7 +338,7 @@ async function syncLinkedOrdersForTripStatus(
                 entityId: order.id,
                 data: { tripId, previousStatus: order.status, newStatus: OrderStatus.IN_TRANSIT },
             }, tx);
-        } else if (newStatus === TripStatus.COMPLETED && [OrderStatus.ASSIGNED, OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT].includes(order.status as any)) {
+        } else if (newStatus === TripStatus.COMPLETED && ([OrderStatus.ASSIGNED, OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT] as string[]).includes(order.status)) {
             await tx
                 .update(orders)
                 .set({ status: OrderStatus.DELIVERED, updatedAt: new Date() })

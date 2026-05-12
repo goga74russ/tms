@@ -25,6 +25,28 @@ type PermitQuery = PaginationQuery & { vehicleId?: string; active?: string };
 type FineQuery = PaginationQuery & { vehicleId?: string; driverId?: string; status?: string };
 type FineAnalyticsQuery = { vehicleId?: string; driverId?: string };
 
+type AuthUser = { userId: string; roles: string[]; organizationId?: string };
+type FuelRecordsQuery = {
+    vehicleId?: string; driverId?: string; tripId?: string;
+    dateFrom?: string; dateTo?: string;
+    page?: string; limit?: string;
+};
+type OdometerQuery = {
+    vehicleId?: string; source?: string;
+    dateFrom?: string; dateTo?: string;
+    page?: string; limit?: string;
+};
+type DowntimeQuery = {
+    vehicleId?: string; reasonCode?: string; openOnly?: string;
+    dateFrom?: string; dateTo?: string;
+    page?: string; limit?: string;
+};
+type MaintenanceQuery = {
+    vehicleId?: string; status?: string; maintenanceType?: string;
+    dateFrom?: string; dateTo?: string;
+    page?: string; limit?: string;
+};
+
 function sanitizeDriverForViewer(driver: any, viewer: { userId: string; roles: string[] }, ownDriverId?: string | null) {
     if (!driver) return driver;
     const canSeeMedical = viewer.roles.includes('medic') || (viewer.roles.includes('driver') && ownDriverId === driver.id);
@@ -441,9 +463,14 @@ export default async function fleetRoutes(app: FastifyInstance) {
         schema: { tags: ['Автопарк'], summary: 'Список записей топлива', description: 'Заправки ТС с фильтрацией по ТС, водителю, рейсу и датам.' },
         preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
     }, async (request, reply) => {
-        const user = request.user as any;
-        const q = request.query as any;
-        const filters: any = {
+        const user = request.user as AuthUser;
+        const q = request.query as FuelRecordsQuery;
+        const filters: {
+            vehicleId?: string; driverId?: string; tripId?: string;
+            dateFrom?: string; dateTo?: string;
+            organizationId?: string;
+            page: number; limit: number;
+        } = {
             vehicleId: q.vehicleId, driverId: q.driverId, tripId: q.tripId,
             dateFrom: q.dateFrom, dateTo: q.dateTo,
             organizationId: user.organizationId,
@@ -453,7 +480,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         // Driver RLS: only own records
         if (user.roles.includes('driver') && !hasPrivilege(user.roles)) {
             const driverId = await resolveDriverId(user.userId);
-            filters.driverId = driverId;
+            filters.driverId = driverId ?? undefined;
         }
         const result = await fleetService.listFuelRecords(filters);
         return reply.send({ success: true, ...result });
@@ -464,7 +491,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         preHandler: [app.authenticate, requireAbility('create', 'Vehicle')],
     }, async (request, reply) => {
         try {
-            const user = request.user as any;
+            const user = request.user as AuthUser;
             const parsed = FuelRecordCreateSchema.safeParse(request.body);
             if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
             // Driver RLS
@@ -473,7 +500,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
                 if (parsed.data.driverId && parsed.data.driverId !== myDriverId) {
                     return reply.status(403).send({ success: false, error: 'Нельзя создавать записи для другого водителя' });
                 }
-                (parsed.data as any).driverId = myDriverId;
+                (parsed.data as { driverId?: string | null }).driverId = myDriverId;
             }
             await assertScopedRefs({ vehicleId: parsed.data.vehicleId, driverId: parsed.data.driverId, tripId: parsed.data.tripId }, user);
             const record = await fleetService.createFuelRecord({ ...parsed.data, organizationId: user.organizationId, createdBy: user.userId });
@@ -489,8 +516,12 @@ export default async function fleetRoutes(app: FastifyInstance) {
     }, async (request, reply) => {
         try {
             const { id } = request.params as { id: string };
-            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
-            const body = request.body as any;
+            const user = request.user as AuthUser;
+            const body = request.body as Partial<{
+                liters: number; costPerLiter: number; totalCost: number;
+                fuelType: string; station: string; odometerAtFill: number;
+                vehicleId: string; driverId: string; tripId: string;
+            }>;
             await assertScopedRefs({ vehicleId: body.vehicleId, driverId: body.driverId, tripId: body.tripId }, user);
             const updated = await fleetService.updateFuelRecord(id, body, user.organizationId);
             if (!updated) return reply.status(404).send({ success: false, error: 'Запись не найдена' });
@@ -508,8 +539,8 @@ export default async function fleetRoutes(app: FastifyInstance) {
         schema: { tags: ['Автопарк'], summary: 'Показания одометра', description: 'История показаний одометра по ТС.' },
         preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
     }, async (request, reply) => {
-        const user = request.user as any;
-        const q = request.query as any;
+        const user = request.user as AuthUser;
+        const q = request.query as OdometerQuery;
         const result = await fleetService.listOdometerReadings({
             vehicleId: q.vehicleId, source: q.source, dateFrom: q.dateFrom, dateTo: q.dateTo,
             organizationId: user.organizationId,
@@ -523,7 +554,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         preHandler: [app.authenticate, requireAbility('create', 'Vehicle')],
     }, async (request, reply) => {
         try {
-            const user = request.user as any;
+            const user = request.user as AuthUser;
             const parsed = OdometerReadingCreateSchema.safeParse(request.body);
             if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
             if (user.roles.includes('driver') && !hasPrivilege(user.roles)) {
@@ -531,7 +562,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
                 if (parsed.data.driverId && parsed.data.driverId !== myDriverId) {
                     return reply.status(403).send({ success: false, error: 'Нельзя создавать записи для другого водителя' });
                 }
-                (parsed.data as any).driverId = myDriverId;
+                (parsed.data as { driverId?: string | null }).driverId = myDriverId;
             }
             await assertScopedRefs({ vehicleId: parsed.data.vehicleId, driverId: parsed.data.driverId, tripId: parsed.data.tripId }, user);
             const reading = await fleetService.createOdometerReading({ ...parsed.data, organizationId: user.organizationId, createdBy: user.userId });
@@ -549,8 +580,8 @@ export default async function fleetRoutes(app: FastifyInstance) {
         schema: { tags: ['Автопарк'], summary: 'Простои ТС', description: 'История простоев транспортных средств.' },
         preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
     }, async (request, reply) => {
-        const user = request.user as any;
-        const q = request.query as any;
+        const user = request.user as AuthUser;
+        const q = request.query as DowntimeQuery;
         const result = await fleetService.listDowntimeRecords({
             vehicleId: q.vehicleId, reasonCode: q.reasonCode,
             openOnly: q.openOnly === 'true',
@@ -577,7 +608,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         preHandler: [app.authenticate, requireAbility('create', 'Vehicle')],
     }, async (request, reply) => {
         try {
-            const user = request.user as any;
+            const user = request.user as AuthUser;
             const parsed = DowntimeRecordCreateSchema.safeParse(request.body);
             if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
             await assertScopedRefs({ vehicleId: parsed.data.vehicleId, tripId: parsed.data.tripId }, user);
@@ -613,8 +644,8 @@ export default async function fleetRoutes(app: FastifyInstance) {
         schema: { tags: ['Автопарк'], summary: 'План ТО', description: 'Расписание технического обслуживания ТС.' },
         preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
     }, async (request, reply) => {
-        const user = request.user as any;
-        const q = request.query as any;
+        const user = request.user as AuthUser;
+        const q = request.query as MaintenanceQuery;
         const result = await fleetService.listMaintenanceSchedule({
             vehicleId: q.vehicleId, status: q.status, maintenanceType: q.maintenanceType,
             dateFrom: q.dateFrom, dateTo: q.dateTo,
@@ -629,7 +660,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         preHandler: [app.authenticate, requireAbility('create', 'Vehicle')],
     }, async (request, reply) => {
         try {
-            const user = request.user as any;
+            const user = request.user as AuthUser;
             const parsed = MaintenancePlanCreateSchema.safeParse(request.body);
             if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
             await assertVehicleAccess(parsed.data.vehicleId, user);

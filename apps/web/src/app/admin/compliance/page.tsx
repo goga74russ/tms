@@ -14,7 +14,6 @@ import { api } from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { SkeletonTable } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
@@ -104,10 +103,18 @@ function OsagoTab() {
     return (
         <Card className="p-5 space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3 text-sm">
-                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold">Действителен: {validCount}</Badge>
-                    <Badge className="bg-red-100 text-red-800 border-red-300 font-semibold">Истёк: {expiredCount}</Badge>
-                    <Badge className="bg-slate-200 text-slate-800 border-slate-300 font-semibold">Не проверено: {unknownCount}</Badge>
+                <div className="flex items-center gap-2 text-sm">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Действителен: <span className="text-emerald-900">{validCount}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-800">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Истёк: <span className="text-red-900">{expiredCount}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                        Не проверено: <span className="text-slate-900">{unknownCount}</span>
+                    </span>
                 </div>
                 <Button onClick={syncAll} disabled={syncing}>
                     <RefreshCw className={`w-4 h-4 mr-1 ${syncing ? 'animate-spin' : ''}`} />

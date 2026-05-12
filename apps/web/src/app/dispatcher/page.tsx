@@ -285,33 +285,35 @@ export default function DispatcherPage() {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
+            type ListResponse<T> = { success: boolean; data: T[] };
+            type ExceptionsResponse = { success: boolean; data: OperationExceptionsPayload };
             const [vehiclesResult, ordersResult, tripsResult, exceptionsResult] = await Promise.allSettled([
-                api.get('/fleet/vehicles?limit=100'),
-                api.get('/orders?status=confirmed&limit=50'),
-                api.get('/trips?limit=100'),
-                api.get('/operations/exceptions?limit=50&includeInfo=true'),
+                api.get<ListResponse<Vehicle>>('/fleet/vehicles?limit=100'),
+                api.get<ListResponse<UnassignedOrder>>('/orders?status=confirmed&limit=50'),
+                api.get<ListResponse<TripForTimeline>>('/trips?limit=100'),
+                api.get<ExceptionsResponse>('/operations/exceptions?limit=50&includeInfo=true'),
             ]);
 
-            if (vehiclesResult.status === 'fulfilled' && (vehiclesResult.value as any).success) {
-                setVehicles(Array.isArray((vehiclesResult.value as any).data) ? (vehiclesResult.value as any).data : []);
+            if (vehiclesResult.status === 'fulfilled' && vehiclesResult.value.success) {
+                setVehicles(Array.isArray(vehiclesResult.value.data) ? vehiclesResult.value.data : []);
             } else if (vehiclesResult.status === 'rejected') {
                 console.error('Failed to load vehicles for dispatcher', vehiclesResult.reason);
             }
 
-            if (ordersResult.status === 'fulfilled' && (ordersResult.value as any).success) {
-                setOrders(Array.isArray((ordersResult.value as any).data) ? (ordersResult.value as any).data : []);
+            if (ordersResult.status === 'fulfilled' && ordersResult.value.success) {
+                setOrders(Array.isArray(ordersResult.value.data) ? ordersResult.value.data : []);
             } else if (ordersResult.status === 'rejected') {
                 console.error('Failed to load orders for dispatcher', ordersResult.reason);
             }
 
-            if (tripsResult.status === 'fulfilled' && (tripsResult.value as any).success) {
-                setTrips(Array.isArray((tripsResult.value as any).data) ? (tripsResult.value as any).data : []);
+            if (tripsResult.status === 'fulfilled' && tripsResult.value.success) {
+                setTrips(Array.isArray(tripsResult.value.data) ? tripsResult.value.data : []);
             } else if (tripsResult.status === 'rejected') {
                 console.error('Failed to load trips for dispatcher', tripsResult.reason);
             }
 
-            if (exceptionsResult.status === 'fulfilled' && (exceptionsResult.value as any).success) {
-                const payload = (exceptionsResult.value as any).data as OperationExceptionsPayload;
+            if (exceptionsResult.status === 'fulfilled' && exceptionsResult.value.success) {
+                const payload = exceptionsResult.value.data;
                 setExceptions(Array.isArray(payload?.exceptions) ? payload.exceptions : []);
             } else if (exceptionsResult.status === 'rejected') {
                 console.error('Failed to load operations exceptions for dispatcher', exceptionsResult.reason);
@@ -405,8 +407,15 @@ export default function DispatcherPage() {
                     })) : [];
 
                     setTripRoutePoints(points);
-                    const confData = await api.get(`/trips/${trip.id}/delivery-confirmation`).catch(() => null);
-                    const confirmation = (confData as any)?.success ? (confData as any).data : null;
+                    type DeliveryConfirmation = {
+                        recipientName: string;
+                        cargoCondition: string;
+                        confirmedAt: string;
+                        forcedByDispatcher: boolean;
+                        forcedReason?: string;
+                    };
+                    const confData = await api.get<{ success: boolean; data: DeliveryConfirmation }>(`/trips/${trip.id}/delivery-confirmation`).catch(() => null);
+                    const confirmation = confData?.success ? confData.data : null;
 
                     setActiveTripDetails({
                         id: trip.id,

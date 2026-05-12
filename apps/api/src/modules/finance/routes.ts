@@ -88,26 +88,52 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
     );
 
     // 2. GET /finance/invoices — Список счетов (RLS: client sees only own)
-    fastify.get<{ Querystring: { page?: string; limit?: string } }>(
+    fastify.get<{ Querystring: { page?: string; limit?: string; tripId?: string } }>(
         '/finance/invoices',
-        { schema: { tags: ['Финансы'], summary: 'Список счетов', description: 'Все счета/акты. RLS: клиент видит только свои.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')] },
+        { schema: { tags: ['Финансы'], summary: 'Список счетов', description: 'Все счета/акты. RLS: клиент видит только свои. Опц. фильтр tripId.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')] },
         async (request, reply) => {
             const user = request.user as { userId: string; roles: string[]; organizationId?: string };
-            const page = parseInt(request.query.page || '1', 10);
-            const limit = parseInt(request.query.limit || '50', 10);
+
+            // Parse and validate query
+            const queryParse = z.object({
+                page: z.string().optional(),
+                limit: z.string().optional(),
+                tripId: z.string().uuid().optional(),
+            }).safeParse(request.query);
+            if (!queryParse.success) {
+                return reply.code(422).send({ success: false, error: queryParse.error.flatten() });
+            }
+            const page = parseInt(queryParse.data.page || '1', 10);
+            const limit = parseInt(queryParse.data.limit || '50', 10);
             const offset = (page - 1) * limit;
+            const tripId = queryParse.data.tripId;
+
+            // If tripId provided, find invoiceIds linked to that trip first.
+            let tripFilterInvoiceIds: string[] | null = null;
+            if (tripId) {
+                const linkRows = await db.select({ invoiceId: invoiceTrips.invoiceId })
+                    .from(invoiceTrips)
+                    .where(eq(invoiceTrips.tripId, tripId));
+                tripFilterInvoiceIds = linkRows.map((r) => r.invoiceId);
+                if (tripFilterInvoiceIds.length === 0) {
+                    return { success: true, data: [] };
+                }
+            }
 
             if (!hasPrivilege(user.roles) && user.roles.includes('client')) {
                 const myContractorId = await resolveContractorId(user.userId);
                 if (!myContractorId) {
                     return { success: true, data: [] };
                 }
-                const list = await db.query.invoices.findMany({
-                    where: eq(invoices.contractorId, myContractorId),
-                    orderBy: [desc(invoices.createdAt)],
-                    limit,
-                    offset,
-                });
+                const clientConditions = [eq(invoices.contractorId, myContractorId)];
+                if (tripFilterInvoiceIds) {
+                    clientConditions.push(inArray(invoices.id, tripFilterInvoiceIds));
+                }
+                const list = await db.select().from(invoices)
+                    .where(and(...clientConditions))
+                    .orderBy(desc(invoices.createdAt))
+                    .limit(limit)
+                    .offset(offset);
                 return { success: true, data: await attachTripIds(list) };
             }
 
@@ -119,6 +145,9 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         db.select({ id: contractorsTable.id }).from(contractorsTable).where(eq(contractorsTable.organizationId, user.organizationId))
                     )
                 );
+            }
+            if (tripFilterInvoiceIds) {
+                conditions.push(inArray(invoices.id, tripFilterInvoiceIds));
             }
             const where = conditions.length > 0 ? and(...conditions) : undefined;
 
