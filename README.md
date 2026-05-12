@@ -100,7 +100,7 @@ Free-box («бесплатный контур») закрыт end-to-end пос�
 
 - Web: `http://localhost:3000` (`/` → landing, `/login` → cabinet, `/signup` → onboarding).
 - API: `http://localhost:3001` (`/health`, `/docs` для Swagger).
-- Smoke-chain: `bash scripts/api-smoke-chain.sh` — прогон цепочки login → order → trip → waybill → inspect → start → temperature → complete → invoice.
+- Smoke-chain: `API_URL=http://localhost:3001 SEED_PASSWORD=<your-seed-pw> node scripts/smoke-chain.mjs` — прогон цепочки login → order → trip → waybill → inspect → start → temperature → complete → invoice.
 
 ## Public landing & user-facing docs
 
@@ -110,6 +110,7 @@ Free-box («бесплатный контур») закрыт end-to-end пос�
 
 ## Ключевые операционные доки
 
+- [docs/operations/pre-launch-checklist.md](docs/operations/pre-launch-checklist.md) — **чек-лист готовности к пилоту** (env, безопасность, инфра, юр-вопросы, DR).
 - [docs/operations/wave-summary.md](docs/operations/wave-summary.md) — что построено в каждой волне / раунде.
 - [docs/operations/integrations-status.md](docs/operations/integrations-status.md) — карта mock → real provider.
 - [docs/operations/free-box-checklist.md](docs/operations/free-box-checklist.md) — чек-лист функций free-box по этапам цепочки.
