@@ -48,7 +48,7 @@ export function AuthSplitLayout({
                         aria-label="TMS — на главную"
                     >
                         <div className="w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-sm transition-transform group-hover:scale-105">
-                            <Truck className="w-4.5 h-4.5" />
+                            <Truck className="w-[18px] h-[18px]" />
                         </div>
                         <span className="font-bold text-neutral-900 tracking-tight">TMS</span>
                     </Link>
@@ -94,7 +94,7 @@ export function AuthSplitLayout({
 
             {/* Right column: brand-gradient decorative panel */}
             <aside
-                aria-hidden={!rightPanel}
+                aria-hidden="true"
                 className="hidden lg:flex relative overflow-hidden bg-gradient-to-br from-brand-50 via-brand-100 to-brand-200 items-center justify-center px-10 py-12"
             >
                 {/* Soft organic blob behind */}

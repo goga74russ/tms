@@ -579,9 +579,9 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                         </span>
                                     </div>
                                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                                        <span>{title.isRequired ? 'required' : 'optional'}</span>
-                                        <span>history {title.history?.length || 0}</span>
-                                        {title.error && <RetryHint label="retry after fix" />}
+                                        <span>{title.isRequired ? 'обязат.' : 'опц.'}</span>
+                                        <span>история {title.history?.length || 0}</span>
+                                        {title.error && <RetryHint label="повторить после исправления" />}
                                     </div>
                                     {title.error && (
                                         <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
@@ -596,10 +596,10 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">ETRN issues</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Проблемы ЭТРН</p>
                                     <p className="text-sm font-semibold text-slate-900">Что мешает пройти по контуру</p>
                                 </div>
-                                <RetryHint label="Check blockers" />
+                                <RetryHint label="Проверить блокеры" />
                             </div>
                             <div className="mt-3 space-y-2">
                                 {(etrnProblems.slice(0, 4)).map((problem: any) => (
@@ -863,7 +863,7 @@ function DetailModal({
                                 <p className="text-sm font-semibold text-slate-900">{waybillCue.title}</p>
                             </div>
                             <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
-                                {waybillCue.tone === 'ready' ? 'ready' : 'check'}
+                                {waybillCue.tone === 'ready' ? 'Готов' : 'Проверить'}
                             </span>
                         </div>
                         <p className="mt-2 text-xs leading-5 text-slate-600">{waybillCue.description}</p>
@@ -936,7 +936,7 @@ function DetailModal({
                         <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 space-y-3">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Compliance snapshot</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Сводка по compliance</p>
                                     <p className="text-sm font-semibold text-slate-900">Досье рейса</p>
                                 </div>
                                 <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
@@ -958,7 +958,7 @@ function DetailModal({
                     <div className="rounded-2xl border border-slate-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Readiness checklist</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Готовность</p>
                                 <p className="text-sm font-semibold text-slate-900">
                                     {readiness.title} · {readiness.doneCount}/{readiness.totalCount}
                                 </p>
@@ -970,7 +970,7 @@ function DetailModal({
                                         ? 'bg-amber-100 text-amber-700'
                                         : 'bg-emerald-100 text-emerald-700'
                             }`}>
-                                {readiness.tone === 'ready' ? 'ready' : readiness.tone === 'attention' ? 'check' : 'block'}
+                                {readiness.tone === 'ready' ? 'Готов' : readiness.tone === 'attention' ? 'Проверить' : 'Заблок.'}
                             </span>
                         </div>
                         <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -985,7 +985,7 @@ function DetailModal({
                                                     ? 'text-amber-700'
                                                     : 'text-slate-500'
                                         }`}>
-                                            {item.state === 'done' ? 'ok' : item.state === 'warn' ? 'check' : 'optional'}
+                                            {item.state === 'done' ? 'OK' : item.state === 'warn' ? 'Проверить' : 'Опц.'}
                                         </span>
                                     </div>
                                     <p className="mt-1 text-[11px] leading-4 text-slate-500">{item.hint}</p>
@@ -1419,7 +1419,7 @@ export default function WaybillsPage() {
                                         ? 'bg-amber-100 text-amber-700'
                                         : 'bg-emerald-100 text-emerald-700'
                             }`}>
-                                {rowReadiness.tone === 'ready' ? 'ready' : rowReadiness.tone === 'attention' ? 'check' : 'block'}
+                                {rowReadiness.tone === 'ready' ? 'Готов' : rowReadiness.tone === 'attention' ? 'Проверить' : 'Заблок.'}
                             </span>
                         )}
                         {trailerMap[r.vehicleId] && (

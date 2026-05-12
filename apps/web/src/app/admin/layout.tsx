@@ -63,9 +63,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex gap-0 -m-6 min-h-screen">
             {/* Admin sidebar — sticky vertical rail */}
             <aside className="w-60 shrink-0 bg-white border-r border-neutral-200 sticky top-0 self-start h-screen overflow-y-auto">
-                <div className="px-4 py-4 border-b border-neutral-100 sticky top-0 bg-white z-10">
+                <div className="px-4 py-4 border-b border-neutral-100">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
                             <ShieldCheck className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">

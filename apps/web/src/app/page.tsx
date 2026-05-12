@@ -17,6 +17,20 @@ const ROLE_ROUTES: Record<string, string> = {
     driver: '/trips',
 };
 
+// Priority — a user with multiple roles lands on the most privileged dashboard.
+const ROLE_PRIORITY: string[] = [
+    'admin',
+    'manager',
+    'dispatcher',
+    'logist',
+    'accountant',
+    'mechanic',
+    'medic',
+    'repair_service',
+    'client',
+    'driver',
+];
+
 /**
  * Root entrypoint:
  *  - authenticated  -> role-specific dashboard
@@ -33,10 +47,14 @@ export default function RootPage() {
     useEffect(() => {
         if (loading) return;
         if (user) {
-            const route =
-                user.roles.reduce<string>((acc, role) => acc || (ROLE_ROUTES[role] ?? ''), '') ||
-                '/logist';
-            router.replace(route);
+            let route = '';
+            for (const role of ROLE_PRIORITY) {
+                if (user.roles.includes(role) && ROLE_ROUTES[role]) {
+                    route = ROLE_ROUTES[role];
+                    break;
+                }
+            }
+            router.replace(route || '/logist');
             return;
         }
         router.replace('/landing');

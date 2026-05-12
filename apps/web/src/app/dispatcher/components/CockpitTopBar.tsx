@@ -147,7 +147,7 @@ export function CockpitTopBar({
                 onClick={onToggleDarkMode}
                 className="w-8 h-8 rounded-md border border-neutral-200 bg-white text-neutral-500 hover:bg-neutral-50 flex items-center justify-center transition-colors"
                 title={darkMode ? 'Светлая тема' : 'Тёмная тема (control tower)'}
-                aria-label="Toggle theme"
+                aria-label="Переключить тему"
             >
                 {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
             </button>

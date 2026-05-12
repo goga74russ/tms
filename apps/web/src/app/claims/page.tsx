@@ -127,8 +127,13 @@ function claimSettlementNote(claim: Claim) {
 function evidenceValue(value: unknown): string | null {
     if (value === null || value === undefined || value === '') return null;
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
-    if (Array.isArray(value)) return value.length ? `${value.length} item(s)` : null;
-    if (typeof value === 'object') return 'provided';
+    if (Array.isArray(value)) {
+        if (!value.length) return null;
+        const n = value.length;
+        const word = n % 10 === 1 && n % 100 !== 11 ? 'элемент' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'элемента' : 'элементов';
+        return `${n} ${word}`;
+    }
+    if (typeof value === 'object') return 'есть';
     return null;
 }
 
@@ -138,7 +143,7 @@ function collectEvidence(claim: Claim): EvidenceItem[] {
 
     claim.attachments.forEach((attachment, index) => {
         if (!attachment || typeof attachment !== 'object' || Array.isArray(attachment)) {
-            if (attachment) rows.push({ label: `Attachment ${index + 1}`, value: evidenceValue(attachment) ?? 'provided' });
+            if (attachment) rows.push({ label: `Вложение ${index + 1}`, value: evidenceValue(attachment) ?? 'есть' });
             return;
         }
 
@@ -264,7 +269,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs text-gray-500 block mb-1">Reserve, RUB</label>
+                            <label className="text-xs text-gray-500 block mb-1">Резерв, ₽</label>
                             <Input
                                 type="number"
                                 min="0"
@@ -275,7 +280,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                             />
                         </div>
                         <div>
-                            <label className="text-xs text-gray-500 block mb-1">Estimated, RUB</label>
+                            <label className="text-xs text-gray-500 block mb-1">Оценка, ₽</label>
                             <Input
                                 type="number"
                                 min="0"
@@ -321,10 +326,10 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                         />
                     </div>
                     <div>
-                        <label className="text-xs text-gray-500 block mb-1">Settlement note</label>
+                        <label className="text-xs text-gray-500 block mb-1">Заметка по урегулированию</label>
                         <textarea
                             className="w-full border rounded px-2 py-1.5 text-sm min-h-[60px]"
-                            placeholder="Reserve rationale, evidence notes, negotiation context..."
+                            placeholder="Обоснование резерва, ссылки на доказательства, контекст переговоров..."
                             value={form.settlementNote}
                             onChange={e => setForm(f => ({ ...f, settlementNote: e.target.value }))}
                         />
@@ -429,10 +434,10 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
                         />
                     </div>
                     <div>
-                        <label className="text-xs text-gray-500 block mb-1">Settlement note</label>
+                        <label className="text-xs text-gray-500 block mb-1">Заметка по урегулированию</label>
                         <textarea
                             className="w-full border rounded px-2 py-1.5 text-sm min-h-[60px]"
-                            placeholder="Settlement, deductions, recovery notes..."
+                            placeholder="Урегулирование, удержания, возврат..."
                             value={form.settlementNote}
                             onChange={e => setForm(f => ({ ...f, settlementNote: e.target.value }))}
                         />
@@ -523,12 +528,12 @@ export default function ClaimsPage() {
                     )}
                     {claimSettlementNote(r) && (
                         <span className="block truncate text-xs text-indigo-600 mt-0.5" title={claimSettlementNote(r) ?? undefined}>
-                            Settlement: {claimSettlementNote(r)}
+                            Урегулир.: {claimSettlementNote(r)}
                         </span>
                     )}
                     {collectEvidence(r).length > 0 && (
                         <span className="block truncate text-xs text-slate-500 mt-0.5" title={collectEvidence(r).map(e => `${e.label}: ${e.value}`).join('; ')}>
-                            Evidence: {collectEvidence(r).map(e => e.label).join(', ')}
+                            Доказательства: {collectEvidence(r).map(e => e.label).join(', ')}
                         </span>
                     )}
                 </div>

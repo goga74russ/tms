@@ -23,7 +23,7 @@ export default function TermsPage() {
     return (
         <LegalPageShell
             title="Условия использования (публичная оферта)"
-            dateline="Дата вступления в силу: подлежит уточнению"
+            dateline="Дата вступления в силу: 12 мая 2026 года (пилотная редакция)"
             toc={TOC}
         >
             <h2 id="parties">1. Стороны</h2>

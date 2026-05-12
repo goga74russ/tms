@@ -195,7 +195,7 @@ export function CockpitRightPanel({
                 {coldChainBreaches.length === 0 && (
                     <div className="px-3 py-2 flex items-center gap-2 text-[11px] text-emerald-700 bg-emerald-50/40 border-b border-neutral-100">
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        Cold chain OK
+                        Холодовая цепь — норма
                     </div>
                 )}
             </div>

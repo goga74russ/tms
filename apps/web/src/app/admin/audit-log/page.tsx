@@ -329,7 +329,8 @@ export default function AuditLogPage() {
                                                 <button
                                                     onClick={() => setExpanded((s) => ({ ...s, [r.id]: !s[r.id] }))}
                                                     className="text-neutral-400 hover:text-neutral-900 transition-colors"
-                                                    aria-label="Раскрыть"
+                                                    aria-label={isOpen ? 'Свернуть' : 'Раскрыть'}
+                                                    aria-expanded={isOpen}
                                                 >
                                                     <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                                                 </button>

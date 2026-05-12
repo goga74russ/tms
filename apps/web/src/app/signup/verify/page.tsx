@@ -164,6 +164,15 @@ function VerifyEmailContent() {
     };
 
     const handlePasteButton = async () => {
+        // Safari < 13.4, Firefox без permission, insecure HTTP — navigator.clipboard может отсутствовать.
+        if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) {
+            toast({
+                variant: 'warning',
+                title: 'Буфер недоступен',
+                description: 'Браузер не разрешает чтение буфера. Вставьте код вручную (Ctrl+V).',
+            });
+            return;
+        }
         try {
             const text = await navigator.clipboard.readText();
             const cleaned = text.replace(/\D/g, '').slice(0, CODE_LENGTH);

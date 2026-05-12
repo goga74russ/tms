@@ -25,6 +25,27 @@ const ROLE_ROUTES: Record<string, string> = {
     driver: '/',
 };
 
+// Priority order — when a user has multiple roles, route by the most specific/privileged.
+const ROLE_PRIORITY: string[] = [
+    'admin',
+    'manager',
+    'dispatcher',
+    'logist',
+    'accountant',
+    'mechanic',
+    'medic',
+    'repair_service',
+    'client',
+    'driver',
+];
+
+function pickRouteForRoles(roles: string[]): string {
+    for (const role of ROLE_PRIORITY) {
+        if (roles.includes(role) && ROLE_ROUTES[role]) return ROLE_ROUTES[role];
+    }
+    return '/';
+}
+
 function ProductShowcase() {
     return (
         <div className="space-y-5">
@@ -127,11 +148,23 @@ export default function LoginPage() {
         try {
             const result = await api.login(email.trim(), password);
             if (result.success) {
+                // Persist the "remember me" hint so other components can prefer long-lived UI state.
+                // Real long-lived sessions still require server-side support; this is at least honest:
+                // the box is no longer a no-op.
+                try {
+                    if (typeof window !== 'undefined') {
+                        if (remember) {
+                            window.localStorage.setItem('auth:remember', '1');
+                        } else {
+                            window.localStorage.removeItem('auth:remember');
+                        }
+                    }
+                } catch { /* localStorage may be unavailable */ }
+
                 const meResult = await api.me();
                 await refetch();
                 const roles: string[] = meResult?.data?.roles ?? [];
-                const route =
-                    roles.reduce<string>((acc, role) => acc || (ROLE_ROUTES[role] ?? ''), '') || '/';
+                const route = pickRouteForRoles(roles);
                 toast({
                     variant: 'success',
                     title: 'Добро пожаловать',

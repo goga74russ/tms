@@ -9,7 +9,7 @@
 // ============================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ShieldCheck, Upload, RefreshCw, AlertTriangle, CheckCircle2, BarChart3, FileText, Database, ScanLine } from 'lucide-react';
+import { ShieldCheck, Upload, RefreshCw, AlertTriangle, CheckCircle2, BarChart3, Database, ScanLine } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

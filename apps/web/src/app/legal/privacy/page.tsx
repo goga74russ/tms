@@ -20,7 +20,7 @@ const TOC = [
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalPageShell title="Политика конфиденциальности" dateline="Дата вступления в силу: подлежит уточнению" toc={TOC}>
+        <LegalPageShell title="Политика конфиденциальности" dateline="Дата вступления в силу: 12 мая 2026 года (пилотная редакция)" toc={TOC}>
             <h2 id="general">1. Общие положения</h2>
             <p>
                 Настоящая Политика обработки персональных данных (далее — «Политика») определяет порядок

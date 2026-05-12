@@ -233,16 +233,16 @@ function formatTimelineDate(value?: string | null) {
 
 function formatWeightKg(value?: number | string | null) {
     const parsed = Number(value ?? 0);
-    if (!Number.isFinite(parsed) || parsed <= 0) return '-';
+    if (!Number.isFinite(parsed) || parsed <= 0) return '—';
     return parsed >= 1000
-        ? `${(parsed / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} t`
-        : `${parsed.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} kg`;
+        ? `${(parsed / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} т`
+        : `${parsed.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} кг`;
 }
 
 function formatVolumeM3(value?: number | string | null) {
     const parsed = Number(value ?? 0);
-    if (!Number.isFinite(parsed) || parsed <= 0) return '-';
-    return `${parsed.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} m3`;
+    if (!Number.isFinite(parsed) || parsed <= 0) return '—';
+    return `${parsed.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} м³`;
 }
 
 function routePointOrder(point: RoutePoint, index = 0) {
@@ -250,9 +250,9 @@ function routePointOrder(point: RoutePoint, index = 0) {
 }
 
 function routePointTypeLabel(type?: string | null) {
-    if (type === 'loading') return 'Loading';
-    if (type === 'unloading') return 'Unloading';
-    return type || 'Stop';
+    if (type === 'loading') return 'Погрузка';
+    if (type === 'unloading') return 'Разгрузка';
+    return type || 'Точка';
 }
 
 function transportDocumentLabel(type: string) {
@@ -381,6 +381,36 @@ function RetryHint({ label = 'Требует проверки' }: { label?: stri
     );
 }
 
+function bucketLabel(bucket?: string | null) {
+    const labels: Record<string, string> = {
+        missing: 'нет',
+        overdue: 'просрочен',
+        exceptioned: 'исключение',
+        ready: 'готов',
+        pending: 'ожидает',
+    };
+    return bucket ? (labels[bucket] || bucket) : '';
+}
+
+function eventSeverityLabel(severity?: string | null) {
+    if (severity === 'critical') return 'критично';
+    if (severity === 'warning') return 'риск';
+    if (severity === 'info') return 'инфо';
+    return severity || 'инфо';
+}
+
+function readinessLabel(value?: string | null) {
+    const labels: Record<string, string> = {
+        ready: 'Готов',
+        check: 'Проверить',
+        block: 'Заблок.',
+        ok: 'OK',
+        optional: 'Опц.',
+        required: 'Обязат.',
+    };
+    return value ? (labels[value] || value) : '';
+}
+
 function humanizeNextAction(action?: string | null) {
     const labels: Record<string, string> = {
         issue_waybill: 'выпустить ПЛ',
@@ -438,7 +468,7 @@ function TimelineCard({
                                 </p>
                             </div>
                             <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(event.severity, 'bg')}`}>
-                                {event.isProblem ? 'problem' : event.severity}
+                                {event.isProblem ? 'проблема' : eventSeverityLabel(event.severity)}
                             </span>
                         </div>
                         <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-slate-500">
@@ -467,9 +497,9 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
         exceptioned: 'bg-amber-100 text-amber-700',
     };
     const roleLabel: Record<string, string> = {
-        dispatcher: 'dispatcher',
-        driver: 'driver',
-        accounting: 'accounting',
+        dispatcher: 'диспетчер',
+        driver: 'водитель',
+        accounting: 'бухгалтерия',
     };
 
     const renderItem = (item: CloseGateItem) => (
@@ -482,7 +512,7 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                     item.severity === 'blocking' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
                 }`}>
-                    {item.severity === 'blocking' ? 'block' : 'warning'}
+                    {item.severity === 'blocking' ? 'блокер' : 'риск'}
                 </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
@@ -508,7 +538,7 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className={`text-xs font-semibold uppercase tracking-wide ${canClose ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        Close gate
+                        Закрытие рейса
                     </p>
                     <p className="mt-1 text-base font-semibold text-slate-900">
                         {canClose ? 'Рейс можно закрывать по досье' : 'Что мешает закрыть рейс'}
@@ -521,13 +551,13 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         canClose ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
                     }`}>
-                        canClose: {canClose ? 'true' : 'false'}
+                        {canClose ? 'Можно закрыть' : 'Закрытие заблокировано'}
                     </span>
                     <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-sm">
-                        blockers: {blockingItems.length}
+                        Блокеров: {blockingItems.length}
                     </span>
                     <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 shadow-sm">
-                        warnings: {warningItems.length}
+                        Рисков: {warningItems.length}
                     </span>
                 </div>
             </div>
@@ -564,11 +594,11 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                 <div id="document-queue" className="mt-4 rounded-2xl border border-white bg-white p-4 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Document queue</p>
-                            <p className="mt-1 text-sm font-semibold text-slate-900">Missing, overdue and exceptioned documents</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Очередь документов</p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">Отсутствующие, просроченные и исключения</p>
                         </div>
                         <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                            {documentQueue.length} actions
+                            {documentQueue.length} {documentQueue.length === 1 ? 'действие' : 'действий'}
                         </span>
                     </div>
                     <div className="mt-3 grid gap-2">
@@ -579,16 +609,16 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                                         <div className="flex flex-wrap items-center gap-2">
                                             <p className="text-sm font-semibold text-slate-900">{transportDocumentLabel(item.documentType)}</p>
                                             <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${bucketClass[item.bucket] || 'bg-slate-100 text-slate-600'}`}>
-                                                {item.bucket}
+                                                {bucketLabel(item.bucket)}
                                             </span>
                                             <span className="inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                                                owner: {roleLabel[item.responsibleRole] || item.responsibleRole}
+                                                ответств.: {roleLabel[item.responsibleRole] || item.responsibleRole}
                                             </span>
                                         </div>
                                         <p className="mt-1 text-xs text-slate-600">{item.action}</p>
                                         <p className="mt-1 text-[11px] text-slate-500">
                                             {dossierItemStatusLabel(item.status)}
-                                            {item.dueAt ? ` · due ${formatTimelineDate(item.dueAt)}` : ''}
+                                            {item.dueAt ? ` · до ${formatTimelineDate(item.dueAt)}` : ''}
                                             {item.reason ? ` · ${item.reason}` : ''}
                                         </p>
                                     </div>
@@ -599,7 +629,7 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                                             className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
                                         >
                                             <FileText className="h-3.5 w-3.5" />
-                                            {item.printLabel || 'Print act'}
+                                            {item.printLabel || 'Печать акта'}
                                         </button>
                                     )}
                                 </div>
@@ -630,13 +660,13 @@ function DossierNextActions({
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next actions</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">Repair, return and close-flow shortcuts</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Дальнейшие действия</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">Ремонт, возврат, закрытие — быстрые ссылки</p>
                 </div>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                     closeGate?.canClose ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
                 }`}>
-                    close: {closeGate?.canClose ? 'ready' : 'blocked'}
+                    {closeGate?.canClose ? 'Готов к закрытию' : 'Закрытие заблокировано'}
                 </span>
             </div>
             <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
@@ -647,9 +677,9 @@ function DossierNextActions({
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <Wrench className="h-3.5 w-3.5" />
-                        Repair request
+                        Заявка на ремонт
                     </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Open repair UI with this vehicle and trip context.</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Открыть ремонт с контекстом этого ТС и рейса.</span>
                 </button>
                 <button
                     type="button"
@@ -658,9 +688,9 @@ function DossierNextActions({
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <RotateCcw className="h-3.5 w-3.5" />
-                        Return checklist
+                        Чек-лист возврата
                     </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Jump to post-trip return: documents, odometer, fuel, inspection.</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Возврат после рейса: документы, одометр, топливо, осмотр.</span>
                 </button>
                 <button
                     type="button"
@@ -669,9 +699,9 @@ function DossierNextActions({
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <AlertTriangle className="h-3.5 w-3.5" />
-                        Breakdown flow
+                        Поломка в рейсе
                     </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Record blocking event, then open repair or replacement if needed.</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Зафиксировать блокирующее событие и открыть ремонт/замену.</span>
                 </button>
                 <a
                     href="#document-queue"
@@ -679,10 +709,10 @@ function DossierNextActions({
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        Close gate
+                        Закрытие рейса
                     </span>
                     <span className="mt-1 block text-[11px] leading-4 text-slate-500">
-                        {blockerCount} blockers, {warningCount} warnings, {queueCount} document actions.
+                        Блокеров: {blockerCount}, рисков: {warningCount}, документов в очереди: {queueCount}.
                     </span>
                 </a>
             </div>
@@ -2911,7 +2941,7 @@ export default function TripsPage() {
                                     <div className="rounded-2xl border border-slate-200 bg-white p-4">
                                         <div className="flex items-start justify-between gap-3">
                                             <div>
-                                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Readiness checklist</p>
+                                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Готовность</p>
                                                 <p className="text-sm font-semibold text-slate-900">
                                                     {dossierReadiness.title} · {dossierReadiness.doneCount}/{dossierReadiness.totalCount}
                                                 </p>
@@ -2923,7 +2953,7 @@ export default function TripsPage() {
                                                         ? 'bg-amber-100 text-amber-700'
                                                         : 'bg-emerald-100 text-emerald-700'
                                             }`}>
-                                                {dossierReadiness.tone === 'ready' ? 'ready' : dossierReadiness.tone === 'attention' ? 'check' : 'block'}
+                                                {dossierReadiness.tone === 'ready' ? 'Готов' : dossierReadiness.tone === 'attention' ? 'Проверить' : 'Заблок.'}
                                             </span>
                                         </div>
                                         <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -2938,7 +2968,7 @@ export default function TripsPage() {
                                                                     ? 'text-amber-700'
                                                                     : 'text-slate-500'
                                                         }`}>
-                                                            {item.state === 'done' ? 'ok' : item.state === 'warn' ? 'check' : 'optional'}
+                                                            {item.state === 'done' ? 'OK' : item.state === 'warn' ? 'Проверить' : 'Опц.'}
                                                         </span>
                                                     </div>
                                                     <p className="mt-1 text-[11px] leading-4 text-slate-500">{item.hint}</p>

@@ -234,7 +234,7 @@ export default function SignupPage() {
             if (!res.success) {
                 const message = res.error ?? 'Ошибка регистрации';
                 if (/email|exist/i.test(message)) {
-                    setErrors({ email: 'Этот e-mail уже зарегистрирован' });
+                    setErrors((prev) => ({ ...prev, email: 'Этот e-mail уже зарегистрирован' }));
                 }
                 toast({
                     variant: 'error',

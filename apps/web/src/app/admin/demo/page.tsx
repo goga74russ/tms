@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import {
-    Sparkles, Trash2, CheckCircle2, AlertCircle, Loader2, Info,
+    Sparkles, Trash2, CheckCircle2, AlertCircle, Info,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 
@@ -88,12 +88,12 @@ export default function AdminDemoPage() {
         <div className="space-y-6">
             <PageHeader
                 icon={Sparkles}
-                iconTone="indigo"
+                iconTone="brand"
                 title="Демо-данные"
                 description="Минимальный набор данных для знакомства с системой: 1 контрагент, 2 ТС, 2 водителя, завершённый и активный рейсы, заявка с холодильной цепью."
             />
 
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 flex gap-3">
+            <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800 flex gap-3">
                 <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
                 <div>
                     <p className="font-medium mb-1">Безопасно для пробы.</p>

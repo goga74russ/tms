@@ -52,11 +52,27 @@
 | B-31 | P2 | `apps/web/src/app/admin/integrations/page.tsx` | Provider rows показывали raw enum-like keys (`gosklyuch`, `kontur_sign`, etc.) | Fixed in `35a5fc5` (PROVIDER_LABEL_RU map 26 entries: gosklyuch→Госключ, kontur_sign→Контур.Подпись, diadoc→Контур.Диадок, sbis_sign→СБИС, kaluga_astral→Калуга Астрал, yookassa→ЮKassa, и т.д.) | DataTable Phase 2 walkthrough |
 | B-32 | P3 | `apps/web/src/app/admin/billing/page.tsx` | "MRR (active)" English string | Fixed in `35a5fc5` ("MRR (активные)") | DataTable Phase 2 walkthrough |
 | B-33 | P3 | `apps/web/src/app/admin/settings/page.tsx` | "Cost model" English string | Fixed in `35a5fc5` ("Модель себестоимости") | DataTable Phase 2 walkthrough |
+| B-34 | P1 | `apps/web/src/app/trips/page.tsx` | Множество английских строк: `Loading`/`Unloading`/`Stop` для типов точек, ` t`/` kg`/` m3` для веса/объёма, `problem`/severity tokens, `dispatcher`/`driver`/`accounting` для роли, `block`/`warning` для severity badge, "Next actions"/"Repair request"/"Return checklist"/"Breakdown flow"/"Close gate", "Document queue"/"Missing, overdue and exceptioned", `close: ready/blocked`, `Readiness checklist`, `ready`/`check`/`block`/`ok`/`optional` для readiness items, "Print act" | Fixed (Wave-bugs-2) — RU labels + new helpers `bucketLabel` / `eventSeverityLabel` / `readinessLabel` | Wave-bugs-2 walkthrough |
+| B-35 | P1 | `apps/web/src/app/waybills/page.tsx` | Английские строки: `required`/`optional`/`history N`/`retry after fix`, "ETRN issues"/"Check blockers", "Compliance snapshot", "Readiness checklist", `ready`/`check`/`block` (cue + row), `ok`/`check`/`optional` (items) | Fixed (Wave-bugs-2) | Wave-bugs-2 walkthrough |
+| B-36 | P1 | `apps/web/src/app/legal/*` | Все три юр-страницы (Privacy, Terms, Personal-data) имели dateline `подлежит уточнению` — нарушение требований 152-ФЗ к датированию политики | Fixed (Wave-bugs-2) — dateline `12 мая 2026 года (пилотная редакция)`. INN/ОГРН/адрес остаются placeholder'ами до регистрации юрлица (draft banner предупреждает) | Public-funnel walkthrough |
+| B-37 | P1 | `apps/web/src/components/layout-shell.tsx` + `apps/web/src/app/forgot-password/page.tsx` | `/forgot-password` ссылка из `/login` вела в 404, и страница оборачивалась в authenticated sidebar shell (т.к. префикс не в PUBLIC_PATH_PREFIXES) | Fixed (Wave-bugs-2) — добавлен `/forgot-password` в PUBLIC_PATH_PREFIXES + создана stub-страница (AuthSplitLayout + amber-banner "пока вручную через админа" + support email) | Public-funnel walkthrough |
+| B-38 | P1 | `apps/web/src/app/login/page.tsx` | Чек-бокс "Запомнить меня" — pure UI noise, никак не передавался в API.login() и не влиял на сессию | Fixed (Wave-bugs-2) — флаг сохраняется в localStorage `auth:remember`. Server-side long-lived sessions всё ещё не реализованы, но чек-бокс честно перестал быть no-op | Public-funnel walkthrough |
+| B-39 | P2 | `apps/web/src/app/login/page.tsx` + `apps/web/src/app/page.tsx` | Role routing использовал `reduce` по `user.roles` массиву — а порядок ролей в массиве произвольный. Пользователь с `['driver','admin']` уходил на `/` (driver) вместо `/admin/users` | Fixed (Wave-bugs-2) — добавлен `ROLE_PRIORITY` массив (admin > manager > dispatcher > logist > accountant > mechanic > medic > repair_service > client > driver) + `pickRouteForRoles()` helper | Public-funnel walkthrough |
+| B-40 | P1 | `apps/web/src/app/claims/page.tsx` | English form labels (`Reserve, RUB`, `Estimated, RUB`, `Settlement note`) + placeholders (`Reserve rationale, evidence notes...`, `Settlement, deductions, recovery notes...`) + row labels (`Settlement:`, `Evidence:`) + evidenceValue fallback (`N item(s)`, `provided`, `Attachment N`) | Fixed (Wave-bugs-2) — RU + pluralization (`элемент/элемента/элементов`) | Operational-pages walkthrough |
+| B-41 | P2 | `apps/web/src/app/dispatcher/components/CockpitRightPanel.tsx:198` | Строка "Cold chain OK" в RU cockpit | Fixed (Wave-bugs-2) — "Холодовая цепь — норма" | Operational-pages walkthrough |
+| B-42 | P3 | `apps/web/src/app/dispatcher/components/CockpitTopBar.tsx:150` | `aria-label="Toggle theme"` на RU UI — screen reader читал по-английски | Fixed (Wave-bugs-2) — "Переключить тему" | Operational-pages walkthrough |
+| B-43 | P2 | `apps/web/src/app/admin/demo/page.tsx` | `iconTone="indigo"` (другие PageHeader используют `brand`) + info-banner `bg-blue-50` (другие используют `sky-*`) — palette divergence | Fixed (Wave-bugs-2) — brand + sky | Admin-pages walkthrough |
+| B-44 | P3 | `apps/web/src/app/admin/demo/page.tsx` + `apps/web/src/app/admin/compliance/page.tsx` | Dead imports: `Loader2` (demo), `FileText` (compliance) | Fixed (Wave-bugs-2) | Admin-pages walkthrough |
+| B-45 | P3 | `apps/web/src/app/admin/audit-log/page.tsx` | aria-label="Раскрыть" одинаковый независимо от open state | Fixed (Wave-bugs-2) — динамический aria-label + aria-expanded | Admin-pages walkthrough |
+| B-46 | P2 | `apps/web/src/components/auth-split-layout.tsx:51` + `:97` | `w-4.5 h-4.5` не в default Tailwind spacing scale — иконка коллапсировала. Плюс `aria-hidden={!rightPanel}` инвертирован (decorative panel всегда aria-hidden) | Fixed (Wave-bugs-2) — `w-[18px] h-[18px]` + `aria-hidden="true"` | Public-funnel walkthrough |
+| B-47 | P2 | `apps/web/src/app/signup/verify/page.tsx:166` | `navigator.clipboard.readText()` без проверки existence — TypeError на Safari < 13.4 / insecure HTTP / Firefox без permission | Fixed (Wave-bugs-2) — guard `navigator.clipboard?.readText` + warning toast | Public-funnel walkthrough |
+| B-48 | P2 | `apps/web/src/app/signup/page.tsx:237` | `setErrors({ email: ... })` стирает остальные field errors при server-side email-exists ошибке | Fixed (Wave-bugs-2) — `setErrors(prev => ({ ...prev, email: ... }))` | Public-funnel walkthrough |
+| B-49 | P3 | `apps/web/src/app/admin/layout.tsx` | Вложенный `sticky top-0` внутри уже-sticky aside (header sticky не работает — aside сам прокручивается). Плюс header использовал `bg-indigo-50` вместо `bg-brand-50` для tile | Fixed (Wave-bugs-2) — убран inner sticky + brand tone | Admin-pages walkthrough |
 
 ## Stats
 
-- **Total B-IDs:** 33 issued, 30 active (B-6, B-7, B-18 reserved/merged).
-- **By severity:** P0×1, P1×7, P2×14, P3×11.
+- **Total B-IDs:** 49 issued, 46 active (B-6, B-7, B-18 reserved/merged).
+- **By severity:** P0×1, P1×14, P2×21, P3×13.
 - **All P0/P1: Fixed.**
 - **By discovery:**
   - Original audit (2026-05-10): B-16 partly.
@@ -64,6 +80,7 @@
   - Internal debt review Round 6: B-19, B-20, B-21, B-16 final.
   - Cockpit v2 walkthrough: B-22.
   - DataTable Phase 2 walkthrough: B-23 → B-33 (11 issues).
+  - Wave-bugs-2 (post-Detail/Settings): B-34 → B-49 (16 issues, parallel-agent walkthrough of admin / operational / public-funnel clusters).
 
 ## Patterns observed
 
