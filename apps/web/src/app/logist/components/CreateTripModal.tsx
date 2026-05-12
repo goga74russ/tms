@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Truck, User, Package, Loader2, AlertTriangle, Check } from 'lucide-react';
+import { Truck, User, Package, Loader2, AlertTriangle, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 
 interface AvailableVehicle {
@@ -169,23 +170,8 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                            <Truck className="w-4 h-4 text-white" />
-                        </div>
-                        <h2 className="text-lg font-bold text-neutral-900">Создать рейс</h2>
-                    </div>
-                    <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 transition-colors">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        <Dialog open={true} onClose={onClose} title="Создать рейс" size="lg">
+            <div className="space-y-5">
                     {loadingData && (
                         <div className="flex items-center justify-center py-12">
                             <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
@@ -347,7 +333,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-neutral-100 flex items-center justify-end gap-3">
+                <div className="border-t border-neutral-100 pt-4 flex items-center justify-end gap-3">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>
                         Отмена
                     </Button>
@@ -367,7 +353,6 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                         Создать рейс
                     </Button>
                 </div>
-            </div>
-        </div>
+        </Dialog>
     );
 }

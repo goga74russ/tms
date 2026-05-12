@@ -11,6 +11,7 @@ import { Stat } from "@/components/ui/stat";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { DataTable, type Column, type RowAction, Pill, type PillTone } from "@/components/ui/data-table";
+import { Dialog } from "@/components/ui/dialog";
 import { AlertOctagon, ShieldAlert, Plus, CheckCircle2, FilePlus2, FileText, PlayCircle, XCircle } from "lucide-react";
 
 // ——— Types ———
@@ -237,10 +238,8 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
-                <h2 className="text-lg font-semibold mb-4">Новая претензия</h2>
-                <form onSubmit={handleSubmit} className="space-y-3">
+        <Dialog open={true} onClose={onClose} title="Новая претензия" size="md">
+            <form onSubmit={handleSubmit} className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs text-gray-500 block mb-1">Тип</label>
@@ -342,8 +341,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                         </Button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Dialog>
     );
 }
 
@@ -394,11 +392,8 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                <h2 className="text-lg font-semibold mb-1">Закрыть претензию</h2>
-                <p className="text-sm text-gray-500 mb-4 truncate">{claim.description}</p>
-                <form onSubmit={handleSubmit} className="space-y-3">
+        <Dialog open={true} onClose={onClose} title="Закрыть претензию" description={claim.description} size="md">
+            <form onSubmit={handleSubmit} className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-xs text-gray-500 block mb-1">Решение</label>
@@ -450,8 +445,7 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
                         </Button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Dialog>
     );
 }
 

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Plus, Users, X, Loader2, AlertTriangle, Timer, ShieldCheck, HeartPulse, UserCheck, UserX } from 'lucide-react';
-import { Dialog } from '@/components/ui/dialog';
+import { Plus, Users, Loader2, AlertTriangle, Timer, ShieldCheck, HeartPulse, UserCheck, UserX } from 'lucide-react';
+import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Stat } from '@/components/ui/stat';
@@ -211,65 +211,58 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
-                <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-neutral-900">Новый водитель</h2>
-                    <button onClick={onClose} aria-label="Закрыть" className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400"><X className="w-5 h-5" /></button>
-                </div>
-                <div className="px-6 py-5 space-y-4">
+        <Dialog open={true} onClose={onClose} title="Новый водитель" size="md">
+            <div className="space-y-4">
+                <Input
+                    label="ФИО"
+                    required
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value)}
+                    placeholder="Иванов Иван Иванович"
+                    error={fieldError.fullName}
+                />
+                <div className="grid grid-cols-2 gap-3">
                     <Input
-                        label="ФИО"
+                        label="Номер ВУ"
                         required
-                        value={fullName}
-                        onChange={e => setFullName(e.target.value)}
-                        placeholder="Иванов Иван Иванович"
-                        error={fieldError.fullName}
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input
-                            label="Номер ВУ"
-                            required
-                            value={licenseNumber}
-                            onChange={e => setLicenseNumber(e.target.value)}
-                            placeholder="77 01 123456"
-                            error={fieldError.licenseNumber}
-                        />
-                        <Input
-                            label="Категории"
-                            value={licenseCategories}
-                            onChange={e => setLicenseCategories(e.target.value)}
-                            placeholder="B, C, CE"
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Срок ВУ" type="date" value={licenseExpiry} onChange={e => setLicenseExpiry(e.target.value)} />
-                        <Input label="Медсправка до" type="date" value={medCertExpiry} onChange={e => setMedCertExpiry(e.target.value)} />
-                    </div>
-                    <Input
-                        label="ADR-сертификат до"
-                        type="date"
-                        value={adrCertExpiry}
-                        onChange={e => setAdrCertExpiry(e.target.value)}
-                        helperText="Срок действия свидетельства о подготовке водителей ТС, перевозящих опасные грузы."
+                        value={licenseNumber}
+                        onChange={e => setLicenseNumber(e.target.value)}
+                        placeholder="77 01 123456"
+                        error={fieldError.licenseNumber}
                     />
                     <Input
-                        label="Телефон"
-                        type="tel"
-                        value={phone}
-                        onChange={e => setPhone(e.target.value)}
-                        placeholder="+7 (999) 123-45-67"
+                        label="Категории"
+                        value={licenseCategories}
+                        onChange={e => setLicenseCategories(e.target.value)}
+                        placeholder="B, C, CE"
                     />
                 </div>
-                <div className="px-6 py-4 border-t border-neutral-100 flex gap-3 justify-end">
+                <div className="grid grid-cols-2 gap-3">
+                    <Input label="Срок ВУ" type="date" value={licenseExpiry} onChange={e => setLicenseExpiry(e.target.value)} />
+                    <Input label="Медсправка до" type="date" value={medCertExpiry} onChange={e => setMedCertExpiry(e.target.value)} />
+                </div>
+                <Input
+                    label="ADR-сертификат до"
+                    type="date"
+                    value={adrCertExpiry}
+                    onChange={e => setAdrCertExpiry(e.target.value)}
+                    helperText="Срок действия свидетельства о подготовке водителей ТС, перевозящих опасные грузы."
+                />
+                <Input
+                    label="Телефон"
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="+7 (999) 123-45-67"
+                />
+                <div className="flex gap-3 justify-end pt-2">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
                     <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
                         {submitting ? 'Создание...' : 'Создать'}
                     </Button>
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }
 
@@ -280,6 +273,7 @@ export default function DriversPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [hosDriver, setHosDriver] = useState<Driver | null>(null);
     const [statusFilter, setStatusFilter] = useState('');
+    const [confirmAction, setConfirmAction] = useState<null | { run: () => Promise<void> | void; title: string; description?: string; destructive?: boolean; confirmLabel?: string }>(null);
 
     const loadDrivers = useCallback(async () => {
         setLoading(true);
@@ -320,14 +314,19 @@ export default function DriversPage() {
     async function deactivateSelected(rows: Driver[]) {
         const active = rows.filter(d => d.isActive);
         if (active.length === 0) return;
-        if (!confirm(`Деактивировать ${active.length} водителей?`)) return;
-        try {
-            await Promise.all(active.map(d => api.put(`/fleet/drivers/${d.id}`, { isActive: false })));
-            toast({ variant: 'success', title: `Деактивировано: ${active.length}` });
-            void loadDrivers();
-        } catch (err: any) {
-            toast({ variant: 'error', title: 'Ошибка', description: err?.message });
-        }
+        setConfirmAction({
+            run: async () => {
+                try {
+                    await Promise.all(active.map(d => api.put(`/fleet/drivers/${d.id}`, { isActive: false })));
+                    toast({ variant: 'success', title: `Деактивировано: ${active.length}` });
+                    void loadDrivers();
+                } catch (err: any) {
+                    toast({ variant: 'error', title: 'Ошибка', description: err?.message });
+                }
+            },
+            title: `Деактивировать ${active.length} водителей?`,
+            confirmLabel: 'Деактивировать',
+        });
     }
 
     const columns: Column<Driver>[] = [
@@ -511,6 +510,16 @@ export default function DriversPage() {
             {hosDriver && (
                 <HoursChartDialog driver={hosDriver} onClose={() => setHosDriver(null)} />
             )}
+
+            <ConfirmDialog
+                open={!!confirmAction}
+                onClose={() => setConfirmAction(null)}
+                onConfirm={async () => { await confirmAction?.run(); setConfirmAction(null); }}
+                title={confirmAction?.title ?? ''}
+                description={confirmAction?.description}
+                destructive={confirmAction?.destructive}
+                confirmLabel={confirmAction?.confirmLabel}
+            />
         </div>
     );
 }

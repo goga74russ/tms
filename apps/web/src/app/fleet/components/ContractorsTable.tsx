@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Search, Plus, Building2, MapPin, Edit3, Trash2, X } from 'lucide-react';
+import { Search, Plus, Building2, MapPin, Edit3, Trash2 } from 'lucide-react';
+import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 
 interface Contractor {
     id: string;
@@ -60,6 +61,7 @@ function ContractorAddressesModal({
     const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
     const [form, setForm] = useState<AddressForm>(emptyAddressForm());
     const [error, setError] = useState('');
+    const [confirmAction, setConfirmAction] = useState<null | { run: () => Promise<void> | void; title: string; description?: string; destructive?: boolean; confirmLabel?: string }>(null);
 
     async function loadAddresses() {
         setLoading(true);
@@ -142,44 +144,37 @@ function ContractorAddressesModal({
     };
 
     const removeAddress = async (address: ContractorAddress) => {
-        if (!window.confirm(`Удалить адрес "${address.addressString}"?`)) return;
-
-        setSubmitting(true);
-        setError('');
-        try {
-            await api.delete(`/fleet/contractors/${contractor.id}/addresses/${address.id}`);
-            if (editingAddressId === address.id) {
-                resetForm();
-            }
-            await loadAddresses();
-        } catch (err: any) {
-            setError(err?.message || 'Не удалось удалить адрес');
-        } finally {
-            setSubmitting(false);
-        }
+        setConfirmAction({
+            run: async () => {
+                setSubmitting(true);
+                setError('');
+                try {
+                    await api.delete(`/fleet/contractors/${contractor.id}/addresses/${address.id}`);
+                    if (editingAddressId === address.id) {
+                        resetForm();
+                    }
+                    await loadAddresses();
+                } catch (err: any) {
+                    setError(err?.message || 'Не удалось удалить адрес');
+                } finally {
+                    setSubmitting(false);
+                }
+            },
+            title: `Удалить адрес "${address.addressString}"?`,
+            destructive: true,
+            confirmLabel: 'Удалить',
+        });
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-            <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-neutral-200">
-                <div className="sticky top-0 bg-white px-6 py-4 border-b border-neutral-100 flex items-start justify-between gap-4">
-                    <div>
-                        <h3 className="text-lg font-bold text-neutral-900">Адреса контрагента</h3>
-                        <p className="text-sm text-neutral-500">
-                            {contractor.name} · часто используемые адреса для заявок
-                        </p>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="grid gap-6 p-6 lg:grid-cols-[360px_1fr]">
+        <Dialog
+            open={true}
+            onClose={onClose}
+            title="Адреса контрагента"
+            description={`${contractor.name} · часто используемые адреса для заявок`}
+            size="xl"
+        >
+            <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
                     <div className="space-y-4">
                         <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
                             <div className="flex items-center justify-between gap-2 mb-4">
@@ -340,9 +335,18 @@ function ContractorAddressesModal({
                             </div>
                         )}
                     </div>
-                </div>
             </div>
-        </div>
+
+            <ConfirmDialog
+                open={!!confirmAction}
+                onClose={() => setConfirmAction(null)}
+                onConfirm={async () => { await confirmAction?.run(); setConfirmAction(null); }}
+                title={confirmAction?.title ?? ''}
+                description={confirmAction?.description}
+                destructive={confirmAction?.destructive}
+                confirmLabel={confirmAction?.confirmLabel}
+            />
+        </Dialog>
     );
 }
 

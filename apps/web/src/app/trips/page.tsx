@@ -2873,24 +2873,15 @@ export default function TripsPage() {
                 </div>
             </Dialog>
 
-            {dossierTripId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeDossier} />
-                    <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-neutral-200">
-                        <div className="sticky top-0 bg-white px-6 py-4 border-b border-neutral-100 flex items-start justify-between gap-4">
-                            <div>
-                                <h2 className="text-lg font-bold text-neutral-900">Досье рейса</h2>
-                                <p className="text-sm text-neutral-500">{dossier?.trip?.number || dossierTripId}</p>
-                            </div>
-                            <button
-                                onClick={closeDossier}
-                                className="p-2 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="p-6">
+            <Dialog
+                open={!!dossierTripId}
+                onClose={closeDossier}
+                title="Досье рейса"
+                description={dossier?.trip?.number || dossierTripId || ''}
+                size="xl"
+            >
+                {dossierTripId && (
+                    <div>
                             {dossierLoading ? (
                                 <div className="flex items-center justify-center py-20">
                                     <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
@@ -3134,10 +3125,9 @@ export default function TripsPage() {
                                     </div>
                                 </div>
                             ) : null}
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Dialog>
         </div>
     );
 }

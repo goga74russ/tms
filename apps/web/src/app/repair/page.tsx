@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '@/lib/api';
-import { Wrench, Plus, X, LayoutGrid, Rows3, List } from 'lucide-react';
+import { Wrench, Plus, LayoutGrid, Rows3, List } from 'lucide-react';
+import { Dialog } from '@/components/ui/dialog';
 import { RepairKanban } from './components/RepairKanban';
 import { RepairCatalogManager } from './components/RepairCatalogManager';
 import { Button } from '@/components/ui/button';
@@ -72,16 +73,8 @@ function CreateRepairModal({
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
-                <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-neutral-900">Новая заявка на ремонт</h2>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-                <div className="px-6 py-5 space-y-4">
+        <Dialog open={true} onClose={onClose} title="Новая заявка на ремонт" size="md">
+            <div className="space-y-4">
                     <div>
                         <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Транспорт *</label>
                         <select
@@ -119,15 +112,14 @@ function CreateRepairModal({
                         </select>
                     </div>
                     {error && <p className="text-sm text-red-600">{error}</p>}
-                </div>
-                <div className="px-6 py-4 border-t border-neutral-100 flex gap-3 justify-end">
+                <div className="pt-2 border-t border-neutral-100 flex gap-3 justify-end">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
                     <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
                         Создать
                     </Button>
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }
 

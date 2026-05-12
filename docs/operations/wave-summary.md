@@ -629,7 +629,19 @@ References: **Fishbowl / Navan / Luma**.
 - New primitive: `AuthSplitLayout` (form left, brand-gradient right with organic SVG / illustration / showcase).
 - Applied to: `/login` (remember-me + social buttons + ProductShowcase mockup), `/signup` (ShowcaseCarousel rotating cockpit/mobile/pricing), `/signup/verify` (paste-from-clipboard + email pill with edit + countdown + MailCheck illustration), `/onboarding` (vertical sidebar stepper 260px + per-step help panel 280px on xl+).
 
-### Global palette unification (wave-polish-4, commit pending)
+### Modal & confirm consolidation (wave-polish-5, commit pending)
+After the admin cluster, 14 operational files still had ad-hoc modals (`<div className="fixed inset-0 z-50 ...">`) or native `window.confirm()` calls. Migrated all of them.
+
+- **5 files with `confirm()`** → `<ConfirmDialog>` (state object pattern with `run`/`title`/`description`/`destructive`/`confirmLabel`):
+  `admin/demo`, `contractors`, `drivers`, `fleet/ContractorsTable`, `fleet/VehiclesTable`.
+- **9 files with ad-hoc modal** → `<Dialog>` (size sm/md/lg/xl):
+  `claims` (2 modals — create + close), `repair`, `incidents`, `dispatcher` (force-close), `waybills` (2 modals — close + detail), `trips` (dossier), `logist/CreateTripModal`, `logist/CreateOrderModal`, `fleet/TrailersTable`, `fleet/AddVehicleModal`.
+- Cleanup of unused `X` icon imports and unused `Card*` imports where modal bodies no longer needed them.
+- Verification: `grep -E "fixed inset-0 z-50.*bg-(black|neutral-900|gray)"` → only the Dialog primitive itself + Paywall (out of scope). `grep window.confirm` → 0 hits. TSC clean web. API tests 140/140.
+
+**Result**: every modal in the app now uses one shared primitive. Free Esc-to-close + focus trap + backdrop click + ARIA semantics in every dialog.
+
+### Global palette unification (wave-polish-4, commit `3cbab29`)
 Across every `apps/web/src/**/*.{ts,tsx}` file: `slate-*` → `neutral-*`. 76 files touched, +1717/-1717 (pure rename, zero structural changes). This finishes the palette consolidation begun in Round 4A — every page, every primitive, every component now uses the same grayscale ramp.
 
 - Mechanical bulk replace via sed, then audit for collisions.

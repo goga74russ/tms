@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Search, Plus, Truck, X } from 'lucide-react';
+import { Search, Plus, Truck } from 'lucide-react';
+import { Dialog } from '@/components/ui/dialog';
 
 interface Trailer {
     id: string;
@@ -91,18 +92,14 @@ function AddTrailerModal({ onClose, onCreated }: { onClose: () => void; onCreate
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl border border-neutral-200">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
-                    <div>
-                        <h3 className="text-lg font-bold text-neutral-900">Новый прицеп</h3>
-                        <p className="text-sm text-neutral-500">Добавление сущности прицепа из Sprint 9</p>
-                    </div>
-                    <button onClick={onClose} className="p-2 rounded-lg hover:bg-neutral-100">
-                        <X className="w-4 h-4 text-neutral-500" />
-                    </button>
-                </div>
-                <div className="p-6 grid grid-cols-2 gap-4">
+        <Dialog
+            open={true}
+            onClose={onClose}
+            title="Новый прицеп"
+            description="Добавление сущности прицепа из Sprint 9"
+            size="md"
+        >
+            <div className="grid grid-cols-2 gap-4">
                     <input
                         value={form.plateNumber}
                         onChange={(e) => setForm(f => ({ ...f, plateNumber: e.target.value }))}
@@ -171,16 +168,15 @@ function AddTrailerModal({ onClose, onCreated }: { onClose: () => void; onCreate
                             ))}
                         </select>
                     </div>
-                </div>
-                {error && <p className="px-6 pb-2 text-sm text-red-600">{error}</p>}
-                <div className="flex justify-end gap-3 px-6 py-4 border-t border-neutral-100">
-                    <button onClick={onClose} className="px-4 py-2 rounded-xl border border-neutral-200 text-sm font-medium">Отмена</button>
-                    <button onClick={handleSubmit} disabled={submitting} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
-                        {submitting ? 'Сохраняю...' : 'Создать прицеп'}
-                    </button>
-                </div>
             </div>
-        </div>
+            {error && <p className="pt-3 text-sm text-red-600">{error}</p>}
+            <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-neutral-100">
+                <button onClick={onClose} className="px-4 py-2 rounded-xl border border-neutral-200 text-sm font-medium">Отмена</button>
+                <button onClick={handleSubmit} disabled={submitting} className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+                    {submitting ? 'Сохраняю...' : 'Создать прицеп'}
+                </button>
+            </div>
+        </Dialog>
     );
 }
 

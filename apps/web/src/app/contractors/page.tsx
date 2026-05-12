@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
-import { Plus, Building2, X, Archive, Mail } from 'lucide-react';
+import { Plus, Building2, Archive, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
 import { DataTable, type Column, Pill } from '@/components/ui/data-table';
+import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 
 interface Contractor {
     id: string;
@@ -63,68 +64,61 @@ function CreateContractorModal({ onClose, onCreated }: { onClose: () => void; on
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
-                <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-neutral-900">Новый контрагент</h2>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400"><X className="w-5 h-5" /></button>
+        <Dialog open={true} onClose={onClose} title="Новый контрагент" size="md">
+            <div className="space-y-4">
+                <div>
+                    <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Наименование *</label>
+                    <input type="text" value={name} onChange={e => setName(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="ООО Логистика" />
                 </div>
-                <div className="px-6 py-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
                     <div>
-                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Наименование *</label>
-                        <input type="text" value={name} onChange={e => setName(e.target.value)}
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">ИНН *</label>
+                        <input type="text" value={inn} onChange={e => setInn(e.target.value)}
                             className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="ООО Логистика" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">ИНН *</label>
-                            <input type="text" value={inn} onChange={e => setInn(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="7701234567" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">КПП</label>
-                            <input type="text" value={kpp} onChange={e => setKpp(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="770101001" />
-                        </div>
+                            placeholder="7701234567" />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Юридический адрес *</label>
-                        <input type="text" value={legalAddress} onChange={e => setLegalAddress(e.target.value)}
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">КПП</label>
+                        <input type="text" value={kpp} onChange={e => setKpp(e.target.value)}
                             className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="г. Москва, ул. Примерная, 1" />
+                            placeholder="770101001" />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Телефон</label>
-                            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="+7 (495) 123-45-67" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Email</label>
-                            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder="info@company.ru" />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Контактное лицо</label>
-                        <input type="text" value={contactPerson} onChange={e => setContactPerson(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="Иванов И.И." />
-                    </div>
-                    {error && <p className="text-sm text-red-600">{error}</p>}
                 </div>
-                <div className="px-6 py-4 border-t border-neutral-100 flex gap-3 justify-end">
+                <div>
+                    <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Юридический адрес *</label>
+                    <input type="text" value={legalAddress} onChange={e => setLegalAddress(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="г. Москва, ул. Примерная, 1" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Телефон</label>
+                        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="+7 (495) 123-45-67" />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Email</label>
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="info@company.ru" />
+                    </div>
+                </div>
+                <div>
+                    <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Контактное лицо</label>
+                    <input type="text" value={contactPerson} onChange={e => setContactPerson(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Иванов И.И." />
+                </div>
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                <div className="flex gap-3 justify-end pt-2">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
                     <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>Создать</Button>
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }
 
@@ -134,6 +128,7 @@ export default function ContractorsPage() {
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [statusFilter, setStatusFilter] = useState('');
+    const [confirmAction, setConfirmAction] = useState<null | { run: () => Promise<void> | void; title: string; description?: string; destructive?: boolean; confirmLabel?: string }>(null);
 
     useEffect(() => {
         loadContractors();
@@ -223,14 +218,19 @@ export default function ContractorsPage() {
     async function archiveSelected(rows: Contractor[]) {
         const active = rows.filter(r => !r.isArchived);
         if (active.length === 0) return;
-        if (!confirm(`Архивировать ${active.length} контрагент(ов)?`)) return;
-        try {
-            await Promise.all(active.map(r => api.put(`/fleet/contractors/${r.id}`, { isArchived: true })));
-            toast({ variant: 'success', title: `Архивировано: ${active.length}` });
-            void loadContractors();
-        } catch (err: any) {
-            toast({ variant: 'error', title: 'Ошибка', description: err?.message || 'Не удалось обновить' });
-        }
+        setConfirmAction({
+            run: async () => {
+                try {
+                    await Promise.all(active.map(r => api.put(`/fleet/contractors/${r.id}`, { isArchived: true })));
+                    toast({ variant: 'success', title: `Архивировано: ${active.length}` });
+                    void loadContractors();
+                } catch (err: any) {
+                    toast({ variant: 'error', title: 'Ошибка', description: err?.message || 'Не удалось обновить' });
+                }
+            },
+            title: `Архивировать ${active.length} контрагент(ов)?`,
+            confirmLabel: 'Архивировать',
+        });
     }
 
     return (
@@ -328,6 +328,16 @@ export default function ContractorsPage() {
                     onCreated={() => { setShowCreateModal(false); loadContractors(); }}
                 />
             )}
+
+            <ConfirmDialog
+                open={!!confirmAction}
+                onClose={() => setConfirmAction(null)}
+                onConfirm={async () => { await confirmAction?.run(); setConfirmAction(null); }}
+                title={confirmAction?.title ?? ''}
+                description={confirmAction?.description}
+                destructive={confirmAction?.destructive}
+                confirmLabel={confirmAction?.confirmLabel}
+            />
         </div>
     );
 }

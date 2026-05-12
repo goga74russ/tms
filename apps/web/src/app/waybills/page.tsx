@@ -3,14 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { downloadFromApi } from '@/lib/download';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
 import { DataTable, type Column } from '@/components/ui/data-table';
+import { Dialog } from '@/components/ui/dialog';
 import {
-    FileText, X, Eye, Lock, CheckCircle2,
+    FileText, Eye, Lock, CheckCircle2,
     Clock, RotateCcw, Truck, User, Download, FileDown, Printer, Paperclip, Upload, Trash2, RefreshCcw,
 } from 'lucide-react';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from '../fleet/components/vehicleProfile';
@@ -671,23 +671,14 @@ function CloseWaybillModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <Card className="w-full max-w-md mx-4 shadow-xl">
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2">
-                            <Lock className="w-5 h-5 text-emerald-600" />
-                            Закрытие путевого листа
-                        </CardTitle>
-                        <button onClick={onClose} className="p-1 rounded-lg hover:bg-neutral-100">
-                            <X className="w-5 h-5 text-neutral-400" />
-                        </button>
-                    </div>
-                    <p className="text-sm text-neutral-500 mt-1">
-                        {waybill.number} • {waybill.vehicle?.plateNumber}
-                    </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
+        <Dialog
+            open={true}
+            onClose={onClose}
+            title="Закрытие путевого листа"
+            description={`${waybill.number} • ${waybill.vehicle?.plateNumber ?? ''}`}
+            size="md"
+        >
+            <div className="space-y-4">
                     <div className="p-3 bg-neutral-50 rounded-lg text-sm text-neutral-600">
                         Одометр при выезде: <strong>{waybill.odometerOut.toLocaleString()} км</strong>
                     </div>
@@ -736,9 +727,8 @@ function CloseWaybillModal({
                             {submitting ? 'Закрываю...' : 'Закрыть ПЛ'}
                         </Button>
                     </div>
-                </CardContent>
-            </Card>
-        </div>
+            </div>
+        </Dialog>
     );
 }
 
@@ -787,21 +777,14 @@ function DetailModal({
     });
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <Card className="w-full max-w-lg mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-blue-600" />
-                            Путевой лист {waybill.number}
-                        </CardTitle>
-                        <button onClick={onClose} className="p-1 rounded-lg hover:bg-neutral-100">
-                            <X className="w-5 h-5 text-neutral-400" />
-                        </button>
-                    </div>
-                    <StatusBadge status={waybill.status} />
-                </CardHeader>
-                <CardContent className="space-y-4">
+        <Dialog
+            open={true}
+            onClose={onClose}
+            title={`Путевой лист ${waybill.number}`}
+            size="md"
+        >
+            <div className="space-y-4">
+                <StatusBadge status={waybill.status} />
                     {/* Vehicle */}
                     {(waybill.vehicle || vehicleInfo) && (
                         <div className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl">
@@ -1174,9 +1157,8 @@ function DetailModal({
                             Закрыть путевой лист
                         </Button>
                     )}
-                </CardContent>
-            </Card>
-        </div>
+            </div>
+        </Dialog>
     );
 }
 

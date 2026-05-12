@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck, AlertTriangle } from 'lucide-react';
+import { Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Dialog } from '@/components/ui/dialog';
 import type { Order } from '../page';
 
 interface CreateOrderModalProps {
@@ -256,21 +257,9 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         }`;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
-                <div className="sticky top-0 bg-white px-6 py-4 border-b border-neutral-100 flex items-center justify-between rounded-t-2xl">
-                    <h2 className="text-lg font-bold text-neutral-900">Новая заявка</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="px-6 py-5 space-y-5">
+        <Dialog open={true} onClose={onClose} title="Новая заявка" size="lg">
+            <div>
+                <div className="space-y-5">
                     <div>
                         <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
                             <User className="w-4 h-4 text-neutral-400" />
@@ -657,12 +646,12 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                 </div>
 
                 {errors._general && (
-                    <div className="mx-6 mb-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                         {errors._general}
                     </div>
                 )}
 
-                <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-neutral-100 flex gap-3 justify-end rounded-b-2xl">
+                <div className="mt-4 pt-4 border-t border-neutral-100 flex gap-3 justify-end">
                     <button
                         onClick={onClose}
                         disabled={submitting}
@@ -680,6 +669,6 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     </button>
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }

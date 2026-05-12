@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
+import { ConfirmDialog } from '@/components/ui/dialog';
 import {
     Sparkles, Trash2, CheckCircle2, AlertCircle, Info,
 } from 'lucide-react';
@@ -36,6 +37,7 @@ export default function AdminDemoPage() {
     const [generated, setGenerated] = useState<GenerateResult | null>(null);
     const [cleanup, setCleanup] = useState<CleanupResult | null>(null);
     const [error, setError] = useState('');
+    const [confirmAction, setConfirmAction] = useState<null | { run: () => Promise<void> | void; title: string; description?: string; destructive?: boolean; confirmLabel?: string }>(null);
 
     async function handleGenerate() {
         setBusy('generate');
@@ -66,22 +68,29 @@ export default function AdminDemoPage() {
     }
 
     async function handleCleanup() {
-        if (!confirm('Удалить все демо-данные? Действие необратимо.')) return;
-        setBusy('cleanup');
-        setError('');
-        setGenerated(null);
-        setCleanup(null);
-        try {
-            const res = await api.delete<{ success: boolean; data: CleanupResult }>('/demo/cleanup');
-            setCleanup(res.data);
-            toast({ variant: 'success', title: 'Демо удалено' });
-        } catch (err: any) {
-            const msg = err?.message ?? 'Не удалось удалить демо-данные';
-            setError(msg);
-            toast({ variant: 'error', title: 'Ошибка', description: msg });
-        } finally {
-            setBusy(null);
-        }
+        setConfirmAction({
+            run: async () => {
+                setBusy('cleanup');
+                setError('');
+                setGenerated(null);
+                setCleanup(null);
+                try {
+                    const res = await api.delete<{ success: boolean; data: CleanupResult }>('/demo/cleanup');
+                    setCleanup(res.data);
+                    toast({ variant: 'success', title: 'Демо удалено' });
+                } catch (err: any) {
+                    const msg = err?.message ?? 'Не удалось удалить демо-данные';
+                    setError(msg);
+                    toast({ variant: 'error', title: 'Ошибка', description: msg });
+                } finally {
+                    setBusy(null);
+                }
+            },
+            title: 'Удалить все демо-данные?',
+            description: 'Будут удалены все объекты с пометкой [ДЕМО] в рамках вашей организации.',
+            destructive: true,
+            confirmLabel: 'Удалить',
+        });
     }
 
     return (
@@ -217,6 +226,16 @@ export default function AdminDemoPage() {
                     </CardContent>
                 </Card>
             )}
+
+            <ConfirmDialog
+                open={!!confirmAction}
+                onClose={() => setConfirmAction(null)}
+                onConfirm={async () => { await confirmAction?.run(); setConfirmAction(null); }}
+                title={confirmAction?.title ?? ''}
+                description={confirmAction?.description}
+                destructive={confirmAction?.destructive}
+                confirmLabel={confirmAction?.confirmLabel}
+            />
         </div>
     );
 }

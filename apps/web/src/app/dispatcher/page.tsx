@@ -24,6 +24,7 @@ import { CockpitTopBar, type CockpitFilter } from './components/CockpitTopBar';
 import { CockpitLeftRail, type LiveTrip } from './components/CockpitLeftRail';
 import { CockpitRightPanel } from './components/CockpitRightPanel';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog } from '@/components/ui/dialog';
 import { Combobox } from '@/components/ui/Combobox';
 import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
@@ -987,18 +988,14 @@ export default function DispatcherPage() {
             <CopilotFab enabled={showCopilot} />
 
             {/* Force-close modal */}
-            {forceCloseOpen && activeTripDetails && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <AlertTriangle className="w-5 h-5 text-red-600" />
-                                <h3 className="text-base font-bold text-neutral-900">Принудительное завершение</h3>
-                            </div>
-                            <button onClick={() => setForceCloseOpen(false)} className="text-neutral-400 hover:text-neutral-600">
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
+            <Dialog
+                open={!!(forceCloseOpen && activeTripDetails)}
+                onClose={() => setForceCloseOpen(false)}
+                title="Принудительное завершение"
+                size="md"
+            >
+                {activeTripDetails && (
+                    <div>
                         <p className="text-sm text-neutral-500 mb-4">
                             Рейс <span className="font-mono font-semibold text-neutral-700">{activeTripDetails.number}</span> будет завершён без подтверждения от водителя. Укажите причину.
                         </p>
@@ -1044,8 +1041,8 @@ export default function DispatcherPage() {
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Dialog>
         </div>
     );
 }

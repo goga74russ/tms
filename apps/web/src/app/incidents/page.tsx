@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { AlertTriangle, Plus, X, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Plus, ShieldAlert } from 'lucide-react';
+import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -100,18 +101,14 @@ function CreateIncidentModal({ onClose, onCreated }: { onClose: () => void; onCr
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl border border-neutral-200">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
-                    <div>
-                        <h3 className="text-lg font-bold text-neutral-900">Новый инцидент</h3>
-                        <p className="text-sm text-neutral-500">Sprint 9: мед / тех / дорожные и грузовые инциденты</p>
-                    </div>
-                    <button onClick={onClose} className="p-2 rounded-lg hover:bg-neutral-100">
-                        <X className="w-4 h-4 text-neutral-500" />
-                    </button>
-                </div>
-                <div className="p-6 grid grid-cols-2 gap-4">
+        <Dialog
+            open={true}
+            onClose={onClose}
+            title="Новый инцидент"
+            description="Sprint 9: мед / тех / дорожные и грузовые инциденты"
+            size="lg"
+        >
+            <div className="grid grid-cols-2 gap-4">
                     <select value={form.type} onChange={(e) => setForm(f => ({ ...f, type: e.target.value }))} className="px-4 py-3 rounded-xl border border-neutral-200 text-sm">
                         <option value="med_inspection">Медосмотр</option>
                         <option value="tech_inspection">Техосмотр</option>
@@ -135,16 +132,15 @@ function CreateIncidentModal({ onClose, onCreated }: { onClose: () => void; onCr
                         Блокирует выпуск на линию
                     </label>
                     <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Описание инцидента" className="col-span-2 min-h-32 px-4 py-3 rounded-xl border border-neutral-200 text-sm resize-none" />
-                </div>
-                {error && <p className="px-6 pb-2 text-sm text-red-600">{error}</p>}
-                <div className="flex justify-end gap-3 px-6 py-4 border-t border-neutral-100">
-                    <Button variant="outline" onClick={onClose}>Отмена</Button>
-                    <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
-                        Создать инцидент
-                    </Button>
-                </div>
             </div>
-        </div>
+            {error && <p className="pt-3 text-sm text-red-600">{error}</p>}
+            <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-neutral-100">
+                <Button variant="outline" onClick={onClose}>Отмена</Button>
+                <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
+                    Создать инцидент
+                </Button>
+            </div>
+        </Dialog>
     );
 }
 

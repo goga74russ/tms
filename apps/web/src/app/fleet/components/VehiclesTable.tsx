@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
 import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
+import { ConfirmDialog } from '@/components/ui/dialog';
 
 type DeadlineColor = 'green' | 'yellow' | 'red' | 'blocked' | null;
 
@@ -100,6 +101,7 @@ export function VehiclesTable() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [statusFilter, setStatusFilter] = useState('');
     const [bodyTypeFilter, setBodyTypeFilter] = useState('');
+    const [confirmAction, setConfirmAction] = useState<null | { run: () => Promise<void> | void; title: string; description?: string; destructive?: boolean; confirmLabel?: string }>(null);
 
     const loadVehicles = useCallback(async () => {
         setLoading(true);
@@ -166,14 +168,20 @@ export function VehiclesTable() {
     async function blockSelected(rows: Vehicle[]) {
         const toBlock = rows.filter(r => !r.isBlocked);
         if (toBlock.length === 0) return;
-        if (!confirm(`Заблокировать ${toBlock.length} ТС?`)) return;
-        try {
-            await Promise.all(toBlock.map(r => api.put(`/fleet/vehicles/${r.id}`, { isBlocked: true })));
-            toast({ variant: 'success', title: `Заблокировано: ${toBlock.length}` });
-            await loadVehicles();
-        } catch (err: any) {
-            toast({ variant: 'error', title: 'Ошибка', description: err?.message ?? 'Не удалось обновить' });
-        }
+        setConfirmAction({
+            run: async () => {
+                try {
+                    await Promise.all(toBlock.map(r => api.put(`/fleet/vehicles/${r.id}`, { isBlocked: true })));
+                    toast({ variant: 'success', title: `Заблокировано: ${toBlock.length}` });
+                    await loadVehicles();
+                } catch (err: any) {
+                    toast({ variant: 'error', title: 'Ошибка', description: err?.message ?? 'Не удалось обновить' });
+                }
+            },
+            title: `Заблокировать ${toBlock.length} ТС?`,
+            destructive: true,
+            confirmLabel: 'Заблокировать',
+        });
     }
 
     const columns: Column<Vehicle>[] = [
@@ -391,6 +399,16 @@ export function VehiclesTable() {
                     onCreated={() => { setShowAddModal(false); loadVehicles(); }}
                 />
             )}
+
+            <ConfirmDialog
+                open={!!confirmAction}
+                onClose={() => setConfirmAction(null)}
+                onConfirm={async () => { await confirmAction?.run(); setConfirmAction(null); }}
+                title={confirmAction?.title ?? ''}
+                description={confirmAction?.description}
+                destructive={confirmAction?.destructive}
+                confirmLabel={confirmAction?.confirmLabel}
+            />
         </>
     );
 }

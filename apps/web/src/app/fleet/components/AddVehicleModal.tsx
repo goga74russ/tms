@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { getVehicleProfile, getVehicleWaybillCue, VEHICLE_BODY_OPTIONS } from './vehicleProfile';
+import { Dialog } from '@/components/ui/dialog';
 
 interface AddVehicleModalProps {
     onClose: () => void;
@@ -59,18 +59,8 @@ export function AddVehicleModal({ onClose, onCreated }: AddVehicleModalProps) {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-                {/* Header */}
-                <div className="flex items-center justify-between p-5 border-b border-neutral-200">
-                    <h2 className="text-lg font-bold text-neutral-900">Добавить ТС</h2>
-                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-neutral-100 transition-colors">
-                        <X className="w-5 h-5 text-neutral-400" />
-                    </button>
-                </div>
-
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <Dialog open={true} onClose={onClose} title="Добавить ТС" size="md">
+            <form onSubmit={handleSubmit} className="space-y-4">
                     {error && (
                         <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
                             {error}
@@ -292,7 +282,6 @@ export function AddVehicleModal({ onClose, onCreated }: AddVehicleModalProps) {
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Dialog>
     );
 }
