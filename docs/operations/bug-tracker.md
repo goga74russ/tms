@@ -1,0 +1,74 @@
+# Bug tracker
+
+Все B-* баги, обнаруженные после free-box completion (W6). IDs выделены последовательно в порядке обнаружения. **All P0 / P1 issues are closed.**
+
+## Status legend
+
+- **Fixed** — code shipped, commit recorded.
+- **Open** — needs work.
+- **Deferred** — known, intentionally not blocking.
+
+## Severity
+
+- **P0** — broken core flow.
+- **P1** — broken non-core or visible regression.
+- **P2** — UX-quality.
+- **P3** — polish / cosmetic.
+
+## Index
+
+| ID | Severity | Where | Description | Status | Discovery |
+|---|---|---|---|---|---|
+| B-1 | P0 | `apps/api/src/db/triggers/prevent_inspection_modification` | `/inspections/{tech,med}/:id/decision` крашился — append-only trigger forbade UPDATE | Fixed in `3ca734f` (Round 5, migration 0025) | UI walkthrough |
+| B-2 | P1 | `apps/api/src/modules/finance/finance.service.ts` | `/finance/export/1c` returned 500 — `db.query.invoices.findMany({ with: { contractor } })` без relations() | Fixed in `3ca734f` (plain leftJoin) | UI walkthrough |
+| B-3 | P1 | `docker-compose.yml` (web service) | Web container restarted on every page load — JWT_SECRET не passed to web env | Fixed in `359b6b5` | Smoke walkthrough |
+| B-4 | P2 | `apps/web/src/app/dispatcher/page.tsx` | Cockpit blocker rows показывали ?????? mojibake | Fixed in `3ca734f` + Cockpit v2 `4001702` (isMojibake suppression) | UI walkthrough |
+| B-5 | P2 | `apps/web/src/app/dispatcher/page.tsx` | Cockpit blocker titles были English ("Crew and rest plan", etc.) | Fixed in `3ca734f` (RU i18n map keyed off `OperationException.type`) | UI walkthrough |
+| B-6 | — | — | (reserved/merged with B-5) | — | — |
+| B-7 | — | — | (reserved) | — | — |
+| B-8 | P2 | `apps/web/src/app/logist/page.tsx` | Kanban overflowed off-screen | Fixed in `3ca734f` (`overflow-x-auto + min-w-max + 280px`) | UI walkthrough |
+| B-9 | P3 | `apps/web/src/app/finance/page.tsx` | "+ Счёт по рейсам" button styling | Verified в `3ca734f` (already brand variant) | UI walkthrough |
+| B-10 | P2 | `apps/web/src/app/finance/page.tsx` | Long invoice numbers `СЧ-2504-20260429205232193` truncated visually | Fixed in `3ca734f` (`shortInvoiceNo` helper, prefix(16)…suffix(4), full на hover) | UI walkthrough |
+| B-11 | P2 | `apps/web/src/components/layout/Sidebar.tsx` | Admin sidebar показывал только 4 из 9 admin pages | Fixed in `3ca734f` (все 9 + grouping "Справочники"/"Эксплуатация") | UI walkthrough |
+| B-12 | P3 | `apps/web/src/app/admin/audit-log/page.tsx` | "Применить" filter button была outline | Fixed in `3ca734f` (brand variant) | UI walkthrough |
+| B-13 | P3 | `apps/web/src/app/admin/audit-log/page.tsx` | Event-type + entity-type columns truncated без hover-full | Fixed in `3ca734f` (`title=` для full string) | UI walkthrough |
+| B-14 | P1 | `apps/api/src/modules/billing/service.ts` + `auth/plan-guard.ts` | "No organization in token" leaked на `/billing` и `/copilot` для seed users без `org_id` | Fixed in `3ca734f` (synthetic Free plan для null orgId, plan-guard bypass для admin без org) | UI walkthrough |
+| B-15 | P2 | `apps/web/src/app/billing/page.tsx` | Billing рендерил raw English API errors | Fixed in `3ca734f` (amber localized banner + Повторить) | UI walkthrough |
+| B-16 | P3 | `apps/web/src/app/admin/compliance/page.tsx` | OSAGO badges still pale (bumped в `3ca734f` to 100/800 но недостаточно) | Fixed in `64b4e43` (Round 6 — solid span pills с 50/300/800 + icons) | Original audit (M-3-class) + walkthrough |
+| B-17 | P2 | `apps/web/src/app/admin/compliance/page.tsx` | Header was English "Compliance" | Fixed in `3ca734f` ("Контроль соответствия: ОСАГО, тахограф, маркировка, ADR") | UI walkthrough |
+| B-18 | — | — | (reserved) | — | — |
+| B-19 | P2 | `apps/web/src/app/trips/page.tsx` + `waybills/page.tsx` | CP1251-as-UTF-8 byte sequences (mojibake `вЂ`) | Fixed in `64b4e43` (byte-level replacement — 8 occurrences trips, 15 waybills) | UI walkthrough |
+| B-20 | P3 | `apps/web/src/app/trips/page.tsx:2616` | "ПЛ check"/"ПЛ ready" badge truncated | Fixed in `64b4e43` ("ПЛ ✓"/"ПЛ ⚠") | UI walkthrough |
+| B-21 | P1 | `apps/api/src/modules/finance/routes.ts` | `/finance/invoices?tripId=X` filter ignored — `tripId` отсутствовал в Zod query schema | Fixed in `64b4e43` (Round 6, +2 finance tests, inArray против invoice_trips) | Internal debt review |
+| B-22 | P2 | `apps/web/src/app/dispatcher/page.tsx` | Blocker subtitles были English после Cockpit v2 redesign ("etrn is required but missing", etc.) | Fixed in `4001702` (Cockpit v2, `localizeExceptionMessage` exact-match map 15 + prefix-regex 5) | Cockpit v2 walkthrough |
+| B-23 | P2 | `apps/web/src/app/(authenticated)/layout-shell.tsx` | Public pages (`/landing /signup /onboarding /legal /login`) показывали authenticated sidebar | Fixed in `35a5fc5` (PUBLIC_PATH_PREFIXES list, bare children render) | DataTable Phase 2 walkthrough |
+| B-24 | P2 | `apps/web/src/components/layout/Sidebar.tsx` | Logo label overflowed когда sidebar narrow | Fixed in `35a5fc5` (`min-w-0 flex-1 + truncate` on labels) | DataTable Phase 2 walkthrough |
+| B-25 | P1 | `apps/web/src/app/waybills/page.tsx` | Odometer column visual overlap | Fixed in `35a5fc5` (`toLocaleString('ru-RU')`, "Одометр (км)" header, `whitespace-nowrap`) | DataTable Phase 2 walkthrough |
+| B-26 | P3 | `apps/web/src/app/claims/page.tsx` | Stat labels too long ("Расследование", "Урегулировано", "Effective exposure") wrapped и ломали grid | Fixed in `35a5fc5` ("В расслед.", "Урегулир.", "Возможные потери") | DataTable Phase 2 walkthrough |
+| B-27 | P2 | `apps/web/src/app/claims/page.tsx` | English terms на claims page (Reserve / Estimated / Effective / Cause / Not settled) | Fixed in `35a5fc5` (Резерв / Оценка / Эффект. / Причина / Не урегулирована + EXPOSURE_BASIS_LABELS + CAUSE_LABELS dicts) | DataTable Phase 2 walkthrough |
+| B-28 | P3 | `apps/web/src/app/repair/page.tsx` | Repair kanban пустые колонки без EmptyState | Fixed in `35a5fc5` (per-column EmptyState с unique icon + tone + "Новая заявка" CTA на "Создана") | DataTable Phase 2 walkthrough |
+| B-29 | P3 | `apps/web/src/app/admin/users/page.tsx` | Role label "Администраторы" слишком длинный для Pill | Fixed in `35a5fc5` ("Админы") | DataTable Phase 2 walkthrough |
+| B-30 | P1 | `apps/api/src/modules/integrations/routes.ts` + `apps/web/src/app/admin/integrations/page.tsx` | GET /integrations возвращал 400 "no organization in token" для seed admin | Fixed in `35a5fc5` (returns 200 + `note=no_organization_in_token`, web shows neutral blue info banner) | DataTable Phase 2 walkthrough |
+| B-31 | P2 | `apps/web/src/app/admin/integrations/page.tsx` | Provider rows показывали raw enum-like keys (`gosklyuch`, `kontur_sign`, etc.) | Fixed in `35a5fc5` (PROVIDER_LABEL_RU map 26 entries: gosklyuch→Госключ, kontur_sign→Контур.Подпись, diadoc→Контур.Диадок, sbis_sign→СБИС, kaluga_astral→Калуга Астрал, yookassa→ЮKassa, и т.д.) | DataTable Phase 2 walkthrough |
+| B-32 | P3 | `apps/web/src/app/admin/billing/page.tsx` | "MRR (active)" English string | Fixed in `35a5fc5` ("MRR (активные)") | DataTable Phase 2 walkthrough |
+| B-33 | P3 | `apps/web/src/app/admin/settings/page.tsx` | "Cost model" English string | Fixed in `35a5fc5` ("Модель себестоимости") | DataTable Phase 2 walkthrough |
+
+## Stats
+
+- **Total B-IDs:** 33 issued, 30 active (B-6, B-7, B-18 reserved/merged).
+- **By severity:** P0×1, P1×7, P2×14, P3×11.
+- **All P0/P1: Fixed.**
+- **By discovery:**
+  - Original audit (2026-05-10): B-16 partly.
+  - UI walkthrough Round 5: B-1 → B-17 (16 issues).
+  - Internal debt review Round 6: B-19, B-20, B-21, B-16 final.
+  - Cockpit v2 walkthrough: B-22.
+  - DataTable Phase 2 walkthrough: B-23 → B-33 (11 issues).
+
+## Patterns observed
+
+1. **English engine-emitted strings leaking to UI** — biggest single pattern (B-4, B-5, B-15, B-17, B-22, B-27, B-30, B-31, B-32, B-33). Mitigation: every new error path должна иметь RU label или mapping table; pre-merge grep for `English string` patterns in user-facing pages.
+2. **Mojibake from cp1251 mis-encoding** — B-4, B-19. Likely from older spreadsheet imports. Mitigation: explicit `<meta charset>` + content-type checks at import boundaries.
+3. **Long string truncation** — B-10, B-13, B-20, B-25, B-29. Mitigation: design tokens for typography + `title=` everywhere we shorten.
+4. **No-organization edge cases** — B-14, B-30. Seed admin users без `org_id` хорошо обнажают плохо-обработанные null paths. Mitigation: synthetic-Free-plan pattern, audit все `requireOrgId()` calls.
+5. **DB triggers vs feature add** — B-1. Append-only triggers conflict с новыми UPDATE-paths. Mitigation: triggers должны быть column-aware (`IS NOT DISTINCT FROM` per column) когда новые fields добавляются.

@@ -1,55 +1,56 @@
 # Roadmap
 
-Updated: 2026-05-10. Replaces previous version.
+Updated: 2026-05-12. Replaces 2026-05-10 version.
 
-The free-box (no paid integrations required) is feature-complete after waves W1–W6. See [wave-summary.md](../operations/wave-summary.md).
+The free-box (no paid integrations required) is feature-complete after waves W1–W6. Phase 1 (Pilot stabilization) and Phase 7 (AI co-pilot MVP) are substantially complete after Rounds 1–7. See [wave-summary.md](../operations/wave-summary.md).
 
 ## Where we are now
 
-- **End-to-end chain works** in code: order → trip → inspections → release → delivery → document return → billing.
-- **Mocks** for every paid integration: Wialon, ETRN-operator, EDI, fuel cards, ГИБДД, DaData, geo. See [integrations-status.md](../operations/integrations-status.md).
-- **Test coverage**: 42 unit tests on RBAC + utils. End-to-end Playwright tests are missing.
-- **CI**: typecheck, lint, audit, drizzle drift, vitest. No e2e gate.
-- **Pilot blockers**: see Phase 1 below.
+- **End-to-end chain works** in code: order → trip → inspections → release → delivery → document return → billing. Verified by `scripts/api-smoke-chain.sh`.
+- **Mocks** for every paid integration: Wialon, ETRN-operator, EDI, fuel cards, ГИБДД, DaData, geo, signatures, marking, OSAGO, OFD. See [integrations-status.md](../operations/integrations-status.md).
+- **Test coverage**: **140/140 unit tests** across RBAC, utils, finance.service, eta.service, cold-chain, rto, scoring, ddd-parser, billing, import, inspections/service. Playwright happy-path scaffold (`apps/web/tests/e2e/happy-path.spec.ts`) — 4 tests, advisory in CI until DB env wired.
+- **CI**: typecheck, lint, audit, drizzle drift, vitest blocking. Playwright job advisory.
+- **Web**: 47+ pages on a unified design system (14 UI primitives + DataTable + Cockpit v2).
+- **Mobile**: 10 screens, visual redesign v2 на theme tokens + 8 UI components.
+- **Self-serve signup + 6-step onboarding wizard** + admin/integrations cabinet live.
+- **Monetization**: plans/subscriptions/payments/usage_counters + plan-guard wired + ЮKassa webhook.
+- **AI co-pilot**: MVP (10 tools + SSE + mock fallback) on dispatcher page + floating FAB.
 
-## Phase 1 — Pilot stabilization (4–6 weeks)
+## Now → Pilot launch
 
-The free-box is feature-complete but not yet pilot-grade. Before showing to a real customer:
+Concrete checklist before opening to beta-signups:
 
-### 1.1 Tests
+- [ ] Реальные ключи провайдеров: `ANTHROPIC_API_KEY` (AI co-pilot), `YOOKASSA_*` (payments + webhook secret), `DADATA_TOKEN`, минимум один EDI оператор (Диадок sandbox → production).
+- [ ] Юр-лицо для расчётов: ОГРН/ИНН/КПП заполнены в env + договор с ОФД-провайдером (Платформа ОФД / Такском-Касса).
+- [ ] Legal-review всех 3 documents в `docs/legal/` (privacy/terms/personal-data) — снять ПРОЕКТ banner.
+- [ ] Прогон `scripts/api-smoke-chain.sh` на staging deployment (postgres + redis + minio + api + web + nginx). Capture artifact в `docs/operations/smoke-evidence-<YYYY-MM-DD>.md`.
+- [ ] Playwright happy-path с реальной БД — снять `continue-on-error: true` в p0-gate.yml.
+- [ ] Sentry / Glitchtip / self-hosted error sink wired (A-2 в audit).
+- [ ] MOCK_MODE env-gate на всех `*.mock.ts` импортах (A-4 в audit).
+- [ ] Беta-signup форма на landing → отправляет в внутреннюю очередь (manual approval).
+- [ ] Roll-back evidence — миграционный downgrade или snapshot strategy задокументирован.
 
-- Add Playwright E2E for the happy path: login → create order → assign trip → run inspections → start trip → simulate GPS → temperature breach → delivery confirmation → complete trip → invoice draft → bulk invoice → 1С export. Block PRs on this in CI.
-- Cover bizlogic with unit tests: `tarification.service`, `eta.service`, `cold-chain/service`, `edi/service`, `rto/service`, `auto-billing` flow. Goal: 60% coverage on `apps/api/src/modules/`.
-- Add web component tests for critical flows (CreateOrderModal, AssignmentPanel, TemperaturePanel).
+ETA: 2–3 недели реальной работы с человеком на провайдер-аккредитациях.
 
-### 1.2 Observability
+## Phase 1 — Pilot stabilization — substantially DONE
 
-- Replace remaining `console.log` calls (~219 across the repo) with `pino` `app.log` / `request.log`. Where Fastify instance is unavailable (workers, redis init, queues) — refactor to accept a `logger` parameter.
-- Add structured request-id propagation through BullMQ jobs.
-- Add basic Prometheus metrics endpoint (request count, duration histogram, active trips, breach incidents).
-- Send fatal errors to a self-hosted error sink (Glitchtip / Sentry-OSS) — paid Sentry not required.
+Сделано (Round 1 + Round 3):
 
-### 1.3 Migration & schema cleanup
+- E2E Playwright scaffold (`apps/web/playwright.config.ts` + happy-path.spec.ts).
+- 60% coverage цель на `apps/api/src/modules/` — частично закрыто: finance/eta/cold-chain/rto/scoring/ddd-parser/billing/import тесты добавлены. Tarification и edi сервисы остаются без тестов.
+- Pino logger plumbing — 4 worker + redis + queue setup.
+- 0005 migration gap — investigated, документировано как harmless (см. `migration-investigation-2026-05-12.md`).
+- 0008 — investigated, не drift.
+- `drizzle-kit check` уже blocking в CI.
+- Edge JWT verify в `apps/web/src/middleware.ts`.
+- Helmet CSP locked down + Swagger carve-out.
 
-- Resolve the 0005 gap (verified harmless in audit but document or backfill).
-- Drop the duplicate index that 0008 dropped — investigate root cause to prevent recurrence.
-- Add CASCADE policy review across all FKs.
-- Set up `drizzle-kit check` blocking in CI.
+Осталось (низкий приоритет):
 
-### 1.4 Auth / security gaps
-
-- Cache `/auth/me` in Next.js middleware via JWT verify with `jose` in edge — current per-request fetch will not scale.
-- Sweep ~474 `as any` casts; add proper types where reasonable.
-- Add CSP headers for the Swagger UI route specifically.
-- Document `ALLOW_DEMO_SEED` and other env safeguards in `docs/operations/security.md`.
-
-### 1.5 Smoke evidence
-
-- Run the full smoke checklist from `free-box-checklist.md` on a staging deployment.
-- Capture browser screenshots and mobile screenshots for each step.
-- File output as `docs/operations/smoke-evidence-<YYYY-MM-DD>.md`.
-
-**Phase 1 deliverable:** A stable free-box deployment validated with E2E tests, observability dashboards, and smoke evidence pack.
+- Tarification + EDI service тесты для покрытия edi-state-machine.
+- Prometheus metrics endpoint.
+- Error sink (Glitchtip / Sentry-OSS).
+- Smoke evidence pack от реального deployment.
 
 ## Phase 2 — First paid integrations (8–12 weeks)
 
@@ -202,11 +203,29 @@ After product-market fit signals from Phase 5:
 - SOC 2 / ISO 27001 prep (only if enterprise customers ask).
 - 24/7 on-call rotation.
 
-## Phase 7 — AI dispatcher co-pilot (4 weeks dev, paid-tier killer feature)
+## Phase 7 — AI dispatcher co-pilot
 
-The "wow" feature for monetization. The dispatcher is the most loaded role in any transport company — 30–50 orders/day, 10–30 active trips, constant phone calls. Russian TMS competitors (1С, АТИ, TopLog, Топлог) are all CRUD interfaces with filters. None offer a natural-language co-pilot. Window of differentiation: ~12–18 months before they catch up.
+### MVP — DONE (Round 1, commit `282cc2a`)
+
+- 10 tool-функций wrapping existing services (list_active_trips, get_trip_details, get_driver_hos_status, list_trips_at_risk, get_temperature_breaches, compute_trip_cost, propose_reassignment, list_pending_invoices, get_monthly_margin, track_contractor_orders).
+- Russian system prompt с safety rules.
+- Anthropic SDK с mock-fallback когда ключ отсутствует.
+- `POST /api/copilot/chat` SSE streaming + conversation history.
+- Per-org daily limit (`COPILOT_DAILY_LIMIT`, default 500).
+- Web `CopilotChat.tsx` + floating `CopilotFab.tsx` (Cockpit v2).
+- Plan-guard gated on `ai_copilot` feature (Round 3).
+
+### Production polish — pending
+
+- `ANTHROPIC_API_KEY` provisioning + payment routing через юр-лицо в другой юрисдикции (export restrictions для РФ).
+- Расширение от 10 → 30 tools для Top-10 demo scenarios.
+- Cost dashboards (per-org daily $$, per-query tokens).
+- Hallucination tests на deliberate edge cases.
+- YandexGPT-5 / GigaChat-MAX alternative deployment для customer'ов из реестра отечественного ПО.
 
 ### Why this is feasible right now (2026)
+
+The "wow" feature for monetization. The dispatcher is the most loaded role in any transport company — 30–50 orders/day, 10–30 active trips, constant phone calls. Russian TMS competitors (1С, АТИ, TopLog, Топлог) are all CRUD interfaces with filters. None offer a natural-language co-pilot. Window of differentiation: ~12–18 months before they catch up.
 
 - LLM function calling is production-grade (Claude / GPT / Gemini all reliable).
 - Russian language quality near parity with English in modern frontier models.
