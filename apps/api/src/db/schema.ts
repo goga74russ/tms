@@ -1672,6 +1672,10 @@ export const payments = pgTable('payments', {
     paidAt: timestamp('paid_at', { withTimezone: true }),
     receiptUrl: text('receipt_url'),
     failureReason: text('failure_reason'),
+    // A-P0-1: stores `lastWebhookEventId` for replay dedupe + provider-side
+    // correlation ids. JSONB so future providers (Tinkoff, CloudPayments) can
+    // add fields without further migrations. See migration 0026.
+    providerMetadata: jsonb('provider_metadata'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
     index('idx_payments_subscription').on(table.subscriptionId, sql`${table.createdAt} DESC`),

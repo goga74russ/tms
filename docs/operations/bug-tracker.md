@@ -68,12 +68,18 @@
 | B-47 | P2 | `apps/web/src/app/signup/verify/page.tsx:166` | `navigator.clipboard.readText()` без проверки existence — TypeError на Safari < 13.4 / insecure HTTP / Firefox без permission | Fixed (Wave-bugs-2) — guard `navigator.clipboard?.readText` + warning toast | Public-funnel walkthrough |
 | B-48 | P2 | `apps/web/src/app/signup/page.tsx:237` | `setErrors({ email: ... })` стирает остальные field errors при server-side email-exists ошибке | Fixed (Wave-bugs-2) — `setErrors(prev => ({ ...prev, email: ... }))` | Public-funnel walkthrough |
 | B-49 | P3 | `apps/web/src/app/admin/layout.tsx` | Вложенный `sticky top-0` внутри уже-sticky aside (header sticky не работает — aside сам прокручивается). Плюс header использовал `bg-indigo-50` вместо `bg-brand-50` для tile | Fixed (Wave-bugs-2) — убран inner sticky + brand tone | Admin-pages walkthrough |
+| A-P0-1 | P0 | `apps/api/src/modules/billing/routes.ts:147-162` + `service.ts:218-350` + migration `0026` | ЮKassa webhook не проверял HMAC и не имел replay protection. Любой мог POST'нуть `payment.succeeded` для pending payment'а и активировать подписку | Fixed (deep audit) — HMAC-SHA256 verification против raw body + `YOOKASSA_WEBHOOK_SECRET`, 401 на mismatch, 503 в проде без env. Replay dedupe через `payments.provider_metadata.lastWebhookEventId` (JSONB column в 0026) | Deep audit 2026-05-12 |
+| A-P0-2 | P0 | `apps/api/src/providers/base.ts:58-75` | `getKey()` молча возвращал `sha256("tms-dev-credentials-key")` если `CREDENTIALS_KEY` не задан. В проде → все AES-256-GCM credentials публично дешифруются. Плюс "hash anything" fallback скрывал короткие ключи-опечатки | Fixed (deep audit) — fail-fast throw в `NODE_ENV=production`. Loud warning в dev. Refuse short / non-32-byte keys (raise помогает обнаружить typo). Dev fallback переименован в "tms-dev-credentials-key-DO-NOT-USE-IN-PROD" | Deep audit 2026-05-12 |
+| A-P0-3 | P0 | `apps/api/src/auth/auth.ts:752` + `modules/onboarding/routes.ts:282` | `Math.random()` для 6-значного email verification кода и для bulk-invite temp паролей. V8 PRNG предсказуема. Combined with 5-attempt rate limit per IP (не per-email) → brute-force окно signup admin'а реалистично | Fixed (deep audit) — `crypto.randomInt(100000, 1000000)` для кодов, `crypto.randomBytes(12).toString('base64url')` (~96 бит) для temp passwords | Deep audit 2026-05-12 |
+| A-P0-7 | P0 | `apps/api/src/server.ts` | Нет `app.setErrorHandler()`. Default Fastify echo'ил `err.message` в проде, включая PG constraint text. Плюс request-id отсутствовал в response | Fixed (deep audit) — global error handler: 4xx forward as-is, 5xx → generic "Внутренняя ошибка сервера" в проде + `requestId` в каждом response | Deep audit 2026-05-12 |
+| A-P0-13 | P0 | `apps/api/src/modules/onboarding/routes.ts:271-292` | Bulk-invite возвращал `{ email, tempPassword }` в response body. Браузер админа, history, любой monitoring proxy хранили пароли в plaintext | Fixed (deep audit) — response теперь `{ invitedCount, failedToEmail }`. Пароли только через email-delivery | Deep audit 2026-05-12 |
+| A-P1-1 | P1 | `apps/api/src/server.ts:38-48` | Pino logger без `redact`. `/auth/login` body с plaintext password, `/integrations/credentials` POST с API ключами логировались на info уровне через default Fastify request logger | Fixed (deep audit) — `redact` paths: authorization/cookie/set-cookie headers, body.password/credentials/apiKey/token/tempPassword | Deep audit 2026-05-12 |
 
 ## Stats
 
-- **Total B-IDs:** 49 issued, 46 active (B-6, B-7, B-18 reserved/merged).
-- **By severity:** P0×1, P1×14, P2×21, P3×13.
-- **All P0/P1: Fixed.**
+- **Total IDs:** 49 B-* (UI walkthrough) + 7 A-P0/P1 fixed from deep audit. 13 A-P0/P1 from deep audit remain open — see `docs/operations/audit-2026-05-12-deep.md`.
+- **B- by severity:** P0×1, P1×14, P2×21, P3×13. All B-* fixed.
+- **A- (deep audit):** P0×13 — 6 fixed this commit, 7 deferred (provider registry refactor, mobile build/sync, import transactions, multi-tenancy backfills, CI gate hardening). Plus P1×27, P2×30+, P3×20+.
 - **By discovery:**
   - Original audit (2026-05-10): B-16 partly.
   - UI walkthrough Round 5: B-1 → B-17 (16 issues).

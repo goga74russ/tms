@@ -224,6 +224,13 @@ export interface PaymentCallbackPayload {
     /** Optional customer email/phone for fiscalization. */
     customerEmail?: string;
     customerPhone?: string;
+    /**
+     * A-P0-1: provider webhook event id for replay dedupe. When set and the
+     * payment row already has the same `lastWebhookEventId`, the callback is a
+     * no-op (returns the current state). This makes the webhook idempotent
+     * against ЮKassa retries.
+     */
+    eventId?: string;
 }
 
 export interface PaymentCallbackResult {
@@ -242,18 +249,47 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
         return { paymentId: null, subscriptionId: null, receiptUrl: null };
     }
 
+    // A-P0-1: replay dedupe. ЮKassa retries failed webhook deliveries
+    // and the same `event_id` should never be processed twice — otherwise a
+    // single succeeded payment would roll the subscription period N times.
+    if (payload.eventId && paymentRow.providerMetadata) {
+        try {
+            const meta = paymentRow.providerMetadata as { lastWebhookEventId?: string };
+            if (meta.lastWebhookEventId === payload.eventId) {
+                return {
+                    paymentId: paymentRow.id,
+                    subscriptionId: paymentRow.subscriptionId,
+                    receiptUrl: null,
+                };
+            }
+        } catch { /* malformed metadata — fall through and process */ }
+    }
+
     const [subRow] = await db
         .select()
         .from(subscriptions)
         .where(eq(subscriptions.id, paymentRow.subscriptionId))
         .limit(1);
 
+    // Helper to merge providerMetadata while persisting the dedupe event id.
+    const mergedMeta = (current: unknown): Record<string, unknown> => {
+        const base = (current && typeof current === 'object' && !Array.isArray(current))
+            ? { ...(current as Record<string, unknown>) }
+            : {};
+        if (payload.eventId) base.lastWebhookEventId = payload.eventId;
+        return base;
+    };
+
     if (payload.status === 'succeeded') {
         // 1) Mark the payment as succeeded.
         const paidAt = new Date();
         await db
             .update(payments)
-            .set({ status: 'succeeded', paidAt })
+            .set({
+                status: 'succeeded',
+                paidAt,
+                providerMetadata: mergedMeta(paymentRow.providerMetadata),
+            })
             .where(eq(payments.id, paymentRow.id));
 
         // 2) Roll subscription forward: 30 days from now.
@@ -303,6 +339,7 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
             .set({
                 status: 'failed',
                 failureReason: payload.failureReason ?? payload.status,
+                providerMetadata: mergedMeta(paymentRow.providerMetadata),
             })
             .where(eq(payments.id, paymentRow.id));
         if (subRow) {
@@ -317,7 +354,10 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
     if (payload.status === 'refunded') {
         await db
             .update(payments)
-            .set({ status: 'refunded' })
+            .set({
+                status: 'refunded',
+                providerMetadata: mergedMeta(paymentRow.providerMetadata),
+            })
             .where(eq(payments.id, paymentRow.id));
         return { paymentId: paymentRow.id, subscriptionId: subRow?.id ?? null, receiptUrl: null };
     }

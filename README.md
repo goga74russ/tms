@@ -110,6 +110,7 @@ Free-box («бесплатный контур») закрыт end-to-end пос�
 
 ## Ключевые операционные доки
 
+- [docs/operations/audit-2026-05-12-deep.md](docs/operations/audit-2026-05-12-deep.md) — **глубокий аудит всего проекта** (security, code, providers, mobile, tests, docs). 7-agent parallel walkthrough, severity-tagged findings, status per fix.
 - [docs/operations/pre-launch-checklist.md](docs/operations/pre-launch-checklist.md) — **чек-лист готовности к пилоту** (env, безопасность, инфра, юр-вопросы, DR).
 - [docs/operations/wave-summary.md](docs/operations/wave-summary.md) — что построено в каждой волне / раунде.
 - [docs/operations/integrations-status.md](docs/operations/integrations-status.md) — карта mock → real provider.

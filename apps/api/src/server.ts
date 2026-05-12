@@ -2,6 +2,7 @@
 // TMS — Fastify Server Entry Point
 // ============================================================
 import 'dotenv/config';
+import crypto from 'node:crypto';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
@@ -38,6 +39,27 @@ const RATE_LIMIT_WINDOW = process.env.RATE_LIMIT_WINDOW ?? '1 minute';
 const app = Fastify({
     logger: {
         level: process.env.LOG_LEVEL || 'info',
+        // A-P1-1: redact sensitive headers + bodies. Without this, login bodies
+        // (with plaintext passwords) and /integrations/credentials POSTs (with
+        // API keys) end up in log files.
+        redact: {
+            paths: [
+                'req.headers.authorization',
+                'req.headers.cookie',
+                'res.headers["set-cookie"]',
+                'req.body.password',
+                'req.body.passwordHash',
+                'req.body.credentials',
+                'req.body.credentials.*',
+                'req.body.apiKey',
+                'req.body.token',
+                'req.body.tempPassword',
+                'request.body.password',
+                'request.body.credentials',
+                'response.body.token',
+            ],
+            censor: '[REDACTED]',
+        },
         ...(process.env.NODE_ENV !== 'production' ? {
             transport: {
                 target: 'pino-pretty',
@@ -45,6 +67,36 @@ const app = Fastify({
             },
         } : {}),
     },
+    // A-P0-7: stable request-id helps correlate logs <-> client-side reports.
+    genReqId: (req) => (req.headers['x-request-id'] as string) || crypto.randomUUID(),
+});
+
+// A-P0-7: global error handler. Default Fastify echoes err.message to clients,
+// which leaks PG constraint names + stack traces + internal error text. We
+// hide all 5xx detail in production while keeping a server-side log with the
+// request-id for tracing.
+app.setErrorHandler((error: import('fastify').FastifyError, request, reply) => {
+    const statusCode = typeof error.statusCode === 'number' ? error.statusCode : undefined;
+    const isClientError = statusCode !== undefined && statusCode >= 400 && statusCode < 500;
+    const message = error.message ?? 'Unknown error';
+    if (isClientError) {
+        // 4xx — caller's fault, original message is generally safe (Zod errors,
+        // 404s, rate-limit). Forward as-is.
+        return reply.status(statusCode).send({
+            success: false,
+            error: message,
+            requestId: request.id,
+        });
+    }
+    // 5xx — log full detail server-side, return generic message to caller.
+    request.log.error({ err: error, reqId: request.id }, 'Unhandled server error');
+    return reply.status(500).send({
+        success: false,
+        error: process.env.NODE_ENV === 'production'
+            ? 'Внутренняя ошибка сервера'
+            : message,
+        requestId: request.id,
+    });
 });
 
 // --- Plugins ---

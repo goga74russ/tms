@@ -58,10 +58,25 @@ const TAG_LEN = 16;
 function getKey(): Buffer {
     const raw = process.env[KEY_ENV];
     if (!raw) {
-        // Dev fallback — deterministic, NEVER use in production. Operators
-        // must set CREDENTIALS_KEY (32+ bytes hex or base64) before storing
-        // real provider keys.
-        return crypto.createHash('sha256').update('tms-dev-credentials-key').digest();
+        // A-P0-2: fail-fast in production. Previously this silently fell back
+        // to sha256("tms-dev-credentials-key") — a publicly known key — which
+        // means ALL encrypted provider credentials (signature, EDI, telematics,
+        // payment, SMTP) were decryptable by anyone with DB access plus public
+        // source code. That deterministic fallback is REMOVED entirely.
+        if (process.env.NODE_ENV === 'production') {
+            throw new Error(
+                `${KEY_ENV} environment variable is required in production. ` +
+                `Generate with: openssl rand -hex 32`,
+            );
+        }
+        // Dev/test: emit a loud warning and use a deterministic-but-clearly-marked
+        // dev key so test runs work. Still must never be used in prod.
+        // eslint-disable-next-line no-console
+        console.warn(
+            `[providers/base] ${KEY_ENV} not set — using DEV-ONLY key. ` +
+            `Set this env var before any production deploy.`,
+        );
+        return crypto.createHash('sha256').update('tms-dev-credentials-key-DO-NOT-USE-IN-PROD').digest();
     }
     if (/^[0-9a-fA-F]{64}$/.test(raw)) return Buffer.from(raw, 'hex');
     try {
@@ -70,8 +85,13 @@ function getKey(): Buffer {
     } catch {
         // fall through
     }
-    // Last-resort: hash whatever was given to a 32-byte key.
-    return crypto.createHash('sha256').update(raw).digest();
+    // Refuse weak keys: a short or non-32-byte value is almost certainly a
+    // typo. Hashing it would silently "work" but defeat the purpose of the
+    // env var.
+    throw new Error(
+        `${KEY_ENV} must be 32 bytes (64 hex chars or 44 base64 chars). ` +
+        `Got ${raw.length} chars. Generate with: openssl rand -hex 32`,
+    );
 }
 
 export function encryptCredentials(plain: Record<string, unknown>): string {

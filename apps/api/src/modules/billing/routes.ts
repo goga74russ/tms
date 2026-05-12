@@ -3,6 +3,7 @@
 // Customer-facing endpoints + provider webhook + admin overview.
 // ============================================================
 import type { FastifyPluginAsync } from 'fastify';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { PLAN_IDS, type PlanId } from '@tms/shared';
 import {
@@ -140,23 +141,63 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     // ---------- Provider webhook ----------
-    // ЮKassa POSTs `payment.succeeded` / `payment.canceled` / `refund.succeeded`.
-    // Signature verification: ЮKassa requires whitelisting source IPs + (optionally)
-    // HMAC of the body with `YOOKASSA_WEBHOOK_SECRET`. Real signature check goes
-    // here when creds arrive — for now we rely on idempotency of externalId lookup.
+    // A-P0-1: ЮKassa webhook signature verification + replay protection.
+    //   - HMAC-SHA256 of the raw request body against YOOKASSA_WEBHOOK_SECRET.
+    //   - Persist webhook event_id in `payments.lastWebhookEventId` for replay
+    //     dedupe (handled inside handlePaymentCallback via dedupeEventId param).
+    //   - When YOOKASSA_WEBHOOK_SECRET is unset, refuse the call entirely in
+    //     production. In dev we accept (logged) to allow local testing.
     fastify.post('/billing/webhook/yookassa', {
-        schema: { tags: ['Биллинг'], summary: 'Webhook ЮKassa (без авторизации)' },
+        schema: { tags: ['Биллинг'], summary: 'Webhook ЮKassa (HMAC-signed)' },
         config: { rawBody: true },
     }, async (request, reply) => {
+        const secret = process.env.YOOKASSA_WEBHOOK_SECRET;
+        const rawBody = (request as unknown as { rawBody?: string | Buffer }).rawBody;
+        const headerSig = request.headers['x-yookassa-signature'] as string | undefined
+            ?? request.headers['content-hmac'] as string | undefined;
+
+        if (process.env.NODE_ENV === 'production') {
+            if (!secret) {
+                request.log.error('YOOKASSA_WEBHOOK_SECRET not set; refusing webhook in production.');
+                return reply.status(503).send({ success: false, error: 'webhook receiver not configured' });
+            }
+            if (!headerSig || !rawBody) {
+                return reply.status(401).send({ success: false, error: 'missing signature' });
+            }
+            const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
+            const expectedBuf = Buffer.from(expected, 'hex');
+            const actualBuf = Buffer.from(headerSig.replace(/^sha256=/i, ''), 'hex');
+            if (
+                expectedBuf.length !== actualBuf.length
+                || !timingSafeEqual(expectedBuf, actualBuf)
+            ) {
+                request.log.warn({ ip: request.ip }, 'YooKassa webhook signature mismatch');
+                return reply.status(401).send({ success: false, error: 'invalid signature' });
+            }
+        } else if (secret && headerSig && rawBody) {
+            // Dev: best-effort verify when both ends are configured. Don't reject
+            // if missing (would block local mock testing).
+            const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
+            const actual = headerSig.replace(/^sha256=/i, '');
+            if (expected !== actual) {
+                request.log.warn('YooKassa webhook signature mismatch (dev, allowed)');
+            }
+        }
+
         const parsed = YookassaWebhookSchema.safeParse(request.body);
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: 'malformed webhook payload' });
         }
         const { object, event } = parsed.data;
         const status = mapYookassaStatus(event, object.status);
+        // Replay dedupe key: ЮKassa events include an `event_id` on the envelope.
+        // Service layer uses this to skip already-processed events (returns 200
+        // to make the webhook idempotent).
+        const eventId = (request.body as { event_id?: string }).event_id;
         const result = await handlePaymentCallback({
             externalId: object.id,
             status,
+            eventId,
         });
         return { success: true, data: result };
     });

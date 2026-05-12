@@ -6,6 +6,7 @@
 // ============================================================
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { organizations, users, providerCredentials } from '../../db/schema.js';
@@ -269,7 +270,8 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         const registry = getDefaultRegistry();
         const adapter = await selectAdapter(registry.email, orgId, 'email');
 
-        const created: Array<{ email: string; tempPassword: string }> = [];
+        const created: Array<{ email: string }> = [];
+        const failedToEmail: string[] = [];
         for (const invite of parsed.data.invites) {
             // Skip if email already exists (idempotent).
             const [existing] = await db.select({ id: users.id })
@@ -278,8 +280,10 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
                 .limit(1);
             if (existing) continue;
 
-            // 12-char temp password — they reset on first login.
-            const tempPassword = Math.random().toString(36).slice(2, 14);
+            // A-P0-3: CSPRNG-generated temp password (16 chars base64url, ~96 bits entropy).
+            // A-P0-13: NEVER include in API response — admin browser history + monitoring
+            // proxies would retain plaintext. Email-only delivery.
+            const tempPassword = randomBytes(12).toString('base64url');
             const passwordHash = await hashPassword(tempPassword);
             await db.insert(users).values({
                 email: invite.email,
@@ -289,7 +293,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
                 organizationId: orgId,
                 isActive: true,
             });
-            created.push({ email: invite.email, tempPassword });
+            created.push({ email: invite.email });
 
             try {
                 await adapter.send(
@@ -302,11 +306,20 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
                 );
             } catch (err) {
                 request.log.error({ err, email: invite.email }, 'Failed to send invite email');
+                failedToEmail.push(invite.email);
             }
         }
 
         await db.update(organizations).set({ onboardingStep: 6 }).where(eq(organizations.id, orgId));
-        return { success: true, data: { invitedCount: created.length } };
+        return {
+            success: true,
+            data: {
+                invitedCount: created.length,
+                // Surface emails that didn't get the message so admin can resend.
+                // Does NOT contain passwords — they are emailed only.
+                failedToEmail,
+            },
+        };
     });
 
     // POST /api/onboarding/complete

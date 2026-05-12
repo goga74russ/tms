@@ -3,6 +3,7 @@
 // ============================================================
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import bcrypt from 'bcryptjs';
+import { randomInt } from 'node:crypto';
 import cookie from '@fastify/cookie';
 import { db } from '../db/connection.js';
 import { users, drivers, tariffs, contracts, contractors, checklistTemplates, organizations, emailVerifications } from '../db/schema.js';
@@ -749,7 +750,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
     const RESEND_COOLDOWN_MS = 60_000;
 
     function generateCode(): string {
-        return String(Math.floor(100000 + Math.random() * 900000));
+        // A-P0-3: CSPRNG via crypto.randomInt. Math.random is predictable;
+        // V8 PRNG state can be recovered, making 6-digit codes brute-forceable
+        // when combined with a known signup window.
+        return String(randomInt(100000, 1000000));
     }
 
     async function sendVerificationCode(email: string, code: string, organizationId: string): Promise<void> {
