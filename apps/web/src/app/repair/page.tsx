@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '@/lib/api';
-import { Wrench, Plus, X } from 'lucide-react';
+import { Wrench, Plus, X, LayoutGrid, Rows3, List } from 'lucide-react';
 import { RepairKanban } from './components/RepairKanban';
 import { RepairCatalogManager } from './components/RepairCatalogManager';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
 import { useToast } from '@/components/ui/toast';
+import { ViewTabs } from '@/components/ui/kanban';
+import { DataTable, type Column, Pill } from '@/components/ui/data-table';
 
 type RepairDraft = {
     vehicleId?: string;
@@ -146,6 +148,9 @@ export default function RepairPage() {
     const [showCatalogModal, setShowCatalogModal] = useState(false);
     const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
     const [initialDraft, setInitialDraft] = useState<RepairDraft | undefined>();
+    const [view, setView] = useState<'board' | 'table' | 'list'>('board');
+    const [repairsForTable, setRepairsForTable] = useState<Array<{ id: string; status: string; description: string; priority: string; source: string; vehicleId: string; assignedTo?: string; totalCost: number | string; createdAt: string }>>([]);
+    const [tableLoading, setTableLoading] = useState(false);
 
     useEffect(() => {
         loadStats();
@@ -184,6 +189,83 @@ export default function RepairPage() {
         in_progress: { label: 'В работе', color: 'bg-indigo-500' },
         done: { label: 'Готово', color: 'bg-emerald-500' },
     };
+
+    useEffect(() => {
+        if (view === 'board') return;
+        let cancelled = false;
+        setTableLoading(true);
+        api.get<any>('/repairs?limit=200')
+            .then(r => {
+                if (!cancelled) setRepairsForTable(r.data || []);
+            })
+            .catch(() => { })
+            .finally(() => { if (!cancelled) setTableLoading(false); });
+        return () => { cancelled = true; };
+    }, [view, catalogRefreshKey]);
+
+    const tableColumns: Column<typeof repairsForTable[number]>[] = useMemo(() => [
+        {
+            id: 'status',
+            header: 'Статус',
+            accessor: r => statusLabels[r.status]?.label || r.status,
+            cell: r => {
+                const tone = r.status === 'done' ? 'success'
+                    : r.status === 'in_progress' ? 'info'
+                    : r.status === 'waiting_parts' ? 'warning'
+                    : 'neutral';
+                return <Pill tone={tone}>{statusLabels[r.status]?.label || r.status}</Pill>;
+            },
+            sortable: true,
+            width: '140px',
+        },
+        {
+            id: 'description',
+            header: 'Описание',
+            accessor: r => r.description,
+            cell: r => <span className="text-sm text-slate-700">{r.description}</span>,
+        },
+        {
+            id: 'priority',
+            header: 'Приоритет',
+            accessor: r => r.priority,
+            cell: r => {
+                const tone = r.priority === 'critical' ? 'danger'
+                    : r.priority === 'high' ? 'warning'
+                    : r.priority === 'low' ? 'neutral'
+                    : 'info';
+                const labels: Record<string, string> = { low: 'Низкий', medium: 'Средний', high: 'Высокий', critical: 'Критический' };
+                return <Pill tone={tone}>{labels[r.priority] || r.priority}</Pill>;
+            },
+            width: '130px',
+            sortable: true,
+        },
+        {
+            id: 'assignedTo',
+            header: 'Механик',
+            accessor: r => r.assignedTo || '',
+            cell: r => r.assignedTo ? <span className="text-xs text-slate-600">{r.assignedTo}</span> : <span className="text-xs text-slate-400">—</span>,
+            width: '160px',
+        },
+        {
+            id: 'totalCost',
+            header: 'Стоимость',
+            accessor: r => Number(r.totalCost) || 0,
+            cell: r => Number(r.totalCost) > 0
+                ? <span className="text-xs font-semibold tabular-nums">{Number(r.totalCost).toLocaleString('ru-RU')} ₽</span>
+                : <span className="text-xs text-slate-400">—</span>,
+            align: 'right',
+            sortable: true,
+            width: '120px',
+        },
+        {
+            id: 'createdAt',
+            header: 'Создана',
+            accessor: r => r.createdAt,
+            cell: r => <span className="text-xs text-slate-500">{new Date(r.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</span>,
+            sortable: true,
+            width: '110px',
+        },
+    ], [statusLabels]);
 
     return (
         <div className="space-y-6">
@@ -230,12 +312,42 @@ export default function RepairPage() {
                 })}
             </div>
 
+            {/* View tabs */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+                <ViewTabs<'board' | 'table' | 'list'>
+                    value={view}
+                    onChange={setView}
+                    options={[
+                        { value: 'board', label: 'Канбан', icon: LayoutGrid },
+                        { value: 'table', label: 'Таблица', icon: Rows3 },
+                        { value: 'list', label: 'Список', icon: List },
+                    ]}
+                />
+            </div>
+
             {/* Kanban board */}
-            <RepairKanban
-                onStatusChange={loadStats}
-                catalogRefreshKey={catalogRefreshKey}
-                onCreateRequest={() => setShowCreateModal(true)}
-            />
+            {view === 'board' && (
+                <RepairKanban
+                    onStatusChange={loadStats}
+                    catalogRefreshKey={catalogRefreshKey}
+                    onCreateRequest={() => setShowCreateModal(true)}
+                />
+            )}
+
+            {/* Table view */}
+            {(view === 'table' || view === 'list') && (
+                <DataTable
+                    tableId="repair-list"
+                    data={repairsForTable}
+                    columns={tableColumns}
+                    keyField="id"
+                    loading={tableLoading}
+                    searchPlaceholder="Поиск по описанию..."
+                    searchKeys={['description', 'assignedTo']}
+                    pageSize={view === 'list' ? 100 : 50}
+                    density={view === 'list' ? 'compact' : 'comfortable'}
+                />
+            )}
 
             {/* Create Modal */}
             {showCreateModal && (

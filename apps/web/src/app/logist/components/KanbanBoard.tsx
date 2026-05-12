@@ -1,3 +1,6 @@
+// TODO(deprecate): replaced by ui/kanban-board.tsx — the page now uses the
+// generic <KanbanBoard> primitive from @/components/ui/kanban. This module
+// is kept temporarily for reference and will be removed next round.
 'use client';
 
 import { useState, DragEvent, useCallback } from 'react';

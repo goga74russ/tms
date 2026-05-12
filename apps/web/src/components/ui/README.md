@@ -180,6 +180,45 @@ Layout: tiny uppercase label + tone-tinted icon circle on top; large 3xl `tabula
 ```
 Title block + iconified tone-tinted square (40×40, rounded-xl). PeriodSelector renders inline at md+ and on its own row below at <md. Refresh icon-button + custom `actions` align right.
 
+### Kanban (`kanban.tsx`)
+Generic kanban primitives with HTML5 drag-drop, no dependencies. Three components + view switcher.
+
+```tsx
+import { KanbanBoard, KanbanColumn, KanbanCard, ViewTabs } from '@/components/ui/kanban';
+
+<KanbanBoard
+  onMove={(id, from, to) => updateStatus(id, to)}
+  canMove={(id, from, to) => transitions[from]?.includes(to) ?? false}
+  onMoveReject={(id, from, to) => toast.error(`Нельзя: ${from} → ${to}`)}
+>
+  <KanbanColumn id="draft" title="Черновик" tone="neutral" count={3} onQuickAdd={() => openCreate()}>
+    {items.map(i => (
+      <KanbanCard key={i.id} id={i.id} fromCol="draft">
+        ...card content...
+      </KanbanCard>
+    ))}
+  </KanbanColumn>
+  ...
+</KanbanBoard>
+```
+
+- `KanbanBoard` owns drag state and dispatches `onMove(itemId, fromCol, toCol)` on successful drop. Optional `canMove` gates the drop and triggers `onMoveReject`.
+- `KanbanColumn` is 280px (320px on xl+), shows tinted top strip + header (title + count badge + optional `Plus` quick-add). Valid drop targets highlight on drag-over, invalid columns fade. Tones: `neutral | brand | info | success | warning | danger`.
+- `KanbanCard` wraps user content with hover lift + grip icon, sets HTML5 drag attributes. `fromCol` is required so the board knows the source column.
+
+```tsx
+<ViewTabs<'board'|'table'>
+  value={view}
+  onChange={setView}
+  options={[
+    { value: 'board', label: 'Канбан', icon: LayoutGrid },
+    { value: 'table', label: 'Таблица', icon: Rows3 },
+  ]}
+/>
+```
+
+Pill-row tab switcher for board/table/map/list views. Active = `brand-50` bg + `brand-700` text + `brand-200` border.
+
 ### ErrorBoundary (`error-boundary.tsx`)
 ```tsx
 <ErrorBoundary scope="cold-chain-widget">

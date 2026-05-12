@@ -1,6 +1,10 @@
+// TODO(deprecate): The bespoke grid + drag-drop shell in this file is replaced
+// by the generic <KanbanBoard> primitive from @/components/ui/kanban. The
+// transition dialogs (Plan/Receive/Complete) remain owned here and will be
+// extracted next round when the deprecated KanbanBoard is removed.
 'use client';
 
-import { useEffect, useMemo, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus, Search, Trash2, Wrench, PackageOpen, Hammer, CheckCircle2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -9,6 +13,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/Combobox';
 import { EmptyState } from '@/components/ui/empty-state';
+import {
+  KanbanBoard,
+  KanbanColumn,
+  KanbanCard,
+  type KanbanTone,
+} from '@/components/ui/kanban';
 import { RepairCard } from './RepairCard';
 
 interface RepairPart {
@@ -99,22 +109,20 @@ interface Repair {
   partsSummary?: RepairPartsSummary;
 }
 
-type RepairColumnTone = 'warning' | 'brand' | 'success';
+type RepairEmptyTone = 'warning' | 'brand' | 'success';
 
 const COLUMNS: Array<{
   status: string;
   label: string;
-  color: string;
-  bg: string;
+  tone: KanbanTone;
   emptyIcon: LucideIcon;
   emptyDescription: string;
-  emptyTone: RepairColumnTone;
+  emptyTone: RepairEmptyTone;
 }> = [
   {
     status: 'created',
     label: 'Создана',
-    color: 'border-amber-400',
-    bg: 'bg-amber-50',
+    tone: 'neutral',
     emptyIcon: Wrench,
     emptyDescription: 'Создайте первую заявку на ремонт',
     emptyTone: 'warning',
@@ -122,8 +130,7 @@ const COLUMNS: Array<{
   {
     status: 'waiting_parts',
     label: 'Ждёт з/ч',
-    color: 'border-blue-400',
-    bg: 'bg-blue-50',
+    tone: 'warning',
     emptyIcon: PackageOpen,
     emptyDescription: 'Заявки, ожидающие поступления запчастей',
     emptyTone: 'brand',
@@ -131,8 +138,7 @@ const COLUMNS: Array<{
   {
     status: 'in_progress',
     label: 'В работе',
-    color: 'border-indigo-400',
-    bg: 'bg-indigo-50',
+    tone: 'info',
     emptyIcon: Hammer,
     emptyDescription: 'Заявки в активной работе',
     emptyTone: 'brand',
@@ -140,8 +146,7 @@ const COLUMNS: Array<{
   {
     status: 'done',
     label: 'Готово',
-    color: 'border-emerald-400',
-    bg: 'bg-emerald-50',
+    tone: 'success',
     emptyIcon: CheckCircle2,
     emptyDescription: 'Завершённые заявки появятся здесь',
     emptyTone: 'success',
@@ -1132,8 +1137,6 @@ export function RepairKanban({
 }) {
   const [repairs, setRepairs] = useState<Repair[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dragging, setDragging] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [transition, setTransition] = useState<{ repairId: string; targetStatus: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -1203,57 +1206,41 @@ export function RepairKanban({
     if (successMessage) setToast({ message: successMessage, type: 'success' });
   }
 
-  function handleDragStart(repairId: string) {
-    setDragging(repairId);
-  }
+  function handleMove(repairId: string, _fromCol: string, toCol: string) {
+    const repair = repairs.find((item) => item.id === repairId);
+    if (!repair || repair.status === toCol) return;
 
-  function handleDragOver(e: DragEvent, status: string) {
-    e.preventDefault();
-    setDragOver(status);
-  }
-
-  function handleDragLeave() {
-    setDragOver(null);
-  }
-
-  function handleDrop(e: DragEvent, newStatus: string) {
-    e.preventDefault();
-    setDragOver(null);
-    if (!dragging) return;
-
-    const repair = repairs.find((item) => item.id === dragging);
-    if (!repair || repair.status === newStatus) {
-      setDragging(null);
-      return;
-    }
-
-    const allowed = REPAIR_STATE_TRANSITIONS[repair.status] || [];
-    if (!allowed.includes(newStatus)) {
-      setToast({ message: `Нельзя перевести заявку из статуса "${repair.status}" в "${newStatus}"`, type: 'error' });
-      setDragging(null);
-      return;
-    }
-
+    // All gated transitions open the appropriate transition dialog.
     if (
-      (repair.status === 'created' && newStatus === 'waiting_parts')
-      || (repair.status === 'waiting_parts' && newStatus === 'in_progress')
-      || (repair.status === 'in_progress' && newStatus === 'done')
+      (repair.status === 'created' && toCol === 'waiting_parts')
+      || (repair.status === 'waiting_parts' && toCol === 'in_progress')
+      || (repair.status === 'in_progress' && toCol === 'done')
     ) {
-      setTransition({ repairId: repair.id, targetStatus: newStatus });
-      setDragging(null);
+      setTransition({ repairId: repair.id, targetStatus: toCol });
       return;
     }
 
     void (async () => {
       try {
-        await changeStatus(repair.id, newStatus);
+        await changeStatus(repair.id, toCol);
         await refreshBoard('Статус ремонта обновлен.');
       } catch (err: any) {
         setToast({ message: `Ошибка: ${err.message}`, type: 'error' });
       }
     })();
+  }
 
-    setDragging(null);
+  function canMove(repairId: string, _fromCol: string, toCol: string): boolean {
+    const repair = repairs.find((item) => item.id === repairId);
+    if (!repair) return false;
+    const allowed = REPAIR_STATE_TRANSITIONS[repair.status] || [];
+    return allowed.includes(toCol);
+  }
+
+  function handleMoveReject(repairId: string, _fromCol: string, toCol: string) {
+    const repair = repairs.find((item) => item.id === repairId);
+    if (!repair) return;
+    setToast({ message: `Нельзя перевести заявку из статуса "${repair.status}" в "${toCol}"`, type: 'error' });
   }
 
   async function handlePlanParts(partsUsed: RepairPart[]) {
@@ -1342,77 +1329,63 @@ export function RepairKanban({
         onSubmit={handleCompleteRepair}
       />
 
-      <div className="grid min-h-[500px] grid-cols-4 gap-4">
+      <KanbanBoard onMove={handleMove} canMove={canMove} onMoveReject={handleMoveReject}>
         {COLUMNS.map((column) => {
           const columnRepairs = repairs.filter((repair) => repair.status === column.status);
-          const isOver = dragOver === column.status;
+          const colSummary = columnSummaries[column.status];
+
+          const emptyAction = column.status === 'created' && onCreateRequest ? (
+            <Button
+              variant="brand"
+              size="sm"
+              leftIcon={<Plus className="w-4 h-4" />}
+              onClick={onCreateRequest}
+            >
+              Новая заявка
+            </Button>
+          ) : undefined;
 
           return (
-              <div
-                key={column.status}
-                className={`rounded-xl border-2 border-dashed transition-colors duration-200 ${isOver ? `${column.color} ${column.bg}` : 'border-slate-200 bg-slate-50/50'}`}
-                onDragOver={(e) => handleDragOver(e, column.status)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, column.status)}
-              >
-                <div className={`rounded-t-xl border-b-2 ${column.color} bg-white px-4 py-3`}>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-800">{column.label}</h3>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{columnRepairs.length}</span>
-                      {columnSummaries[column.status]?.partCount > 0 ? (
-                        <div className="flex flex-wrap justify-end gap-1">
-                          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-                            План {formatMoney(columnSummaries[column.status].plannedCost)} ₽
-                          </span>
-                          <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-                            Факт {formatMoney(columnSummaries[column.status].factCost)} ₽
-                          </span>
-                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${columnSummaries[column.status].variance >= 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                            Δ {columnSummaries[column.status].variance >= 0 ? '+' : ''}{formatMoney(Math.abs(columnSummaries[column.status].variance))} ₽
-                          </span>
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
+            <KanbanColumn
+              key={column.status}
+              id={column.status}
+              title={column.label}
+              tone={column.tone}
+              count={columnRepairs.length}
+              onQuickAdd={column.status === 'created' ? onCreateRequest : undefined}
+              emptyState={
+                <EmptyState
+                  icon={column.emptyIcon}
+                  title="Нет заявок"
+                  description={column.emptyDescription}
+                  tone={column.emptyTone}
+                  className="min-h-[160px] py-6 px-3 bg-transparent border-0"
+                  action={emptyAction}
+                />
+              }
+            >
+              {colSummary && colSummary.partCount > 0 ? (
+                <div className="flex flex-wrap gap-1 px-1 pb-1">
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                    План {formatMoney(colSummary.plannedCost)} ₽
+                  </span>
+                  <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                    Факт {formatMoney(colSummary.factCost)} ₽
+                  </span>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${colSummary.variance >= 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                    Δ {colSummary.variance >= 0 ? '+' : ''}{formatMoney(Math.abs(colSummary.variance))} ₽
+                  </span>
                 </div>
-
-              <div className="max-h-[600px] space-y-3 overflow-y-auto p-3">
-                {columnRepairs.length === 0 ? (
-                  <EmptyState
-                    icon={column.emptyIcon}
-                    title="Нет заявок"
-                    description={column.emptyDescription}
-                    tone={column.emptyTone}
-                    className="min-h-[180px] py-8 px-3 bg-transparent border-0"
-                    action={
-                      column.status === 'created' && onCreateRequest ? (
-                        <Button
-                          variant="brand"
-                          size="sm"
-                          leftIcon={<Plus className="w-4 h-4" />}
-                          onClick={onCreateRequest}
-                        >
-                          Новая заявка
-                        </Button>
-                      ) : undefined
-                    }
-                  />
-                ) : columnRepairs.map((repair) => (
-                  <div
-                    key={repair.id}
-                    draggable
-                    onDragStart={() => handleDragStart(repair.id)}
-                    className={`cursor-grab transition-opacity active:cursor-grabbing ${dragging === repair.id ? 'opacity-50' : 'opacity-100'}`}
-                  >
-                    <RepairCard repair={repair} />
-                  </div>
-                ))}
-              </div>
-            </div>
+              ) : null}
+              {columnRepairs.map((repair) => (
+                <KanbanCard key={repair.id} id={repair.id} fromCol={column.status}>
+                  <RepairCard repair={repair} />
+                </KanbanCard>
+              ))}
+            </KanbanColumn>
           );
         })}
-      </div>
+      </KanbanBoard>
     </>
   );
 }
