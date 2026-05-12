@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
 import { DataTable, type Column } from '@/components/ui/data-table';
 import { Dialog } from '@/components/ui/dialog';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import {
     FileText, Eye, Lock, CheckCircle2,
     Clock, RotateCcw, Truck, User, Download, FileDown, Printer, Paperclip, Upload, Trash2, RefreshCcw,
@@ -1461,6 +1462,7 @@ export default function WaybillsPage() {
     ];
 
     return (
+        <ErrorBoundary scope="waybills">
         <div className="min-h-screen bg-neutral-50">
             {/* Header */}
             <header className="bg-white border-b border-neutral-200 px-6 py-4 -m-6 mb-6">
@@ -1600,6 +1602,7 @@ export default function WaybillsPage() {
                 />
             )}
         </div>
+        </ErrorBoundary>
     );
 }
 

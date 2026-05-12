@@ -72,6 +72,9 @@ Tones: `neutral | brand | success | warning | danger`.
 Use in 2/4-column responsive grids at the top of dashboard pages.
 
 ### DataTable (`data-table.tsx`)
+
+> Список страниц, использующих DataTable (admin/users, drivers, trips, claims, incidents, tariffs, fleet/vehicles, contractors, etc.), и общий design-system inventory — в [`docs/operations/design-system.md`](../../../../../docs/operations/design-system.md).
+
 Composable, vanilla (no `@tanstack/react-table`) table primitive with:
 - Sticky header, sticky left column option, density modes (`compact|comfortable|dense`)
 - Sortable columns (per-column opt-in), column visibility menu (persisted via `tableId` + localStorage key `dt-cols-<tableId>`)

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 
 const API_BASE = '/api';
@@ -110,6 +110,7 @@ export default function SignatureRefusalPrintPage() {
     const [documentId, setDocumentId] = useState<string | null>(null);
     const [dossier, setDossier] = useState<Dossier | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const printedRef = useRef(false);
 
     useEffect(() => {
         setDocumentId(new URLSearchParams(window.location.search).get('documentId'));
@@ -135,7 +136,8 @@ export default function SignatureRefusalPrintPage() {
     const refusal = latestRefusal(document);
 
     useEffect(() => {
-        if (!dossier) return;
+        if (!dossier || printedRef.current) return;
+        printedRef.current = true;
         const timer = window.setTimeout(() => window.print(), 400);
         return () => window.clearTimeout(timer);
     }, [dossier]);

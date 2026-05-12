@@ -143,11 +143,15 @@ export default function TripCompletionScreen({ route, navigation }: Props) {
                         </Card>
                     )}
 
-                    <View style={styles.pillRow}>
-                        <Pill label="📄 Документы" tone="neutral" />
-                        <Pill label="⚠ Претензия" tone="neutral" />
-                        <Pill label="❓ Помощь" tone="neutral" />
-                    </View>
+                    {/* Декоративные пилюли без обработчиков — показываем только в dev,
+                        пока не появятся реальные экраны документов/претензий/помощи. */}
+                    {__DEV__ && (
+                        <View style={styles.pillRow}>
+                            <Pill label="📄 Документы" tone="neutral" />
+                            <Pill label="⚠ Претензия" tone="neutral" />
+                            <Pill label="❓ Помощь" tone="neutral" />
+                        </View>
+                    )}
 
                     <Button
                         title="Готово"

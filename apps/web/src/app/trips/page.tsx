@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { SkeletonRow } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { DataTable, type Column } from '@/components/ui/data-table';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from '../fleet/components/vehicleProfile';
 import { TemperaturePanel } from '@/components/TemperaturePanel';
 
@@ -2633,6 +2634,7 @@ export default function TripsPage() {
     ];
 
     return (
+        <ErrorBoundary scope="trips">
         <div className="space-y-6">
             {tripsToast && (
                 <div
@@ -3129,5 +3131,6 @@ export default function TripsPage() {
                 )}
             </Dialog>
         </div>
+        </ErrorBoundary>
     );
 }

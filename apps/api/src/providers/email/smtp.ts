@@ -2,6 +2,7 @@
 // SMTP email provider via nodemailer. Works today when SMTP_HOST env
 // is set (Mail.ru free tier: smtp.mail.ru:465 SSL).
 // ============================================================
+import crypto from 'node:crypto';
 import { nowIso, type ProviderHealth } from '../base.js';
 import type { EmailCredentials, EmailMessage, EmailProvider } from './interface.js';
 
@@ -17,16 +18,36 @@ type Transporter = {
     verify?(): Promise<true>;
 };
 
-let cachedTransporter: Transporter | null = null;
-let cachedCreds: EmailCredentials | null = null;
+// A-P1-3: previously a single module-level `cachedTransporter` was reused for
+// EVERY org. First org to send anything baked its host/port/auth into the
+// process and all subsequent sends — across orgs — went through that exact
+// transporter unless host+port+user changed. Replace with a small LRU keyed
+// by the credentials shape so each org gets its own transporter.
+const transporterCache = new Map<string, Transporter>();
+const TRANSPORTER_CACHE_MAX = 20;
+
+function credsCacheKey(creds: EmailCredentials): string {
+    // Hash includes everything that influences the transporter — including
+    // password — so a rotated password creates a fresh entry.
+    const raw = JSON.stringify({
+        host: creds.host ?? '',
+        port: creds.port ?? 465,
+        user: creds.user ?? '',
+        password: creds.password ?? '',
+    });
+    return crypto.createHash('sha256').update(raw).digest('hex');
+}
 
 async function getTransporter(creds: EmailCredentials): Promise<Transporter> {
-    if (cachedTransporter && cachedCreds &&
-        cachedCreds.host === creds.host &&
-        cachedCreds.port === creds.port &&
-        cachedCreds.user === creds.user) {
-        return cachedTransporter;
+    const key = credsCacheKey(creds);
+    const hit = transporterCache.get(key);
+    if (hit) {
+        // Touch for LRU semantics: re-insert so it counts as most-recent.
+        transporterCache.delete(key);
+        transporterCache.set(key, hit);
+        return hit;
     }
+
     // Lazy import — nodemailer is optional dep until SMTP_HOST is configured.
     const mod: unknown = await import('nodemailer');
     const ns = mod as { default?: { createTransport: (opts: unknown) => Transporter }; createTransport?: (opts: unknown) => Transporter };
@@ -43,8 +64,13 @@ async function getTransporter(creds: EmailCredentials): Promise<Transporter> {
         auth: creds.user ? { user: creds.user, pass: creds.password ?? '' } : undefined,
     });
 
-    cachedTransporter = transporter;
-    cachedCreds = creds;
+    transporterCache.set(key, transporter);
+    // Evict oldest insertion when over capacity. Map iteration order is
+    // insertion order, so the first key is the LRU after our touch above.
+    if (transporterCache.size > TRANSPORTER_CACHE_MAX) {
+        const oldest = transporterCache.keys().next().value;
+        if (oldest !== undefined) transporterCache.delete(oldest);
+    }
     return transporter;
 }
 

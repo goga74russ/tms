@@ -37,16 +37,21 @@ export class CrptMarkingProvider implements MarkingProvider {
     async execute(): Promise<unknown> { return { ok: true }; }
 
     async verifyCode(_creds: MarkingCredentials, _code: string): Promise<MarkingVerifyResult> {
+        // A-P1-26: PUBLIC verify endpoint does not require auth — sending
+        // clientToken/Authorization here leaked the OMS token to an endpoint
+        // that doesn't need it. NO auth headers below; auth is only attached
+        // when calling CRPT_API_URL endpoints like /cises/info.
+        //
         // POST {CRPT_PUBLIC_VERIFY_URL}
+        //   Headers: Content-Type: application/json   (NO clientToken)
         //   Body: { codes: ['<code>'] }
         // Response: { codes: [{ cis, valid, found, info: { gtin, serial, productName } }] }
-        // For full status (in_circulation/sold/withdrawn) use auth-protected endpoint:
-        //   POST {CRPT_API_URL}/cises/info  Headers: clientToken: <omsToken>
-        //   Body: ['<code>']
+        // For full status (in_circulation/sold/withdrawn) use the authenticated
+        // path verifyCodeAuthenticated() below.
         // TODO(real-impl): wire fetch.
         // const res = await fetch(CRPT_PUBLIC_VERIFY_URL, {
         //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json', 'clientToken': this.creds.omsToken },
+        //     headers: { 'Content-Type': 'application/json' }, // no auth
         //     body: JSON.stringify({ codes: [code] }),
         // });
         // if (!res.ok) throw new Error(`CRPT verify failed: ${res.status}`);
@@ -58,13 +63,18 @@ export class CrptMarkingProvider implements MarkingProvider {
     }
 
     async bulkVerify(_creds: MarkingCredentials, _codes: string[]): Promise<MarkingVerifyResult[]> {
-        // Same endpoint accepts an array of up to 1000 codes.
+        // A-P1-26: same as verifyCode — public endpoint, no clientToken.
+        // The endpoint accepts an array of up to 1000 codes.
         // TODO(real-impl).
         throw new Error('CRPT bulkVerify() not yet implemented.');
     }
 
+    // A-P1-26: authenticated endpoints (e.g. POST /cises/info) attach
+    // `clientToken: this.creds.omsToken` in their headers. Public endpoints
+    // (verifyCode, bulkVerify, getCategoryStatus) MUST NOT — see notes above.
+
     async getCategoryStatus(_category: string): Promise<MarkingCategoryStatus> {
-        // GET {CRPT_API_URL}/categories/{code}/status (public)
+        // GET {CRPT_API_URL}/categories/{code}/status (public — no auth header)
         // TODO(real-impl).
         throw new Error('CRPT getCategoryStatus() not yet implemented.');
     }

@@ -2,6 +2,8 @@
 
 Updated: 2026-04-28
 
+> **NOTE:** This snapshot dates from 2026-04-28. Most P0/P1 items called out here are now closed — see the deep audit [`docs/operations/audit-2026-05-12-deep.md`](audit-2026-05-12-deep.md) for the current security posture (ЮKassa HMAC, credentials-key fail-fast, CSPRNG IDs, error-handler hardening, Pino redact, etc.).
+
 ## Current Security Posture
 
 Existing security foundation:

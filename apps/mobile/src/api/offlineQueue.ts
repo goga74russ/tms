@@ -4,6 +4,7 @@ import { getToken } from './auth';
 import { uploadPhoto } from './upload';
 
 const QUEUE_KEY = 'tms_offline_action_queue';
+const FAILED_QUEUE_KEY = 'tms_offline_action_queue.failed';
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 /** Encode queue JSON before storing to prevent casual inspection of offline data */
@@ -56,7 +57,34 @@ export async function getQueue(): Promise<OfflineAction[]> {
 }
 
 export async function clearQueue(): Promise<void> {
-    await AsyncStorage.removeItem(QUEUE_KEY);
+    await Promise.all([
+        AsyncStorage.removeItem(QUEUE_KEY),
+        AsyncStorage.removeItem(FAILED_QUEUE_KEY),
+    ]);
+}
+
+/** Returns actions that exceeded the retry budget and were moved to the dead-letter queue. */
+export async function getFailedQueue(): Promise<OfflineAction[]> {
+    try {
+        const raw = await AsyncStorage.getItem(FAILED_QUEUE_KEY);
+        return raw ? JSON.parse(decodeQueue(raw)) : [];
+    } catch {
+        return [];
+    }
+}
+
+/** Count of actions parked in the dead-letter queue (for UI surfacing). */
+export async function getFailedCount(): Promise<number> {
+    const failed = await getFailedQueue();
+    return failed.length;
+}
+
+/** Move actions that exhausted their retry budget into the dead-letter queue. */
+async function appendToFailedQueue(actions: OfflineAction[]): Promise<void> {
+    if (actions.length === 0) return;
+    const existing = await getFailedQueue();
+    const merged = [...existing, ...actions];
+    await AsyncStorage.setItem(FAILED_QUEUE_KEY, encodeQueue(JSON.stringify(merged)));
 }
 
 export async function getQueueSize(): Promise<number> {
@@ -132,6 +160,7 @@ export async function replayQueue(): Promise<{ success: number; failed: number }
     let success = 0;
     let failed = 0;
     const remaining: OfflineAction[] = [];
+    const exhausted: OfflineAction[] = [];
 
     for (const action of queue) {
         try {
@@ -154,18 +183,25 @@ export async function replayQueue(): Promise<{ success: number; failed: number }
             action.retries++;
             if (action.retries < 5) {
                 remaining.push(action);
+            } else {
+                // Retry budget exhausted — park in the dead-letter queue instead of
+                // silently dropping. UI can surface this via getFailedCount().
+                exhausted.push(action);
             }
             failed++;
         } catch {
             action.retries++;
             if (action.retries < 5) {
                 remaining.push(action);
+            } else {
+                exhausted.push(action);
             }
             failed++;
         }
     }
 
     await AsyncStorage.setItem(QUEUE_KEY, encodeQueue(JSON.stringify(remaining)));
+    await appendToFailedQueue(exhausted);
     return { success, failed };
 }
 

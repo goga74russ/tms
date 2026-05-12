@@ -9,6 +9,12 @@ import type { EventType, UserRole } from '@tms/shared';
 interface CreateEventParams {
     authorId: string;
     authorRole: string;
+    /**
+     * A-P0-12: tenant scope. The audit-log reader filters by this. Optional
+     * because some system-generated events (cron jobs, system tasks) legitimately
+     * have no org. Production code paths should always pass it.
+     */
+    organizationId?: string | null;
     eventType: string;
     entityType: string;
     entityId: string;
@@ -24,7 +30,27 @@ interface CreateEventParams {
  */
 export async function recordEvent(params: CreateEventParams, tx?: any) {
     const dbInstance = tx || db;
+    // A-P0-12: if caller didn't pass organizationId explicitly, look it up
+    // from the author's user record. This keeps backwards compatibility with
+    // all existing call sites while ensuring no event lands with null org
+    // unless the author also has none.
+    let orgId: string | null | undefined = params.organizationId;
+    if (orgId === undefined && params.authorId) {
+        try {
+            const { users } = await import('../db/schema.js');
+            const [row] = await dbInstance
+                .select({ organizationId: users.organizationId })
+                .from(users)
+                .where(eq(users.id, params.authorId))
+                .limit(1);
+            orgId = row?.organizationId ?? null;
+        } catch {
+            orgId = null;
+        }
+    }
+
     const values: Record<string, unknown> = {
+        organizationId: orgId ?? null,
         authorId: params.authorId,
         authorRole: params.authorRole,
         eventType: params.eventType,

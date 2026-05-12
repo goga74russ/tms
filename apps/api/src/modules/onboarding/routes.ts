@@ -10,7 +10,7 @@ import { randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { organizations, users, providerCredentials } from '../../db/schema.js';
-import { encryptCredentials } from '../../providers/base.js';
+import { encryptCredentials, invalidateCredentialsCache } from '../../providers/base.js';
 import { hashPassword } from '../../auth/auth.js';
 import { findByInn } from '../../integrations/mocks/dadata.mock.js';
 import {
@@ -21,6 +21,8 @@ import {
     type ProviderName,
 } from '@tms/shared';
 import { selectAdapter, getDefaultRegistry } from '../../providers/index.js';
+import { APP_ROLES } from '../../auth/rbac.js';
+import { escapeHtml } from '../../utils/html.js';
 
 interface AuthUser {
     userId: string;
@@ -69,11 +71,13 @@ const IntegrationChoiceSchema = z.object({
     credentials: z.record(z.unknown()).optional(),
 });
 
+// A-P1-6: constrain roles to APP_ROLES — was z.string() which accepted any
+// value, polluting users.roles with strings RBAC ignores.
 const InviteSchema = z.object({
     invites: z.array(z.object({
         email: z.string().email(),
         fullName: z.string().min(1),
-        roles: z.array(z.string()).min(1),
+        roles: z.array(z.enum(APP_ROLES)).min(1),
     })).min(1).max(50),
 });
 
@@ -250,6 +254,8 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
             await db.update(organizations).set({ onboardingStep: 5 }).where(eq(organizations.id, orgId));
         }
 
+        // A-P1-2: drop cached creds so the next selectAdapter() call sees the new row.
+        invalidateCredentialsCache(orgId, providerType);
         return { success: true };
     });
 
@@ -296,11 +302,16 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
             created.push({ email: invite.email });
 
             try {
+                // A-P1-7: escape user-controlled values before HTML
+                // interpolation. fullName is admin-supplied (still untrusted —
+                // admin in another org could craft a payload), tempPassword
+                // is base64url so currently safe but escape on principle so
+                // a future entropy-source change can't introduce XSS.
                 await adapter.send(
                     invite.email,
                     'TMS — приглашение в систему',
-                    `<p>Здравствуйте, ${invite.fullName}!</p>
-                     <p>Вас пригласили в TMS. Временный пароль: <strong>${tempPassword}</strong></p>
+                    `<p>Здравствуйте, ${escapeHtml(invite.fullName)}!</p>
+                     <p>Вас пригласили в TMS. Временный пароль: <strong>${escapeHtml(tempPassword)}</strong></p>
                      <p>После входа смените пароль в профиле.</p>`,
                     `Временный пароль для входа в TMS: ${tempPassword}`,
                 );

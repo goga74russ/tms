@@ -34,6 +34,8 @@ sequence.
 | `0022_compliance.sql` | 21 | Compliance evidence + certificate uploads. |
 | `0023_monetization.sql` | 22 | Monetization — subscriptions, plans, billing periods. |
 | `0024_perf_indexes.sql` | 23 | Round 3C — performance indexes for hot lookup paths. |
+| `0025_inspection_decision_trigger.sql` | 24 | Round 5 — relax append-only trigger on `tech_inspections` / `med_inspections` so `/inspections/{tech,med}/:id/decision` can write decision fields (B-1 fix). |
+| `0026_payment_webhook_dedupe.sql` | 25 | Deep audit — adds `payments.provider_metadata` JSONB for ЮKassa webhook replay-dedupe key `lastWebhookEventId` (A-P0-1 fix). |
 
 ## Why is 0005 missing?
 
@@ -51,7 +53,7 @@ inherited from early development:
 * Drizzle's `migrate` command keys off `idx`, not the filename
   prefix, so the gap has zero runtime consequence. New migrations
   must continue to use the next available prefix
-  (`0024`, `0025`, …) to keep human-readable ordering aligned with
+  (`0027`, `0028`, …) to keep human-readable ordering aligned with
   `idx` order.
 
 ## Drift signal — the 0008 duplicate-index drop

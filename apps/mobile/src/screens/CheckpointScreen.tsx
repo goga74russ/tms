@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
-    Animated,
     Image,
     ScrollView,
     StyleSheet,
@@ -19,7 +18,7 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { uploadPhoto } from '../api/upload';
 import { enqueueAction } from '../api/offlineQueue';
 import { useAuth } from '../context/AuthContext';
-import { Button, Card, Pill } from '../components/ui';
+import { Button, Pill } from '../components/ui';
 import { colors, radius, spacing, typography } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Checkpoint'>;
@@ -36,19 +35,6 @@ export default function CheckpointScreen({ route, navigation }: Props) {
 
     const cameraRef = useRef<CameraView>(null);
     const signatureRef = useRef<SignatureViewRef>(null);
-
-    // Pulse animation for GPS indicator
-    const pulse = useRef(new Animated.Value(0)).current;
-    useEffect(() => {
-        const loop = Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulse, { toValue: 1, duration: 1200, useNativeDriver: true }),
-                Animated.timing(pulse, { toValue: 0, duration: 1200, useNativeDriver: true }),
-            ])
-        );
-        loop.start();
-        return () => loop.stop();
-    }, [pulse]);
 
     useEffect(() => {
         const unsub = NetInfo.addEventListener((s) => {
@@ -245,25 +231,13 @@ export default function CheckpointScreen({ route, navigation }: Props) {
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
             <Text style={styles.h1}>Подтверждение точки</Text>
 
-            <Card tone="accent" elevation="none" style={{ marginTop: spacing.md }}>
-                <View style={styles.gpsRow}>
-                    <Animated.View
-                        style={[
-                            styles.pulseDot,
-                            {
-                                transform: [
-                                    {
-                                        scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }),
-                                    },
-                                ],
-                                opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 0.3] }),
-                            },
-                        ]}
-                    />
-                    <View style={styles.gpsDotInner} />
-                    <Text style={styles.gpsText}>GPS-сигнал захвачен · ±5 м</Text>
-                </View>
-            </Card>
+            {/*
+              GPS accuracy claim removed: the screen never actually requested a
+              location fix, so showing "GPS-сигнал захвачен · ±5 м" was a lie to
+              the driver and a liability if a checkpoint is later disputed.
+              When real GPS integration lands (expo-location + accuracy
+              telemetry), re-introduce a Card here driven by the live reading.
+            */}
 
             <Text style={styles.label}>Заметки / расхождения</Text>
             <TextInput
@@ -294,34 +268,41 @@ export default function CheckpointScreen({ route, navigation }: Props) {
                 style={{ marginTop: spacing.sm }}
                 onPress={() => setStep('camera')}
             />
-            <Button
-                title="⏸  Простой / задержка"
-                variant="warning"
-                size="lg"
-                fullWidth
-                style={{ marginTop: spacing.sm }}
-                onPress={() =>
-                    Alert.alert(
-                        'Простой',
-                        'Сообщение о задержке отправлено диспетчеру (заглушка).',
-                        [{ text: 'OK' }]
-                    )
-                }
-            />
-            <Button
-                title="❌  Пропустить точку"
-                variant="ghost"
-                size="md"
-                fullWidth
-                style={{ marginTop: spacing.sm }}
-                textStyle={{ color: colors.danger[600] }}
-                onPress={() =>
-                    Alert.alert('Пропустить точку?', 'Это действие потребует обоснования.', [
-                        { text: 'Отмена', style: 'cancel' },
-                        { text: 'Пропустить', style: 'destructive', onPress: () => navigation.goBack() },
-                    ])
-                }
-            />
+            {/* "Простой / задержка" и "Пропустить точку" — заглушки без бэкенда.
+                Показываем только в dev-сборках, пока не появится реальный
+                диспетчерский endpoint и workflow обоснования пропуска. */}
+            {__DEV__ && (
+                <>
+                    <Button
+                        title="⏸  Простой / задержка"
+                        variant="warning"
+                        size="lg"
+                        fullWidth
+                        style={{ marginTop: spacing.sm }}
+                        onPress={() =>
+                            Alert.alert(
+                                'Простой',
+                                'Сообщение о задержке отправлено диспетчеру (заглушка).',
+                                [{ text: 'OK' }]
+                            )
+                        }
+                    />
+                    <Button
+                        title="❌  Пропустить точку"
+                        variant="ghost"
+                        size="md"
+                        fullWidth
+                        style={{ marginTop: spacing.sm }}
+                        textStyle={{ color: colors.danger[600] }}
+                        onPress={() =>
+                            Alert.alert('Пропустить точку?', 'Это действие потребует обоснования.', [
+                                { text: 'Отмена', style: 'cancel' },
+                                { text: 'Пропустить', style: 'destructive', onPress: () => navigation.goBack() },
+                            ])
+                        }
+                    />
+                </>
+            )}
 
             <View style={styles.footer}>
                 <Pill
@@ -362,23 +343,6 @@ const styles = StyleSheet.create({
         backgroundColor: colors.white,
         color: colors.neutral[900],
     },
-    gpsRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    pulseDot: {
-        position: 'absolute',
-        left: spacing.xs,
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: colors.success[500],
-    },
-    gpsDotInner: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: colors.success[500],
-        marginLeft: spacing.xs,
-    },
-    gpsText: { ...typography.bodyBold, color: colors.success[700], marginLeft: spacing.sm },
     footer: { alignItems: 'center', marginTop: spacing.xxl },
 
     permissionWrap: {

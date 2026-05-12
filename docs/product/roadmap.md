@@ -6,7 +6,7 @@ The free-box (no paid integrations required) is feature-complete after waves W1�
 
 ## Where we are now
 
-- **End-to-end chain works** in code: order → trip → inspections → release → delivery → document return → billing. Verified by `scripts/api-smoke-chain.sh`.
+- **End-to-end chain works** in code: order → trip → inspections → release → delivery → document return → billing. Verified by `scripts/smoke-chain.mjs`.
 - **Mocks** for every paid integration: Wialon, ETRN-operator, EDI, fuel cards, ГИБДД, DaData, geo, signatures, marking, OSAGO, OFD. See [integrations-status.md](../operations/integrations-status.md).
 - **Test coverage**: **140/140 unit tests** across RBAC, utils, finance.service, eta.service, cold-chain, rto, scoring, ddd-parser, billing, import, inspections/service. Playwright happy-path scaffold (`apps/web/tests/e2e/happy-path.spec.ts`) — 4 tests, advisory in CI until DB env wired.
 - **CI**: typecheck, lint, audit, drizzle drift, vitest blocking. Playwright job advisory.
@@ -23,7 +23,7 @@ Concrete checklist before opening to beta-signups:
 - [ ] Реальные ключи провайдеров: `ANTHROPIC_API_KEY` (AI co-pilot), `YOOKASSA_*` (payments + webhook secret), `DADATA_TOKEN`, минимум один EDI оператор (Диадок sandbox → production).
 - [ ] Юр-лицо для расчётов: ОГРН/ИНН/КПП заполнены в env + договор с ОФД-провайдером (Платформа ОФД / Такском-Касса).
 - [ ] Legal-review всех 3 documents в `docs/legal/` (privacy/terms/personal-data) — снять ПРОЕКТ banner.
-- [ ] Прогон `scripts/api-smoke-chain.sh` на staging deployment (postgres + redis + minio + api + web + nginx). Capture artifact в `docs/operations/smoke-evidence-<YYYY-MM-DD>.md`.
+- [ ] Прогон `scripts/smoke-chain.mjs` на staging deployment (postgres + redis + minio + api + web + nginx). Capture artifact в `docs/operations/smoke-evidence-<YYYY-MM-DD>.md`.
 - [ ] Playwright happy-path с реальной БД — снять `continue-on-error: true` в p0-gate.yml.
 - [ ] Sentry / Glitchtip / self-hosted error sink wired (A-2 в audit).
 - [ ] MOCK_MODE env-gate на всех `*.mock.ts` импортах (A-4 в audit).

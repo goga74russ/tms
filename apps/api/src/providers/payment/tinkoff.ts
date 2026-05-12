@@ -24,9 +24,25 @@ function mapStatus(s: string): PaymentStatus {
     return 'pending';
 }
 
-/** Тинькофф signing — see "Подпись запроса" in docs. */
-export function signTinkoffRequest(body: Record<string, string | number | boolean>, password: string): string {
-    const flat: Record<string, string> = { ...Object.fromEntries(Object.entries(body).map(([k, v]) => [k, String(v)])), Password: password };
+/**
+ * Тинькофф signing — see "Подпись запроса" in docs:
+ *   "В вычислении токена не участвуют объекты (Receipt, DATA и т.п.) и
+ *    массивы. Сортировка по ключу выполняется только по корневым параметрам
+ *    с примитивными значениями."
+ *
+ * A-P1-27: prior implementation called `String(v)` on every value, which
+ * meant nested `Receipt` / `DATA` objects were stringified as
+ * "[object Object]" and concatenated into the token — producing an INVALID
+ * signature whenever a receipt was attached. We now filter to primitives
+ * before sorting + concatenating.
+ */
+export function signTinkoffRequest(body: Record<string, unknown>, password: string): string {
+    const flat: Record<string, string> = { Password: password };
+    for (const [k, v] of Object.entries(body)) {
+        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+            flat[k] = String(v);
+        }
+    }
     const ordered = Object.keys(flat).sort().map(k => flat[k]).join('');
     return crypto.createHash('sha256').update(ordered).digest('hex');
 }

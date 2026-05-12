@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 
 const API_BASE = '/api';
@@ -57,6 +57,7 @@ function CancellationActPrintContent() {
     const tripId = params?.tripId as string;
     const [trip, setTrip] = useState<Trip | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const printedRef = useRef(false);
 
     const reason = search.get('reason') || 'Груз не готов после подачи транспортного средства';
     const amount = search.get('amount');
@@ -75,7 +76,8 @@ function CancellationActPrintContent() {
     }, [tripId]);
 
     useEffect(() => {
-        if (!trip) return;
+        if (!trip || printedRef.current) return;
+        printedRef.current = true;
         const timer = window.setTimeout(() => window.print(), 400);
         return () => window.clearTimeout(timer);
     }, [trip]);

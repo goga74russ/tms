@@ -72,7 +72,11 @@ export function useWialonPositions(
         }
 
         pollOnce();
-        const id = setInterval(pollOnce, intervalMs);
+        const id = setInterval(() => {
+            // A-P1-15: pause live GPS polling when the tab is hidden
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+            pollOnce();
+        }, intervalMs);
         return () => {
             cancelled = true;
             clearInterval(id);

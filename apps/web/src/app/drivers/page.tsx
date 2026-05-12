@@ -53,23 +53,8 @@ function expiryColor(d?: string) {
     return 'text-emerald-600';
 }
 
-function HosBadge({ driverId }: { driverId: string }) {
-    const [status, setStatus] = useState<HosStatus | null>(null);
-    const [loading, setLoading] = useState(false);
+function HosBadge({ status, loading }: { status: HosStatus | null; loading: boolean }) {
     const [hover, setHover] = useState(false);
-
-    useEffect(() => {
-        let cancelled = false;
-        setLoading(true);
-        api.get<{ success: boolean; data: HosStatus }>(`/drivers/${driverId}/hos-status`)
-            .then(res => {
-                if (cancelled) return;
-                if (res?.success && res.data) setStatus(res.data);
-            })
-            .catch(() => { /* silent */ })
-            .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
-    }, [driverId]);
 
     if (loading && !status) {
         return <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-300" />;
@@ -274,6 +259,13 @@ export default function DriversPage() {
     const [hosDriver, setHosDriver] = useState<Driver | null>(null);
     const [statusFilter, setStatusFilter] = useState('');
     const [confirmAction, setConfirmAction] = useState<null | { run: () => Promise<void> | void; title: string; description?: string; destructive?: boolean; confirmLabel?: string }>(null);
+    // A-P1-10: HOS statuses for all active drivers, batched once at parent
+    // level instead of N parallel fetches inside each row's HosBadge.
+    // TODO(backend): expose a bulk endpoint like `GET /drivers/hos-status?ids=...`
+    // (or include hosStatus in `GET /fleet/drivers`) so this can be a single
+    // request instead of N parallel ones via Promise.all.
+    const [hosMap, setHosMap] = useState<Record<string, HosStatus | null>>({});
+    const [hosLoading, setHosLoading] = useState(false);
 
     const loadDrivers = useCallback(async () => {
         setLoading(true);
@@ -290,6 +282,35 @@ export default function DriversPage() {
     useEffect(() => {
         loadDrivers();
     }, [loadDrivers]);
+
+    // Pre-load HOS for all active drivers in one batch.
+    useEffect(() => {
+        const activeIds = drivers.filter(d => d.isActive).map(d => d.id);
+        if (activeIds.length === 0) {
+            setHosMap({});
+            return;
+        }
+        let cancelled = false;
+        setHosLoading(true);
+        Promise.all(
+            activeIds.map(async (id) => {
+                try {
+                    const res = await api.get<{ success: boolean; data: HosStatus }>(`/drivers/${id}/hos-status`);
+                    return [id, res?.success && res.data ? res.data : null] as const;
+                } catch {
+                    return [id, null] as const;
+                }
+            }),
+        )
+            .then(entries => {
+                if (cancelled) return;
+                const next: Record<string, HosStatus | null> = {};
+                for (const [id, status] of entries) next[id] = status;
+                setHosMap(next);
+            })
+            .finally(() => { if (!cancelled) setHosLoading(false); });
+        return () => { cancelled = true; };
+    }, [drivers]);
 
     const activeCount = drivers.filter(d => d.isActive).length;
     const inactiveCount = drivers.length - activeCount;
@@ -385,7 +406,9 @@ export default function DriversPage() {
         {
             id: 'hos',
             header: 'РТО',
-            cell: (r) => r.isActive ? <HosBadge driverId={r.id} /> : <span className="text-xs text-neutral-300">—</span>,
+            cell: (r) => r.isActive
+                ? <HosBadge status={hosMap[r.id] ?? null} loading={hosLoading && !(r.id in hosMap)} />
+                : <span className="text-xs text-neutral-300">—</span>,
             width: '90px',
         },
         {

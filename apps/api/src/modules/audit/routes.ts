@@ -51,14 +51,35 @@ const auditRoutes: FastifyPluginAsync = async (app) => {
         const q = parsed.data;
         const offset = (q.page - 1) * q.limit;
 
+        // A-P0-12: tenant scoping. Before this, any tenant admin could read
+        // every other tenant's audit log (event_type / entity_id / data JSON
+        // containing PII + diffs). Now: scope by request.orgId; users without
+        // an org get nothing.
         const conditions: SQL[] = [];
+        if (user.organizationId) {
+            conditions.push(eq(events.organizationId, user.organizationId));
+        } else {
+            // No org → no audit access. Return empty result rather than 403
+            // to keep the dashboard UX intact for seed admins.
+            return {
+                success: true,
+                data: [],
+                pagination: { page: 1, limit: q.limit, total: 0, pages: 1 },
+                note: 'no_organization_in_token',
+            };
+        }
         if (q.from) conditions.push(gte(events.timestamp, new Date(q.from)));
         if (q.to) conditions.push(lte(events.timestamp, new Date(q.to)));
         if (q.entity_type) conditions.push(eq(events.entityType, q.entity_type));
         if (q.entity_id) conditions.push(eq(events.entityId, q.entity_id));
         if (q.author_id) conditions.push(eq(events.authorId, q.author_id));
         if (q.event_type) conditions.push(eq(events.eventType, q.event_type));
-        if (q.search) conditions.push(ilike(events.eventType, `%${q.search}%`));
+        // A-P2: escape % and _ in user-provided search to prevent pattern-DoS
+        // on the events table (M+ rows on a busy tenant).
+        if (q.search) {
+            const safeSearch = q.search.replace(/[%_\\]/g, (c) => `\\${c}`);
+            conditions.push(ilike(events.eventType, `%${safeSearch}%`));
+        }
 
         const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -111,9 +132,14 @@ const auditRoutes: FastifyPluginAsync = async (app) => {
         if (!user.roles.includes('admin') && !user.roles.includes('manager')) {
             return reply.status(403).send({ success: false, error: 'Только admin/manager' });
         }
+        // A-P0-12: scope distinct values by org (otherwise filter dropdowns
+        // leak event/entity names from other tenants).
+        const orgFilter = user.organizationId
+            ? eq(events.organizationId, user.organizationId)
+            : sql`false`;
         const [eventTypes, entityTypes] = await Promise.all([
-            db.selectDistinct({ value: events.eventType }).from(events).limit(500),
-            db.selectDistinct({ value: events.entityType }).from(events).limit(200),
+            db.selectDistinct({ value: events.eventType }).from(events).where(orgFilter).limit(500),
+            db.selectDistinct({ value: events.entityType }).from(events).where(orgFilter).limit(200),
         ]);
         return {
             success: true,

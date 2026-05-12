@@ -16,12 +16,17 @@ export interface OmnicommCredentials extends TelematicsCredentials {
     apiUrl?: string;
 }
 
+// A-P1-24: Omnicomm tokens are valid for ~24h. Re-login proactively.
+const OMNICOMM_TOKEN_TTL_MS = 24 * 3600_000;
+const TOKEN_REFRESH_SKEW_MS = 30_000;
+
 export class OmnicommTelematicsProvider implements TelematicsProvider {
     readonly name = 'omnicomm';
     readonly providerType = 'telematics' as const;
     readonly mode = 'production' as const;
 
     private token?: string;
+    private tokenExpiresAt: number | null = null;
 
     constructor(private readonly creds: OmnicommCredentials) { }
 
@@ -43,26 +48,39 @@ export class OmnicommTelematicsProvider implements TelematicsProvider {
     }
 
     private async ensureToken(): Promise<string> {
-        if (this.token) return this.token;
+        if (this.token && this.tokenExpiresAt && Date.now() < this.tokenExpiresAt - TOKEN_REFRESH_SKEW_MS) {
+            return this.token;
+        }
         // POST {apiUrl}/auth/login  body: { login, password }
         // Response: { token, expiresAt }
         // TODO(real-impl).
+        // this.token = data.token;
+        // this.tokenExpiresAt = Date.now() + OMNICOMM_TOKEN_TTL_MS;
         throw new Error('Omnicomm login not yet implemented.');
     }
 
+    /** A-P1-24: refresh token before expiry (24h TTL). */
+    private async ensureFreshToken(): Promise<void> {
+        if (!this.token || !this.tokenExpiresAt || Date.now() > this.tokenExpiresAt - TOKEN_REFRESH_SKEW_MS) {
+            this.token = undefined;
+            this.tokenExpiresAt = null;
+            await this.ensureToken();
+        }
+    }
+
     async listVehicles(_creds: TelematicsCredentials): Promise<TelematicsVehicle[]> {
+        await this.ensureFreshToken();
         // GET {apiUrl}/objects?token=<token>
         // Response: { objects: [{ id, name, regNumber, imei }] }
         // TODO(real-impl).
-        await this.ensureToken();
         return [];
     }
 
     async getPositions(_vehicleIds: string[], _since: Date): Promise<TelematicsPosition[]> {
+        await this.ensureFreshToken();
         // GET {apiUrl}/objects/{id}/track?from=<unix>&to=<unix>&token=<token>
         // Response: [{ time, lat, lon, speed, course }]
         // TODO(real-impl).
-        await this.ensureToken();
         return [];
     }
 

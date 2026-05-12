@@ -127,11 +127,60 @@ export interface LoadedCredential {
     credentials: Record<string, unknown> | null;
 }
 
+// A-P1-2: in-memory TTL cache for decrypted credentials. Hot paths
+// (Wialon poll worker, fines lookup, EDI status) used to hit Postgres on
+// every selectAdapter() call — that's tens of round-trips per minute per
+// org and a decrypt op each time. Cache by (orgId, providerType) only —
+// callers without a providerName get the single row that matches, and the
+// row identifier (providerName) is part of the cached payload anyway.
+// Bypass when an explicit providerName is passed since that's used by
+// admin tooling (test endpoint) and benefits less from caching.
+const CREDENTIALS_CACHE_TTL_MS = 5 * 60_000;
+interface CacheEntry {
+    expiresAt: number;
+    value: LoadedCredential | null;
+}
+const credentialsCache = new Map<string, CacheEntry>();
+
+function cacheKey(orgId: string, providerType: ProviderType): string {
+    return `${orgId}:${providerType}`;
+}
+
+/**
+ * Drop a cached credentials entry. Must be called by every code path that
+ * mutates `provider_credentials` rows (credentials CRUD, onboarding wizard,
+ * health-check status writes) so the next read sees fresh data.
+ */
+export function invalidateCredentialsCache(
+    organizationId: string,
+    providerType: ProviderType,
+): void {
+    credentialsCache.delete(cacheKey(organizationId, providerType));
+}
+
+/**
+ * For tests: wipe everything. Not exported via the index — callers reach in
+ * directly.
+ */
+export function _clearCredentialsCache(): void {
+    credentialsCache.clear();
+}
+
 export async function loadCredentials(
     organizationId: string,
     providerType: ProviderType,
     providerName?: string,
 ): Promise<LoadedCredential | null> {
+    // Cache only the common single-row-per-type lookup. Named lookups go
+    // straight to the DB (admin test endpoint, etc.).
+    if (!providerName) {
+        const key = cacheKey(organizationId, providerType);
+        const hit = credentialsCache.get(key);
+        if (hit && hit.expiresAt > Date.now()) {
+            return hit.value;
+        }
+    }
+
     const where = providerName
         ? and(
             eq(providerCredentials.organizationId, organizationId),
@@ -150,7 +199,15 @@ export async function loadCredentials(
         .limit(1);
 
     const row = rows[0];
-    if (!row) return null;
+    if (!row) {
+        if (!providerName) {
+            credentialsCache.set(cacheKey(organizationId, providerType), {
+                expiresAt: Date.now() + CREDENTIALS_CACHE_TTL_MS,
+                value: null,
+            });
+        }
+        return null;
+    }
 
     let creds: Record<string, unknown> | null = null;
     if (row.encryptedCredentials) {
@@ -160,21 +217,52 @@ export async function loadCredentials(
             creds = null;
         }
     }
-    return {
+    const result: LoadedCredential = {
         id: row.id,
         providerType: row.providerType as ProviderType,
         providerName: row.providerName,
         status: row.status as ProviderStatus,
         credentials: creds,
     };
+
+    if (!providerName) {
+        credentialsCache.set(cacheKey(organizationId, providerType), {
+            expiresAt: Date.now() + CREDENTIALS_CACHE_TTL_MS,
+            value: result,
+        });
+    }
+
+    return result;
 }
 
 /**
- * Pick the right adapter for an organization given a list of registered
- * adapters of the same provider type. Strategy:
+ * A-P0-4: real adapter resolver. The registry in `providers/index.ts` owns
+ * the factory map; we expose a setter so `index.ts` can wire it on module
+ * load without creating a cycle. Type-erased here on purpose — the public
+ * surface (`selectAdapter`) re-narrows it.
+ */
+let realAdapterResolver:
+    | ((orgId: string, type: ProviderType, name: string, creds: Record<string, unknown>) => ProviderAdapter | null)
+    | null = null;
+
+export function _setRealAdapterResolver(
+    fn: (orgId: string, type: ProviderType, name: string, creds: Record<string, unknown>) => ProviderAdapter | null,
+): void {
+    realAdapterResolver = fn;
+}
+
+/**
+ * Pick the right adapter for an organization. Strategy:
  *   1) Look up the active provider name in `provider_credentials`.
- *   2) If found and an adapter matches, return it.
- *   3) Otherwise fall back to the first 'mock' adapter (always present).
+ *   2) If status === 'active' or 'sandbox' AND a real adapter factory is
+ *      registered for that provider name AND credentials decrypted OK →
+ *      instantiate (cached) and return.
+ *   3) Otherwise fall back to the first 'mock' adapter in `adapters`.
+ *
+ * A-P0-4: previously step 2 was "find adapter in `adapters` by name" — but
+ * the `adapters` list only ever contained mocks, so step 2 always failed
+ * and every call fell back to mock. Now real adapters are instantiated
+ * from the factory map even when they're not in the static list.
  */
 export async function selectAdapter<T extends ProviderAdapter>(
     adapters: T[],
@@ -186,7 +274,13 @@ export async function selectAdapter<T extends ProviderAdapter>(
     }
 
     const loaded = await loadCredentials(organizationId, providerType);
-    if (loaded && loaded.status === 'active') {
+    if (loaded && (loaded.status === 'active' || loaded.status === 'sandbox') && loaded.credentials) {
+        // 2a) Real adapter via factory map.
+        if (realAdapterResolver) {
+            const real = realAdapterResolver(organizationId, providerType, loaded.providerName, loaded.credentials);
+            if (real) return real as T;
+        }
+        // 2b) Pre-registered named adapter in the static list (legacy path).
         const match = adapters.find(a => a.name === loaded.providerName);
         if (match) return match;
     }

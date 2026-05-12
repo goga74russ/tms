@@ -90,8 +90,10 @@
 
 ## Patterns observed
 
-1. **English engine-emitted strings leaking to UI** — biggest single pattern (B-4, B-5, B-15, B-17, B-22, B-27, B-30, B-31, B-32, B-33). Mitigation: every new error path должна иметь RU label или mapping table; pre-merge grep for `English string` patterns in user-facing pages.
+1. **English engine-emitted strings leaking to UI** — biggest single pattern, 12+ распространённых случаев (B-4, B-5, B-15, B-17, B-22, B-27, B-30, B-31, B-32, B-33, B-34, B-35, B-40, B-41, B-42). Mitigation: every new error path должна иметь RU label или mapping table; pre-merge grep for `English string` patterns in user-facing pages.
 2. **Mojibake from cp1251 mis-encoding** — B-4, B-19. Likely from older spreadsheet imports. Mitigation: explicit `<meta charset>` + content-type checks at import boundaries.
 3. **Long string truncation** — B-10, B-13, B-20, B-25, B-29. Mitigation: design tokens for typography + `title=` everywhere we shorten.
 4. **No-organization edge cases** — B-14, B-30. Seed admin users без `org_id` хорошо обнажают плохо-обработанные null paths. Mitigation: synthetic-Free-plan pattern, audit все `requireOrgId()` calls.
 5. **DB triggers vs feature add** — B-1. Append-only triggers conflict с новыми UPDATE-paths. Mitigation: triggers должны быть column-aware (`IS NOT DISTINCT FROM` per column) когда новые fields добавляются.
+6. **PRNG predictability** — A-P0-3. `Math.random()` для email-verify кодов и bulk-invite temp паролей. V8 PRNG предсказуема. Mitigation: `crypto.randomInt` / `crypto.randomBytes` для всех security-sensitive значений; lint-правило против `Math.random()` в auth/onboarding paths.
+7. **Multi-tenancy gaps в pre-multitenancy таблицах** — A-P0-12. Часть ранних таблиц (orders, vehicles, drivers, etc.) не имели `organization_id` и были до-исправлены позже. Mitigation: schema review checklist «у новой таблицы должен быть organization_id + индекс + RLS-like guard в сервисном слое».

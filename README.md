@@ -19,8 +19,8 @@ order → trip → waybill → inspections → release → delivery → document
 | Web back-office | 47+ страниц на едином дизайн-системе (Button/Input/Stat/DataTable/Pill/Skeleton/EmptyState/Toast/SideDrawer/ErrorBoundary) |
 | Driver mobile | 10 экранов, визуальный редизайн v2 на theme tokens + 8 UI-компонентах |
 | REST API | 200+ эндпоинтов, ~287 route declarations, 140/140 unit-тестов |
-| Docker Compose | 5 сервисов: postgres, redis, minio, nginx, api+web |
-| База | 65 таблиц, 25 миграций (0000–0025), append-only триггеры на events / inspections / med_access_log |
+| Docker Compose | 7 сервисов: api, web, postgres, redis, minio, nginx, certbot |
+| База | 65 таблиц, 26 миграций (0000–0026), append-only триггеры на events / inspections / med_access_log |
 | Provider adapters | 8 типов (signature/edi/telematics/fuel-card/fines/marking/payment/email/osago/ofd), 20+ скелетов с TODO в точке HTTP-вызова |
 | Compliance | ОСАГО / тахограф (.DDD parser) / маркировка / ADR strict-mode |
 | Monetization | Plans + subscriptions + payments + usage counters + plan-guard, ЮKassa webhook, ОФД skeleton |
@@ -36,7 +36,7 @@ apps/web        Next.js 15 / React 19 веб-приложение
 apps/mobile     Expo + React Native + WatermelonDB водительское приложение
 packages/shared Общие enums, схемы, типы
 nginx           Production nginx конфиги
-scripts         Operational скрипты (включая api-smoke-chain.sh)
+scripts         Operational скрипты (включая smoke-chain.mjs)
 docs            Документация v2
 ```
 
@@ -119,5 +119,5 @@ Free-box («бесплатный контур») закрыт end-to-end пос�
 - [docs/operations/design-system.md](docs/operations/design-system.md) — инвентарь UI-примитивов (web + mobile + cockpit).
 - [docs/operations/lazyweb-workflow.md](docs/operations/lazyweb-workflow.md) — workflow дизайнерских проходов через lazyweb MCP.
 - [docs/operations/bug-tracker.md](docs/operations/bug-tracker.md) — все B-* баги, статусы, файлы, контекст находки.
-- [docs/operations/migration-history.md](docs/operations/migration-history.md) — листинг миграций 0000–0025.
+- [docs/operations/migration-history.md](docs/operations/migration-history.md) — листинг миграций 0000–0026.
 - [docs/operations/security.md](docs/operations/security.md) — env-safeguards и security настройки.

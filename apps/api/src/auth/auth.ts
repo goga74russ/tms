@@ -7,10 +7,12 @@ import { randomInt } from 'node:crypto';
 import cookie from '@fastify/cookie';
 import { db } from '../db/connection.js';
 import { users, drivers, tariffs, contracts, contractors, checklistTemplates, organizations, emailVerifications } from '../db/schema.js';
-import { eq, desc, and, gt } from 'drizzle-orm';
+import { eq, desc, and, gt, or, isNull, sql } from 'drizzle-orm';
 import { LoginSchema } from '@tms/shared';
 import { z } from 'zod';
 import { selectAdapter, getDefaultRegistry } from '../providers/index.js';
+import { APP_ROLES } from './rbac.js';
+import { escapeHtml } from '../utils/html.js';
 
 // --- CRITICAL (C-1): No hardcoded fallback. Fail-fast if not set. ---
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -130,11 +132,17 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
         // H-15: Set httpOnly cookie (still useful for direct API access)
         // COOKIE_SECURE: set to 'false' when running without HTTPS
+        // A-P1-5: sameSite='strict' — TMS has no cross-site auth flows
+        // (no OAuth callbacks, no magic links). Cookie+lax+no-CSRF-token =
+        // exploitable CSRF on every state-changing endpoint. Strict closes
+        // it without the complexity of double-submit tokens. The flows
+        // checked: /login, /mobile/login, /logout, /signup, /verify-email,
+        // /resend-code — all top-level same-origin form posts from the SPA.
         const isSecure = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
         reply.setCookie(COOKIE_NAME, token, {
             httpOnly: true,
             secure: isSecure,
-            sameSite: 'lax',
+            sameSite: 'strict',
             path: '/',
             maxAge: COOKIE_MAX_AGE,
         });
@@ -263,18 +271,22 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // --- Admin: User Management ---
 
+    // A-P1-6: roles must come from APP_ROLES — z.string() previously
+    // accepted any junk string, which the RBAC layer silently ignored
+    // (granting no abilities) but pollutes the users.roles array and
+    // makes inventory queries unreliable.
     const UserCreateSchema = z.object({
         email: z.string().email(),
         password: z.string().min(6),
         fullName: z.string().min(1),
         phone: z.string().optional(),
-        roles: z.array(z.string()).min(1),
+        roles: z.array(z.enum(APP_ROLES)).min(1),
     });
 
     const UserUpdateSchema = z.object({
         fullName: z.string().min(1).optional(),
         phone: z.string().optional(),
-        roles: z.array(z.string()).min(1).optional(),
+        roles: z.array(z.enum(APP_ROLES)).min(1).optional(),
         isActive: z.boolean().optional(),
         password: z.string().min(6).optional(),
     });
@@ -654,14 +666,21 @@ export function registerAuthRoutes(app: FastifyInstance) {
         schema: { tags: ['Администрирование'], summary: 'Шаблоны чек-листов', description: 'Все шаблоны чек-листов (техосмотр/медосмотр).' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
-        const { roles } = request.user as { userId: string; roles: string[] };
-        if (!roles.includes('admin')) {
+        const u = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        if (!u.roles.includes('admin')) {
             return reply.status(403).send({ success: false, error: 'Admin access required' });
         }
 
+        // A-P0-12: tenant scoping. Tenant admins see system defaults
+        // (org_id IS NULL) + their own org templates. Cross-tenant access is
+        // blocked. Previously every admin saw every other org's templates.
+        const orgScope = u.organizationId
+            ? or(isNull(checklistTemplates.organizationId), eq(checklistTemplates.organizationId, u.organizationId))
+            : isNull(checklistTemplates.organizationId);
         const templates = await db
             .select()
             .from(checklistTemplates)
+            .where(orgScope)
             .orderBy(checklistTemplates.createdAt);
 
         return { success: true, data: templates };
@@ -672,8 +691,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
         schema: { tags: ['Администрирование'], summary: 'Создать шаблон', description: 'Новый шаблон чек-листа для осмотров.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
-        const { roles } = request.user as { userId: string; roles: string[] };
-        if (!roles.includes('admin')) {
+        const u = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        if (!u.roles.includes('admin')) {
             return reply.status(403).send({ success: false, error: 'Admin access required' });
         }
 
@@ -686,7 +705,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
             });
         }
 
-        const [created] = await db.insert(checklistTemplates).values(parseResult.data).returning();
+        // A-P0-12: stamp creator's org_id so this template is tenant-scoped.
+        const [created] = await db.insert(checklistTemplates)
+            .values({ ...parseResult.data, organizationId: u.organizationId ?? null })
+            .returning();
         return reply.status(201).send({ success: true, data: created });
     });
 
@@ -695,8 +717,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
         schema: { tags: ['Администрирование'], summary: 'Обновить шаблон чек-листа', description: 'Обновление шаблона чек-листа.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
-        const { roles } = request.user as { userId: string; roles: string[] };
-        if (!roles.includes('admin')) {
+        const u = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        if (!u.roles.includes('admin')) {
             return reply.status(403).send({ success: false, error: 'Admin access required' });
         }
 
@@ -709,9 +731,16 @@ export function registerAuthRoutes(app: FastifyInstance) {
             });
         }
 
+        // A-P0-12: only update templates the caller owns. System defaults
+        // (org_id IS NULL) are read-only — a tenant admin can't edit them.
         const [updated] = await db.update(checklistTemplates)
             .set(parseResult.data)
-            .where(eq(checklistTemplates.id, request.params.id))
+            .where(and(
+                eq(checklistTemplates.id, request.params.id),
+                u.organizationId
+                    ? eq(checklistTemplates.organizationId, u.organizationId)
+                    : sql`false`,
+            ))
             .returning();
 
         if (!updated) {
@@ -762,8 +791,11 @@ export function registerAuthRoutes(app: FastifyInstance) {
         const registry = getDefaultRegistry();
         const adapter = await selectAdapter(registry.email, organizationId, 'email');
         const subject = 'TMS — код подтверждения';
+        // A-P1-7: escape interpolated values. `code` is server-generated by
+        // randomInt(100000, 1000000) so always 6 digits — but escape anyway
+        // to keep the pattern uniform and immune to future refactors.
         const html = `<p>Здравствуйте!</p>
-            <p>Ваш код подтверждения для входа в TMS: <strong style="font-size:24px">${code}</strong></p>
+            <p>Ваш код подтверждения для входа в TMS: <strong style="font-size:24px">${escapeHtml(code)}</strong></p>
             <p>Код действителен в течение ${VERIFICATION_TTL_MIN} минут.</p>`;
         const text = `Код подтверждения TMS: ${code}\nКод действителен ${VERIFICATION_TTL_MIN} минут.`;
         await adapter.send(email, subject, html, text);
@@ -922,11 +954,12 @@ export function registerAuthRoutes(app: FastifyInstance) {
             { userId: user.id, roles: user.roles, organizationId: user.organizationId ?? undefined },
             { expiresIn: JWT_EXPIRES_IN },
         );
+        // A-P1-5: sameSite='strict' (see /login for rationale).
         const isSecure = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
         reply.setCookie(COOKIE_NAME, token, {
             httpOnly: true,
             secure: isSecure,
-            sameSite: 'lax',
+            sameSite: 'strict',
             path: '/',
             maxAge: COOKIE_MAX_AGE,
         });

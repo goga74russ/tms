@@ -2,6 +2,8 @@
 
 Updated: 2026-04-29
 
+> **Исторический документ.** Мобильное приложение уже реализовано в `apps/mobile/` и прошло визуальный редизайн Mobile v2 (10 экранов, theme tokens, 8 UI-компонентов). Текущее состояние см. в `docs/operations/wave-summary.md` (раздел post-Mobile v2).
+
 ## Current State
 
 The mobile app is now part of the v2 workspace as a first-class package:

@@ -684,7 +684,7 @@ References: **Pendo / Calendly / Replit integrations marketplaces + Glean activi
 
 | Metric | After W6 | After 35a5fc5 | Delta |
 |---|---|---|---|
-| Migrations | 18 (0000–0018) | 25 (0000–0025) | +7 |
+| Migrations | 18 (0000–0018) | 26 (0000–0026, 0005 skipped) | +8 |
 | DB tables | ~50 | 65 | +15 |
 | API tests | 42 | 140 | +98 |
 | Web pages | ~30 | 47+ | +17 |

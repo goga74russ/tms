@@ -124,6 +124,24 @@ const ediRoutes: FastifyPluginAsync = async (app) => {
         }
     });
 
+    // --- POST /edi/webhook/:provider ---
+    // A-P1-23: Receiver for inbound EDI callbacks (Diadoc/Kontur/SBIS).
+    // Real adapters' handleCallback() will be wired here once credentials land:
+    // for now we log + ack so providers can register the URL without 404s.
+    // Provider may sign with HMAC (Diadoc) or use TLS-client-cert (Kontur).
+    // Real verification + dispatch (org lookup → selectAdapter → handleCallback)
+    // is added when keys arrive.
+    app.post('/edi/webhook/:provider', {
+        schema: { tags: ['ЭДО'], summary: 'Webhook от ЭДО-провайдера' },
+        config: { rawBody: true },
+    }, async (request, _reply) => {
+        const { provider } = request.params as { provider: string };
+        request.log.info({ provider, body: request.body }, 'EDI webhook received');
+        // TODO: lookup org from provider-side correlation id, dispatch to
+        // selectAdapter('edi', orgId, provider).handleCallback(body).
+        return { success: true };
+    });
+
     // --- POST /transport-documents/:id/edi/mock-progress (admin) ---
     app.post('/transport-documents/:id/edi/mock-progress', {
         schema: {

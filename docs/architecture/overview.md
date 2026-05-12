@@ -2,6 +2,8 @@
 
 Updated: 2026-04-28
 
+> **ВНИМАНИЕ:** Этот документ — снимок состояния на 2026-04-28. С тех пор прошли волны W2–W6, раунды 1–6, Cockpit v2, Mobile v2, deep audit и десятки других изменений. Текущее состояние см. в [`docs/operations/wave-summary.md`](../operations/wave-summary.md).
+
 ## Workspace
 
 TMS v2 is a TypeScript monorepo:

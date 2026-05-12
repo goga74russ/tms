@@ -26,6 +26,7 @@ import { CockpitRightPanel } from './components/CockpitRightPanel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { Combobox } from '@/components/ui/Combobox';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import { downloadFromApi } from '@/lib/download';
@@ -340,7 +341,11 @@ export default function DispatcherPage() {
 
     useEffect(() => {
         loadData();
-        const intervalId = setInterval(loadData, 30000); // reduced frequency since WS handles positions
+        const intervalId = setInterval(() => {
+            // A-P1-15: don't drain battery / metered data on background tabs
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+            loadData();
+        }, 30000); // reduced frequency since WS handles positions
         return () => clearInterval(intervalId);
     }, [loadData]);
 
@@ -391,7 +396,11 @@ export default function DispatcherPage() {
 
     useEffect(() => {
         loadColdChainBreaches();
-        const id = setInterval(loadColdChainBreaches, 60000);
+        const id = setInterval(() => {
+            // A-P1-15: pause cold-chain polling on background tabs
+            if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+            loadColdChainBreaches();
+        }, 60000);
         return () => clearInterval(id);
     }, [loadColdChainBreaches]);
 
@@ -711,6 +720,7 @@ export default function DispatcherPage() {
                 onToggleDarkMode={() => setDarkMode(d => !d)}
             />
 
+            <ErrorBoundary scope="dispatcher-panels">
             <div className="flex-1 flex min-h-0 relative">
                 {/* Left rail */}
                 {leftRailOpen ? (
@@ -983,6 +993,7 @@ export default function DispatcherPage() {
                     </div>
                 ) : null}
             </div>
+            </ErrorBoundary>
 
             {/* AI Co-pilot FAB */}
             <CopilotFab enabled={showCopilot} />

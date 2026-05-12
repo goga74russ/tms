@@ -93,14 +93,24 @@ export default async function importRoutes(app: FastifyInstance) {
         const orgId = user.organizationId || null;
         const results = { created: 0, errors: [] as { index: number, error: string }[] };
 
+        // A-P0-8: collect valid rows + per-row errors first, then INSERT all
+        // valid rows inside ONE transaction. Previously: per-row insert with
+        // no tx → partial failure left DB inconsistent. Now: either all valid
+        // rows land, or none (atomic batch).
+        // We pre-build error list outside the tx (validation only) so they
+        // get reported even when the bulk insert succeeds. We pre-build pg
+        // codes once so the error mapper doesn't leak raw constraint text.
+        const validRows: Array<{ index: number; plateNumber: string; values: Record<string, unknown> }> = [];
         for (let i = 0; i < items.length; i++) {
             const item = items[i] as any;
-            try {
-                if (!item.plateNumber || !item.vin || !item.make || !item.model) {
-                    results.errors.push({ index: i, error: `Пропущено: ${item.plateNumber || '?'} — не заполнены обязательные поля` });
-                    continue;
-                }
-                await db.insert(vehicles).values({
+            if (!item.plateNumber || !item.vin || !item.make || !item.model) {
+                results.errors.push({ index: i, error: `Пропущено: ${item.plateNumber || '?'} — не заполнены обязательные поля` });
+                continue;
+            }
+            validRows.push({
+                index: i,
+                plateNumber: item.plateNumber,
+                values: {
                     plateNumber: item.plateNumber,
                     vin: item.vin,
                     make: item.make,
@@ -113,10 +123,28 @@ export default async function importRoutes(app: FastifyInstance) {
                     fuelNormPer100Km: item.fuelNormPer100Km || 18,
                     currentOdometerKm: item.currentOdometerKm || 0,
                     organizationId: orgId,
+                },
+            });
+        }
+
+        if (validRows.length > 0) {
+            try {
+                await db.transaction(async (tx) => {
+                    for (const row of validRows) {
+                        await tx.insert(vehicles).values(row.values as any);
+                        results.created++;
+                    }
                 });
-                results.created++;
             } catch (err: any) {
-                results.errors.push({ index: i, error: `${item.plateNumber || '?'}: ${err?.message?.includes('unique') ? 'дубликат' : err?.message}` });
+                // A-P0-5: map known PG codes to friendly messages — never echo
+                // raw constraint text (leaks index/column names).
+                const code = err?.code;
+                const friendly =
+                    code === '23505' ? 'дубликат (уже существует ТС с такими данными)' :
+                    code === '23503' ? 'нарушена связь с другой таблицей' :
+                    'ошибка вставки';
+                results.created = 0;
+                results.errors.push({ index: -1, error: `Импорт отменён: ${friendly}` });
             }
         }
 
@@ -303,24 +331,26 @@ export default async function importRoutes(app: FastifyInstance) {
         const orgId = user.organizationId || null;
         const results = { created: 0, errors: [] as { index: number; error: string }[] };
 
+        // A-P0-8: validate + resolve contractor refs OUTSIDE the tx (it
+        // queries reads only). Then INSERT all valid rows in ONE tx.
+        const validRows: Array<{ values: Record<string, unknown> }> = [];
         for (let i = 0; i < items.length; i++) {
             const item = items[i] as any;
-            try {
-                const errs = validateOrder(item);
-                if (errs.length > 0) {
-                    results.errors.push({ index: i, error: errs.join('; ') });
-                    continue;
-                }
-                const [contractor] = await db.select({ id: contractors.id })
-                    .from(contractors)
-                    .where(eq(contractors.inn, String(item.contractorInn)))
-                    .limit(1);
-                if (!contractor) {
-                    results.errors.push({ index: i, error: `Контрагент с ИНН ${item.contractorInn} не найден` });
-                    continue;
-                }
-
-                await db.insert(orders).values({
+            const errs = validateOrder(item);
+            if (errs.length > 0) {
+                results.errors.push({ index: i, error: errs.join('; ') });
+                continue;
+            }
+            const [contractor] = await db.select({ id: contractors.id })
+                .from(contractors)
+                .where(eq(contractors.inn, String(item.contractorInn)))
+                .limit(1);
+            if (!contractor) {
+                results.errors.push({ index: i, error: `Контрагент с ИНН ${item.contractorInn} не найден` });
+                continue;
+            }
+            validRows.push({
+                values: {
                     number: String(item.number),
                     contractorId: contractor.id,
                     cargoDescription: String(item.cargoDescription),
@@ -335,10 +365,26 @@ export default async function importRoutes(app: FastifyInstance) {
                     temperatureMaxC: item.temperatureMaxC != null && item.temperatureMaxC !== '' ? Number(item.temperatureMaxC) : undefined,
                     organizationId: orgId,
                     createdBy: user.userId,
+                },
+            });
+        }
+
+        if (validRows.length > 0) {
+            try {
+                await db.transaction(async (tx) => {
+                    for (const row of validRows) {
+                        await tx.insert(orders).values(row.values as any);
+                        results.created++;
+                    }
                 });
-                results.created++;
             } catch (err: any) {
-                results.errors.push({ index: i, error: `${item.number || '?'}: ${err?.message?.includes('unique') ? 'дубликат номера' : err?.message}` });
+                const code = err?.code;
+                const friendly =
+                    code === '23505' ? 'дубликат номера заявки' :
+                    code === '23503' ? 'нарушена связь (контрагент не найден)' :
+                    'ошибка вставки';
+                results.created = 0;
+                results.errors.push({ index: -1, error: `Импорт отменён: ${friendly}` });
             }
         }
 
@@ -365,14 +411,16 @@ export default async function importRoutes(app: FastifyInstance) {
         const orgId = user.organizationId || null;
         const results = { created: 0, errors: [] as { index: number, error: string }[] };
 
+        // A-P0-8: validate first, then batch insert in one transaction.
+        const validRows: Array<{ values: Record<string, unknown> }> = [];
         for (let i = 0; i < items.length; i++) {
             const item = items[i] as any;
-            try {
-                if (!item.name || !item.inn) {
-                    results.errors.push({ index: i, error: `Пропущено: ${item.name || '?'} — не заполнены обязательные поля` });
-                    continue;
-                }
-                await db.insert(contractors).values({
+            if (!item.name || !item.inn) {
+                results.errors.push({ index: i, error: `Пропущено: ${item.name || '?'} — не заполнены обязательные поля` });
+                continue;
+            }
+            validRows.push({
+                values: {
                     name: item.name,
                     inn: item.inn,
                     kpp: item.kpp || null,
@@ -380,10 +428,26 @@ export default async function importRoutes(app: FastifyInstance) {
                     phone: item.phone || null,
                     email: item.email || null,
                     organizationId: orgId,
+                },
+            });
+        }
+
+        if (validRows.length > 0) {
+            try {
+                await db.transaction(async (tx) => {
+                    for (const row of validRows) {
+                        await tx.insert(contractors).values(row.values as any);
+                        results.created++;
+                    }
                 });
-                results.created++;
             } catch (err: any) {
-                results.errors.push({ index: i, error: `${item.name || '?'}: ${err?.message?.includes('unique') ? 'дубликат ИНН' : err?.message}` });
+                const code = err?.code;
+                const friendly =
+                    code === '23505' ? 'дубликат ИНН' :
+                    code === '23503' ? 'нарушена связь' :
+                    'ошибка вставки';
+                results.created = 0;
+                results.errors.push({ index: -1, error: `Импорт отменён: ${friendly}` });
             }
         }
 

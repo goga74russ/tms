@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import {
     AlertTriangle, TrendingUp, Wrench, ShieldCheck,
     Activity, Gauge, Loader2, RefreshCw, Droplets, TimerReset, BarChart3,
@@ -358,6 +359,7 @@ export default function AnalyticsPage() {
             )}
 
             {/* Tabs */}
+            <ErrorBoundary scope="analytics-tabs">
             <Tabs defaultValue="maintenance" className="w-full">
                 <TabsList className="mb-4">
                     <TabsTrigger value="maintenance" className="gap-2">
@@ -624,6 +626,7 @@ export default function AnalyticsPage() {
                     </div>
                 </TabsContent>
             </Tabs>
+            </ErrorBoundary>
         </div>
     );
 }

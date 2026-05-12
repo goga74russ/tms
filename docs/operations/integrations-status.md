@@ -1,6 +1,6 @@
 # Integrations Status: Mock → Real Provider Map
 
-Updated: 2026-05-10.
+Updated: 2026-05-12.
 
 The free-box version uses mocks for every paid integration. This document maps each mock to the real provider that will eventually replace it, with realistic effort estimates and pricing notes for РФ market.
 
@@ -126,7 +126,7 @@ The free-box version uses mocks for every paid integration. This document maps e
 
 | Aspect | Value |
 |---|---|
-| Status | 🔴 Missing — `tachograph_records` table populated only by manual entry |
+| Status | 🟡 Mock — `tachograph_records` table + DDD parser skeleton present, upload UI stub. Real `.DDD` parser pending |
 | Endpoints | None |
 | Real provider | Continental VDO / Atol Drive / Stoneridge tachograph readers |
 | Pricing | Reader hardware ~10 000 ₽ one-time. Software adapters per device |
@@ -138,7 +138,7 @@ The free-box version uses mocks for every paid integration. This document maps e
 
 | Aspect | Value |
 |---|---|
-| Status | 🔴 Missing entirely |
+| Status | 🟡 Mock — `marking` provider type + ЦРПТ skeleton adapter, deterministic mock for product code verification |
 | Endpoints | None |
 | Real provider | ЦРПТ (Государственная информационная система мониторинга) |
 | Pricing | Free API access; per-verification queries |
@@ -150,7 +150,7 @@ The free-box version uses mocks for every paid integration. This document maps e
 
 | Aspect | Value |
 |---|---|
-| Status | 🔴 Missing |
+| Status | 🟡 Mock — ОФД skeleton wired through Round 2 monetization (Платформа ОФД adapter stub), fiscal receipt creation mocked |
 | Endpoints | None |
 | Real provider | Платформа ОФД, OFD.ru, Такском-Касса, ЯКасса |
 | Pricing | ~3 000 ₽/year per fiscal driver |
@@ -161,7 +161,7 @@ The free-box version uses mocks for every paid integration. This document maps e
 
 | Aspect | Value |
 |---|---|
-| Status | 🔴 Missing |
+| Status | 🟡 Mock — `GET /osago/check/:vehicleId`, `POST /osago/sync`, `GET /osago/status` present; deterministic 90/10 mock by plate. РСА-AIS SOAP adapter is a skeleton |
 | Endpoints | None |
 | Real provider | РСА API for ОСАГО status, individual insurer APIs for cargo |
 | Pricing | РСА: free with accreditation. Cargo insurance: per-policy |

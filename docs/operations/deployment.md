@@ -2,6 +2,8 @@
 
 Updated: 2026-04-28
 
+> **NOTE:** Snapshot from 2026-04-28. The compose stack has since grown to 7 services (api, web, postgres, redis, minio, nginx, certbot). For the current state see [`docs/operations/wave-summary.md`](wave-summary.md) and [`docs/operations/pre-launch-checklist.md`](pre-launch-checklist.md).
+
 ## Runtime
 
 Production deployment is based on:

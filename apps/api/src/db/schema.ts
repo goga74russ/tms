@@ -908,6 +908,11 @@ export const restrictionZones = pgTable('restriction_zones', {
 // ================================================================
 export const checklistTemplates = pgTable('checklist_templates', {
     id: uuid('id').primaryKey().defaultRandom(),
+    // A-P0-12: tenant scoping. Pre-multitenancy templates have null
+    // organization_id and act as system defaults (read-only, visible to all
+    // tenants). New templates created via /admin/checklists belong to the
+    // creator's org and are tenant-scoped.
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
     type: varchar('type', { length: 10 }).notNull(), // tech, med
     version: varchar('version', { length: 20 }).notNull(),
     name: varchar('name', { length: 255 }).notNull(),
@@ -918,7 +923,9 @@ export const checklistTemplates = pgTable('checklist_templates', {
     }>>().notNull(),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+    index('idx_checklist_templates_organization').on(table.organizationId),
+]);
 
 // ================================================================
 // Addresses (Адреса)
@@ -943,6 +950,10 @@ export const addresses = pgTable('addresses', {
 export const events = pgTable('events', {
     id: uuid('id').primaryKey().defaultRandom(),
     timestamp: timestamp('timestamp', { withTimezone: true }).notNull().defaultNow(),
+    // A-P0-12: tenant scoping. Backfilled from author's org in migration 0027.
+    // Nullable for now — old rows where the author was deleted may have no
+    // org. App-side queries filter `IS NOT NULL` + match request.orgId.
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
     authorId: uuid('author_id').notNull().references(() => users.id),
     authorRole: varchar('author_role', { length: 30 }).notNull(),
     eventType: varchar('event_type', { length: 100 }).notNull(),
@@ -959,6 +970,7 @@ export const events = pgTable('events', {
     index('idx_events_type').on(table.eventType),
     index('idx_events_timestamp').on(table.timestamp),
     index('idx_events_author').on(table.authorId),
+    index('idx_events_organization').on(table.organizationId, sql`${table.timestamp} DESC`),
     uniqueIndex('idx_events_external_id').on(table.externalId),
 ]);
 

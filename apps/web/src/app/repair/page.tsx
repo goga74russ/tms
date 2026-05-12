@@ -13,6 +13,7 @@ import { Stat } from '@/components/ui/stat';
 import { useToast } from '@/components/ui/toast';
 import { ViewTabs } from '@/components/ui/kanban';
 import { DataTable, type Column, Pill } from '@/components/ui/data-table';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 type RepairDraft = {
     vehicleId?: string;
@@ -319,11 +320,13 @@ export default function RepairPage() {
 
             {/* Kanban board */}
             {view === 'board' && (
-                <RepairKanban
-                    onStatusChange={loadStats}
-                    catalogRefreshKey={catalogRefreshKey}
-                    onCreateRequest={() => setShowCreateModal(true)}
-                />
+                <ErrorBoundary scope="repair-kanban">
+                    <RepairKanban
+                        onStatusChange={loadStats}
+                        catalogRefreshKey={catalogRefreshKey}
+                        onCreateRequest={() => setShowCreateModal(true)}
+                    />
+                </ErrorBoundary>
             )}
 
             {/* Table view */}

@@ -9,11 +9,13 @@ import { db } from '../../../db/connection.js';
 import { providerCredentials } from '../../../db/schema.js';
 import {
     encryptCredentials,
+    invalidateCredentialsCache,
     type ProviderType,
     type ProviderStatus,
 } from '../../../providers/base.js';
 import {
     getAdaptersForType,
+    invalidateAdapterCache,
 } from '../../../providers/index.js';
 
 const PROVIDER_TYPES: ProviderType[] = [
@@ -127,6 +129,8 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
                     updatedAt: new Date(),
                 })
                 .where(eq(providerCredentials.id, id));
+            invalidateCredentialsCache(user.organizationId, providerType);
+            invalidateAdapterCache(user.organizationId, providerType);
             return { success: true, data: { id, providerType, providerName, status: status ?? 'sandbox' } };
         }
 
@@ -141,6 +145,8 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
             })
             .returning({ id: providerCredentials.id });
 
+        invalidateCredentialsCache(user.organizationId, providerType);
+            invalidateAdapterCache(user.organizationId, providerType);
         return reply.status(201).send({
             success: true,
             data: { id: inserted[0]!.id, providerType, providerName, status: status ?? 'sandbox' },
@@ -164,6 +170,23 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         const { id } = request.params as { id: string };
+        // Need the providerType to invalidate the right cache key, so
+        // read-then-delete instead of a single returning() clause.
+        const [existingRow] = await db
+            .select({
+                id: providerCredentials.id,
+                providerType: providerCredentials.providerType,
+            })
+            .from(providerCredentials)
+            .where(and(
+                eq(providerCredentials.id, id),
+                eq(providerCredentials.organizationId, user.organizationId),
+            ))
+            .limit(1);
+        if (!existingRow) {
+            return reply.status(404).send({ success: false, error: 'not found' });
+        }
+
         const result = await db
             .delete(providerCredentials)
             .where(and(
@@ -175,6 +198,8 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
         if (result.length === 0) {
             return reply.status(404).send({ success: false, error: 'not found' });
         }
+        invalidateCredentialsCache(user.organizationId, existingRow.providerType as ProviderType);
+        invalidateAdapterCache(user.organizationId, existingRow.providerType as ProviderType);
         return { success: true };
     });
 
