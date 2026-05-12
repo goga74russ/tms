@@ -1,18 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '../../lib/api';
 import {
     HeartPulse, CheckCircle2, XCircle, AlertTriangle, Clock,
-    ChevronRight, Shield, Users, BarChart3, RotateCcw,
+    Shield, Users, BarChart3, RotateCcw,
     Activity, Thermometer, Wine, FileText, Calendar,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Stat } from '@/components/ui/stat';
 import { SkeletonTable } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { SideDrawer } from '@/components/ui/side-drawer';
 import { useToast } from '@/components/ui/toast';
 
 // ================================================================
@@ -75,6 +76,8 @@ interface TripReference {
     waybillNumber: string | null;
 }
 
+type DateFilter = 'all' | 'today' | 'week';
+
 // ================================================================
 // Certificate status badge
 // ================================================================
@@ -98,6 +101,22 @@ function CertBadge({ status, expiry }: { status: string; expiry: string | null }
                 </span>
             )}
         </div>
+    );
+}
+
+// Compact status pill — just status, no expiry, for list rows
+function CertStatusPill({ status }: { status: string }) {
+    const cfg: Record<string, { color: string; label: string }> = {
+        green: { color: 'bg-emerald-100 text-emerald-700', label: 'Справка OK' },
+        yellow: { color: 'bg-amber-100 text-amber-700', label: 'Истекает' },
+        red: { color: 'bg-red-100 text-red-700', label: 'Просрочена' },
+        unknown: { color: 'bg-slate-100 text-slate-500', label: 'Нет данных' },
+    };
+    const c = cfg[status] || cfg.unknown;
+    return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${c.color}`}>
+            {c.label}
+        </span>
     );
 }
 
@@ -133,6 +152,9 @@ export default function MedicPage() {
     const [tripReferences, setTripReferences] = useState<Record<string, TripReference>>({});
     const [activeTab, setActiveTab] = useState<'queue' | 'journal' | 'stats'>('queue');
     const [inspectionType, setInspectionType] = useState<'pre_trip' | 'periodic'>('pre_trip');
+    const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [drawerOpen, setDrawerOpen] = useState(false);
     const { toast: toastFn } = useToast();
     const setToast = useCallback((value: { message: string; type: 'success' | 'error' } | null) => {
         if (!value) return;
@@ -248,6 +270,30 @@ export default function MedicPage() {
         };
     }, [queue, journal]);
 
+    // Filtered queue
+    const filteredQueue = useMemo(() => {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const endOfToday = startOfToday + 24 * 60 * 60 * 1000;
+        const startOfWeek = startOfToday - 6 * 24 * 60 * 60 * 1000;
+        const q = searchQuery.trim().toLowerCase();
+
+        return queue.filter(item => {
+            if (dateFilter !== 'all' && item.trip.plannedDepartureAt) {
+                const t = new Date(item.trip.plannedDepartureAt).getTime();
+                if (dateFilter === 'today' && (t < startOfToday || t >= endOfToday)) return false;
+                if (dateFilter === 'week' && (t < startOfWeek || t >= endOfToday)) return false;
+            } else if (dateFilter !== 'all' && !item.trip.plannedDepartureAt) {
+                return false;
+            }
+            if (q) {
+                const hay = `${item.driver.fullName} ${item.driver.licenseNumber} ${item.trip.number}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+    }, [queue, dateFilter, searchQuery]);
+
     const selectDriver = (item: DriverQueueItem) => {
         if (!item.driver.personalDataConsent) {
             setToast({
@@ -264,6 +310,12 @@ export default function MedicPage() {
         });
         setSignature('');
         setInspectionType('pre_trip');
+        setDrawerOpen(true);
+    };
+
+    const closeDetail = () => {
+        setSelectedDriver(null);
+        setDrawerOpen(false);
     };
 
     const updateForm = (field: keyof MedFormData, value: string) => {
@@ -309,7 +361,7 @@ export default function MedicPage() {
                 type: decision === 'approved' ? 'success' : 'error',
             });
 
-            setSelectedDriver(null);
+            closeDetail();
             await loadQueue();
             await loadJournal();
             await loadStats();
@@ -337,7 +389,238 @@ export default function MedicPage() {
         }
     };
 
-    // Auto-dismiss handled by ToastProvider
+    // ================================================================
+    // Inspection form (re-usable: inline pane + SideDrawer)
+    // ================================================================
+    const renderInspectionForm = (compact: boolean) => {
+        if (!selectedDriver) return null;
+        return (
+            <div className="bg-white">
+                {/* Driver header */}
+                {!compact && (
+                    <div className="bg-gradient-to-r from-rose-700 to-pink-600 px-5 py-4 text-white rounded-t-2xl">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-base font-bold shrink-0">
+                                    {selectedDriver.driver.fullName.charAt(0)}
+                                </div>
+                                <div className="min-w-0">
+                                    <h2 className="text-base font-bold truncate">{selectedDriver.driver.fullName}</h2>
+                                    <p className="text-rose-200 text-xs truncate">
+                                        ВУ: {selectedDriver.driver.licenseNumber}
+                                        · Кат.: {selectedDriver.driver.licenseCategories?.join(', ') || '—'}
+                                        · {tripReferences[selectedDriver.trip.id]?.waybillNumber
+                                            ? `ПЛ: ${tripReferences[selectedDriver.trip.id]!.waybillNumber}`
+                                            : 'ПЛ: не оформлен'}
+                                        · Рейс: {selectedDriver.trip.number}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-3">
+                            <CertBadge
+                                status={selectedDriver.driver.medCertStatus}
+                                expiry={selectedDriver.driver.medCertificateExpiry}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Medical form */}
+                <div className="p-5">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Тип осмотра</h3>
+                        <div className="flex bg-slate-100 rounded-lg p-0.5">
+                            <button
+                                onClick={() => setInspectionType('pre_trip')}
+                                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${inspectionType === 'pre_trip' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                            >
+                                Предрейсовый
+                            </button>
+                            <button
+                                onClick={() => setInspectionType('periodic')}
+                                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${inspectionType === 'periodic' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                            >
+                                Периодический
+                            </button>
+                        </div>
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 mb-4">
+                        {inspectionType === 'pre_trip'
+                            ? 'Осмотр привязан к путевому листу выбранного рейса и может продвинуть статус выпуска.'
+                            : 'Периодический осмотр фиксируется без влияния на рейс или путевой лист.'
+                        }
+                    </p>
+
+                    <h3 className="sr-only">
+                        <Activity className="w-4 h-4 inline mr-1.5" />
+                        Показатели осмотра
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {/* Blood Pressure */}
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-semibold text-slate-700">
+                                <Activity className="w-3.5 h-3.5 inline mr-1" />
+                                АД (мм рт.ст.) *
+                            </label>
+                            <div className="flex gap-1.5">
+                                <input
+                                    type="number"
+                                    placeholder="Сист."
+                                    value={formData.systolicBp}
+                                    onChange={e => updateForm('systolicBp', e.target.value)}
+                                    className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                                    min={60}
+                                    max={250}
+                                />
+                                <span className="flex items-center text-slate-400 font-bold">/</span>
+                                <input
+                                    type="number"
+                                    placeholder="Диаст."
+                                    value={formData.diastolicBp}
+                                    onChange={e => updateForm('diastolicBp', e.target.value)}
+                                    className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                                    min={40}
+                                    max={150}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Heart Rate */}
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-semibold text-slate-700">
+                                <HeartPulse className="w-3.5 h-3.5 inline mr-1" />
+                                Пульс (уд/мин) *
+                            </label>
+                            <input
+                                type="number"
+                                placeholder="60-100"
+                                value={formData.heartRate}
+                                onChange={e => updateForm('heartRate', e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                                min={30}
+                                max={200}
+                            />
+                        </div>
+
+                        {/* Temperature */}
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-semibold text-slate-700">
+                                <Thermometer className="w-3.5 h-3.5 inline mr-1" />
+                                Температура (°C) *
+                            </label>
+                            <input
+                                type="number"
+                                step="0.1"
+                                placeholder="36.6"
+                                value={formData.temperature}
+                                onChange={e => updateForm('temperature', e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                                min={34}
+                                max={42}
+                            />
+                        </div>
+
+                        {/* Condition */}
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-semibold text-slate-700">
+                                Состояние *
+                            </label>
+                            <select
+                                value={formData.condition}
+                                onChange={e => updateForm('condition', e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400 bg-white"
+                            >
+                                <option value="удовлетворительное">Удовлетворительное</option>
+                                <option value="неудовлетворительное">Неудовлетворительное</option>
+                                <option value="подозрение на заболевание">Подозрение на заболевание</option>
+                            </select>
+                        </div>
+
+                        {/* Alcohol test */}
+                        <div className="space-y-1.5 md:col-span-2">
+                            <label className="block text-xs font-semibold text-slate-700">
+                                <Wine className="w-3.5 h-3.5 inline mr-1" />
+                                Алкотест *
+                            </label>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => updateForm('alcoholTest', 'negative')}
+                                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition ${formData.alcoholTest === 'negative'
+                                        ? 'bg-emerald-600 text-white shadow-sm'
+                                        : 'bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700'
+                                        }`}
+                                >
+                                    Отрицательный
+                                </button>
+                                <button
+                                    onClick={() => updateForm('alcoholTest', 'positive')}
+                                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition ${formData.alcoholTest === 'positive'
+                                        ? 'bg-red-600 text-white shadow-sm'
+                                        : 'bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-700'
+                                        }`}
+                                >
+                                    Положительный
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Complaints */}
+                        <div className="space-y-1.5 md:col-span-2">
+                            <label className="block text-xs font-semibold text-slate-700">
+                                Жалобы
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Нет жалоб"
+                                value={formData.complaints}
+                                onChange={e => updateForm('complaints', e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Signature */}
+                    <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                            <Shield className="w-3.5 h-3.5 inline mr-1" />
+                            Подтверждение (ПЭП) — введите пароль
+                        </label>
+                        <input
+                            type="password"
+                            placeholder="Пароль для электронной подписи"
+                            value={signature}
+                            onChange={e => setSignature(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                        />
+                    </div>
+
+                    {/* Decision buttons */}
+                    <div className="flex gap-2 mt-4">
+                        <button
+                            onClick={() => submitInspection('approved')}
+                            disabled={submitting}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-200 hover:shadow-emerald-300 hover:from-emerald-700 hover:to-emerald-600 transition disabled:opacity-50"
+                        >
+                            <CheckCircle2 className="w-5 h-5" />
+                            Допустить
+                        </button>
+                        <button
+                            onClick={() => submitInspection('rejected')}
+                            disabled={submitting}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-xl text-sm font-bold shadow-md shadow-red-200 hover:shadow-red-300 hover:from-red-700 hover:to-red-600 transition disabled:opacity-50"
+                        >
+                            <XCircle className="w-5 h-5" />
+                            Не допустить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -396,18 +679,16 @@ export default function MedicPage() {
 
             <div className="p-6 space-y-6">
                 {/* Stat cards */}
-                {!selectedDriver && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <Stat label="В очереди" value={queue.length} icon={Users} tone="warning" />
-                        <Stat label="Истекают справки" value={expiringCerts.length} icon={Calendar} tone={expiringCerts.length > 0 ? 'warning' : 'success'} hint="в течение 30 дней" />
-                        <Stat label="Допущено сегодня" value={journal.filter(r => r.decision === 'approved' && r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()).length} icon={CheckCircle2} tone="success" />
-                        <Stat label="Отстранено сегодня" value={journal.filter(r => r.decision === 'rejected' && r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()).length} icon={XCircle} tone="danger" />
-                    </div>
-                )}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Stat label="В очереди" value={queue.length} icon={Users} tone="warning" />
+                    <Stat label="Истекают справки" value={expiringCerts.length} icon={Calendar} tone={expiringCerts.length > 0 ? 'warning' : 'success'} hint="в течение 30 дней" />
+                    <Stat label="Допущено сегодня" value={journal.filter(r => r.decision === 'approved' && r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()).length} icon={CheckCircle2} tone="success" />
+                    <Stat label="Отстранено сегодня" value={journal.filter(r => r.decision === 'rejected' && r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()).length} icon={XCircle} tone="danger" />
+                </div>
 
                 {/* Expiring certificates warning */}
                 {expiringCerts.length > 0 && activeTab === 'queue' && !selectedDriver && (
-                    <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
                         <div className="flex items-center gap-2 mb-2">
                             <AlertTriangle className="w-5 h-5 text-amber-600" />
                             <span className="font-semibold text-amber-800 text-sm">
@@ -424,308 +705,129 @@ export default function MedicPage() {
                     </div>
                 )}
 
-                {/* Inspection form */}
-                {selectedDriver && activeTab === 'queue' && (
-                    <div className="mb-6 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        {/* Driver header */}
-                        <div className="bg-gradient-to-r from-rose-700 to-pink-600 px-6 py-4 text-white">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-xl font-bold">
-                                        {selectedDriver.driver.fullName.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-bold">{selectedDriver.driver.fullName}</h2>
-                                        <p className="text-rose-200 text-sm">
-                                            ВУ: {selectedDriver.driver.licenseNumber} •
-                                            Категории: {selectedDriver.driver.licenseCategories?.join(', ') || '—'} •
-                                            {tripReferences[selectedDriver.trip.id]?.waybillNumber
-                                                ? `ПЛ: ${tripReferences[selectedDriver.trip.id]!.waybillNumber} • `
-                                                : 'ПЛ: не оформлен • '}
-                                            Рейс: {selectedDriver.trip.number}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setSelectedDriver(null)}
-                                    className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm transition"
-                                >
-                                    ← Назад
-                                </button>
-                            </div>
-
-                            <div className="mt-3">
-                                <CertBadge
-                                    status={selectedDriver.driver.medCertStatus}
-                                    expiry={selectedDriver.driver.medCertificateExpiry}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Medical form */}
-                        <div className="p-6">
-                            <div className="flex items-center justify-between gap-3 mb-4">
-                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Тип осмотра</h3>
-                                
-                                <div className="flex bg-slate-100 rounded-xl p-1">
-                                    <button
-                                        onClick={() => setInspectionType('pre_trip')}
-                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${inspectionType === 'pre_trip' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                                    >
-                                        Предрейсовый
-                                    </button>
-                                    <button
-                                        onClick={() => setInspectionType('periodic')}
-                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${inspectionType === 'periodic' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                                    >
-                                        Периодический
-                                    </button>
-                                </div>
-                            </div>
-
-                            <p className="text-xs text-slate-500 mb-4">
-                                {inspectionType === 'pre_trip'
-                                    ? 'Осмотр привязан к путевому листу выбранного рейса и может продвинуть статус выпуска.'
-                                    : 'Периодический осмотр фиксируется без влияния на рейс или путевой лист.'
-                                }
-                            </p>
-
-                            <h3 className="sr-only">
-                                <Activity className="w-4 h-4 inline mr-1.5" />
-                                Показатели осмотра
-                            </h3>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {/* Blood Pressure */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-slate-700">
-                                        <Activity className="w-4 h-4 inline mr-1" />
-                                        АД (мм рт.ст.) *
-                                    </label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="number"
-                                            placeholder="Систолическое"
-                                            value={formData.systolicBp}
-                                            onChange={e => updateForm('systolicBp', e.target.value)}
-                                            className="flex-1 px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
-                                            min={60}
-                                            max={250}
-                                        />
-                                        <span className="flex items-center text-slate-400 font-bold">/</span>
-                                        <input
-                                            type="number"
-                                            placeholder="Диастолическое"
-                                            value={formData.diastolicBp}
-                                            onChange={e => updateForm('diastolicBp', e.target.value)}
-                                            className="flex-1 px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
-                                            min={40}
-                                            max={150}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Heart Rate */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-slate-700">
-                                        <HeartPulse className="w-4 h-4 inline mr-1" />
-                                        Пульс (уд/мин) *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        placeholder="60-100"
-                                        value={formData.heartRate}
-                                        onChange={e => updateForm('heartRate', e.target.value)}
-                                        className="w-full px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
-                                        min={30}
-                                        max={200}
-                                    />
-                                </div>
-
-                                {/* Temperature */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-slate-700">
-                                        <Thermometer className="w-4 h-4 inline mr-1" />
-                                        Температура (°C) *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.1"
-                                        placeholder="36.6"
-                                        value={formData.temperature}
-                                        onChange={e => updateForm('temperature', e.target.value)}
-                                        className="w-full px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
-                                        min={34}
-                                        max={42}
-                                    />
-                                </div>
-
-                                {/* Condition */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-slate-700">
-                                        Состояние *
-                                    </label>
-                                    <select
-                                        value={formData.condition}
-                                        onChange={e => updateForm('condition', e.target.value)}
-                                        className="w-full px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400 bg-white"
-                                    >
-                                        <option value="удовлетворительное">Удовлетворительное</option>
-                                        <option value="неудовлетворительное">Неудовлетворительное</option>
-                                        <option value="подозрение на заболевание">Подозрение на заболевание</option>
-                                    </select>
-                                </div>
-
-                                {/* Alcohol test */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-slate-700">
-                                        <Wine className="w-4 h-4 inline mr-1" />
-                                        Алкотест *
-                                    </label>
-                                    <div className="flex gap-2">
+                {/* Queue Tab — two-pane */}
+                {activeTab === 'queue' && (
+                    <div className={`grid gap-4 ${selectedDriver ? 'xl:grid-cols-[minmax(360px,1fr)_minmax(0,420px)]' : 'grid-cols-1'}`}>
+                        {/* LEFT: List + filters */}
+                        <div className="min-w-0">
+                            <div className="sticky top-0 z-10 -mx-1 px-1 py-2 bg-slate-50/95 backdrop-blur-sm flex flex-wrap items-center gap-2 mb-2">
+                                <div className="flex bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
+                                    {(['all', 'today', 'week'] as DateFilter[]).map(f => (
                                         <button
-                                            onClick={() => updateForm('alcoholTest', 'negative')}
-                                            className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition ${formData.alcoholTest === 'negative'
-                                                ? 'bg-emerald-600 text-white shadow-sm'
-                                                : 'bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700'
+                                            key={f}
+                                            onClick={() => setDateFilter(f)}
+                                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${dateFilter === f
+                                                ? 'bg-rose-100 text-rose-700'
+                                                : 'text-slate-500 hover:text-slate-700'
                                                 }`}
                                         >
-                                            Отрицательный
+                                            {f === 'all' ? 'Все' : f === 'today' ? 'Сегодня' : 'Эта неделя'}
                                         </button>
-                                        <button
-                                            onClick={() => updateForm('alcoholTest', 'positive')}
-                                            className={`flex-1 px-4 py-3 rounded-xl text-sm font-semibold transition ${formData.alcoholTest === 'positive'
-                                                ? 'bg-red-600 text-white shadow-sm'
-                                                : 'bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-700'
-                                                }`}
-                                        >
-                                            Положительный
-                                        </button>
-                                    </div>
+                                    ))}
                                 </div>
-
-                                {/* Complaints */}
-                                <div className="space-y-2">
-                                    <label className="block text-sm font-semibold text-slate-700">
-                                        Жалобы
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="Нет жалоб"
-                                        value={formData.complaints}
-                                        onChange={e => updateForm('complaints', e.target.value)}
-                                        className="w-full px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Signature */}
-                            <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    <Shield className="w-4 h-4 inline mr-1.5" />
-                                    Подтверждение (ПЭП) — введите пароль
-                                </label>
                                 <input
-                                    type="password"
-                                    placeholder="Пароль для электронной подписи"
-                                    value={signature}
-                                    onChange={e => setSignature(e.target.value)}
-                                    className="w-full max-w-md px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                                    type="text"
+                                    placeholder="Поиск по водителю / рейсу..."
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    className="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-rose-300"
                                 />
+                                <span className="text-[11px] text-slate-400 ml-auto">
+                                    {filteredQueue.length} из {queue.length}
+                                </span>
                             </div>
 
-                            {/* Decision buttons */}
-                            <div className="flex gap-4 mt-6">
-                                <button
-                                    onClick={() => submitInspection('approved')}
-                                    disabled={submitting}
-                                    className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl text-lg font-bold shadow-lg shadow-emerald-200 hover:shadow-emerald-300 hover:from-emerald-700 hover:to-emerald-600 transition disabled:opacity-50"
-                                >
-                                    <CheckCircle2 className="w-6 h-6" />
-                                    Допустить
-                                </button>
-                                <button
-                                    onClick={() => submitInspection('rejected')}
-                                    disabled={submitting}
-                                    className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-xl text-lg font-bold shadow-lg shadow-red-200 hover:shadow-red-300 hover:from-red-700 hover:to-red-600 transition disabled:opacity-50"
-                                >
-                                    <XCircle className="w-6 h-6" />
-                                    Не допустить
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Queue Tab */}
-                {activeTab === 'queue' && !selectedDriver && (
-                    <div>
-                        {/* D5: Per-row quick approval requires full vitals + ПЭП (152-ФЗ), so the queue
-                          * still drills into the inspection form. Lightweight decision overrides are
-                          * exposed in the Journal tab via POST /inspections/med/:id/decision. */}
-                        <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <Users className="w-5 h-5 text-rose-500" />
-                            Очередь на медосмотр
-                        </h2>
-
-                        {loading ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                {Array.from({ length: 6 }).map((_, i) => (
-                                    <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5">
-                                        <SkeletonTable rows={3} columns={2} />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : queue.length === 0 ? (
-                            <EmptyState
-                                icon={CheckCircle2}
-                                title="Все водители осмотрены"
-                                description="Новые водители появятся после назначения рейсов."
-                                tone="success"
-                            />
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                {queue.map((item) => (
-                                    <Card
-                                        key={item.driver.id}
-                                        onClick={() => selectDriver(item)}
-                                        className={`cursor-pointer transition-all text-left group ${item.driver.personalDataConsent
-                                            ? 'hover:border-rose-300 hover:shadow-rose-50'
-                                            : 'border-red-200 bg-red-50 opacity-75'
-                                            }`}
-                                    >
-                                        <CardContent className="p-5">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-100 to-pink-100 flex items-center justify-center text-rose-600 font-bold">
-                                                        {item.driver.fullName.charAt(0)}
-                                                    </div>
-                                                    <span className="text-base font-bold text-slate-900">
-                                                        {item.driver.fullName}
-                                                    </span>
+                            {loading ? (
+                                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                                    <SkeletonTable rows={6} columns={2} />
+                                </div>
+                            ) : filteredQueue.length === 0 ? (
+                                <EmptyState
+                                    icon={CheckCircle2}
+                                    title="Очередь пуста — все осмотрены сегодня"
+                                    description="Новые водители появятся после назначения рейсов."
+                                    tone="success"
+                                />
+                            ) : (
+                                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+                                    {filteredQueue.map((item) => {
+                                        const isSelected = selectedDriver?.driver.id === item.driver.id;
+                                        const noConsent = !item.driver.personalDataConsent;
+                                        return (
+                                            <div
+                                                key={item.driver.id}
+                                                onClick={() => selectDriver(item)}
+                                                className={`group flex items-center gap-3 px-4 py-3 cursor-pointer transition relative ${isSelected
+                                                    ? 'bg-rose-50 ring-1 ring-inset ring-rose-200'
+                                                    : noConsent
+                                                        ? 'bg-red-50/40 hover:bg-red-50'
+                                                        : 'hover:bg-slate-50'
+                                                    }`}
+                                            >
+                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-100 to-pink-100 flex items-center justify-center text-rose-700 font-bold text-xs shrink-0">
+                                                    {item.driver.fullName.charAt(0)}
                                                 </div>
-                                                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-rose-500 transition" />
-                                            </div>
-
-                                            <p className="text-xs text-slate-400 mb-2">
-                                            ВУ: {item.driver.licenseNumber} • ПЛ: {tripReferences[item.trip.id]?.waybillNumber || 'еще не создан'} • Рейс: {item.trip.number}
-                                            </p>
-
-                                            <div className="flex flex-wrap gap-1.5">
-                                                <CertBadge
-                                                    status={item.driver.medCertStatus}
-                                                    expiry={item.driver.medCertificateExpiry}
-                                                />
-                                                {!item.driver.personalDataConsent && (
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-100 text-red-700">
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="text-sm font-bold text-slate-900 truncate">
+                                                            {item.driver.fullName}
+                                                        </span>
+                                                        <CertStatusPill status={item.driver.medCertStatus} />
+                                                        {noConsent && (
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700">
+                                                                <XCircle className="w-3 h-3" />
+                                                                Нет согласия ПД
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                                        ВУ: {item.driver.licenseNumber}
+                                                        {' · ПЛ: '}{tripReferences[item.trip.id]?.waybillNumber || 'еще не создан'}
+                                                        {' · Рейс: '}{item.trip.number}
+                                                    </p>
+                                                </div>
+                                                <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); selectDriver(item); }}
+                                                        className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
+                                                        title="Открыть осмотр для допуска"
+                                                    >
+                                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                                        Допустить
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); selectDriver(item); }}
+                                                        className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
+                                                        title="Открыть осмотр для отказа"
+                                                    >
                                                         <XCircle className="w-3.5 h-3.5" />
-                                                        Нет согласия ПД
-                                                    </span>
-                                                )}
+                                                        Не пропускать
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* RIGHT: Detail pane (xl+ only) */}
+                        {selectedDriver && (
+                            <div className="hidden xl:block min-w-0">
+                                <div className="sticky top-2 rounded-2xl border border-slate-200 shadow-sm overflow-hidden bg-white max-h-[calc(100vh-7rem)] overflow-y-auto">
+                                    <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100 border-b border-slate-200">
+                                        <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                                            Карточка медосмотра
+                                        </span>
+                                        <button
+                                            onClick={closeDetail}
+                                            className="text-xs text-slate-500 hover:text-slate-700"
+                                        >
+                                            Закрыть ✕
+                                        </button>
+                                    </div>
+                                    {renderInspectionForm(false)}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -922,6 +1024,19 @@ export default function MedicPage() {
                         )}
                     </div>
                 )}
+            </div>
+
+            {/* SideDrawer — used on screens < xl */}
+            <div className="xl:hidden">
+                <SideDrawer
+                    open={drawerOpen && !!selectedDriver && activeTab === 'queue'}
+                    onClose={closeDetail}
+                    title={selectedDriver ? `Медосмотр: ${selectedDriver.driver.fullName}` : ''}
+                    subtitle={selectedDriver ? `ВУ ${selectedDriver.driver.licenseNumber} · Рейс ${selectedDriver.trip.number}` : ''}
+                    width="lg"
+                >
+                    {renderInspectionForm(true)}
+                </SideDrawer>
             </div>
         </div>
     );
