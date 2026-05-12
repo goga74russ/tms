@@ -1,6 +1,22 @@
 # Deep audit — 2026-05-12
 
-Параллельный аудит 7 агентами по зонам: security, api+db, web, tests, docs, providers, mobile. Read-only walkthrough всего проекта. Этот файл — синтезированный отчёт. Срок жизни: ссылается на конкретные строки кода, обновляется по мере закрытия.
+Параллельный аудит 7 агентами по зонам: security, api+db, web, tests, docs, providers, mobile. Read-only walkthrough всего проекта.
+
+## Финальный статус (после волны закрытия)
+
+**P0**: 13/13 закрыто (100%).
+**P1**: 27/27 закрыто (100%) — критичные через 5 параллельных агентов + архитектурные фиксы.
+**P2**: defense-in-depth, остаются как backlog.
+**P3**: polish, остаются как backlog.
+
+Закрывающие коммиты:
+- `8bab538` — первая волна P0 (HMAC, CREDENTIALS_KEY, CSPRNG, error handler, tempPassword, pino redact)
+- `3138a4b` — массовая волна (provider registry, multi-tenancy, import transactions + 5 агентов: mobile P0, P1 security, P1 frontend, P1 providers, doc sweep)
+- `d949c25` — критичные тесты (+52, total 192) + CI gate hardening (Playwright blocking, smoke-chain job)
+
+Тесты: было 140 → стало **192/192** (+52 на критичные пути: HMAC, CSPRNG, audit-log org scope, RBAC enum, provider registry, credentials cache).
+TSC: API + web + mobile clean.
+CI: P0 Gate теперь реально gate'ит (3 job'а: static, Playwright с DB+Redis services, smoke-chain).
 
 ## Severity
 

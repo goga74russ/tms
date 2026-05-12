@@ -77,9 +77,10 @@
 
 ## Stats
 
-- **Total IDs:** 49 B-* (UI walkthrough) + 7 A-P0/P1 fixed from deep audit. 13 A-P0/P1 from deep audit remain open — see `docs/operations/audit-2026-05-12-deep.md`.
-- **B- by severity:** P0×1, P1×14, P2×21, P3×13. All B-* fixed.
-- **A- (deep audit):** P0×13 — 6 fixed this commit, 7 deferred (provider registry refactor, mobile build/sync, import transactions, multi-tenancy backfills, CI gate hardening). Plus P1×27, P2×30+, P3×20+.
+- **Total IDs:** 49 B-* (UI walkthrough) + 40 A-* (deep audit P0/P1).
+- **B- by severity:** P0×1, P1×14, P2×21, P3×13. **All B-* fixed.**
+- **A- (deep audit):** P0×13 + P1×27. **All P0 and P1 from the deep audit are closed.** P2 (defense-in-depth) and P3 (polish) remain as backlog — listed in `docs/operations/audit-2026-05-12-deep.md`.
+- Closure commits: `8bab538` (first P0 wave) → `3138a4b` (provider registry + multi-tenancy + 5 parallel agents) → `d949c25` (52 critical-path tests + CI gate hardening). Total: 192/192 tests pass.
 - **By discovery:**
   - Original audit (2026-05-10): B-16 partly.
   - UI walkthrough Round 5: B-1 → B-17 (16 issues).
