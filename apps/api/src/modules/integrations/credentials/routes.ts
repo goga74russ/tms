@@ -55,7 +55,13 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.status(403).send({ success: false, error: 'admin only' });
         }
         if (!user.organizationId) {
-            return reply.status(400).send({ success: false, error: 'no organization in token' });
+            // Super-admin / no-org tokens: return empty list with a note instead
+            // of a hard 4xx so the UI can render a neutral info banner.
+            return {
+                success: true,
+                data: [],
+                note: 'no_organization_in_token',
+            };
         }
 
         const rows = await db

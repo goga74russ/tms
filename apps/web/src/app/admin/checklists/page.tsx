@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
+import { Stat } from '@/components/ui/stat';
+import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
 import { ClipboardCheck, Plus, X, Edit2, Trash2 } from 'lucide-react';
 
 // ================================================================
@@ -33,6 +34,16 @@ const RESPONSE_LABELS: Record<string, string> = {
     number: 'Число',
     text: 'Текст',
     boolean: 'Да / Нет',
+};
+
+const TYPE_LABELS: Record<string, string> = {
+    tech: 'Техосмотр',
+    med: 'Медосмотр',
+};
+
+const TYPE_TONES: Record<string, PillTone> = {
+    tech: 'warning',
+    med: 'danger',
 };
 
 // ================================================================
@@ -234,6 +245,7 @@ export default function AdminChecklistsPage() {
     }, [toastFn]);
     const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
     const [loading, setLoading] = useState(true);
+    const [typeFilter, setTypeFilter] = useState('');
     const [modal, setModal] = useState<{ mode: 'create' | 'edit'; template: ChecklistTemplate | null } | null>(null);
 
     const load = useCallback(async () => {
@@ -247,6 +259,69 @@ export default function AdminChecklistsPage() {
 
     useEffect(() => { load(); }, [load]);
 
+    const activeCount = templates.filter(t => t.isActive).length;
+    const techCount = templates.filter(t => t.type === 'tech').length;
+    const medCount = templates.filter(t => t.type === 'med').length;
+    const filtered = typeFilter ? templates.filter(t => t.type === typeFilter) : templates;
+
+    const columns: Column<ChecklistTemplate>[] = [
+        {
+            id: 'name',
+            header: 'Название',
+            accessor: (r) => r.name,
+            cell: (r) => <span className="font-medium text-slate-900">{r.name}</span>,
+            sortable: true,
+            sticky: 'left',
+            minWidth: '260px',
+        },
+        {
+            id: 'type',
+            header: 'Тип',
+            accessor: (r) => TYPE_LABELS[r.type] ?? r.type,
+            cell: (r) => <Pill tone={TYPE_TONES[r.type] ?? 'neutral'}>{TYPE_LABELS[r.type] ?? r.type}</Pill>,
+            width: '140px',
+        },
+        {
+            id: 'version',
+            header: 'Версия',
+            accessor: (r) => r.version,
+            cell: (r) => <span className="font-mono text-xs text-slate-600">v{r.version}</span>,
+            width: '100px',
+        },
+        {
+            id: 'items',
+            header: 'Пункты',
+            accessor: (r) => r.items.length,
+            cell: (r) => <span className="text-slate-700">{r.items.length}</span>,
+            sortable: true,
+            align: 'right',
+            width: '100px',
+        },
+        {
+            id: 'isActive',
+            header: 'Статус',
+            accessor: (r) => (r.isActive ? 1 : 0),
+            cell: (r) => (
+                <Pill tone={r.isActive ? 'success' : 'neutral'}>
+                    {r.isActive ? 'Активен' : 'Неактивен'}
+                </Pill>
+            ),
+            width: '120px',
+        },
+        {
+            id: 'createdAt',
+            header: 'Создан',
+            accessor: (r) => r.createdAt,
+            cell: (r) => (
+                <span className="text-xs text-slate-500">
+                    {r.createdAt ? new Date(r.createdAt).toLocaleDateString('ru-RU') : '—'}
+                </span>
+            ),
+            sortable: true,
+            width: '120px',
+        },
+    ];
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between flex-wrap gap-3">
@@ -256,7 +331,7 @@ export default function AdminChecklistsPage() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-semibold text-slate-900">Шаблоны чек-листов</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">{templates.length} шаблонов</p>
+                        <p className="text-sm text-slate-500 mt-0.5">Шаблоны мед- и техосмотра</p>
                     </div>
                 </div>
                 <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', template: null })}>
@@ -264,85 +339,58 @@ export default function AdminChecklistsPage() {
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {loading ? (
-                    Array.from({ length: 6 }).map((_, i) => (
-                        <Card key={i}><CardContent className="p-5 space-y-3">
-                            <Skeleton className="h-5 w-40" />
-                            <Skeleton className="h-4 w-24" />
-                            <Skeleton className="h-20 w-full" />
-                        </CardContent></Card>
-                    ))
-                ) : templates.length === 0 ? (
-                    <div className="col-span-3">
-                        <EmptyState
-                            icon={ClipboardCheck}
-                            title="Шаблонов пока нет"
-                            description="Создайте первый шаблон чек-листа."
-                            tone="brand"
-                            action={<Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', template: null })}>Добавить</Button>}
-                        />
-                    </div>
-                ) : (
-                    templates.map(tmpl => (
-                        <Card key={tmpl.id} className="hover:shadow-md transition">
-                            <CardContent className="p-5">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div>
-                                        <h3 className="font-semibold text-slate-900">{tmpl.name}</h3>
-                                        <div className="flex gap-2 mt-1">
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tmpl.type === 'tech'
-                                                    ? 'bg-orange-100 text-orange-700'
-                                                    : 'bg-rose-100 text-rose-700'
-                                                }`}>
-                                                {tmpl.type === 'tech' ? 'Техосмотр' : 'Медосмотр'}
-                                            </span>
-                                            <span className="px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">
-                                                v{tmpl.version}
-                                            </span>
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tmpl.isActive
-                                                    ? 'bg-emerald-100 text-emerald-700'
-                                                    : 'bg-slate-100 text-slate-400'
-                                                }`}>
-                                                {tmpl.isActive ? 'Активен' : 'Неактивен'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => setModal({ mode: 'edit', template: tmpl })}
-                                        className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600"
-                                    >
-                                        <Edit2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-
-                                <div className="space-y-1 mt-3 pt-3 border-t border-slate-100">
-                                    {tmpl.items.slice(0, 5).map((item, idx) => (
-                                        <div key={idx} className="flex items-center gap-2 text-xs text-slate-600">
-                                            <span className="text-slate-400">{idx + 1}.</span>
-                                            <span className="flex-1 truncate">{item.name}</span>
-                                            <span className="text-slate-400">{RESPONSE_LABELS[item.responseType]}</span>
-                                        </div>
-                                    ))}
-                                    {tmpl.items.length > 5 && (
-                                        <p className="text-xs text-slate-400 mt-1">
-                                            ... и ещё {tmpl.items.length - 5} пунктов
-                                        </p>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))
-                )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Stat label="Всего" value={templates.length} icon={ClipboardCheck} tone="neutral" />
+                <Stat label="Активные" value={activeCount} icon={ClipboardCheck} tone="success" />
+                <Stat label="Техосмотр" value={techCount} icon={ClipboardCheck} tone="warning" />
+                <Stat label="Медосмотр" value={medCount} icon={ClipboardCheck} tone="danger" />
             </div>
+
+            <DataTable<ChecklistTemplate>
+                tableId="admin-checklists"
+                data={filtered}
+                columns={columns}
+                keyField="id"
+                loading={loading}
+                searchPlaceholder="Поиск шаблона…"
+                searchKeys={['name', 'version']}
+                filters={[
+                    {
+                        id: 'type',
+                        label: 'Тип',
+                        value: typeFilter,
+                        onChange: setTypeFilter,
+                        options: Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label })),
+                    },
+                ]}
+                onRowClick={(row) => setModal({ mode: 'edit', template: row })}
+                rowActions={(row) => [
+                    {
+                        id: 'edit',
+                        label: 'Редактировать',
+                        icon: <Edit2 className="w-4 h-4" />,
+                        onClick: () => setModal({ mode: 'edit', template: row }),
+                    },
+                ]}
+                emptyState={
+                    <EmptyState
+                        icon={ClipboardCheck}
+                        title="Шаблонов пока нет"
+                        description="Создайте первый шаблон чек-листа."
+                        tone="brand"
+                        action={<Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', template: null })}>Добавить</Button>}
+                    />
+                }
+                pageSize={50}
+            />
 
             {modal && (
                 <ChecklistFormModal
                     template={modal.template}
                     onClose={() => setModal(null)}
                     onSuccess={() => {
+                        setToast(modal.mode === 'create' ? 'Шаблон создан' : 'Шаблон обновлён');
                         setModal(null);
-                        setToast(modal.mode === 'create' ? '✅ Шаблон создан' : '✅ Шаблон обновлён');
                         load();
                     }}
                 />

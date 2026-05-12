@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
-import { Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Search, Trash2, Wrench, PackageOpen, Hammer, CheckCircle2 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/Combobox';
+import { EmptyState } from '@/components/ui/empty-state';
 import { RepairCard } from './RepairCard';
 
 interface RepairPart {
@@ -97,11 +99,53 @@ interface Repair {
   partsSummary?: RepairPartsSummary;
 }
 
-const COLUMNS = [
-  { status: 'created', label: 'Создана', color: 'border-amber-400', bg: 'bg-amber-50' },
-  { status: 'waiting_parts', label: 'Ждёт з/ч', color: 'border-blue-400', bg: 'bg-blue-50' },
-  { status: 'in_progress', label: 'В работе', color: 'border-indigo-400', bg: 'bg-indigo-50' },
-  { status: 'done', label: 'Готово', color: 'border-emerald-400', bg: 'bg-emerald-50' },
+type RepairColumnTone = 'warning' | 'brand' | 'success';
+
+const COLUMNS: Array<{
+  status: string;
+  label: string;
+  color: string;
+  bg: string;
+  emptyIcon: LucideIcon;
+  emptyDescription: string;
+  emptyTone: RepairColumnTone;
+}> = [
+  {
+    status: 'created',
+    label: 'Создана',
+    color: 'border-amber-400',
+    bg: 'bg-amber-50',
+    emptyIcon: Wrench,
+    emptyDescription: 'Создайте первую заявку на ремонт',
+    emptyTone: 'warning',
+  },
+  {
+    status: 'waiting_parts',
+    label: 'Ждёт з/ч',
+    color: 'border-blue-400',
+    bg: 'bg-blue-50',
+    emptyIcon: PackageOpen,
+    emptyDescription: 'Заявки, ожидающие поступления запчастей',
+    emptyTone: 'brand',
+  },
+  {
+    status: 'in_progress',
+    label: 'В работе',
+    color: 'border-indigo-400',
+    bg: 'bg-indigo-50',
+    emptyIcon: Hammer,
+    emptyDescription: 'Заявки в активной работе',
+    emptyTone: 'brand',
+  },
+  {
+    status: 'done',
+    label: 'Готово',
+    color: 'border-emerald-400',
+    bg: 'bg-emerald-50',
+    emptyIcon: CheckCircle2,
+    emptyDescription: 'Завершённые заявки появятся здесь',
+    emptyTone: 'success',
+  },
 ];
 
 const REPAIR_STATE_TRANSITIONS: Record<string, string[]> = {
@@ -1080,9 +1124,11 @@ function CompleteRepairDialog({
 export function RepairKanban({
   onStatusChange,
   catalogRefreshKey,
+  onCreateRequest,
 }: {
   onStatusChange: () => void;
   catalogRefreshKey?: number;
+  onCreateRequest?: () => void;
 }) {
   const [repairs, setRepairs] = useState<Repair[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1333,7 +1379,25 @@ export function RepairKanban({
 
               <div className="max-h-[600px] space-y-3 overflow-y-auto p-3">
                 {columnRepairs.length === 0 ? (
-                  <p className="py-8 text-center text-xs text-slate-400">Нет заявок</p>
+                  <EmptyState
+                    icon={column.emptyIcon}
+                    title="Нет заявок"
+                    description={column.emptyDescription}
+                    tone={column.emptyTone}
+                    className="min-h-[180px] py-8 px-3 bg-transparent border-0"
+                    action={
+                      column.status === 'created' && onCreateRequest ? (
+                        <Button
+                          variant="brand"
+                          size="sm"
+                          leftIcon={<Plus className="w-4 h-4" />}
+                          onClick={onCreateRequest}
+                        >
+                          Новая заявка
+                        </Button>
+                      ) : undefined
+                    }
+                  />
                 ) : columnRepairs.map((repair) => (
                   <div
                     key={repair.id}

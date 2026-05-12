@@ -86,7 +86,7 @@ export default function AdminBillingPage() {
             {/* Stat cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Stat label="Организаций" value={filtered.length} icon={Building2} tone="neutral" />
-                <Stat label="MRR (active)" value={formatKopecks(totalMrr)} icon={TrendingUp} tone="success" />
+                <Stat label="MRR (активные)" value={formatKopecks(totalMrr)} icon={TrendingUp} tone="success" />
                 <Stat label="Просрочки" value={pastDueCount} icon={AlertCircle} tone={pastDueCount > 0 ? 'danger' : 'neutral'} />
                 <Stat label="Тарифов" value={PLAN_IDS.length} icon={Receipt} tone="info" hint={PLAN_IDS.map(p => `${p}: ${byPlan[p] ?? 0}`).join(' · ')} />
             </div>

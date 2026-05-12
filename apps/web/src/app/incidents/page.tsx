@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { AlertTriangle, Plus, Search, X, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Plus, X, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Stat } from '@/components/ui/stat';
-import { SkeletonTable } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
+import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
 
 interface Incident {
     id: string;
@@ -37,42 +36,33 @@ const severityLabels: Record<string, string> = {
 const statusLabels: Record<string, string> = {
     open: 'Открыт',
     investigating: 'На разборе',
-    resolved: 'Решен',
-    dismissed: 'Отклонен',
-};
-const severityStyles: Record<string, string> = {
-    low: 'bg-slate-100 text-slate-600',
-    medium: 'bg-amber-100 text-amber-700',
-    critical: 'bg-red-100 text-red-700',
+    resolved: 'Решён',
+    dismissed: 'Отклонён',
 };
 
-const statusStyles: Record<string, string> = {
-    open: 'bg-red-100 text-red-700',
-    investigating: 'bg-blue-100 text-blue-700',
-    resolved: 'bg-emerald-100 text-emerald-700',
-    dismissed: 'bg-slate-100 text-slate-500',
+const severityTones: Record<string, PillTone> = {
+    low: 'neutral',
+    medium: 'warning',
+    critical: 'danger',
 };
 
-function normalizeIncidentValue(value: string | null | undefined): string {
+const severityOrder: Record<string, number> = {
+    low: 0,
+    medium: 1,
+    critical: 2,
+};
+
+const statusTones: Record<string, PillTone> = {
+    open: 'danger',
+    investigating: 'info',
+    resolved: 'success',
+    dismissed: 'neutral',
+};
+
+function normalize(value: string | null | undefined): string {
     return String(value ?? '').trim().toLowerCase();
 }
 
-function getIncidentLabel(
-    value: string | null | undefined,
-    labels: Record<string, string>,
-): string {
-    const normalizedValue = normalizeIncidentValue(value);
-    return labels[normalizedValue] ?? String(value ?? '-');
-}
-
-function getIncidentBadgeClass(
-    value: string | null | undefined,
-    styles: Record<string, string>,
-    fallbackClass: string,
-): string {
-    const normalizedValue = normalizeIncidentValue(value);
-    return styles[normalizedValue] ?? fallbackClass;
-}
 function CreateIncidentModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
     const { toast } = useToast();
     const [form, setForm] = useState({
@@ -161,19 +151,17 @@ function CreateIncidentModal({ onClose, onCreated }: { onClose: () => void; onCr
 export default function IncidentsPage() {
     const [incidents, setIncidents] = useState<Incident[]>([]);
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
     const [severity, setSeverity] = useState('');
     const [status, setStatus] = useState('');
     const [showCreate, setShowCreate] = useState(false);
 
-    async function loadIncidents() {
+    const loadIncidents = useCallback(async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
             params.set('limit', '100');
             if (severity) params.set('severity', severity);
             if (status) params.set('status', status);
-            if (search.trim()) params.set('search', search.trim());
             const result = await api.get<any>(`/incidents?${params.toString()}`);
             const rows = result.data || [];
             setIncidents(rows);
@@ -182,20 +170,70 @@ export default function IncidentsPage() {
         } finally {
             setLoading(false);
         }
-    }
-
-    useEffect(() => {
-        loadIncidents();
     }, [severity, status]);
 
     useEffect(() => {
-        const timer = setTimeout(loadIncidents, 250);
-        return () => clearTimeout(timer);
-    }, [search]);
+        loadIncidents();
+    }, [loadIncidents]);
 
     const openCount = incidents.filter(i => i.status === 'open').length;
     const criticalCount = incidents.filter(i => i.severity === 'critical').length;
     const blockingCount = incidents.filter(i => i.blocksRelease).length;
+
+    const columns: Column<Incident>[] = [
+        {
+            id: 'description',
+            header: 'Описание',
+            accessor: (r) => r.description,
+            cell: (r) => <span className="font-medium text-slate-900">{r.description}</span>,
+            sticky: 'left',
+            minWidth: '260px',
+        },
+        {
+            id: 'type',
+            header: 'Тип',
+            accessor: (r) => typeLabels[normalize(r.type)] ?? r.type,
+            width: '130px',
+        },
+        {
+            id: 'severity',
+            header: 'Критичность',
+            accessor: (r) => severityOrder[normalize(r.severity)] ?? 0,
+            cell: (r) => {
+                const key = normalize(r.severity);
+                return <Pill tone={severityTones[key] ?? 'neutral'}>{severityLabels[key] ?? r.severity}</Pill>;
+            },
+            sortable: true,
+            width: '140px',
+        },
+        {
+            id: 'status',
+            header: 'Статус',
+            accessor: (r) => statusLabels[normalize(r.status)] ?? r.status,
+            cell: (r) => {
+                const key = normalize(r.status);
+                return <Pill tone={statusTones[key] ?? 'neutral'}>{statusLabels[key] ?? r.status}</Pill>;
+            },
+            width: '130px',
+        },
+        {
+            id: 'blocksRelease',
+            header: 'Выпуск',
+            accessor: (r) => (r.blocksRelease ? 1 : 0),
+            cell: (r) => r.blocksRelease
+                ? <Pill tone="danger">Блокирует</Pill>
+                : <span className="text-xs text-slate-500">Не блокирует</span>,
+            width: '130px',
+        },
+        {
+            id: 'createdAt',
+            header: 'Создан',
+            accessor: (r) => r.createdAt,
+            cell: (r) => <span className="text-xs text-slate-500">{new Date(r.createdAt).toLocaleString('ru-RU')}</span>,
+            sortable: true,
+            width: '160px',
+        },
+    ];
 
     return (
         <div className="space-y-6">
@@ -221,75 +259,55 @@ export default function IncidentsPage() {
                 <Stat label="Блокируют выпуск" value={blockingCount} icon={ShieldAlert} tone={blockingCount > 0 ? 'danger' : 'neutral'} />
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 shadow-soft">
-                <div className="p-4 border-b border-slate-200 flex flex-wrap gap-3">
-                    <div className="flex-1 min-w-[220px] max-w-sm">
-                        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Поиск по описанию" leftAddon={<Search className="w-4 h-4" />} />
-                    </div>
-                    <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="px-4 py-2 rounded-lg border border-slate-200 text-sm">
-                        <option value="">Все приоритеты</option>
-                        <option value="low">Низкая</option>
-                        <option value="medium">Средняя</option>
-                        <option value="critical">Критичная</option>
-                    </select>
-                    <select value={status} onChange={(e) => setStatus(e.target.value)} className="px-4 py-2 rounded-lg border border-slate-200 text-sm">
-                        <option value="">Все статусы</option>
-                        <option value="open">Открыт</option>
-                        <option value="investigating">На разборе</option>
-                        <option value="resolved">Решён</option>
-                        <option value="dismissed">Отклонён</option>
-                    </select>
-                </div>
-
-                {loading ? (
-                    <div className="p-4"><SkeletonTable rows={6} columns={6} /></div>
-                ) : incidents.length === 0 ? (
-                    <div className="p-6">
-                        <EmptyState
-                            icon={AlertTriangle}
-                            title={search || status || severity ? 'Инциденты не найдены' : 'Пока нет инцидентов'}
-                            description={search || status || severity ? 'Попробуйте сбросить фильтры.' : 'Здесь появятся зарегистрированные инциденты.'}
-                            tone="brand"
-                            action={!search && !status && !severity ? (
-                                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
-                                    Новый инцидент
-                                </Button>
-                            ) : undefined}
-                        />
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-slate-50 text-slate-500 text-left">
-                                    <th className="px-4 py-3 font-medium">Тип</th>
-                                    <th className="px-4 py-3 font-medium">Описание</th>
-                                    <th className="px-4 py-3 font-medium">Критичность</th>
-                                    <th className="px-4 py-3 font-medium">Статус</th>
-                                    <th className="px-4 py-3 font-medium">Выпуск</th>
-                                    <th className="px-4 py-3 font-medium">Создан</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {incidents.map((incident) => (
-                                    <tr key={incident.id} className="hover:bg-slate-50">
-                                        <td className="px-4 py-3 text-slate-700">{getIncidentLabel(incident.type, typeLabels)}</td>
-                                        <td className="px-4 py-3 text-slate-800 font-medium">{incident.description}</td>
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getIncidentBadgeClass(incident.severity, severityStyles, severityStyles.low)}`}>{getIncidentLabel(incident.severity, severityLabels)}</span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getIncidentBadgeClass(incident.status, statusStyles, statusStyles.open)}`}>{getIncidentLabel(incident.status, statusLabels)}</span>
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">{incident.blocksRelease ? 'Блокирует' : 'Не блокирует'}</td>
-                                        <td className="px-4 py-3 text-slate-500">{new Date(incident.createdAt).toLocaleString('ru-RU')}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+            <DataTable<Incident>
+                tableId="incidents"
+                data={incidents}
+                columns={columns}
+                keyField="id"
+                loading={loading}
+                searchPlaceholder="Поиск по описанию…"
+                searchKeys={['description']}
+                filters={[
+                    {
+                        id: 'severity',
+                        label: 'Критичность',
+                        value: severity,
+                        onChange: setSeverity,
+                        options: [
+                            { value: 'low', label: 'Низкая' },
+                            { value: 'medium', label: 'Средняя' },
+                            { value: 'critical', label: 'Критичная' },
+                        ],
+                    },
+                    {
+                        id: 'status',
+                        label: 'Статус',
+                        value: status,
+                        onChange: setStatus,
+                        options: [
+                            { value: 'open', label: 'Открыт' },
+                            { value: 'investigating', label: 'На разборе' },
+                            { value: 'resolved', label: 'Решён' },
+                            { value: 'dismissed', label: 'Отклонён' },
+                        ],
+                    },
+                ]}
+                defaultSort={{ columnId: 'createdAt', direction: 'desc' }}
+                emptyState={
+                    <EmptyState
+                        icon={AlertTriangle}
+                        title={severity || status ? 'Инциденты не найдены' : 'Пока нет инцидентов'}
+                        description={severity || status ? 'Попробуйте сбросить фильтры.' : 'Здесь появятся зарегистрированные инциденты.'}
+                        tone="brand"
+                        action={!severity && !status ? (
+                            <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
+                                Новый инцидент
+                            </Button>
+                        ) : undefined}
+                    />
+                }
+                pageSize={50}
+            />
 
             {showCreate && <CreateIncidentModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); loadIncidents(); }} />}
         </div>

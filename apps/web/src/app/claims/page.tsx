@@ -5,15 +5,13 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { api } from "@/lib/api";
 
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Stat } from "@/components/ui/stat";
-import { SkeletonRow } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
-import { AlertOctagon, FileText, Search, ShieldAlert, Plus, CheckCircle2, FilePlus2 } from "lucide-react";
+import { DataTable, type Column, type RowAction, Pill, type PillTone } from "@/components/ui/data-table";
+import { AlertOctagon, ShieldAlert, Plus, CheckCircle2, FilePlus2, FileText, PlayCircle, XCircle } from "lucide-react";
 
 // ——— Types ———
 interface Claim {
@@ -66,30 +64,36 @@ const TYPE_LABELS: Record<string, string> = {
     other: 'Прочее',
 };
 
-const STATUS_OPTIONS = [
-    { value: '', label: 'Все статусы' },
-    { value: 'open', label: 'Открыта' },
-    { value: 'investigating', label: 'Расследование' },
-    { value: 'resolved', label: 'Урегулирована' },
-    { value: 'rejected', label: 'Отклонена' },
-];
+const STATUS_LABELS: Record<string, string> = {
+    open: 'Открыта',
+    investigating: 'В работе',
+    resolved: 'Решена',
+    rejected: 'Отклонена',
+};
+
+const STATUS_TONES: Record<string, PillTone> = {
+    open: 'info',
+    investigating: 'warning',
+    resolved: 'success',
+    rejected: 'danger',
+};
 
 const EXPOSURE_BASIS_LABELS: Record<string, string> = {
-    amount: 'Claimed',
-    reserve: 'Reserve',
-    estimated: 'Estimated',
-    none: 'No exposure',
+    amount: 'Заявлено',
+    reserve: 'Резерв',
+    estimated: 'Оценка',
+    none: 'Нет потерь',
 };
 
 const CAUSE_LABELS: Record<string, string> = {
-    shortage: 'Shortage',
-    damage: 'Damage',
-    delay: 'Delay',
-    downtime: 'Downtime',
-    refusal: 'Refusal',
-    overage: 'Overage',
-    wrong_docs: 'Wrong docs',
-    other: 'Other',
+    shortage: 'Недостача',
+    damage: 'Повреждение',
+    delay: 'Задержка',
+    downtime: 'Простой',
+    refusal: 'Отказ',
+    overage: 'Излишек',
+    wrong_docs: 'Ошибки в документах',
+    other: 'Прочее',
 };
 
 function toMoneyNumber(value: unknown): number | null {
@@ -158,26 +162,6 @@ function collectEvidence(claim: Claim): EvidenceItem[] {
     return rows.slice(0, 4);
 }
 
-function statusBadge(status: string) {
-    const variants: Record<string, string> = {
-        open: 'bg-blue-100 text-blue-800',
-        investigating: 'bg-yellow-100 text-yellow-800',
-        resolved: 'bg-green-100 text-green-800',
-        rejected: 'bg-red-100 text-red-800',
-    };
-    const labels: Record<string, string> = {
-        open: 'Открыта',
-        investigating: 'Расследование',
-        resolved: 'Урегулирована',
-        rejected: 'Отклонена',
-    };
-    return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${variants[status] ?? 'bg-gray-100 text-gray-700'}`}>
-            {labels[status] ?? status}
-        </span>
-    );
-}
-
 // ——— Create Modal ———
 interface CreateModalProps {
     onClose: () => void;
@@ -203,7 +187,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     function validateUuid(value: string, label: string): string | null {
-        if (!value) return null; // пустое = необязательное
+        if (!value) return null;
         if (!UUID_RE.test(value)) return `${label}: неверный формат UUID`;
         return null;
     }
@@ -214,7 +198,6 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
             setError('Описание обязательно');
             return;
         }
-        // Валидация UUID полей на фронте
         const uuidErrors = [
             validateUuid(form.tripId, 'ID рейса'),
             validateUuid(form.orderId, 'ID заказа'),
@@ -473,10 +456,8 @@ export default function ClaimsPage() {
     const [claims, setClaims] = useState<Claim[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('');
-    const [search, setSearch] = useState('');
     const [showCreate, setShowCreate] = useState(false);
     const [resolvingClaim, setResolvingClaim] = useState<Claim | null>(null);
-    const [togglingId, setTogglingId] = useState<string | null>(null);
 
     const loadClaims = useCallback(async () => {
         setLoading(true);
@@ -495,27 +476,14 @@ export default function ClaimsPage() {
     useEffect(() => { loadClaims(); }, [loadClaims]);
 
     async function handleStartInvestigation(claim: Claim) {
-        setTogglingId(claim.id);
         try {
             await api.patch(`/claims/${claim.id}/status`, { status: 'investigating' });
             toast({ variant: 'success', title: 'В работу', description: 'Претензия переведена в расследование' });
             await loadClaims();
         } catch (err: any) {
             toast({ variant: 'error', title: 'Ошибка', description: err?.message });
-        } finally {
-            setTogglingId(null);
         }
     }
-
-    const filtered = claims.filter(c => {
-        if (!search) return true;
-        const q = search.toLowerCase();
-        return (
-            c.description.toLowerCase().includes(q) ||
-            (c.tripId ?? '').includes(q) ||
-            (c.contractorId ?? '').includes(q)
-        );
-    });
 
     const stats = {
         open: claims.filter(c => c.status === 'open').length,
@@ -538,6 +506,114 @@ export default function ClaimsPage() {
             .reduce((s, c) => s + (claimAmount(c, 'resolvedAmount') ?? 0), 0),
     };
 
+    const columns: Column<Claim>[] = [
+        {
+            id: 'description',
+            header: 'Описание',
+            accessor: (r) => r.description,
+            cell: (r) => (
+                <div className="max-w-xs">
+                    <span className="block truncate text-sm font-medium text-slate-900" title={r.description}>
+                        {r.description}
+                    </span>
+                    {r.resolution && (
+                        <span className="block truncate text-xs text-slate-400 mt-0.5" title={r.resolution}>
+                            → {r.resolution}
+                        </span>
+                    )}
+                    {claimSettlementNote(r) && (
+                        <span className="block truncate text-xs text-indigo-600 mt-0.5" title={claimSettlementNote(r) ?? undefined}>
+                            Settlement: {claimSettlementNote(r)}
+                        </span>
+                    )}
+                    {collectEvidence(r).length > 0 && (
+                        <span className="block truncate text-xs text-slate-500 mt-0.5" title={collectEvidence(r).map(e => `${e.label}: ${e.value}`).join('; ')}>
+                            Evidence: {collectEvidence(r).map(e => e.label).join(', ')}
+                        </span>
+                    )}
+                </div>
+            ),
+            sticky: 'left',
+            minWidth: '260px',
+        },
+        {
+            id: 'type',
+            header: 'Тип',
+            accessor: (r) => TYPE_LABELS[r.type] ?? r.type,
+            width: '120px',
+        },
+        {
+            id: 'status',
+            header: 'Статус',
+            accessor: (r) => STATUS_LABELS[r.status] ?? r.status,
+            cell: (r) => (
+                <Pill tone={STATUS_TONES[r.status] ?? 'neutral'}>
+                    {STATUS_LABELS[r.status] ?? r.status}
+                </Pill>
+            ),
+            width: '120px',
+        },
+        {
+            id: 'tripId',
+            header: 'Рейс',
+            accessor: (r) => r.tripId ?? '',
+            cell: (r) => r.tripId
+                ? <span className="font-mono text-xs">{r.tripId.slice(0, 8)}…</span>
+                : <span className="text-slate-400">—</span>,
+            width: '110px',
+        },
+        {
+            id: 'amount',
+            header: 'Сумма',
+            accessor: (r) => claimAmount(r, 'amount') ?? 0,
+            cell: (r) => (
+                <div className="space-y-1 text-xs">
+                    <div className="font-medium text-sm text-slate-900">{money(claimAmount(r, 'amount'))}</div>
+                    <div className="text-slate-500">Резерв: {money(claimAmount(r, 'reserveAmount'))}</div>
+                    <div className="text-slate-500">Оценка: {money(claimAmount(r, 'estimatedAmount'))}</div>
+                    <div className="text-orange-700">
+                        Эффект.: {money(claimAmount(r, 'effectiveExposureAmount'))}
+                        {claimExposureBasis(r) !== 'none' && (
+                            <span className="ml-1 text-slate-400">({EXPOSURE_BASIS_LABELS[claimExposureBasis(r)] ?? claimExposureBasis(r)})</span>
+                        )}
+                    </div>
+                </div>
+            ),
+            sortable: true,
+            minWidth: '180px',
+        },
+        {
+            id: 'resolvedAmount',
+            header: 'Выплата',
+            accessor: (r) => claimAmount(r, 'resolvedAmount') ?? 0,
+            cell: (r) => (
+                <div className="space-y-1 text-xs">
+                    <div className="font-medium text-sm text-slate-900">{money(claimAmount(r, 'resolvedAmount'))}</div>
+                    <div className="text-slate-500">
+                        {r.resolvedAt ? format(new Date(r.resolvedAt), 'dd.MM.yy', { locale: ru }) : 'Не урегулирована'}
+                    </div>
+                    <div className="text-slate-500">
+                        Причина: {CAUSE_LABELS[r.cause ?? r.exposure?.cause ?? ''] ?? r.cause ?? r.exposure?.cause ?? '—'}
+                    </div>
+                </div>
+            ),
+            minWidth: '160px',
+            hiddenByDefault: false,
+        },
+        {
+            id: 'createdAt',
+            header: 'Создана',
+            accessor: (r) => r.createdAt,
+            cell: (r) => (
+                <span className="text-xs text-slate-500">
+                    {format(new Date(r.createdAt), 'dd.MM.yy', { locale: ru })}
+                </span>
+            ),
+            sortable: true,
+            width: '110px',
+        },
+    ];
+
     return (
         <div className="p-6 space-y-6">
             <div className="flex justify-between items-center flex-wrap gap-3">
@@ -558,166 +634,84 @@ export default function ClaimsPage() {
             {/* Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-4">
                 <Stat label="Открыто" value={stats.open} icon={AlertOctagon} tone="info" />
-                <Stat label="Расследование" value={stats.investigating} icon={ShieldAlert} tone="warning" />
-                <Stat label="Урегулировано" value={stats.resolved} icon={CheckCircle2} tone="success" />
+                <Stat label="В расслед." value={stats.investigating} icon={ShieldAlert} tone="warning" />
+                <Stat label="Урегулир." value={stats.resolved} icon={CheckCircle2} tone="success" />
                 <Stat label="Заявлено" value={money(stats.totalAmount)} tone="neutral" />
                 <Stat label="Выплачено" value={money(stats.resolvedAmount)} tone="success" />
-                <Stat label="Reserve" value={money(stats.reserveAmount)} tone="warning" />
-                <Stat label="Effective exposure" value={money(stats.effectiveExposure)} tone="danger" hint="open + investigating" />
+                <Stat label="Резерв" value={money(stats.reserveAmount)} tone="warning" />
+                <Stat label="Возможные потери" value={money(stats.effectiveExposure)} tone="danger" hint="открытые + расследуются" />
             </div>
 
-            {/* Filters */}
-            <Card>
-                <CardContent className="pt-4">
-                    <div className="flex gap-3 flex-wrap">
-                        <Input
-                            placeholder="Поиск по описанию, рейсу, контрагенту..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            leftAddon={<Search className="h-4 w-4" />}
-                            className="w-72"
-                        />
-                        <select
-                            className="border border-slate-200 rounded-lg px-3 py-2 text-sm h-10"
-                            value={statusFilter}
-                            onChange={e => setStatusFilter(e.target.value)}
-                        >
-                            {STATUS_OPTIONS.map(o => (
-                                <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                        </select>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Table */}
-            <Card>
-                <CardContent className="p-0">
-                    {!loading && filtered.length === 0 ? (
-                        <div className="p-6">
-                            <EmptyState
-                                icon={search || statusFilter ? Search : FilePlus2}
-                                title={search || statusFilter ? 'Претензий не найдено' : 'Пока нет претензий'}
-                                description={search || statusFilter ? 'Попробуйте сбросить фильтры.' : 'Создайте первую претензию, чтобы начать.'}
-                                tone="brand"
-                                action={!search && !statusFilter ? (
-                                    <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
-                                        Новая претензия
-                                    </Button>
-                                ) : undefined}
-                            />
-                        </div>
-                    ) : (
-                    <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Тип</TableHead>
-                                <TableHead>Статус</TableHead>
-                                <TableHead>Описание</TableHead>
-                                <TableHead>Рейс</TableHead>
-                                <TableHead>Сумма</TableHead>
-                                <TableHead>Выплата</TableHead>
-                                <TableHead>Создана</TableHead>
-                                <TableHead>Действия</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} columns={8} />)
-                            ) : filtered.map(claim => (
-                                <TableRow key={claim.id} className="hover:bg-gray-50">
-                                    <TableCell className="font-medium">
-                                        {TYPE_LABELS[claim.type] ?? claim.type}
-                                    </TableCell>
-                                    <TableCell>{statusBadge(claim.status)}</TableCell>
-                                    <TableCell className="max-w-xs">
-                                        <span className="block truncate text-sm" title={claim.description}>
-                                            {claim.description}
-                                        </span>
-                                        {claim.resolution && (
-                                            <span className="block truncate text-xs text-gray-400 mt-0.5" title={claim.resolution}>
-                                                → {claim.resolution}
-                                            </span>
-                                        )}
-                                        {claimSettlementNote(claim) && (
-                                            <span className="block truncate text-xs text-indigo-600 mt-0.5" title={claimSettlementNote(claim) ?? undefined}>
-                                                Settlement: {claimSettlementNote(claim)}
-                                            </span>
-                                        )}
-                                        {collectEvidence(claim).length > 0 && (
-                                            <span className="block truncate text-xs text-gray-500 mt-0.5" title={collectEvidence(claim).map(e => `${e.label}: ${e.value}`).join('; ')}>
-                                                Evidence: {collectEvidence(claim).map(e => e.label).join(', ')}
-                                            </span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="font-mono text-xs">
-                                        {claim.tripId ? claim.tripId.slice(0, 8) + '...' : '—'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="space-y-1 text-xs">
-                                            <div className="font-medium text-sm">{money(claimAmount(claim, 'amount'))}</div>
-                                            <div className="text-gray-500">Reserve: {money(claimAmount(claim, 'reserveAmount'))}</div>
-                                            <div className="text-gray-500">Estimated: {money(claimAmount(claim, 'estimatedAmount'))}</div>
-                                            <div className="text-orange-700">
-                                                Effective: {money(claimAmount(claim, 'effectiveExposureAmount'))}
-                                                {claimExposureBasis(claim) !== 'none' && (
-                                                    <span className="ml-1 text-gray-400">({EXPOSURE_BASIS_LABELS[claimExposureBasis(claim)] ?? claimExposureBasis(claim)})</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="space-y-1 text-xs">
-                                            <div className="font-medium text-sm">{money(claimAmount(claim, 'resolvedAmount'))}</div>
-                                            <div className="text-gray-500">
-                                                {claim.resolvedAt ? format(new Date(claim.resolvedAt), 'dd.MM.yy', { locale: ru }) : 'Not settled'}
-                                            </div>
-                                            <div className="text-gray-500">
-                                                Cause: {CAUSE_LABELS[claim.cause ?? claim.exposure?.cause ?? ''] ?? claim.cause ?? claim.exposure?.cause ?? '—'}
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-xs text-gray-500">
-                                        {format(new Date(claim.createdAt), 'dd.MM.yy', { locale: ru })}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex gap-1">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => window.open(`/print/claim-act/${claim.id}`, '_blank', 'noopener,noreferrer')}
-                                            >
-                                                Акт
-                                            </Button>
-                                            {claim.status === 'open' && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    disabled={togglingId === claim.id}
-                                                    onClick={() => handleStartInvestigation(claim)}
-                                                >
-                                                    В работу
-                                                </Button>
-                                            )}
-                                            {(claim.status === 'open' || claim.status === 'investigating') && (
-                                                <Button
-                                                    size="sm"
-                                                    onClick={() => setResolvingClaim(claim)}
-                                                >
-                                                    Закрыть
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                    </div>
-                    )}
-                </CardContent>
-            </Card>
+            <DataTable<Claim>
+                tableId="claims"
+                data={claims}
+                columns={columns}
+                keyField="id"
+                loading={loading}
+                searchPlaceholder="Поиск по описанию, рейсу, контрагенту…"
+                searchPredicate={(r, q) => (
+                    r.description.toLowerCase().includes(q) ||
+                    (r.tripId ?? '').toLowerCase().includes(q) ||
+                    (r.contractorId ?? '').toLowerCase().includes(q) ||
+                    (r.resolution ?? '').toLowerCase().includes(q)
+                )}
+                filters={[
+                    {
+                        id: 'status',
+                        label: 'Статус',
+                        value: statusFilter,
+                        onChange: setStatusFilter,
+                        options: [
+                            { value: 'open', label: 'Открыта' },
+                            { value: 'investigating', label: 'В работе' },
+                            { value: 'resolved', label: 'Решена' },
+                            { value: 'rejected', label: 'Отклонена' },
+                        ],
+                    },
+                ]}
+                rowActions={(row) => {
+                    const actions: RowAction<Claim>[] = [
+                        {
+                            id: 'act',
+                            label: 'Открыть акт',
+                            icon: <FileText className="w-4 h-4" />,
+                            onClick: () => { window.open(`/print/claim-act/${row.id}`, '_blank', 'noopener,noreferrer'); },
+                        },
+                    ];
+                    if (row.status === 'open') {
+                        actions.push({
+                            id: 'investigate',
+                            label: 'В работу',
+                            icon: <PlayCircle className="w-4 h-4" />,
+                            onClick: () => { void handleStartInvestigation(row); },
+                        });
+                    }
+                    if (row.status === 'open' || row.status === 'investigating') {
+                        actions.push({
+                            id: 'resolve',
+                            label: 'Закрыть',
+                            icon: <XCircle className="w-4 h-4" />,
+                            onClick: () => setResolvingClaim(row),
+                        });
+                    }
+                    return actions;
+                }}
+                defaultSort={{ columnId: 'createdAt', direction: 'desc' }}
+                emptyState={
+                    <EmptyState
+                        icon={statusFilter ? FilePlus2 : FilePlus2}
+                        title={statusFilter ? 'Претензий не найдено' : 'Пока нет претензий'}
+                        description={statusFilter ? 'Попробуйте сбросить фильтр.' : 'Создайте первую претензию, чтобы начать.'}
+                        tone="brand"
+                        action={!statusFilter ? (
+                            <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>
+                                Новая претензия
+                            </Button>
+                        ) : undefined}
+                    />
+                }
+                pageSize={50}
+            />
 
             {showCreate && (
                 <CreateClaimModal

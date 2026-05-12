@@ -20,6 +20,41 @@ interface CredentialRow {
     lastError: string | null;
 }
 
+// B-31 — human-readable Russian labels per provider name.
+const PROVIDER_LABEL_RU: Record<string, string> = {
+    gosklyuch: 'Госключ',
+    kontur_sign: 'Контур.Подпись',
+    sbis_sign: 'СБИС.Подпись',
+    cadesplugin: 'КриптоПро CADES',
+    diadoc: 'Контур.Диадок',
+    sbis: 'СБИС (ЭДО)',
+    kontur: 'Контур.ЭДО',
+    kaluga_astral: 'Калуга Астрал',
+    taxcom: 'Такском',
+    yookassa: 'ЮKassa',
+    tinkoff: 'Тинькофф Касса',
+    cloudpayments: 'CloudPayments',
+    mailru_smtp: 'Mail.ru для бизнеса (SMTP)',
+    unisender: 'Unisender',
+    console: 'Консоль (dev)',
+    smtp: 'SMTP',
+    wialon: 'Wialon',
+    omnicomm: 'Omnicomm',
+    glonasssoft: 'GLONASSsoft',
+    lukoil: 'Лукойл-Smart',
+    rosneft: 'Роснефть',
+    gazpromneft: 'Газпромнефть',
+    autocode: 'Автокод',
+    fssp: 'ФССП',
+    gibdd: 'ГИБДД',
+    crpt: 'Честный знак',
+    mock: 'Mock (тест)',
+};
+
+function providerLabel(name: ProviderName | string): string {
+    return PROVIDER_LABEL_RU[name as string] ?? String(name);
+}
+
 // All 8 provider domains the framework supports + the canonical list of
 // adapter names the UI offers per type. Mirrors `apps/api/src/providers/`.
 const PROVIDER_CATALOG: Array<{
@@ -43,19 +78,36 @@ export default function AdminIntegrationsPage() {
     const [rows, setRows] = useState<CredentialRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [info, setInfo] = useState<string | null>(null);
     const [modal, setModal] = useState<{ type: ProviderType; name: ProviderName } | null>(null);
 
     const refresh = useCallback(async () => {
         try {
-            const res = await api.get<{ success: boolean; data: CredentialRow[]; error?: string }>('/integrations/credentials');
+            const res = await api.get<{ success: boolean; data: CredentialRow[]; error?: string; note?: string }>('/integrations/credentials');
             if (res.success) {
                 setRows(res.data ?? []);
                 setError(null);
+                if (res.note === 'no_organization_in_token') {
+                    setInfo('Подключения настраиваются после регистрации организации.');
+                } else {
+                    setInfo(null);
+                }
             } else {
-                setError(res.error ?? 'Ошибка загрузки');
+                // Surface a friendly Russian message; never leak raw API tokens.
+                if ((res.error ?? '').includes('no organization')) {
+                    setInfo('Подключения настраиваются после регистрации организации.');
+                    setError(null);
+                } else {
+                    setError(res.error ?? 'Ошибка загрузки');
+                }
             }
         } catch (err: unknown) {
-            setError((err as Error).message);
+            const msg = (err as Error).message ?? '';
+            if (msg.includes('no organization')) {
+                setInfo('Подключения настраиваются после регистрации организации.');
+            } else {
+                setError(msg || 'Ошибка загрузки');
+            }
         } finally {
             setLoading(false);
         }
@@ -93,6 +145,11 @@ export default function AdminIntegrationsPage() {
                 </div>
             </div>
 
+            {info && (
+                <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-sm border border-blue-100">
+                    {info}
+                </div>
+            )}
             {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">{error}</div>}
 
             {loading ? (
@@ -121,7 +178,7 @@ export default function AdminIntegrationsPage() {
                                             <div className="flex items-center gap-3">
                                                 <StatusIcon status={row?.status ?? null} />
                                                 <div>
-                                                    <div className="font-medium text-slate-800">{name}</div>
+                                                    <div className="font-medium text-slate-800">{providerLabel(name)}</div>
                                                     {row?.lastError && <div className="text-xs text-red-500">{row.lastError}</div>}
                                                 </div>
                                             </div>
@@ -216,7 +273,7 @@ function CredentialModal({
     };
 
     return (
-        <Dialog open onClose={onClose} title={`Подключение: ${name}`}>
+        <Dialog open onClose={onClose} title={`Подключение: ${providerLabel(name)}`}>
             <div className="space-y-3">
                 {isSmtp ? (
                     <>

@@ -356,7 +356,7 @@ export default function AdminUsersPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Stat label="Всего" value={users.length} icon={Users} tone="neutral" />
                 <Stat label="Активные" value={activeCount} icon={CheckCircle2} tone="success" />
-                <Stat label="Администраторы" value={adminCount} icon={Shield} tone="warning" />
+                <Stat label="Админы" value={adminCount} icon={Shield} tone="warning" />
                 <Stat label="Водители" value={driverCount} icon={UserCog} tone="info" />
             </div>
 

@@ -90,7 +90,7 @@ export default function AdminSettingsPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Cost model</CardTitle>
+                    <CardTitle>Модель себестоимости</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {loading ? (

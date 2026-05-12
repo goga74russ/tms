@@ -163,8 +163,8 @@ export default function RepairPage() {
             source: ['auto_inspection', 'driver', 'mechanic', 'scheduled'].includes(source) ? source : 'mechanic',
             tripId,
             description: tripId
-                ? `Breakdown from trip dossier. Trip: ${tripId}`
-                : 'Breakdown from trip dossier.',
+                ? `Поломка из карточки рейса. Рейс: ${tripId}`
+                : 'Поломка из карточки рейса.',
         });
         setShowCreateModal(true);
     }, []);
@@ -212,7 +212,7 @@ export default function RepairPage() {
 
             {initialDraft?.tripId && (
                 <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
-                    Repair request opened from trip close-flow. Trip context is prefilled in the description; create the request, then continue replacement or close actions in the trip dossier.
+                    Заявка на ремонт открыта из закрытия рейса. Контекст рейса уже заполнен в описании — создайте заявку и продолжайте замену или закрытие в карточке рейса.
                 </div>
             )}
 
@@ -231,7 +231,11 @@ export default function RepairPage() {
             </div>
 
             {/* Kanban board */}
-            <RepairKanban onStatusChange={loadStats} catalogRefreshKey={catalogRefreshKey} />
+            <RepairKanban
+                onStatusChange={loadStats}
+                catalogRefreshKey={catalogRefreshKey}
+                onCreateRequest={() => setShowCreateModal(true)}
+            />
 
             {/* Create Modal */}
             {showCreateModal && (

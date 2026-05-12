@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Search, Plus, ChevronRight, Truck } from 'lucide-react';
+import { Plus, Truck, History, ShieldOff, ShieldCheck, Edit2 } from 'lucide-react';
 import { VehicleCard } from './VehicleCard';
 import { AddVehicleModal } from './AddVehicleModal';
 import { getVehicleProfile, getVehicleWaybillCue } from './vehicleProfile';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
+import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
 
 type DeadlineColor = 'green' | 'yellow' | 'red' | 'blocked' | null;
 
@@ -36,17 +40,37 @@ interface TrailerLink {
     currentVehicleId?: string | null;
 }
 
-const statusLabels: Record<string, { label: string; color: string }> = {
-    available: { label: 'Доступен', color: 'bg-emerald-100 text-emerald-700' },
-    assigned: { label: 'Назначен', color: 'bg-blue-100 text-blue-700' },
-    in_trip: { label: 'В рейсе', color: 'bg-indigo-100 text-indigo-700' },
-    maintenance: { label: 'ТО/Ремонт', color: 'bg-amber-100 text-amber-700' },
-    broken: { label: 'Неисправен', color: 'bg-red-100 text-red-700' },
-    blocked: { label: 'Заблокирован', color: 'bg-gray-100 text-gray-700' },
+const STATUS_LABELS: Record<string, string> = {
+    available: 'Доступен',
+    assigned: 'Назначен',
+    in_trip: 'В рейсе',
+    maintenance: 'ТО/Ремонт',
+    broken: 'Неисправен',
+    blocked: 'Заблокирован',
+};
+
+const STATUS_TONES: Record<string, PillTone> = {
+    available: 'success',
+    assigned: 'info',
+    in_trip: 'brand',
+    maintenance: 'warning',
+    broken: 'danger',
+    blocked: 'neutral',
+};
+
+const BODY_TYPE_LABELS: Record<string, string> = {
+    tent: 'Тент',
+    isothermal: 'Изотерм',
+    refrigerator: 'Рефрижератор',
+    box: 'Фургон',
+    open_platform: 'Бортовой',
+    tank: 'Цистерна',
+    container: 'Контейнеровоз',
+    other: 'Другое',
 };
 
 function DeadlineDot({ color, label }: { color: DeadlineColor; label: string }) {
-    if (!color) return <span className="w-3 h-3 rounded-full bg-slate-200" title={`${label}: нет данных`} />;
+    if (!color) return <span className="w-3 h-3 rounded-full bg-slate-200 inline-block" title={`${label}: нет данных`} />;
     const colors: Record<string, string> = {
         green: 'bg-emerald-500',
         yellow: 'bg-amber-400',
@@ -61,30 +85,37 @@ function DeadlineDot({ color, label }: { color: DeadlineColor; label: string }) 
     };
     return (
         <span
-            className={`w-3 h-3 rounded-full ${colors[color]}`}
+            className={`w-3 h-3 rounded-full inline-block ${colors[color]}`}
             title={titles[color]}
         />
     );
 }
 
 export function VehiclesTable() {
+    const { toast } = useToast();
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [trailersByVehicleId, setTrailersByVehicleId] = useState<Record<string, TrailerLink>>({});
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [statusFilter, setStatusFilter] = useState('');
+    const [bodyTypeFilter, setBodyTypeFilter] = useState('');
 
-    // M-22 FIX: Debounce search input (300ms)
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(search), 300);
-        return () => clearTimeout(timer);
-    }, [search]);
+    const loadVehicles = useCallback(async () => {
+        setLoading(true);
+        try {
+            const result = await api.get<any>(`/fleet/vehicles?limit=200`);
+            setVehicles(result.data || []);
+        } catch (err) {
+            console.error('Failed to load vehicles:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         loadVehicles();
-    }, [debouncedSearch]);
+    }, [loadVehicles]);
 
     useEffect(() => {
         (async () => {
@@ -107,18 +138,6 @@ export function VehiclesTable() {
         })();
     }, []);
 
-    async function loadVehicles() {
-        setLoading(true);
-        try {
-            const result = await api.get<any>(`/fleet/vehicles?search=${debouncedSearch}&limit=50`);
-            setVehicles(result.data || []);
-        } catch (err) {
-            console.error('Failed to load vehicles:', err);
-        } finally {
-            setLoading(false);
-        }
-    }
-
     if (selectedId) {
         return (
             <VehicleCard
@@ -128,31 +147,156 @@ export function VehiclesTable() {
         );
     }
 
+    const filtered = vehicles.filter(v => {
+        if (statusFilter && v.status !== statusFilter) return false;
+        if (bodyTypeFilter && v.bodyType !== bodyTypeFilter) return false;
+        return true;
+    });
+
+    async function toggleBlock(v: Vehicle, block: boolean) {
+        try {
+            await api.put(`/fleet/vehicles/${v.id}`, { isBlocked: block });
+            toast({ variant: 'success', title: block ? 'ТС заблокировано' : 'Блокировка снята' });
+            await loadVehicles();
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Ошибка', description: err?.message ?? 'Не удалось обновить' });
+        }
+    }
+
+    async function blockSelected(rows: Vehicle[]) {
+        const toBlock = rows.filter(r => !r.isBlocked);
+        if (toBlock.length === 0) return;
+        if (!confirm(`Заблокировать ${toBlock.length} ТС?`)) return;
+        try {
+            await Promise.all(toBlock.map(r => api.put(`/fleet/vehicles/${r.id}`, { isBlocked: true })));
+            toast({ variant: 'success', title: `Заблокировано: ${toBlock.length}` });
+            await loadVehicles();
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Ошибка', description: err?.message ?? 'Не удалось обновить' });
+        }
+    }
+
+    const columns: Column<Vehicle>[] = [
+        {
+            id: 'plateNumber',
+            header: 'Госномер',
+            accessor: (r) => r.plateNumber,
+            cell: (r) => (
+                <span className="font-mono font-semibold text-slate-900">
+                    {r.plateNumber}
+                </span>
+            ),
+            sortable: true,
+            sticky: 'left',
+            minWidth: '140px',
+        },
+        {
+            id: 'makeModel',
+            header: 'Марка / Модель',
+            accessor: (r) => `${r.make} ${r.model}`,
+            cell: (r) => (
+                <span>
+                    <span className="font-medium text-slate-800">{r.make}</span>{' '}
+                    <span className="text-slate-500">{r.model}</span>
+                    <span className="text-slate-400 ml-1">({r.year})</span>
+                </span>
+            ),
+            minWidth: '180px',
+        },
+        {
+            id: 'bodyType',
+            header: 'Вид ТС',
+            accessor: (r) => r.bodyType,
+            cell: (r) => {
+                const trailer = trailersByVehicleId[r.id] || null;
+                const profile = getVehicleProfile(r.bodyType, r.payloadCapacityKg);
+                const waybillCue = getVehicleWaybillCue(r.bodyType, r.payloadCapacityKg, {
+                    trailerPlate: trailer?.plateNumber || null,
+                    isBlocked: r.isBlocked,
+                });
+                return (
+                    <div className="flex flex-col">
+                        <span className="font-medium text-slate-800 text-sm">{profile.classLabel}</span>
+                        <span className="text-xs text-slate-400">{profile.bodyLabel}</span>
+                        <span
+                            className={`mt-1 inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                waybillCue.tone === 'warning'
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : waybillCue.tone === 'attention'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-emerald-100 text-emerald-700'
+                            }`}
+                        >
+                            {waybillCue.tone === 'ready' ? 'ПЛ готов' : waybillCue.tone === 'attention' ? 'ПЛ: нужна проверка' : 'ПЛ: блок'}
+                        </span>
+                    </div>
+                );
+            },
+            minWidth: '180px',
+        },
+        {
+            id: 'trailer',
+            header: 'Прицеп',
+            accessor: (r) => trailersByVehicleId[r.id]?.plateNumber ?? '',
+            cell: (r) => {
+                const trailer = trailersByVehicleId[r.id] || null;
+                return trailer ? (
+                    <div className="flex flex-col">
+                        <span className="font-medium text-slate-800 text-sm">{trailer.plateNumber}</span>
+                        <span className="text-xs text-slate-400">закреплён</span>
+                    </div>
+                ) : <span className="text-slate-400">—</span>;
+            },
+            width: '140px',
+        },
+        {
+            id: 'payloadCapacityKg',
+            header: 'Грузоподъёмность',
+            accessor: (r) => r.payloadCapacityKg,
+            cell: (r) => <span className="text-slate-600 text-sm">{(r.payloadCapacityKg / 1000).toFixed(1)} т</span>,
+            sortable: true,
+            align: 'right',
+            width: '160px',
+        },
+        {
+            id: 'currentOdometerKm',
+            header: 'Пробег',
+            accessor: (r) => r.currentOdometerKm,
+            cell: (r) => <span className="text-slate-600 text-sm">{r.currentOdometerKm.toLocaleString('ru-RU')} км</span>,
+            sortable: true,
+            align: 'right',
+            width: '130px',
+        },
+        {
+            id: 'status',
+            header: 'Статус',
+            accessor: (r) => STATUS_LABELS[r.status] ?? r.status,
+            cell: (r) => (
+                <Pill tone={STATUS_TONES[r.status] ?? 'neutral'}>
+                    {STATUS_LABELS[r.status] ?? r.status}
+                </Pill>
+            ),
+            width: '140px',
+        },
+        {
+            id: 'deadlines',
+            header: 'Сроки',
+            align: 'center',
+            cell: (r) => (
+                <div className="flex items-center justify-center gap-1.5" title="ТО / ОСАГО / Техосмотр / Тахограф">
+                    <DeadlineDot color={r.deadlines.maintenance} label="ТО" />
+                    <DeadlineDot color={r.deadlines.osago} label="ОСАГО" />
+                    <DeadlineDot color={r.deadlines.techInspection} label="Техосмотр" />
+                    <DeadlineDot color={r.deadlines.tachograph} label="Тахограф" />
+                </div>
+            ),
+            width: '120px',
+        },
+    ];
+
     return (
         <>
             <div>
-                {/* Toolbar */}
-                <div className="p-4 border-b border-slate-200 flex items-center gap-4">
-                    <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Поиск по номеру, марке..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm
-                            focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                        />
-                    </div>
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg
-                    text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
-                        <Plus className="w-4 h-4" />
-                        Добавить ТС
-                    </button>
-                </div>
-
                 {/* Legend */}
                 <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-4 text-xs text-slate-500">
                     <span>Светофор сроков:</span>
@@ -162,140 +306,91 @@ export function VehiclesTable() {
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-700" /> просрочен</span>
                 </div>
 
-                {/* Table */}
-                {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                    </div>
-                ) : vehicles.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                        <Truck className="w-12 h-12 mb-3" />
-                        <p className="text-sm">Транспортные средства не найдены</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-slate-50 text-slate-500 text-left">
-                                    <th className="px-4 py-3 font-medium">Госномер</th>
-                                    <th className="px-4 py-3 font-medium">Марка / Модель</th>
-                                    <th className="px-4 py-3 font-medium">Вид ТС</th>
-                                    <th className="px-4 py-3 font-medium">Прицеп</th>
-                                    <th className="px-4 py-3 font-medium">Грузоподъёмность</th>
-                                    <th className="px-4 py-3 font-medium">Пробег</th>
-                                    <th className="px-4 py-3 font-medium">Статус</th>
-                                    <th className="px-4 py-3 font-medium text-center" title="ТО / ОСАГО / Техосмотр / Тахограф">
-                                        Сроки
-                                    </th>
-                                    <th className="px-4 py-3 w-10"></th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {vehicles.map(v => {
-                                    const vehicleProfile = getVehicleProfile(v.bodyType, v.payloadCapacityKg);
-                                    const trailer = trailersByVehicleId[v.id] || null;
-                                    const waybillCue = getVehicleWaybillCue(v.bodyType, v.payloadCapacityKg, {
-                                        trailerPlate: trailer?.plateNumber || null,
-                                        isBlocked: v.isBlocked,
-                                    });
-                                    const st = statusLabels[v.status] || { label: v.status, color: 'bg-slate-100 text-slate-600' };
-                                    return (
-                                        <tr
-                                            key={v.id}
-                                            className={`hover:bg-slate-50 cursor-pointer ${v.isBlocked ? 'bg-red-50/50' : ''}`}
-                                            onClick={() => setSelectedId(v.id)}
-                                        >
-                                            <td className="px-4 py-3 font-mono font-semibold text-slate-900">
-                                                {v.plateNumber}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className="font-medium text-slate-800">{v.make}</span>{' '}
-                                                <span className="text-slate-500">{v.model}</span>
-                                                <span className="text-slate-400 ml-1">({v.year})</span>
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-600">
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium text-slate-800">{vehicleProfile.classLabel}</span>
-                                                    <span className="text-xs text-slate-400">{vehicleProfile.bodyLabel}</span>
-                                                    <span
-                                                        className={`mt-1 inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                                            waybillCue.tone === 'warning'
-                                                                ? 'bg-rose-100 text-rose-700'
-                                                                : waybillCue.tone === 'attention'
-                                                                    ? 'bg-amber-100 text-amber-700'
-                                                                    : 'bg-emerald-100 text-emerald-700'
-                                                        }`}
-                                                    >
-                                                        {waybillCue.tone === 'ready' ? 'ПЛ готов' : waybillCue.tone === 'attention' ? 'ПЛ: нужна проверка' : 'ПЛ: блок'}
-                                                    </span>
-                                                    <span className="mt-1 inline-flex w-fit rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 shadow-sm">
-                                                        {waybillCue.modeLabel}
-                                                    </span>
-                                                    <span className="mt-1 text-[11px] text-slate-500">
-                                                        {waybillCue.title}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-600">
-                                                {trailer ? (
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium text-slate-800">
-                                                            {trailer.plateNumber}
-                                                        </span>
-                                                        <span className="text-xs text-slate-400">закреплён</span>
-                                                    </div>
-                                                ) : '—'}
-                                            </td>
-                                            <td className="px-4 py-3 text-slate-600">{(v.payloadCapacityKg / 1000).toFixed(1)} т</td>
-                                            <td className="px-4 py-3 text-slate-600">
-                                                {v.currentOdometerKm.toLocaleString()} км
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
-                                                    {st.label}
-                                                </span>
-                                                <div className="mt-1">
-                                                    <span
-                                                        className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                                                            waybillCue.tone === 'warning'
-                                                                ? 'bg-red-50 text-red-700'
-                                                                : waybillCue.tone === 'attention'
-                                                                    ? 'bg-amber-50 text-amber-700'
-                                                                    : 'bg-emerald-50 text-emerald-700'
-                                                        }`}
-                                                    >
-                                                        {waybillCue.tone === 'ready' ? 'Готов к выпуску' : waybillCue.tone === 'attention' ? 'Нужна проверка' : 'Есть блокировка'}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center justify-center gap-1.5">
-                                                    <DeadlineDot color={v.deadlines.maintenance} label="ТО" />
-                                                    <DeadlineDot color={v.deadlines.osago} label="ОСАГО" />
-                                                    <DeadlineDot color={v.deadlines.techInspection} label="Техосмотр" />
-                                                    <DeadlineDot color={v.deadlines.tachograph} label="Тахограф" />
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <ChevronRight className="w-4 h-4 text-slate-400" />
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                <DataTable<Vehicle>
+                    tableId="fleet-vehicles"
+                    data={filtered}
+                    columns={columns}
+                    keyField="id"
+                    loading={loading}
+                    searchPlaceholder="Поиск по номеру, марке, VIN…"
+                    searchKeys={['plateNumber', 'make', 'model', 'vin']}
+                    filters={[
+                        {
+                            id: 'status',
+                            label: 'Статус',
+                            value: statusFilter,
+                            onChange: setStatusFilter,
+                            options: Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label })),
+                        },
+                        {
+                            id: 'bodyType',
+                            label: 'Вид ТС',
+                            value: bodyTypeFilter,
+                            onChange: setBodyTypeFilter,
+                            options: Object.entries(BODY_TYPE_LABELS).map(([value, label]) => ({ value, label })),
+                        },
+                    ]}
+                    toolbar={
+                        <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowAddModal(true)}>
+                            Добавить ТС
+                        </Button>
+                    }
+                    onRowClick={(row) => setSelectedId(row.id)}
+                    rowClassName={(row) => row.isBlocked ? 'bg-red-50/40' : ''}
+                    bulkActions={(rows) => (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            leftIcon={<ShieldOff className="w-3.5 h-3.5" />}
+                            onClick={() => blockSelected(rows)}
+                        >
+                            Заблокировать ({rows.filter(r => !r.isBlocked).length})
+                        </Button>
+                    )}
+                    rowActions={(row) => [
+                        {
+                            id: 'edit',
+                            label: 'Открыть карточку',
+                            icon: <Edit2 className="w-4 h-4" />,
+                            onClick: () => setSelectedId(row.id),
+                        },
+                        {
+                            id: 'toggle-block',
+                            label: row.isBlocked ? 'Снять блокировку' : 'Заблокировать',
+                            icon: row.isBlocked ? <ShieldCheck className="w-4 h-4" /> : <ShieldOff className="w-4 h-4" />,
+                            onClick: () => toggleBlock(row, !row.isBlocked),
+                            tone: row.isBlocked ? 'default' : 'danger',
+                        },
+                        {
+                            id: 'history',
+                            label: 'История одометра',
+                            icon: <History className="w-4 h-4" />,
+                            onClick: () => setSelectedId(row.id),
+                        },
+                    ]}
+                    emptyState={
+                        <EmptyState
+                            icon={Truck}
+                            title="Транспортные средства не найдены"
+                            description={statusFilter || bodyTypeFilter ? 'Попробуйте сбросить фильтры.' : 'Добавьте первое ТС, чтобы начать.'}
+                            tone="brand"
+                            action={!statusFilter && !bodyTypeFilter ? (
+                                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowAddModal(true)}>
+                                    Добавить ТС
+                                </Button>
+                            ) : undefined}
+                        />
+                    }
+                    pageSize={50}
+                />
             </div>
 
-            {
-                showAddModal && (
-                    <AddVehicleModal
-                        onClose={() => setShowAddModal(false)}
-                        onCreated={() => { setShowAddModal(false); loadVehicles(); }}
-                    />
-                )
-            }
+            {showAddModal && (
+                <AddVehicleModal
+                    onClose={() => setShowAddModal(false)}
+                    onCreated={() => { setShowAddModal(false); loadVehicles(); }}
+                />
+            )}
         </>
     );
 }

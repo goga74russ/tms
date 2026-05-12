@@ -7,9 +7,14 @@ import { ToastProvider } from './ui/toast';
 // Pages that should render without the sidebar (full-screen)
 const NO_SIDEBAR_ROUTES = ['/login'];
 
+// Public path prefixes — render without the main app shell (no sidebar, no padding)
+const PUBLIC_PATH_PREFIXES = ['/landing', '/signup', '/onboarding', '/legal', '/login'];
+
 export function LayoutShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const hideSidebar = NO_SIDEBAR_ROUTES.includes(pathname);
+    const hideSidebar =
+        NO_SIDEBAR_ROUTES.includes(pathname) ||
+        PUBLIC_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + '/'));
 
     if (hideSidebar) {
         return <ToastProvider>{children}</ToastProvider>;

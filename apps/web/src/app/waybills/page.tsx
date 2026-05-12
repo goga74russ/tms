@@ -1454,15 +1454,17 @@ export default function WaybillsPage() {
         },
         {
             id: 'odometer',
-            header: 'Одометр',
+            header: 'Одометр (км)',
             cell: (r) => (
-                <span className="text-slate-600 text-xs font-mono">
-                    {r.odometerOut.toLocaleString()} →{' '}
-                    {r.odometerIn ? r.odometerIn.toLocaleString() : '...'}
+                <span className="text-slate-600 text-xs font-mono whitespace-nowrap">
+                    {r.odometerOut.toLocaleString('ru-RU')}
+                    {' → '}
+                    {r.odometerIn ? r.odometerIn.toLocaleString('ru-RU') : '…'}
+                    {' км'}
                 </span>
             ),
             align: 'right',
-            width: '160px',
+            width: '180px',
         },
         {
             id: 'issuedAt',
