@@ -4,14 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Stat } from '@/components/ui/stat';
-import { SkeletonRow } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
+import { DataTable, type Column, Pill } from '@/components/ui/data-table';
 import {
-    Users, Plus, X, Edit2, CheckCircle2, XCircle,
-    Shield, Search, UserCog, UserPlus,
+    Users, X, Edit2, CheckCircle2,
+    Shield, UserCog, UserPlus, UserX,
 } from 'lucide-react';
 
 // ================================================================
@@ -235,7 +234,8 @@ export default function AdminUsersPage() {
     const { toast } = useToast();
     const [users, setUsers] = useState<UserRecord[]>([]);
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [roleFilter, setRoleFilter] = useState('');
     const [modal, setModal] = useState<{ mode: 'create' | 'edit'; user: UserRecord | null } | null>(null);
 
     const load = useCallback(async () => {
@@ -252,13 +252,88 @@ export default function AdminUsersPage() {
 
     useEffect(() => { load(); }, [load]);
 
-    const filtered = users.filter(u =>
-        u.fullName.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase())
-    );
+    const filtered = users.filter(u => {
+        if (statusFilter === 'active' && !u.isActive) return false;
+        if (statusFilter === 'archived' && u.isActive) return false;
+        if (roleFilter && !u.roles.includes(roleFilter)) return false;
+        return true;
+    });
+
     const activeCount = users.filter(u => u.isActive).length;
     const adminCount = users.filter(u => u.roles.includes('admin')).length;
     const driverCount = users.filter(u => u.roles.includes('driver')).length;
+
+    async function toggleActive(user: UserRecord, isActive: boolean) {
+        try {
+            await api.put(`/auth/users/${user.id}`, {
+                fullName: user.fullName,
+                phone: user.phone,
+                roles: user.roles,
+                isActive,
+            });
+            toast({ variant: 'success', title: isActive ? 'Пользователь активирован' : 'Пользователь деактивирован' });
+            load();
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Ошибка', description: err?.message });
+        }
+    }
+
+    const columns: Column<UserRecord>[] = [
+        {
+            id: 'fullName',
+            header: 'ФИО',
+            accessor: (r) => r.fullName,
+            cell: (r) => <span className="font-medium text-slate-900">{r.fullName}</span>,
+            sortable: true,
+            sticky: 'left',
+            minWidth: '200px',
+        },
+        {
+            id: 'email',
+            header: 'Email',
+            accessor: (r) => r.email,
+            cell: (r) => <span className="text-slate-600">{r.email}</span>,
+            sortable: true,
+            minWidth: '200px',
+        },
+        {
+            id: 'roles',
+            header: 'Роли',
+            cell: (r) => (
+                <div className="flex flex-wrap gap-1">
+                    {r.roles.map(role => (
+                        <span key={role} className="px-2 py-0.5 rounded-full text-xs bg-brand-50 text-brand-700 font-medium">
+                            {ROLE_LABELS[role] || role}
+                        </span>
+                    ))}
+                </div>
+            ),
+            accessor: (r) => r.roles.join(','),
+            minWidth: '220px',
+        },
+        {
+            id: 'isActive',
+            header: 'Статус',
+            accessor: (r) => (r.isActive ? 1 : 0),
+            cell: (r) => (
+                <Pill tone={r.isActive ? 'success' : 'neutral'}>
+                    {r.isActive ? 'Активен' : 'Неактивен'}
+                </Pill>
+            ),
+            sortable: true,
+            width: '120px',
+        },
+        {
+            id: 'createdAt',
+            header: 'Дата',
+            accessor: (r) => r.createdAt,
+            cell: (r) => <span className="text-slate-500 text-xs">{new Date(r.createdAt).toLocaleDateString('ru-RU')}</span>,
+            sortable: true,
+            width: '110px',
+            align: 'right',
+            monospace: true,
+        },
+    ];
 
     return (
         <div className="space-y-6">
@@ -285,92 +360,81 @@ export default function AdminUsersPage() {
                 <Stat label="Водители" value={driverCount} icon={UserCog} tone="info" />
             </div>
 
-            {/* Search */}
-            <div className="max-w-sm">
-                <Input
-                    type="text"
-                    placeholder="Поиск по имени или email"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    leftAddon={<Search className="w-4 h-4" />}
-                />
-            </div>
-
-            <Card>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-slate-100 bg-slate-50">
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">ФИО</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Email</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Роли</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Статус</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Дата</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600 w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} columns={6} />)
-                            ) : filtered.length === 0 ? (
-                                <tr><td colSpan={6}>
-                                    <div className="p-6">
-                                        <EmptyState
-                                            icon={search ? Search : Users}
-                                            title={search ? 'Ничего не найдено' : 'Пока нет пользователей'}
-                                            description={search ? 'Попробуйте изменить запрос.' : 'Создайте первого пользователя для входа в систему.'}
-                                            tone="brand"
-                                            action={!search ? (
-                                                <Button variant="brand" leftIcon={<UserPlus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', user: null })}>
-                                                    Добавить
-                                                </Button>
-                                            ) : undefined}
-                                        />
-                                    </div>
-                                </td></tr>
-                            ) : (
-                                filtered.map(u => (
-                                    <tr key={u.id} className="border-b border-slate-50 hover:bg-slate-50">
-                                        <td className="px-4 py-3 font-medium text-slate-900">{u.fullName}</td>
-                                        <td className="px-4 py-3 text-slate-600">{u.email}</td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-wrap gap-1">
-                                                {u.roles.map(r => (
-                                                    <span key={r} className="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-700 font-medium">
-                                                        {ROLE_LABELS[r] || r}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {u.isActive ? (
-                                                <span className="inline-flex items-center gap-1 text-emerald-700 text-xs font-medium">
-                                                    <CheckCircle2 className="w-3.5 h-3.5" /> Активен
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center gap-1 text-red-600 text-xs font-medium">
-                                                    <XCircle className="w-3.5 h-3.5" /> Неактивен
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-500 text-xs">
-                                            {new Date(u.createdAt).toLocaleDateString('ru-RU')}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <button
-                                                onClick={() => setModal({ mode: 'edit', user: u })}
-                                                className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600"
-                                            >
-                                                <Edit2 className="w-4 h-4" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </Card>
+            <DataTable<UserRecord>
+                tableId="admin-users"
+                data={filtered}
+                columns={columns}
+                keyField="id"
+                loading={loading}
+                searchPlaceholder="Поиск по имени или email..."
+                searchKeys={['fullName', 'email']}
+                filters={[
+                    {
+                        id: 'status',
+                        label: 'Статус',
+                        value: statusFilter,
+                        onChange: setStatusFilter,
+                        options: [
+                            { value: 'active', label: 'Активные' },
+                            { value: 'archived', label: 'Неактивные' },
+                        ],
+                    },
+                    {
+                        id: 'role',
+                        label: 'Роль',
+                        value: roleFilter,
+                        onChange: setRoleFilter,
+                        options: ROLE_OPTIONS.map(r => ({ value: r, label: ROLE_LABELS[r] || r })),
+                    },
+                ]}
+                bulkActions={(rows) => (
+                    <>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            leftIcon={<UserX className="w-3.5 h-3.5" />}
+                            onClick={async () => {
+                                const active = rows.filter(u => u.isActive);
+                                if (active.length === 0) return;
+                                if (!confirm(`Деактивировать ${active.length} пользователей?`)) return;
+                                await Promise.all(active.map(u => toggleActive(u, false)));
+                            }}
+                        >
+                            Деактивировать ({rows.length})
+                        </Button>
+                    </>
+                )}
+                rowActions={(row) => [
+                    {
+                        id: 'edit',
+                        label: 'Редактировать',
+                        icon: <Edit2 className="w-4 h-4" />,
+                        onClick: () => setModal({ mode: 'edit', user: row }),
+                    },
+                    {
+                        id: 'toggle',
+                        label: row.isActive ? 'Деактивировать' : 'Активировать',
+                        icon: <UserX className="w-4 h-4" />,
+                        onClick: () => toggleActive(row, !row.isActive),
+                        tone: row.isActive ? 'danger' : 'default',
+                    },
+                ]}
+                onRowClick={(row) => setModal({ mode: 'edit', user: row })}
+                emptyState={
+                    <EmptyState
+                        icon={Users}
+                        title="Пока нет пользователей"
+                        description="Создайте первого пользователя для входа в систему."
+                        tone="brand"
+                        action={
+                            <Button variant="brand" leftIcon={<UserPlus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', user: null })}>
+                                Добавить
+                            </Button>
+                        }
+                    />
+                }
+                pageSize={50}
+            />
 
             {modal && (
                 <UserFormModal

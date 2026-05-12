@@ -6,12 +6,12 @@ import { downloadFromApi } from '@/lib/download';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
-import { SkeletonRow } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
+import { DataTable, type Column } from '@/components/ui/data-table';
 import {
-    FileText, Search, Filter, X, Eye, Lock, CheckCircle2,
-    Clock, RotateCcw, ChevronDown, Truck, User, Download, FileDown, Printer, Paperclip, Upload, Trash2, RefreshCcw,
+    FileText, X, Eye, Lock, CheckCircle2,
+    Clock, RotateCcw, Truck, User, Download, FileDown, Printer, Paperclip, Upload, Trash2, RefreshCcw,
 } from 'lucide-react';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from '../fleet/components/vehicleProfile';
 
@@ -1354,6 +1354,128 @@ export default function WaybillsPage() {
 
     const totalPages = Math.ceil(total / limit);
 
+    const waybillColumns: Column<Waybill>[] = [
+        {
+            id: 'number',
+            header: 'Номер',
+            accessor: (r) => r.number,
+            cell: (r) => <span className="font-mono font-semibold text-brand-700">{r.number}</span>,
+            sortable: true,
+            sticky: 'left',
+            minWidth: '120px',
+        },
+        {
+            id: 'status',
+            header: 'Статус',
+            accessor: (r) => r.status,
+            cell: (r) => <StatusBadge status={r.status} />,
+            sortable: true,
+            width: '130px',
+        },
+        {
+            id: 'vehicle',
+            header: 'ТС',
+            cell: (r) => {
+                const rowVehicle = vehicleMap[r.vehicleId];
+                const rowTrailer = trailerMap[r.vehicleId];
+                const rowCue = getVehicleWaybillCue(rowVehicle?.bodyType, undefined, {
+                    trailerPlate: rowTrailer?.plateNumber || null,
+                });
+                const rowReadiness = getVehicleWaybillReadiness({
+                    bodyType: rowVehicle?.bodyType,
+                    trailerPlate: rowTrailer?.plateNumber || null,
+                    isBlocked: false,
+                    hasWaybill: true,
+                    hasOrders: true,
+                });
+                return (
+                    <div className="flex flex-col gap-0.5 text-xs">
+                        <span className="font-medium text-slate-700">
+                            {vehicleMap[r.vehicleId]?.plateNumber || r.vehicleId.substring(0, 8)}
+                        </span>
+                        <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                            {rowCue.profileLabel}
+                        </span>
+                        <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            rowCue.tone === 'warning'
+                                ? 'bg-rose-100 text-rose-700'
+                                : rowCue.tone === 'attention'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                            {rowCue.tone === 'ready' ? 'ПЛ готов' : rowCue.tone === 'attention' ? 'Проверь ПЛ' : 'ПЛ заблокирован'}
+                        </span>
+                        <span className="inline-flex w-fit rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 shadow-sm">
+                            {rowCue.modeLabel}
+                        </span>
+                        <span className="text-[11px] leading-4 text-slate-500">
+                            {rowCue.impactLabel}
+                        </span>
+                        {rowReadiness && (
+                            <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                rowReadiness.tone === 'warning'
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : rowReadiness.tone === 'attention'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                                {rowReadiness.tone === 'ready' ? 'ready' : rowReadiness.tone === 'attention' ? 'check' : 'block'}
+                            </span>
+                        )}
+                        {trailerMap[r.vehicleId] && (
+                            <span className="text-[11px] text-slate-400">
+                                + прицеп {trailerMap[r.vehicleId].plateNumber}
+                            </span>
+                        )}
+                    </div>
+                );
+            },
+            minWidth: '220px',
+        },
+        {
+            id: 'driver',
+            header: 'Водитель',
+            cell: (r) => <span className="text-slate-700 text-xs">{driverMap[r.driverId] || r.driverId.substring(0, 8)}</span>,
+            minWidth: '160px',
+        },
+        {
+            id: 'departureAt',
+            header: 'Выезд',
+            accessor: (r) => r.departureAt,
+            cell: (r) => (
+                <span className="text-slate-600 text-xs">
+                    {r.departureAt ? new Date(r.departureAt).toLocaleString('ru-RU', {
+                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+                    }) : '—'}
+                </span>
+            ),
+            sortable: true,
+            width: '120px',
+        },
+        {
+            id: 'odometer',
+            header: 'Одометр',
+            cell: (r) => (
+                <span className="text-slate-600 text-xs font-mono">
+                    {r.odometerOut.toLocaleString()} →{' '}
+                    {r.odometerIn ? r.odometerIn.toLocaleString() : '...'}
+                </span>
+            ),
+            align: 'right',
+            width: '160px',
+        },
+        {
+            id: 'issuedAt',
+            header: 'Дата выдачи',
+            accessor: (r) => r.issuedAt,
+            cell: (r) => <span className="text-slate-500 text-xs">{new Date(r.issuedAt).toLocaleDateString('ru-RU')}</span>,
+            sortable: true,
+            width: '120px',
+            align: 'right',
+            monospace: true,
+        },
+    ];
+
     return (
         <div className="min-h-screen bg-slate-50">
             {/* Header */}
@@ -1383,278 +1505,80 @@ export default function WaybillsPage() {
                 <Stat label="Закрыты" value={waybills.filter(w => w.status === 'closed').length} icon={CheckCircle2} tone="success" />
             </div>
 
-            {/* Filters */}
-            <div className="flex flex-wrap gap-3 mb-4">
-                {/* Search */}
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            {/* Search row (server-side filter) */}
+            <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative flex-1 min-w-[220px] max-w-xs">
                     <input
                         type="text"
                         placeholder="Поиск по номеру (WB-...)"
                         value={searchFilter}
                         onChange={e => { setSearchFilter(e.target.value); setPage(1); }}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
+                        className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
                     />
                 </div>
-
-                {/* Status filter */}
-                <div className="relative">
-                    <select
-                        value={statusFilter}
-                        onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-                        className="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 cursor-pointer"
-                    >
-                        <option value="">Все статусы</option>
-                        <option value="draft">Сформирован</option>
-                        <option value="issued">Выдан</option>
-                        <option value="closed">Закрыт</option>
-                    </select>
-                    <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-
-                {(statusFilter || searchFilter) && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => { setStatusFilter(''); setSearchFilter(''); setPage(1); }}
-                        className="text-slate-500"
-                    >
-                        <X className="w-4 h-4 mr-1" />
-                        Сбросить
-                    </Button>
-                )}
             </div>
 
             {/* Table */}
-            <Card>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-slate-100 bg-slate-50">
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Номер</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Статус</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">ТС</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Водитель</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Выезд</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Одометр</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Дата выдачи</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600 w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} columns={8} />)
-                            ) : filteredWaybills.length === 0 ? (
-                                <tr>
-                                    <td colSpan={8}>
-                                        <div className="p-6">
-                                            <EmptyState
-                                                icon={FileText}
-                                                title={waybills.length === 0 ? 'Нет путевых листов' : 'Ничего не найдено'}
-                                                description={waybills.length === 0 ? 'Путевые листы появятся после оформления рейсов.' : 'Попробуйте сбросить фильтры.'}
-                                            />
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredWaybills.map((wb) => (
-                                    <tr
-                                        key={wb.id}
-                                        onClick={() => openDetail(wb.id)}
-                                        className="border-b border-slate-50 hover:bg-blue-50/50 cursor-pointer transition"
-                                    >
-                                        {(() => {
-                                            const rowVehicle = vehicleMap[wb.vehicleId];
-                                            const rowTrailer = trailerMap[wb.vehicleId];
-                                            const rowCue = getVehicleWaybillCue(rowVehicle?.bodyType, undefined, {
-                                                trailerPlate: rowTrailer?.plateNumber || null,
-                                            });
-                                            const rowReadiness = getVehicleWaybillReadiness({
-                                                bodyType: rowVehicle?.bodyType,
-                                                trailerPlate: rowTrailer?.plateNumber || null,
-                                                isBlocked: false,
-                                                hasWaybill: true,
-                                                hasOrders: true,
-                                            });
-                                            return (
-                                                <>
-                                        <td className="px-4 py-3">
-                                            <span className="font-mono font-semibold text-blue-700">{wb.number}</span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <StatusBadge status={wb.status} />
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-700 font-medium text-xs">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span>
-                                                    {vehicleMap[wb.vehicleId]?.plateNumber || wb.vehicleId.substring(0, 8)}
-                                                </span>
-                                                <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
-                                                    {rowCue.profileLabel}
-                                                </span>
-                                                <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                                    rowCue.tone === 'warning'
-                                                        ? 'bg-rose-100 text-rose-700'
-                                                        : rowCue.tone === 'attention'
-                                                            ? 'bg-amber-100 text-amber-700'
-                                                            : 'bg-emerald-100 text-emerald-700'
-                                                }`}>
-                                                    {rowCue.tone === 'ready' ? 'ПЛ готов' : rowCue.tone === 'attention' ? 'Проверь ПЛ' : 'ПЛ заблокирован'}
-                                                </span>
-                                                <span className="inline-flex w-fit rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 shadow-sm">
-                                                    {rowCue.modeLabel}
-                                                </span>
-                                                <span className="text-[11px] leading-4 text-slate-500">
-                                                    {rowCue.impactLabel}
-                                                </span>
-                                                <div className="flex flex-wrap gap-1 pt-0.5">
-                                                    {rowCue.requirements.slice(0, 2).map((requirement) => (
-                                                        <span
-                                                            key={`${wb.id}-${requirement}`}
-                                                            className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600"
-                                                        >
-                                                            {requirement}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                                {false && (
-                                                    <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
-                                                        ПЛ: {getVehicleProfile(vehicleMap[wb.vehicleId].bodyType).displayLabel}
-                                                    </span>
-                                                )}
-                                                {false && (
-                                                    <span className="inline-flex w-fit rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                                                        {getVehicleWaybillCue(vehicleMap[wb.vehicleId].bodyType, undefined, {
-                                                            trailerPlate: trailerMap[wb.vehicleId]?.plateNumber || null,
-                                                        }).tone === 'ready' ? 'ПЛ готов' : 'ПЛ: check'}
-                                                    </span>
-                                                )}
-                                                {false && (
-                                                    <span className="inline-flex w-fit rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 shadow-sm">
-                                                        {getVehicleWaybillCue(vehicleMap[wb.vehicleId].bodyType, undefined, {
-                                                            trailerPlate: trailerMap[wb.vehicleId]?.plateNumber || null,
-                                                        }).modeLabel}
-                                                    </span>
-                                                )}
-                                                {rowReadiness && (
-                                                    <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                                        rowReadiness.tone === 'warning'
-                                                            ? 'bg-rose-100 text-rose-700'
-                                                            : rowReadiness.tone === 'attention'
-                                                                ? 'bg-amber-100 text-amber-700'
-                                                                : 'bg-emerald-100 text-emerald-700'
-                                                    }`}>
-                                                        {rowReadiness.tone === 'ready' ? 'ready' : rowReadiness.tone === 'attention' ? 'check' : 'block'}
-                                                    </span>
-                                                )}
-                                                {trailerMap[wb.vehicleId] && (
-                                                    <span className="text-[11px] text-slate-400">
-                                                        + прицеп {trailerMap[wb.vehicleId].plateNumber}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-700 text-xs">{driverMap[wb.driverId] || wb.driverId.substring(0, 8)}</td>
-                                        <td className="px-4 py-3 text-slate-600 text-xs">
-                                            {wb.departureAt ? new Date(wb.departureAt).toLocaleString('ru-RU', {
-                                                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-                                            }) : '—'}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600 text-xs">
-                                            {wb.odometerOut.toLocaleString()} в†’{' '}
-                                            {wb.odometerIn ? wb.odometerIn.toLocaleString() : '...'}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-500 text-xs">
-                                            {new Date(wb.issuedAt).toLocaleDateString('ru-RU')}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); openDetail(wb.id); }}
-                                                    className="p-1 rounded hover:bg-blue-100 transition-colors" title="Подробности"
-                                                >
-                                                    <Eye className="w-4 h-4 text-slate-400" />
-                                                </button>
-                                                <button
-                                                    onClick={async (e) => {
-                                                        e.stopPropagation();
-                                                        try {
-                                                            await api.post(`/waybills/${wb.id}/sync-status`);
-                                                            setToast({ message: '✅ Статус ПЛ пересчитан', type: 'success' });
-                                                            await loadWaybills();
-                                                        } catch (err: any) {
-                                                            setToast({ message: err?.message || 'Не удалось пересчитать статус', type: 'error' });
-                                                        }
-                                                    }}
-                                                    className="p-1 rounded hover:bg-amber-100 transition-colors"
-                                                    title="Пересчитать статус"
-                                                >
-                                                    <RotateCcw className="w-4 h-4 text-amber-600" />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); void downloadFromApi(`/api/waybills/${wb.id}/etrn`, `etrn_${wb.number}.xml`); }}
-                                                    className="p-1 rounded hover:bg-emerald-100 transition-colors" title="Скачать ЭТрН XML"
-                                                >
-                                                    <Download className="w-4 h-4 text-emerald-600" />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); void downloadFromApi(`/api/waybills/${wb.id}/pdf`, `waybill_${wb.number}.pdf`); }}
-                                                    className="p-1 rounded hover:bg-red-100 transition-colors" title="Скачать PDF (Путевой лист)"
-                                                >
-                                                    <FileDown className="w-4 h-4 text-red-500" />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); window.open(`/print/etrn/${wb.id}`, '_blank'); }}
-                                                    className="p-1 rounded hover:bg-sky-100 transition-colors" title="Предпросмотр ЭТрН"
-                                                >
-                                                    <FileText className="w-4 h-4 text-sky-600" />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); window.open(`/print/waybill/${wb.id}`, '_blank'); }}
-                                                    className="p-1 rounded hover:bg-purple-100 transition-colors" title="Печать путевого листа"
-                                                >
-                                                    <Printer className="w-4 h-4 text-purple-500" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                                </>
-                                            );
-                                        })()}
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-                        <p className="text-xs text-slate-500">
-                            Показано {((page - 1) * limit) + 1}–{Math.min(page * limit, total)} из {total}
-                        </p>
-                        <div className="flex gap-1">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page === 1}
-                                onClick={() => setPage(p => p - 1)}
-                            >
-                                в†ђ Назад
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page >= totalPages}
-                                onClick={() => setPage(p => p + 1)}
-                            >
-                                Вперёд в†’
-                            </Button>
-                        </div>
+            <DataTable<Waybill>
+                tableId="waybills"
+                data={filteredWaybills}
+                columns={waybillColumns}
+                keyField="id"
+                loading={loading}
+                filters={[
+                    {
+                        id: 'status',
+                        label: 'Статус',
+                        value: statusFilter,
+                        onChange: (v) => { setStatusFilter(v); setPage(1); },
+                        options: [
+                            { value: 'draft', label: 'Сформирован' },
+                            { value: 'issued', label: 'Выдан' },
+                            { value: 'closed', label: 'Закрыт' },
+                        ],
+                    },
+                ]}
+                onRowClick={(wb) => openDetail(wb.id)}
+                rowActions={(wb) => [
+                    { id: 'detail', label: 'Подробности', icon: <Eye className="w-4 h-4" />, onClick: () => openDetail(wb.id) },
+                    {
+                        id: 'sync', label: 'Пересчитать статус', icon: <RotateCcw className="w-4 h-4" />,
+                        onClick: async () => {
+                            try {
+                                await api.post(`/waybills/${wb.id}/sync-status`);
+                                setToast({ message: '✅ Статус ПЛ пересчитан', type: 'success' });
+                                await loadWaybills();
+                            } catch (err: any) {
+                                setToast({ message: err?.message || 'Не удалось пересчитать статус', type: 'error' });
+                            }
+                        },
+                    },
+                    { id: 'etrn-xml', label: 'Скачать ЭТрН XML', icon: <Download className="w-4 h-4" />, onClick: () => { void downloadFromApi(`/api/waybills/${wb.id}/etrn`, `etrn_${wb.number}.xml`); } },
+                    { id: 'pdf', label: 'Скачать PDF', icon: <FileDown className="w-4 h-4" />, onClick: () => { void downloadFromApi(`/api/waybills/${wb.id}/pdf`, `waybill_${wb.number}.pdf`); } },
+                    { id: 'etrn-preview', label: 'Предпросмотр ЭТрН', icon: <FileText className="w-4 h-4" />, onClick: () => { window.open(`/print/etrn/${wb.id}`, '_blank'); } },
+                    { id: 'print', label: 'Печать ПЛ', icon: <Printer className="w-4 h-4" />, onClick: () => { window.open(`/print/waybill/${wb.id}`, '_blank'); } },
+                ]}
+                emptyState={
+                    <EmptyState
+                        icon={FileText}
+                        title={waybills.length === 0 ? 'Нет путевых листов' : 'Ничего не найдено'}
+                        description={waybills.length === 0 ? 'Путевые листы появятся после оформления рейсов.' : 'Попробуйте сбросить фильтры.'}
+                    />
+                }
+                pageSize={0}
+            />
+            {/* Server-side pagination */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 -mt-3 bg-white border border-slate-200 border-t-0 rounded-b-xl text-xs text-slate-500">
+                    <p>
+                        Показано {((page - 1) * limit) + 1}–{Math.min(page * limit, total)} из {total}
+                    </p>
+                    <div className="flex gap-1">
+                        <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Назад</Button>
+                        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Вперёд →</Button>
                     </div>
-                )}
-            </Card>
-
+                </div>
+            )}
             {/* Detail Modal */}
             {detailWaybill && !closeWaybill && (
                 <DetailModal

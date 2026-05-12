@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Search, Plus, Users, X, Loader2, AlertTriangle, Timer, ShieldCheck, HeartPulse, UserCheck } from 'lucide-react';
+import { Plus, Users, X, Loader2, AlertTriangle, Timer, ShieldCheck, HeartPulse, UserCheck, UserX } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Stat } from '@/components/ui/stat';
-import { SkeletonTable } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
+import { DataTable, type Column, Pill } from '@/components/ui/data-table';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { format, subDays } from 'date-fns';
 
@@ -277,27 +277,21 @@ export default function DriversPage() {
     const { toast } = useToast();
     const [drivers, setDrivers] = useState<Driver[]>([]);
     const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [hosDriver, setHosDriver] = useState<Driver | null>(null);
-
-    useEffect(() => {
-        const timer = setTimeout(() => setDebouncedSearch(search), 300);
-        return () => clearTimeout(timer);
-    }, [search]);
+    const [statusFilter, setStatusFilter] = useState('');
 
     const loadDrivers = useCallback(async () => {
         setLoading(true);
         try {
-            const result = await api.get<any>(`/fleet/drivers?search=${debouncedSearch}&limit=100`);
+            const result = await api.get<any>(`/fleet/drivers?limit=200`);
             setDrivers(result.data || []);
         } catch (err: any) {
             toast({ variant: 'error', title: 'Не удалось загрузить водителей', description: err?.message || 'Сетевая ошибка' });
         } finally {
             setLoading(false);
         }
-    }, [debouncedSearch, toast]);
+    }, [toast]);
 
     useEffect(() => {
         loadDrivers();
@@ -316,6 +310,98 @@ export default function DriversPage() {
         const diff = (new Date(d.medCertificateExpiry).getTime() - now) / (1000 * 60 * 60 * 24);
         return diff <= 30;
     }).length;
+
+    const filtered = drivers.filter(d => {
+        if (statusFilter === 'active' && !d.isActive) return false;
+        if (statusFilter === 'archived' && d.isActive) return false;
+        return true;
+    });
+
+    async function deactivateSelected(rows: Driver[]) {
+        const active = rows.filter(d => d.isActive);
+        if (active.length === 0) return;
+        if (!confirm(`Деактивировать ${active.length} водителей?`)) return;
+        try {
+            await Promise.all(active.map(d => api.put(`/fleet/drivers/${d.id}`, { isActive: false })));
+            toast({ variant: 'success', title: `Деактивировано: ${active.length}` });
+            void loadDrivers();
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Ошибка', description: err?.message });
+        }
+    }
+
+    const columns: Column<Driver>[] = [
+        {
+            id: 'fullName',
+            header: 'ФИО',
+            accessor: (r) => r.fullName,
+            cell: (r) => <span className="font-medium text-slate-900">{r.fullName}</span>,
+            sortable: true,
+            sticky: 'left',
+            minWidth: '200px',
+        },
+        {
+            id: 'licenseNumber',
+            header: 'Номер ВУ',
+            accessor: (r) => r.licenseNumber,
+            sortable: true,
+            monospace: true,
+            width: '140px',
+        },
+        {
+            id: 'licenseCategories',
+            header: 'Категории',
+            cell: (r) => (
+                <div className="flex gap-1 flex-wrap">
+                    {r.licenseCategories.map(c => (
+                        <span key={c} className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-medium text-slate-600">
+                            {c}
+                        </span>
+                    ))}
+                </div>
+            ),
+            accessor: (r) => r.licenseCategories.join(','),
+            width: '160px',
+        },
+        {
+            id: 'licenseExpiry',
+            header: 'Срок ВУ',
+            accessor: (r) => r.licenseExpiry,
+            cell: (r) => <span className={expiryColor(r.licenseExpiry)}>{formatDate(r.licenseExpiry)}</span>,
+            sortable: true,
+            width: '120px',
+            align: 'right',
+            monospace: true,
+        },
+        {
+            id: 'medCertificateExpiry',
+            header: 'Медсправка',
+            accessor: (r) => r.medCertificateExpiry,
+            cell: (r) => <span className={expiryColor(r.medCertificateExpiry)}>{formatDate(r.medCertificateExpiry)}</span>,
+            sortable: true,
+            width: '120px',
+            align: 'right',
+            monospace: true,
+        },
+        {
+            id: 'hos',
+            header: 'РТО',
+            cell: (r) => r.isActive ? <HosBadge driverId={r.id} /> : <span className="text-xs text-slate-300">—</span>,
+            width: '90px',
+        },
+        {
+            id: 'isActive',
+            header: 'Статус',
+            accessor: (r) => (r.isActive ? 1 : 0),
+            cell: (r) => (
+                <Pill tone={r.isActive ? 'success' : 'neutral'}>
+                    {r.isActive ? 'Активен' : 'Неактивен'}
+                </Pill>
+            ),
+            sortable: true,
+            width: '110px',
+        },
+    ];
 
     return (
         <div className="space-y-6">
@@ -345,94 +431,75 @@ export default function DriversPage() {
                 <Stat label="Медсправки — истекают" value={medExpiringSoon} icon={HeartPulse} tone={medExpiringSoon > 0 ? 'warning' : 'neutral'} hint="в течение 30 дней" />
             </div>
 
-            {/* Content Card */}
-            <div className="bg-white rounded-xl shadow-soft border border-slate-200">
-                {/* Search */}
-                <div className="p-4 border-b border-slate-200">
-                    <div className="max-w-sm">
-                        <Input
-                            type="text"
-                            placeholder="Поиск по ФИО, номеру ВУ..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            leftAddon={<Search className="h-4 w-4" />}
-                        />
-                    </div>
-                </div>
-
-                {/* Table */}
-                {loading ? (
-                    <div className="p-4">
-                        <SkeletonTable rows={6} columns={7} />
-                    </div>
-                ) : drivers.length === 0 ? (
-                    <div className="p-6">
-                        <EmptyState
-                            icon={Users}
-                            title={debouncedSearch ? 'Водители не найдены' : 'Пока нет водителей'}
-                            description={debouncedSearch ? 'Попробуйте изменить условия поиска.' : 'Добавьте первого водителя, чтобы начать.'}
-                            tone="brand"
-                            action={!debouncedSearch ? (
-                                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
-                                    Добавить водителя
-                                </Button>
-                            ) : undefined}
-                        />
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="sticky top-0 z-10 bg-white shadow-soft">
-                                <tr className="bg-slate-50 text-slate-500 text-left">
-                                    <th className="px-4 py-3 font-medium">ФИО</th>
-                                    <th className="px-4 py-3 font-medium">Номер ВУ</th>
-                                    <th className="px-4 py-3 font-medium">Категории</th>
-                                    <th className="px-4 py-3 font-medium">Срок ВУ</th>
-                                    <th className="px-4 py-3 font-medium">Медсправка</th>
-                                    <th className="px-4 py-3 font-medium">РТО</th>
-                                    <th className="px-4 py-3 font-medium">Статус</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {drivers.map(d => (
-                                    <tr
-                                        key={d.id}
-                                        className="hover:bg-neutral-50 transition-colors cursor-pointer"
-                                        onClick={() => setHosDriver(d)}
-                                    >
-                                        <td className="px-4 py-3 font-medium text-slate-900">{d.fullName}</td>
-                                        <td className="px-4 py-3 font-mono text-slate-600">{d.licenseNumber}</td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex gap-1">
-                                                {d.licenseCategories.map(c => (
-                                                    <span key={c} className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-medium text-slate-600">
-                                                        {c}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </td>
-                                        <td className={`px-4 py-3 text-sm ${expiryColor(d.licenseExpiry)}`}>
-                                            {formatDate(d.licenseExpiry)}
-                                        </td>
-                                        <td className={`px-4 py-3 text-sm ${expiryColor(d.medCertificateExpiry)}`}>
-                                            {formatDate(d.medCertificateExpiry)}
-                                        </td>
-                                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                                            {d.isActive ? <HosBadge driverId={d.id} /> : <span className="text-xs text-slate-300">—</span>}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium
-                                                ${d.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                                                {d.isActive ? 'Активен' : 'Неактивен'}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+            <DataTable<Driver>
+                tableId="drivers"
+                data={filtered}
+                columns={columns}
+                keyField="id"
+                loading={loading}
+                searchPlaceholder="Поиск по ФИО, номеру ВУ..."
+                searchKeys={['fullName', 'licenseNumber', 'phone']}
+                filters={[
+                    {
+                        id: 'status',
+                        label: 'Статус',
+                        value: statusFilter,
+                        onChange: setStatusFilter,
+                        options: [
+                            { value: 'active', label: 'Активные' },
+                            { value: 'archived', label: 'Неактивные' },
+                        ],
+                    },
+                ]}
+                bulkActions={(rows) => (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        leftIcon={<UserX className="w-3.5 h-3.5" />}
+                        onClick={() => deactivateSelected(rows)}
+                    >
+                        Деактивировать ({rows.length})
+                    </Button>
                 )}
-            </div>
+                rowActions={(row) => [
+                    {
+                        id: 'hos',
+                        label: 'Показать РТО',
+                        icon: <Timer className="w-4 h-4" />,
+                        onClick: () => setHosDriver(row),
+                    },
+                    {
+                        id: 'toggle',
+                        label: row.isActive ? 'Деактивировать' : 'Активировать',
+                        icon: <UserX className="w-4 h-4" />,
+                        onClick: async () => {
+                            try {
+                                await api.put(`/fleet/drivers/${row.id}`, { isActive: !row.isActive });
+                                toast({ variant: 'success', title: row.isActive ? 'Деактивирован' : 'Активирован' });
+                                void loadDrivers();
+                            } catch (err: any) {
+                                toast({ variant: 'error', title: 'Ошибка', description: err?.message });
+                            }
+                        },
+                        tone: row.isActive ? 'danger' : 'default',
+                    },
+                ]}
+                onRowClick={(row) => setHosDriver(row)}
+                emptyState={
+                    <EmptyState
+                        icon={Users}
+                        title="Пока нет водителей"
+                        description="Добавьте первого водителя, чтобы начать."
+                        tone="brand"
+                        action={
+                            <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
+                                Добавить водителя
+                            </Button>
+                        }
+                    />
+                }
+                pageSize={50}
+            />
 
             {showCreateModal && (
                 <CreateDriverModal

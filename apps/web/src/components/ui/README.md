@@ -71,6 +71,61 @@ Tones: `neutral | brand | success | warning | danger`.
 ```
 Use in 2/4-column responsive grids at the top of dashboard pages.
 
+### DataTable (`data-table.tsx`)
+Composable, vanilla (no `@tanstack/react-table`) table primitive with:
+- Sticky header, sticky left column option, density modes (`compact|comfortable|dense`)
+- Sortable columns (per-column opt-in), column visibility menu (persisted via `tableId` + localStorage key `dt-cols-<tableId>`)
+- Built-in search input (controlled via `searchPlaceholder` + `searchKeys` / `searchPredicate`)
+- Filter dropdowns (controlled — parent owns state via `value` / `onChange`)
+- Bulk-select column + bulk-actions toolbar that replaces the search row when rows are selected
+- Hover row actions menu (3-dot) via `rowActions={(row) => [...]}`
+- Optional `onRowClick` makes rows keyboard-focusable (Enter/Space)
+- Client-side pagination footer (`pageSize`; pass `0` to disable e.g. when server-paginated)
+- Keyboard: `/` focuses search; `Esc` clears search or selection
+- Skeleton rows during `loading`; empty state slot via `emptyState`
+
+```tsx
+import { DataTable, type Column, Pill } from '@/components/ui/data-table';
+
+const columns: Column<User>[] = [
+  { id: 'fullName', header: 'ФИО', accessor: r => r.fullName, sortable: true, sticky: 'left' },
+  { id: 'isActive', header: 'Статус', cell: r => <Pill tone={r.isActive ? 'success' : 'neutral'}>{r.isActive ? 'Активен' : 'Архив'}</Pill> },
+];
+
+<DataTable<User>
+  tableId="admin-users"
+  data={users}
+  columns={columns}
+  keyField="id"
+  loading={loading}
+  searchPlaceholder="Поиск..."
+  searchKeys={['fullName', 'email']}
+  filters={[{ id: 'role', label: 'Роль', value: roleFilter, onChange: setRoleFilter, options: roleOpts }]}
+  bulkActions={(rows, clear) => <Button onClick={() => deactivate(rows)}>Деактивировать ({rows.length})</Button>}
+  rowActions={(row) => [{ id: 'edit', label: 'Редактировать', icon: <Edit2 />, onClick: () => edit(row) }]}
+  onRowClick={(row) => edit(row)}
+  pageSize={50}
+/>
+```
+
+The exported `Pill` helper provides consistent status badges with tones: `neutral | brand | success | warning | danger | info`.
+
+### SideDrawer (`side-drawer.tsx`)
+Right-side slide-in drawer with backdrop, body scroll lock, focus restore, and Esc-to-close.
+
+```tsx
+<SideDrawer
+  open={!!detail}
+  onClose={() => setDetail(null)}
+  title={detail?.title}
+  subtitle={detail?.subtitle}
+  width="md"          // sm=400, md=520, lg=720, xl=920
+  footer={<Button onClick={save}>Сохранить</Button>}
+>
+  {/* detail content */}
+</SideDrawer>
+```
+
 ### ErrorBoundary (`error-boundary.tsx`)
 ```tsx
 <ErrorBoundary scope="cold-chain-widget">
