@@ -36,6 +36,58 @@ const SubscribeSchema = z.object({
     returnUrl: z.string().url().optional(),
 });
 
+/**
+ * Result of HMAC verification on an incoming ЮKassa webhook. Extracted from
+ * the route handler so the rules can be unit-tested without spinning up
+ * Fastify. See webhook.test.ts.
+ */
+export type WebhookVerifyOutcome =
+    | { ok: true; warn?: string }
+    | { ok: false; status: 401 | 503; error: string };
+
+/**
+ * A-P0-1: pure HMAC verification logic for the ЮKassa webhook.
+ *
+ * Production:
+ *   - secret missing → 503 (refuse: receiver not configured)
+ *   - header or rawBody missing → 401 missing signature
+ *   - hex digests mismatch (length or content) → 401 invalid signature
+ *
+ * Non-production:
+ *   - secret + header + body all present and mismatch → ok=true with warn
+ *     (dev tolerates so local mock posts still flow)
+ *   - anything missing → ok=true (logged warning upstream)
+ */
+export function verifyYookassaWebhookSignature(args: {
+    secret: string | undefined;
+    headerSig: string | undefined;
+    rawBody: string | Buffer | undefined;
+    nodeEnv: string | undefined;
+}): WebhookVerifyOutcome {
+    const { secret, headerSig, rawBody, nodeEnv } = args;
+    if (nodeEnv === 'production') {
+        if (!secret) return { ok: false, status: 503, error: 'webhook receiver not configured' };
+        if (!headerSig || !rawBody) return { ok: false, status: 401, error: 'missing signature' };
+        const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
+        const expectedBuf = Buffer.from(expected, 'hex');
+        const actualBuf = Buffer.from(headerSig.replace(/^sha256=/i, ''), 'hex');
+        if (
+            expectedBuf.length !== actualBuf.length
+            || !timingSafeEqual(expectedBuf, actualBuf)
+        ) {
+            return { ok: false, status: 401, error: 'invalid signature' };
+        }
+        return { ok: true };
+    }
+    // Dev: best-effort verify when configured; never reject.
+    if (secret && headerSig && rawBody) {
+        const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
+        const actual = headerSig.replace(/^sha256=/i, '');
+        if (expected !== actual) return { ok: true, warn: 'signature mismatch (dev, allowed)' };
+    }
+    return { ok: true };
+}
+
 // Subset of ЮKassa webhook envelope (https://yookassa.ru/developers/using-api/webhooks).
 const YookassaWebhookSchema = z.object({
     event: z.string(),
@@ -156,32 +208,22 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
         const headerSig = request.headers['x-yookassa-signature'] as string | undefined
             ?? request.headers['content-hmac'] as string | undefined;
 
-        if (process.env.NODE_ENV === 'production') {
-            if (!secret) {
+        const verify = verifyYookassaWebhookSignature({
+            secret,
+            headerSig,
+            rawBody,
+            nodeEnv: process.env.NODE_ENV,
+        });
+        if (!verify.ok) {
+            if (verify.status === 503) {
                 request.log.error('YOOKASSA_WEBHOOK_SECRET not set; refusing webhook in production.');
-                return reply.status(503).send({ success: false, error: 'webhook receiver not configured' });
+            } else {
+                request.log.warn({ ip: request.ip }, `YooKassa webhook rejected: ${verify.error}`);
             }
-            if (!headerSig || !rawBody) {
-                return reply.status(401).send({ success: false, error: 'missing signature' });
-            }
-            const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-            const expectedBuf = Buffer.from(expected, 'hex');
-            const actualBuf = Buffer.from(headerSig.replace(/^sha256=/i, ''), 'hex');
-            if (
-                expectedBuf.length !== actualBuf.length
-                || !timingSafeEqual(expectedBuf, actualBuf)
-            ) {
-                request.log.warn({ ip: request.ip }, 'YooKassa webhook signature mismatch');
-                return reply.status(401).send({ success: false, error: 'invalid signature' });
-            }
-        } else if (secret && headerSig && rawBody) {
-            // Dev: best-effort verify when both ends are configured. Don't reject
-            // if missing (would block local mock testing).
-            const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-            const actual = headerSig.replace(/^sha256=/i, '');
-            if (expected !== actual) {
-                request.log.warn('YooKassa webhook signature mismatch (dev, allowed)');
-            }
+            return reply.status(verify.status).send({ success: false, error: verify.error });
+        }
+        if (verify.warn) {
+            request.log.warn(`YooKassa webhook: ${verify.warn}`);
         }
 
         const parsed = YookassaWebhookSchema.safeParse(request.body);

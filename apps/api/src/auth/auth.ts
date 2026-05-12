@@ -3,7 +3,7 @@
 // ============================================================
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import bcrypt from 'bcryptjs';
-import { randomInt } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import cookie from '@fastify/cookie';
 import { db } from '../db/connection.js';
 import { users, drivers, tariffs, contracts, contractors, checklistTemplates, organizations, emailVerifications } from '../db/schema.js';
@@ -39,6 +39,25 @@ function isOutsideActorOrganization(actor: AuthenticatedUser, organizationId?: s
 
 export async function hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, SALT_ROUNDS);
+}
+
+/**
+ * A-P0-3: CSPRNG-backed 6-digit code for email verification. Math.random is
+ * predictable; V8 PRNG state can be recovered, making 6-digit codes brute-
+ * forceable when combined with a known signup window. randomInt() pulls from
+ * the OS CSPRNG. Exported so unit tests can hit the helper directly.
+ */
+export function generateCode(): string {
+    return String(randomInt(100000, 1000000));
+}
+
+/**
+ * A-P0-3: CSPRNG-backed temp password for invited teammates (~96 bits
+ * entropy, 16-char base64url). Email-only delivery — never returned via API.
+ * Lives here so onboarding/routes.ts and unit tests share the same primitive.
+ */
+export function generateTempPassword(): string {
+    return randomBytes(12).toString('base64url');
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
@@ -777,13 +796,6 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     const VERIFICATION_TTL_MIN = 15;
     const RESEND_COOLDOWN_MS = 60_000;
-
-    function generateCode(): string {
-        // A-P0-3: CSPRNG via crypto.randomInt. Math.random is predictable;
-        // V8 PRNG state can be recovered, making 6-digit codes brute-forceable
-        // when combined with a known signup window.
-        return String(randomInt(100000, 1000000));
-    }
 
     async function sendVerificationCode(email: string, code: string, organizationId: string): Promise<void> {
         // Try the org's configured email adapter — fall back to the console

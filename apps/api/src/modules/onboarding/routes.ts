@@ -6,12 +6,11 @@
 // ============================================================
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { organizations, users, providerCredentials } from '../../db/schema.js';
 import { encryptCredentials, invalidateCredentialsCache } from '../../providers/base.js';
-import { hashPassword } from '../../auth/auth.js';
+import { generateTempPassword, hashPassword } from '../../auth/auth.js';
 import { findByInn } from '../../integrations/mocks/dadata.mock.js';
 import {
     ONBOARDING_SCENARIOS,
@@ -286,10 +285,10 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
                 .limit(1);
             if (existing) continue;
 
-            // A-P0-3: CSPRNG-generated temp password (16 chars base64url, ~96 bits entropy).
-            // A-P0-13: NEVER include in API response — admin browser history + monitoring
+            // A-P0-3/A-P0-13: CSPRNG temp password (16-char base64url, ~96 bits).
+            // NEVER include in API response — admin browser history + monitoring
             // proxies would retain plaintext. Email-only delivery.
-            const tempPassword = randomBytes(12).toString('base64url');
+            const tempPassword = generateTempPassword();
             const passwordHash = await hashPassword(tempPassword);
             await db.insert(users).values({
                 email: invite.email,

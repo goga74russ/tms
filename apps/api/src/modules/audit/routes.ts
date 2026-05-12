@@ -4,9 +4,10 @@
 // ============================================================
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { and, desc, eq, gte, lte, sql, ilike, type SQL } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { events, users } from '../../db/schema.js';
+import { buildAuditConditions } from './scope.js';
 
 interface AuthUser {
     userId: string;
@@ -54,11 +55,10 @@ const auditRoutes: FastifyPluginAsync = async (app) => {
         // A-P0-12: tenant scoping. Before this, any tenant admin could read
         // every other tenant's audit log (event_type / entity_id / data JSON
         // containing PII + diffs). Now: scope by request.orgId; users without
-        // an org get nothing.
-        const conditions: SQL[] = [];
-        if (user.organizationId) {
-            conditions.push(eq(events.organizationId, user.organizationId));
-        } else {
+        // an org get nothing. Logic lives in audit/scope.ts so unit-tests can
+        // exercise it without spinning up Fastify.
+        const scope = buildAuditConditions(user.organizationId, q);
+        if (scope.empty) {
             // No org → no audit access. Return empty result rather than 403
             // to keep the dashboard UX intact for seed admins.
             return {
@@ -68,20 +68,7 @@ const auditRoutes: FastifyPluginAsync = async (app) => {
                 note: 'no_organization_in_token',
             };
         }
-        if (q.from) conditions.push(gte(events.timestamp, new Date(q.from)));
-        if (q.to) conditions.push(lte(events.timestamp, new Date(q.to)));
-        if (q.entity_type) conditions.push(eq(events.entityType, q.entity_type));
-        if (q.entity_id) conditions.push(eq(events.entityId, q.entity_id));
-        if (q.author_id) conditions.push(eq(events.authorId, q.author_id));
-        if (q.event_type) conditions.push(eq(events.eventType, q.event_type));
-        // A-P2: escape % and _ in user-provided search to prevent pattern-DoS
-        // on the events table (M+ rows on a busy tenant).
-        if (q.search) {
-            const safeSearch = q.search.replace(/[%_\\]/g, (c) => `\\${c}`);
-            conditions.push(ilike(events.eventType, `%${safeSearch}%`));
-        }
-
-        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+        const whereClause = scope.where ?? undefined;
 
         const [rows, [{ total }]] = await Promise.all([
             db.select({
