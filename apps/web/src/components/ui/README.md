@@ -219,6 +219,29 @@ import { KanbanBoard, KanbanColumn, KanbanCard, ViewTabs } from '@/components/ui
 
 Pill-row tab switcher for board/table/map/list views. Active = `brand-50` bg + `brand-700` text + `brand-200` border.
 
+### AuthSplitLayout (`../auth-split-layout.tsx`)
+Two-column auth-page layout used by `/login`, `/signup`, `/signup/verify` (and any future public-funnel page).
+
+```tsx
+import { AuthSplitLayout } from '@/components/auth-split-layout';
+
+<AuthSplitLayout
+  title="Войти в TMS"
+  subtitle="Продолжите работу с вашим аккаунтом"
+  topRightLink={{ href: '/signup', label: 'Создать аккаунт' }}
+  rightPanel={<ProductShowcase />}   // optional — hidden below lg
+  showFooter                          // default true: ©YYYY + privacy link
+>
+  <form>...</form>
+</AuthSplitLayout>
+```
+
+Layout:
+- `lg+`: two-column grid `[1fr_1.1fr]` — form left, brand-gradient panel right (with soft organic SVG blobs).
+- `<lg`: single column, right panel hidden.
+- Left: TMS logo top-left, optional link top-right, vertically-centred form area (`max-w-md`), footer (©YYYY + privacy).
+- `subtitle` accepts any `ReactNode` (e.g. inline email pill with edit button on the verify page).
+
 ### ErrorBoundary (`error-boundary.tsx`)
 ```tsx
 <ErrorBoundary scope="cold-chain-widget">
