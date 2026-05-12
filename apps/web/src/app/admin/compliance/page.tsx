@@ -14,6 +14,7 @@ import { api } from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { PageHeader } from '@/components/ui/page-header';
 import { SkeletonTable } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
@@ -31,18 +32,13 @@ type ApiResp<T> = { success: boolean; data?: T; error?: string };
 
 export default function CompliancePage() {
     return (
-        <div className="p-6 max-w-6xl mx-auto space-y-6">
-            <div className="flex items-center gap-3">
-                <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                    <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                    <h1 className="text-2xl font-semibold text-slate-900">Контроль соответствия: ОСАГО, тахограф, маркировка, ADR</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">
-                        Контроль обязательной отчётности РФ. Все интеграции работают в mock-режиме до получения реальных ключей API.
-                    </p>
-                </div>
-            </div>
+        <div className="space-y-6">
+            <PageHeader
+                icon={ShieldCheck}
+                iconTone="emerald"
+                title="Контроль соответствия"
+                description="ОСАГО, тахограф, маркировка, ADR. Контроль обязательной отчётности РФ. Все интеграции работают в mock-режиме до получения реальных ключей API."
+            />
 
             <Tabs defaultValue="osago">
                 <TabsList>

@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Plug, CheckCircle2, AlertTriangle, Power } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Plug, CheckCircle2, AlertTriangle, Power, Search, Filter, Lock, Activity, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { ProviderType, ProviderName } from '@tms/shared';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
+import { PageHeader } from '@/components/ui/page-header';
 
 interface CredentialRow {
     id: string;
@@ -51,12 +51,26 @@ const PROVIDER_LABEL_RU: Record<string, string> = {
     mock: 'Mock (тест)',
 };
 
+const STATUS_LABEL: Record<CredentialRow['status'], string> = {
+    active: 'Активно',
+    sandbox: 'Песочница',
+    mock: 'Mock',
+    error: 'Ошибка',
+    disabled: 'Выключено',
+};
+
+const STATUS_TONE: Record<CredentialRow['status'], string> = {
+    active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    sandbox: 'bg-sky-50 text-sky-700 border-sky-200',
+    mock: 'bg-neutral-100 text-neutral-700 border-neutral-200',
+    error: 'bg-red-50 text-red-700 border-red-200',
+    disabled: 'bg-neutral-100 text-neutral-500 border-neutral-200',
+};
+
 function providerLabel(name: ProviderName | string): string {
     return PROVIDER_LABEL_RU[name as string] ?? String(name);
 }
 
-// All 8 provider domains the framework supports + the canonical list of
-// adapter names the UI offers per type. Mirrors `apps/api/src/providers/`.
 const PROVIDER_CATALOG: Array<{
     type: ProviderType;
     title: string;
@@ -73,6 +87,8 @@ const PROVIDER_CATALOG: Array<{
     { type: 'email', title: 'Почтовый шлюз', description: 'SMTP (Mail.ru) / Unisender', options: ['mailru_smtp', 'unisender', 'console'] },
 ];
 
+type StatusFilter = 'all' | 'connected' | 'disconnected' | 'error';
+
 export default function AdminIntegrationsPage() {
     const { toast } = useToast();
     const [rows, setRows] = useState<CredentialRow[]>([]);
@@ -80,6 +96,10 @@ export default function AdminIntegrationsPage() {
     const [error, setError] = useState<string | null>(null);
     const [info, setInfo] = useState<string | null>(null);
     const [modal, setModal] = useState<{ type: ProviderType; name: ProviderName } | null>(null);
+
+    const [search, setSearch] = useState('');
+    const [activeType, setActiveType] = useState<ProviderType | 'all'>('all');
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
     const refresh = useCallback(async () => {
         try {
@@ -93,7 +113,6 @@ export default function AdminIntegrationsPage() {
                     setInfo(null);
                 }
             } else {
-                // Surface a friendly Russian message; never leak raw API tokens.
                 if ((res.error ?? '').includes('no organization')) {
                     setInfo('Подключения настраиваются после регистрации организации.');
                     setError(null);
@@ -115,8 +134,11 @@ export default function AdminIntegrationsPage() {
 
     useEffect(() => { refresh(); }, [refresh]);
 
-    const findRow = (type: ProviderType, name: ProviderName): CredentialRow | undefined =>
-        rows.find((r) => r.providerType === type && r.providerName === name);
+    const findRow = useCallback(
+        (type: ProviderType, name: ProviderName): CredentialRow | undefined =>
+            rows.find((r) => r.providerType === type && r.providerName === name),
+        [rows],
+    );
 
     const test = async (id: string) => {
         try {
@@ -131,76 +153,173 @@ export default function AdminIntegrationsPage() {
         }
     };
 
+    // Aggregate counts for the header strip.
+    const counts = useMemo(() => {
+        const c = { active: 0, sandbox: 0, error: 0, total: 0 };
+        for (const r of rows) {
+            c.total++;
+            if (r.status === 'active') c.active++;
+            else if (r.status === 'sandbox') c.sandbox++;
+            else if (r.status === 'error') c.error++;
+        }
+        return c;
+    }, [rows]);
+
+    const visibleCatalog = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return PROVIDER_CATALOG
+            .filter((cat) => activeType === 'all' || cat.type === activeType)
+            .map((cat) => {
+                const options = cat.options.filter((name) => {
+                    if (q) {
+                        const label = providerLabel(name).toLowerCase();
+                        if (!label.includes(q) && !cat.title.toLowerCase().includes(q)) return false;
+                    }
+                    if (statusFilter !== 'all') {
+                        const row = findRow(cat.type, name);
+                        if (statusFilter === 'connected' && !row) return false;
+                        if (statusFilter === 'connected' && row && !['active', 'sandbox'].includes(row.status)) return false;
+                        if (statusFilter === 'disconnected' && row && ['active', 'sandbox'].includes(row.status)) return false;
+                        if (statusFilter === 'error' && (!row || row.status !== 'error')) return false;
+                    }
+                    return true;
+                });
+                return { ...cat, options };
+            })
+            .filter((cat) => cat.options.length > 0);
+    }, [activeType, search, statusFilter, findRow]);
+
+    const filtersActive = search.trim() || activeType !== 'all' || statusFilter !== 'all';
+    const resetFilters = () => {
+        setSearch('');
+        setActiveType('all');
+        setStatusFilter('all');
+    };
+
     return (
-        <div className="p-6 max-w-5xl mx-auto space-y-6">
-            <div className="flex items-center gap-3">
-                <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                    <Plug className="w-5 h-5" />
+        <div className="space-y-6">
+            <PageHeader
+                icon={Plug}
+                iconTone="brand"
+                title="Кабинет интеграций"
+                description="Подключения к ЭДО, телематике, ГИС и платёжным шлюзам. Ключи API хранятся в зашифрованном виде (AES-256-GCM)."
+                meta={
+                    !loading && rows.length > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <CountChip tone="emerald" icon={CheckCircle2} label="Активны" value={counts.active} />
+                            <CountChip tone="sky" icon={Activity} label="Sandbox" value={counts.sandbox} />
+                            <CountChip tone="red" icon={AlertTriangle} label="Ошибки" value={counts.error} />
+                            <CountChip tone="neutral" icon={Lock} label="Всего шифр-ключей" value={counts.total} />
+                        </div>
+                    )
+                }
+            />
+
+            {info && (
+                <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 flex items-start gap-2">
+                    <Activity className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>{info}</span>
                 </div>
-                <div>
-                    <h1 className="text-2xl font-semibold text-slate-900">Кабинет интеграций</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">
-                        Подключения к ЭДО, телематике, ГИС и платёжным шлюзам. Ключи API хранятся в зашифрованном виде (AES-256-GCM).
-                    </p>
+            )}
+            {error && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>{error}</span>
+                </div>
+            )}
+
+            {/* Toolbar */}
+            <div className="rounded-xl border border-neutral-200 bg-white p-3 flex flex-col gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                    <div className="relative flex-1 min-w-[220px]">
+                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                        <Input
+                            placeholder="Найти провайдера..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-9"
+                        />
+                    </div>
+                    <div className="flex items-center gap-1 text-xs">
+                        {(['all', 'connected', 'disconnected', 'error'] as StatusFilter[]).map((s) => (
+                            <button
+                                key={s}
+                                onClick={() => setStatusFilter(s)}
+                                className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${statusFilter === s
+                                    ? 'bg-neutral-900 text-white'
+                                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                                    }`}
+                            >
+                                {s === 'all' ? 'Все' : s === 'connected' ? 'Подключены' : s === 'disconnected' ? 'Не подключены' : 'С ошибкой'}
+                            </button>
+                        ))}
+                    </div>
+                    {filtersActive && (
+                        <button
+                            type="button"
+                            onClick={resetFilters}
+                            className="inline-flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-900"
+                        >
+                            <X className="w-3 h-3" /> Сбросить
+                        </button>
+                    )}
+                </div>
+
+                {/* Category pills */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-neutral-100">
+                    <Filter className="w-3.5 h-3.5 text-neutral-400 mr-1" />
+                    <CategoryPill active={activeType === 'all'} onClick={() => setActiveType('all')} label="Все категории" />
+                    {PROVIDER_CATALOG.map((cat) => (
+                        <CategoryPill
+                            key={cat.type}
+                            active={activeType === cat.type}
+                            onClick={() => setActiveType(cat.type)}
+                            label={cat.title}
+                        />
+                    ))}
                 </div>
             </div>
 
-            {info && (
-                <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-sm border border-blue-100">
-                    {info}
-                </div>
-            )}
-            {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100">{error}</div>}
-
             {loading ? (
-                <div className="space-y-4">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                        <Card key={i} className="p-5 space-y-2">
-                            <Skeleton className="h-5 w-48" />
-                            <Skeleton className="h-3 w-72" />
-                            <Skeleton className="h-12 w-full mt-3" />
-                        </Card>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="rounded-xl border border-neutral-200 bg-white p-4 space-y-3">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-3 w-48" />
+                            <Skeleton className="h-12 w-full" />
+                        </div>
                     ))}
+                </div>
+            ) : visibleCatalog.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 p-12 text-center">
+                    <Search className="w-8 h-8 mx-auto text-neutral-300 mb-2" />
+                    <div className="text-sm text-neutral-600 font-medium">Ничего не найдено</div>
+                    <div className="text-xs text-neutral-400 mt-1">Попробуйте сбросить фильтры</div>
                 </div>
             ) : (
                 <div className="space-y-6">
-                    {PROVIDER_CATALOG.map((cat) => (
-                        <Card key={cat.type} className="p-5">
-                            <div className="mb-3">
-                                <h2 className="text-lg font-semibold text-slate-900">{cat.title}</h2>
-                                <p className="text-xs text-slate-500">{cat.description}</p>
+                    {visibleCatalog.map((cat) => (
+                        <section key={cat.type}>
+                            <div className="flex items-baseline gap-2 mb-2">
+                                <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">{cat.title}</h2>
+                                <span className="text-[11px] text-neutral-400">·</span>
+                                <span className="text-xs text-neutral-500">{cat.description}</span>
                             </div>
-                            <div className="space-y-2">
+                            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                                 {cat.options.map((name) => {
                                     const row = findRow(cat.type, name);
                                     return (
-                                        <div key={name} className="flex items-center justify-between border border-slate-100 rounded-lg p-3">
-                                            <div className="flex items-center gap-3">
-                                                <StatusIcon status={row?.status ?? null} />
-                                                <div>
-                                                    <div className="font-medium text-slate-800">{providerLabel(name)}</div>
-                                                    {row?.lastError && <div className="text-xs text-red-500">{row.lastError}</div>}
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => setModal({ type: cat.type, name })}
-                                                >
-                                                    {row ? 'Изменить' : 'Подключить'}
-                                                </Button>
-                                                {row && (
-                                                    <Button variant="ghost" size="sm" onClick={() => test(row.id)}>
-                                                        Тест
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </div>
+                                        <ProviderCard
+                                            key={name}
+                                            name={name}
+                                            row={row}
+                                            onConnect={() => setModal({ type: cat.type, name })}
+                                            onTest={row ? () => test(row.id) : undefined}
+                                        />
                                     );
                                 })}
                             </div>
-                        </Card>
+                        </section>
                     ))}
                 </div>
             )}
@@ -217,11 +336,107 @@ export default function AdminIntegrationsPage() {
     );
 }
 
-function StatusIcon({ status }: { status: CredentialRow['status'] | null }) {
-    if (!status) return <Power className="w-4 h-4 text-slate-300" />;
-    if (status === 'active' || status === 'sandbox') return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-    if (status === 'error') return <AlertTriangle className="w-4 h-4 text-red-500" />;
-    return <Power className="w-4 h-4 text-slate-400" />;
+function CountChip({ tone, icon: Icon, label, value }: { tone: 'emerald' | 'sky' | 'red' | 'neutral'; icon: typeof CheckCircle2; label: string; value: number }) {
+    const cls: Record<typeof tone, string> = {
+        emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        sky: 'bg-sky-50 text-sky-700 border-sky-200',
+        red: 'bg-red-50 text-red-700 border-red-200',
+        neutral: 'bg-neutral-50 text-neutral-700 border-neutral-200',
+    };
+    return (
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${cls[tone]}`}>
+            <Icon className="w-3.5 h-3.5" />
+            {label}: <span className="font-bold tabular-nums">{value}</span>
+        </span>
+    );
+}
+
+function CategoryPill({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${active
+                ? 'bg-brand-50 text-brand-700 border border-brand-200'
+                : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
+                }`}
+        >
+            {label}
+        </button>
+    );
+}
+
+function ProviderCard({
+    name,
+    row,
+    onConnect,
+    onTest,
+}: {
+    name: ProviderName;
+    row?: CredentialRow;
+    onConnect: () => void;
+    onTest?: () => void;
+}) {
+    const initial = providerLabel(name).slice(0, 2).toUpperCase();
+    return (
+        <div className="group rounded-xl border border-neutral-200 bg-white p-4 hover:border-brand-300 hover:shadow-sm transition-all">
+            <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-neutral-100 to-neutral-50 border border-neutral-200 flex items-center justify-center shrink-0">
+                    <span className="text-[11px] font-bold text-neutral-600 tracking-tight">{initial}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="font-medium text-neutral-900 truncate leading-tight">{providerLabel(name)}</div>
+                    <div className="mt-1.5">
+                        {row ? (
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${STATUS_TONE[row.status]}`}>
+                                <StatusDot status={row.status} />
+                                {STATUS_LABEL[row.status]}
+                            </span>
+                        ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-neutral-300 px-2 py-0.5 text-[10px] font-medium text-neutral-500">
+                                <Power className="w-2.5 h-2.5" />
+                                Не подключено
+                            </span>
+                        )}
+                    </div>
+                    {row?.lastError && (
+                        <div className="mt-1.5 text-[10px] text-red-600 line-clamp-2" title={row.lastError}>
+                            {row.lastError}
+                        </div>
+                    )}
+                </div>
+            </div>
+            <div className="mt-3 flex gap-2">
+                <button
+                    type="button"
+                    onClick={onConnect}
+                    className="flex-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-neutral-50 text-neutral-700 border border-neutral-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-200 transition-colors"
+                >
+                    {row ? 'Изменить' : 'Подключить'}
+                </button>
+                {onTest && (
+                    <button
+                        type="button"
+                        onClick={onTest}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+                    >
+                        Тест
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function StatusDot({ status }: { status: CredentialRow['status'] }) {
+    const cls: Record<CredentialRow['status'], string> = {
+        active: 'bg-emerald-500',
+        sandbox: 'bg-sky-500',
+        mock: 'bg-neutral-400',
+        error: 'bg-red-500',
+        disabled: 'bg-neutral-300',
+    };
+    return <span className={`w-1.5 h-1.5 rounded-full ${cls[status]}`} />;
 }
 
 function CredentialModal({
@@ -239,7 +454,6 @@ function CredentialModal({
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // SMTP/email needs host+user+password; other providers usually want apiKey.
     const isSmtp = type === 'email' && name === 'mailru_smtp';
 
     const submit = async () => {
@@ -275,6 +489,10 @@ function CredentialModal({
     return (
         <Dialog open onClose={onClose} title={`Подключение: ${providerLabel(name)}`}>
             <div className="space-y-3">
+                <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 flex items-start gap-2">
+                    <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <span>Ключи шифруются AES-256-GCM. После сохранения вы не сможете прочитать их обратно.</span>
+                </div>
                 {isSmtp ? (
                     <>
                         <Field label="SMTP host"><Input value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp.mail.ru" /></Field>
@@ -297,7 +515,7 @@ function CredentialModal({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-600">{label}</label>
+            <label className="text-xs font-medium text-neutral-600">{label}</label>
             {children}
         </div>
     );

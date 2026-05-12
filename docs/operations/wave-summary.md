@@ -605,6 +605,51 @@ Exports `Pill` helper с 6 tones.
 
 ---
 
+## Lazyweb-driven design passes (post-DataTable)
+
+After DataTable Phase 1+2, all UI work shifted to lazyweb-driven design — pulling Mobbin-style references first, then synthesizing patterns into our primitives. Each pass covers one page-type across the entire app.
+
+### Dashboard pass (commit `4001702`-adjacent)
+References: **Stripe mobile / Userlane / Linear analytics**.
+- New primitives: `PeriodSelector` (today / 7d / 30d / mtd / qtd / ytd / custom), `Sparkline` (recharts inline), `MetricCard` (label + value + delta + sparkline slot), `DashboardHeader` (icon-tile + title + period + actions).
+- Applied to: `/finance` (KPI strip + sparkline trend bar), `/admin/billing` (MRR / Active / Past-due / MRR-by-plan donut), `/analytics`, `/cold-chain`.
+
+### Kanban pass
+References: **Monday.com / Linear / Trello modern**.
+- New primitive: `Kanban` (KanbanBoard + KanbanColumn + KanbanCard) + `ViewTabs` for board/list switch. HTML5 native DnD, no external lib.
+- Applied to: `/repair` (incident pipeline), `/claims` board view, `/dispatcher/orders` board.
+
+### Queue pass
+References: **GitHub PR queue / Medallion / Linear inbox**.
+- Compact list rows with severity dot + meta strip + right-aligned actions; sticky filter bar; unread/priority dots.
+- Applied to: `/inspections/queue`, `/finance/invoices/inbox`, mechanic / med inspector queues.
+
+### Public funnel pass (commit `850b398`)
+References: **Fishbowl / Navan / Luma**.
+- New primitive: `AuthSplitLayout` (form left, brand-gradient right with organic SVG / illustration / showcase).
+- Applied to: `/login` (remember-me + social buttons + ProductShowcase mockup), `/signup` (ShowcaseCarousel rotating cockpit/mobile/pricing), `/signup/verify` (paste-from-clipboard + email pill with edit + countdown + MailCheck illustration), `/onboarding` (vertical sidebar stepper 260px + per-step help panel 280px on xl+).
+
+### Detail/Settings pass (this commit)
+References: **Pendo / Calendly / Replit integrations marketplaces + Glean activity log**.
+- New primitive: `PageHeader` (icon-tile + title + description + actions slot + meta strip + 6 tones). Replaces hand-rolled `<icon-tile> + <h1+sub>` repeated in every admin page.
+- Admin layout sidebar refined: sticky vertical rail (240px), user-email in header, active-state left bar accent, neutral palette.
+- `/admin/integrations` redesigned as marketplace:
+  - Header strip with counts (Активны / Sandbox / Ошибки / Всего ключей).
+  - Toolbar: search input + status pills (Все / Подключены / Не подключены / С ошибкой) + category filter pills.
+  - Provider cards in 3-column grid (avatar-initial + status pill + connect/test buttons + hover lift).
+  - Modal gains AES-256-GCM disclosure.
+- `/admin/audit-log` redesigned:
+  - Replaced "Filters" Card with compact collapsible toolbar: search + filter button (badge with active-count) + apply + reset.
+  - Meta strip in header shows total records + active filter count.
+  - Table palette swapped slate→neutral.
+- `/admin/settings` redesigned:
+  - Split layout `1fr / 320px` with help sidebar (sticky on xl+).
+  - Each cost-model field becomes its own `SectionCard` with icon (Fuel / Briefcase / Wrench) + hint + source-badge ("настроено в БД" vs "fallback из .env").
+  - Help cards: how-it-works explainer + cross-links to other admin pages.
+- `/admin/demo` + `/admin/compliance`: PageHeader applied.
+
+---
+
 ## Summary post-W6 stats
 
 | Metric | After W6 | After 35a5fc5 | Delta |
@@ -615,6 +660,6 @@ Exports `Pill` helper с 6 tones.
 | Web pages | ~30 | 47+ | +17 |
 | Mobile screens | 7 | 10 | +3 |
 | Provider adapters | 0 framework | 8 types × 20+ skeletons | new |
-| UI primitives (web) | 0 | 14 | new |
+| UI primitives (web) | 0 | 15 | new |
 | UI primitives (mobile) | 0 | 8 | new |
 | API routes (decl count) | ~194 | ~287 | +93 |
