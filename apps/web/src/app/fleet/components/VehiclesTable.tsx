@@ -70,7 +70,7 @@ const BODY_TYPE_LABELS: Record<string, string> = {
 };
 
 function DeadlineDot({ color, label }: { color: DeadlineColor; label: string }) {
-    if (!color) return <span className="w-3 h-3 rounded-full bg-slate-200 inline-block" title={`${label}: нет данных`} />;
+    if (!color) return <span className="w-3 h-3 rounded-full bg-neutral-200 inline-block" title={`${label}: нет данных`} />;
     const colors: Record<string, string> = {
         green: 'bg-emerald-500',
         yellow: 'bg-amber-400',
@@ -182,7 +182,7 @@ export function VehiclesTable() {
             header: 'Госномер',
             accessor: (r) => r.plateNumber,
             cell: (r) => (
-                <span className="font-mono font-semibold text-slate-900">
+                <span className="font-mono font-semibold text-neutral-900">
                     {r.plateNumber}
                 </span>
             ),
@@ -196,9 +196,9 @@ export function VehiclesTable() {
             accessor: (r) => `${r.make} ${r.model}`,
             cell: (r) => (
                 <span>
-                    <span className="font-medium text-slate-800">{r.make}</span>{' '}
-                    <span className="text-slate-500">{r.model}</span>
-                    <span className="text-slate-400 ml-1">({r.year})</span>
+                    <span className="font-medium text-neutral-800">{r.make}</span>{' '}
+                    <span className="text-neutral-500">{r.model}</span>
+                    <span className="text-neutral-400 ml-1">({r.year})</span>
                 </span>
             ),
             minWidth: '180px',
@@ -216,8 +216,8 @@ export function VehiclesTable() {
                 });
                 return (
                     <div className="flex flex-col">
-                        <span className="font-medium text-slate-800 text-sm">{profile.classLabel}</span>
-                        <span className="text-xs text-slate-400">{profile.bodyLabel}</span>
+                        <span className="font-medium text-neutral-800 text-sm">{profile.classLabel}</span>
+                        <span className="text-xs text-neutral-400">{profile.bodyLabel}</span>
                         <span
                             className={`mt-1 inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                                 waybillCue.tone === 'warning'
@@ -242,10 +242,10 @@ export function VehiclesTable() {
                 const trailer = trailersByVehicleId[r.id] || null;
                 return trailer ? (
                     <div className="flex flex-col">
-                        <span className="font-medium text-slate-800 text-sm">{trailer.plateNumber}</span>
-                        <span className="text-xs text-slate-400">закреплён</span>
+                        <span className="font-medium text-neutral-800 text-sm">{trailer.plateNumber}</span>
+                        <span className="text-xs text-neutral-400">закреплён</span>
                     </div>
-                ) : <span className="text-slate-400">—</span>;
+                ) : <span className="text-neutral-400">—</span>;
             },
             width: '140px',
         },
@@ -253,7 +253,7 @@ export function VehiclesTable() {
             id: 'payloadCapacityKg',
             header: 'Грузоподъёмность',
             accessor: (r) => r.payloadCapacityKg,
-            cell: (r) => <span className="text-slate-600 text-sm">{(r.payloadCapacityKg / 1000).toFixed(1)} т</span>,
+            cell: (r) => <span className="text-neutral-600 text-sm">{(r.payloadCapacityKg / 1000).toFixed(1)} т</span>,
             sortable: true,
             align: 'right',
             width: '160px',
@@ -262,7 +262,7 @@ export function VehiclesTable() {
             id: 'currentOdometerKm',
             header: 'Пробег',
             accessor: (r) => r.currentOdometerKm,
-            cell: (r) => <span className="text-slate-600 text-sm">{r.currentOdometerKm.toLocaleString('ru-RU')} км</span>,
+            cell: (r) => <span className="text-neutral-600 text-sm">{r.currentOdometerKm.toLocaleString('ru-RU')} км</span>,
             sortable: true,
             align: 'right',
             width: '130px',
@@ -298,7 +298,7 @@ export function VehiclesTable() {
         <>
             <div>
                 {/* Legend */}
-                <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-4 text-xs text-slate-500">
+                <div className="px-4 py-2 bg-neutral-50 border-b border-neutral-200 flex items-center gap-4 text-xs text-neutral-500">
                     <span>Светофор сроков:</span>
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> &gt;30д</span>
                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> 7–30д</span>

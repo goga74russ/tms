@@ -79,7 +79,7 @@ function ExpiryBadge({ status, label, date }: { status: string; label: string; d
         green: 'bg-emerald-100 text-emerald-700 border-emerald-200',
         yellow: 'bg-amber-100 text-amber-700 border-amber-200',
         red: 'bg-red-100 text-red-700 border-red-200',
-        unknown: 'bg-slate-100 text-slate-500 border-slate-200',
+        unknown: 'bg-neutral-100 text-neutral-500 border-neutral-200',
     };
 
     const icons: Record<string, React.ReactNode> = {
@@ -118,7 +118,7 @@ function VehicleStatusPill({ item }: { item: VehicleQueueItem }) {
         green: { color: 'bg-emerald-100 text-emerald-700', label: 'Документы OK' },
         yellow: { color: 'bg-amber-100 text-amber-700', label: 'Истекают' },
         red: { color: 'bg-red-100 text-red-700', label: 'Просрочены' },
-        unknown: { color: 'bg-slate-100 text-slate-500', label: 'Нет данных' },
+        unknown: { color: 'bg-neutral-100 text-neutral-500', label: 'Нет данных' },
     };
     const c = cfg[worst];
     return (
@@ -405,7 +405,7 @@ export default function MechanicPage() {
             <div className="bg-white">
                 {/* Vehicle header */}
                 {!compact && (
-                    <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-5 py-4 text-white rounded-t-2xl">
+                    <div className="bg-gradient-to-r from-neutral-800 to-neutral-700 px-5 py-4 text-white rounded-t-2xl">
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
                                 <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
@@ -418,7 +418,7 @@ export default function MechanicPage() {
                                             {getVehicleProfile(selectedVehicle.vehicle.bodyType).displayLabel}
                                         </p>
                                     )}
-                                    <p className="text-slate-300 text-xs truncate">
+                                    <p className="text-neutral-300 text-xs truncate">
                                         {selectedVehicle.vehicle.make} {selectedVehicle.vehicle.model} ({selectedVehicle.vehicle.year})
                                         · {Math.round(selectedVehicle.vehicle.currentOdometerKm).toLocaleString()} км
                                         · {tripReferences[selectedVehicle.trip.id]?.waybillNumber
@@ -442,24 +442,24 @@ export default function MechanicPage() {
                 {/* Checklist */}
                 <div className="p-5">
                     <div className="flex items-center justify-between gap-3 mb-3">
-                        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Тип осмотра</h3>
-                        <div className="flex bg-slate-100 rounded-lg p-0.5">
+                        <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Тип осмотра</h3>
+                        <div className="flex bg-neutral-100 rounded-lg p-0.5">
                             <button
                                 onClick={() => setInspectionType('pre_trip')}
-                                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${inspectionType === 'pre_trip' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${inspectionType === 'pre_trip' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}
                             >
                                 Предрейсовый
                             </button>
                             <button
                                 onClick={() => setInspectionType('periodic')}
-                                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${inspectionType === 'periodic' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${inspectionType === 'periodic' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}
                             >
                                 Периодический
                             </button>
                         </div>
                     </div>
 
-                    <p className="text-[11px] text-slate-500 mb-4">
+                    <p className="text-[11px] text-neutral-500 mb-4">
                         {inspectionType === 'pre_trip'
                             ? 'Осмотр привязан к путевому листу выбранного рейса и может продвинуть статус выпуска.'
                             : 'Периодический осмотр фиксируется без влияния на рейс или путевой лист.'
@@ -479,10 +479,10 @@ export default function MechanicPage() {
                                     ? 'border-emerald-200 bg-emerald-50'
                                     : item.result === 'fault'
                                         ? 'border-red-200 bg-red-50'
-                                        : 'border-slate-200 bg-white'
+                                        : 'border-neutral-200 bg-white'
                                     }`}
                             >
-                                <span className="flex-1 text-xs font-medium text-slate-800 min-w-[140px]">
+                                <span className="flex-1 text-xs font-medium text-neutral-800 min-w-[140px]">
                                     {item.name}
                                 </span>
 
@@ -491,7 +491,7 @@ export default function MechanicPage() {
                                         onClick={() => updateItem(idx, 'result', 'ok')}
                                         className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${item.result === 'ok'
                                             ? 'bg-emerald-600 text-white shadow-sm'
-                                            : 'bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700'
+                                            : 'bg-neutral-100 text-neutral-500 hover:bg-emerald-100 hover:text-emerald-700'
                                             }`}
                                     >
                                         ОК
@@ -500,7 +500,7 @@ export default function MechanicPage() {
                                         onClick={() => updateItem(idx, 'result', 'fault')}
                                         className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${item.result === 'fault'
                                             ? 'bg-red-600 text-white shadow-sm'
-                                            : 'bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-700'
+                                            : 'bg-neutral-100 text-neutral-500 hover:bg-red-100 hover:text-red-700'
                                             }`}
                                     >
                                         Неиспр.
@@ -521,8 +521,8 @@ export default function MechanicPage() {
                     </div>
 
                     {/* Signature (PEP) */}
-                    <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    <div className="mt-4 p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
                             <Shield className="w-3.5 h-3.5 inline mr-1" />
                             Подтверждение (ПЭП) — введите пароль
                         </label>
@@ -531,7 +531,7 @@ export default function MechanicPage() {
                             placeholder="Пароль для электронной подписи"
                             value={signature}
                             onChange={e => setSignature(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400"
+                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400"
                         />
                     </div>
 
@@ -560,33 +560,33 @@ export default function MechanicPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-neutral-50">
             {/* Header */}
-            <header className="bg-white border-b border-slate-200 px-6 py-4">
+            <header className="bg-white border-b border-neutral-200 px-6 py-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center">
                             <Wrench className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900">Техосмотр</h1>
-                            <p className="text-sm text-slate-500">Предрейсовый осмотр ТС</p>
+                            <h1 className="text-xl font-bold text-neutral-900">Техосмотр</h1>
+                            <p className="text-sm text-neutral-500">Предрейсовый осмотр ТС</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={loadQueue}
-                            className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+                            className="p-2.5 rounded-xl hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition"
                             title="Обновить"
                         >
                             <RotateCcw className="w-5 h-5" />
                         </button>
-                        <div className="flex bg-slate-100 rounded-xl p-1">
+                        <div className="flex bg-neutral-100 rounded-xl p-1">
                             <button
                                 onClick={() => setActiveTab('queue')}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'queue'
-                                    ? 'bg-white text-slate-900 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                    ? 'bg-white text-neutral-900 shadow-sm'
+                                    : 'text-neutral-500 hover:text-neutral-700'
                                     }`}
                             >
                                 Очередь ({queue.length})
@@ -594,8 +594,8 @@ export default function MechanicPage() {
                             <button
                                 onClick={() => setActiveTab('journal')}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'journal'
-                                    ? 'bg-white text-slate-900 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                    ? 'bg-white text-neutral-900 shadow-sm'
+                                    : 'text-neutral-500 hover:text-neutral-700'
                                     }`}
                             >
                                 Журнал
@@ -635,15 +635,15 @@ export default function MechanicPage() {
                         {/* LEFT: List + filters */}
                         <div className="min-w-0">
                             {/* Sticky filter chips */}
-                            <div className="sticky top-0 z-10 -mx-1 px-1 py-2 bg-slate-50/95 backdrop-blur-sm flex flex-wrap items-center gap-2 mb-2">
-                                <div className="flex bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
+                            <div className="sticky top-0 z-10 -mx-1 px-1 py-2 bg-neutral-50/95 backdrop-blur-sm flex flex-wrap items-center gap-2 mb-2">
+                                <div className="flex bg-white border border-neutral-200 rounded-lg p-0.5 shadow-sm">
                                     {(['all', 'today', 'week'] as DateFilter[]).map(f => (
                                         <button
                                             key={f}
                                             onClick={() => setDateFilter(f)}
                                             className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${dateFilter === f
                                                 ? 'bg-orange-100 text-orange-700'
-                                                : 'text-slate-500 hover:text-slate-700'
+                                                : 'text-neutral-500 hover:text-neutral-700'
                                                 }`}
                                         >
                                             {f === 'all' ? 'Все' : f === 'today' ? 'Сегодня' : 'Эта неделя'}
@@ -655,15 +655,15 @@ export default function MechanicPage() {
                                     placeholder="Поиск по ТС / рейсу..."
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
-                                    className="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
+                                    className="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
                                 />
-                                <span className="text-[11px] text-slate-400 ml-auto">
+                                <span className="text-[11px] text-neutral-400 ml-auto">
                                     {filteredQueue.length} из {queue.length}
                                 </span>
                             </div>
 
                             {loading ? (
-                                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                                <div className="rounded-2xl border border-neutral-200 bg-white p-5">
                                     <SkeletonTable rows={6} columns={2} />
                                 </div>
                             ) : filteredQueue.length === 0 ? (
@@ -674,7 +674,7 @@ export default function MechanicPage() {
                                     tone="success"
                                 />
                             ) : (
-                                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+                                <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden divide-y divide-neutral-100">
                                     {filteredQueue.map((item) => {
                                         const isSelected = selectedVehicle?.vehicle.id === item.vehicle.id;
                                         return (
@@ -683,17 +683,17 @@ export default function MechanicPage() {
                                                 onClick={() => selectVehicle(item)}
                                                 className={`group flex items-center gap-3 px-4 py-3 cursor-pointer transition relative ${isSelected
                                                     ? 'bg-orange-50 ring-1 ring-inset ring-orange-200'
-                                                    : 'hover:bg-slate-50'
+                                                    : 'hover:bg-neutral-50'
                                                     }`}
                                             >
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-bold text-slate-900 truncate">
+                                                        <span className="text-sm font-bold text-neutral-900 truncate">
                                                             {item.vehicle.plateNumber}
                                                         </span>
                                                         <VehicleStatusPill item={item} />
                                                     </div>
-                                                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                                    <p className="text-[11px] text-neutral-500 truncate mt-0.5">
                                                         {item.vehicle.make} {item.vehicle.model}
                                                         {' · ПЛ: '}{tripReferences[item.trip.id]?.waybillNumber || 'еще не создан'}
                                                         {' · Рейс: '}{item.trip.number}
@@ -728,14 +728,14 @@ export default function MechanicPage() {
                         {/* RIGHT: Detail pane (xl+ only) */}
                         {selectedVehicle && (
                             <div className="hidden xl:block min-w-0">
-                                <div className="sticky top-2 rounded-2xl border border-slate-200 shadow-sm overflow-hidden bg-white max-h-[calc(100vh-7rem)] overflow-y-auto">
-                                    <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100 border-b border-slate-200">
-                                        <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                                <div className="sticky top-2 rounded-2xl border border-neutral-200 shadow-sm overflow-hidden bg-white max-h-[calc(100vh-7rem)] overflow-y-auto">
+                                    <div className="flex items-center justify-between px-4 py-2.5 bg-neutral-100 border-b border-neutral-200">
+                                        <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wide">
                                             Карточка осмотра
                                         </span>
                                         <button
                                             onClick={closeDetail}
-                                            className="text-xs text-slate-500 hover:text-slate-700"
+                                            className="text-xs text-neutral-500 hover:text-neutral-700"
                                         >
                                             Закрыть ✕
                                         </button>
@@ -750,21 +750,21 @@ export default function MechanicPage() {
                 {/* Journal Tab */}
                 {activeTab === 'journal' && (
                     <div>
-                        <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <h2 className="text-lg font-bold text-neutral-800 mb-4 flex items-center gap-2">
                             <FileCheck className="w-5 h-5 text-blue-500" />
                             Журнал техосмотров
                         </h2>
 
-                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b border-slate-100 bg-slate-50">
-                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">Дата</th>
-                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">ТС</th>
-                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">ПЛ</th>
-                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">Решение</th>
-                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">Неисправности</th>
-                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">Акт</th>
+                                    <tr className="border-b border-neutral-100 bg-neutral-50">
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">Дата</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">ТС</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">ПЛ</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">Решение</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">Неисправности</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">Акт</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -782,8 +782,8 @@ export default function MechanicPage() {
                                         </tr>
                                     ) : (
                                         journal.map((record) => (
-                                            <tr key={record.id} className="border-b border-slate-50 hover:bg-slate-50">
-                                                <td className="px-4 py-3 text-slate-600">
+                                            <tr key={record.id} className="border-b border-neutral-50 hover:bg-neutral-50">
+                                                <td className="px-4 py-3 text-neutral-600">
                                                     {new Date(record.createdAt).toLocaleString('ru-RU', {
                                                         day: '2-digit',
                                                         month: '2-digit',
@@ -792,26 +792,26 @@ export default function MechanicPage() {
                                                         minute: '2-digit',
                                                     })}
                                                 </td>
-                                                <td className="px-4 py-3 font-medium text-slate-900">
+                                                <td className="px-4 py-3 font-medium text-neutral-900">
                                                     {vehicleMap[record.vehicleId] || record.vehicleId.substring(0, 8) + '...'}
                                                 </td>
-                                                <td className="px-4 py-3 text-slate-500 text-xs">
+                                                <td className="px-4 py-3 text-neutral-500 text-xs">
                                                     {record.tripId ? (
                                                         tripReferences[record.tripId]?.waybillNumber ? (
                                                             <div className="space-y-0.5">
-                                                                <div className="font-semibold text-slate-800">
+                                                                <div className="font-semibold text-neutral-800">
                                                                     ПЛ № {tripReferences[record.tripId]!.waybillNumber}
                                                                 </div>
-                                                                <div className="text-slate-400">
+                                                                <div className="text-neutral-400">
                                                                     Рейс {tripReferences[record.tripId]?.tripNumber ?? '—'}
                                                                 </div>
                                                             </div>
                                                         ) : (
                                                             <div className="space-y-0.5">
-                                                                <div className="font-semibold text-slate-500">
+                                                                <div className="font-semibold text-neutral-500">
                                                                     ПЛ не оформлен
                                                                 </div>
-                                                                <div className="text-slate-400">
+                                                                <div className="text-neutral-400">
                                                                     Рейс {tripReferences[record.tripId]?.tripNumber ?? '—'}
                                                                 </div>
                                                             </div>
@@ -830,7 +830,7 @@ export default function MechanicPage() {
                                                         )}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3 text-slate-500 text-xs">
+                                                <td className="px-4 py-3 text-neutral-500 text-xs">
                                                     {record.items
                                                         ?.filter(i => i.result === 'fault')
                                                         .map(i => i.name)

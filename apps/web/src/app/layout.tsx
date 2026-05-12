@@ -15,7 +15,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="ru">
-            <body className="min-h-screen bg-slate-50">
+            <body className="min-h-screen bg-neutral-50">
                 <UserProvider>
                     <LayoutShell>
                         {children}

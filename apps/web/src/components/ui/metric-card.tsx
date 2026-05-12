@@ -36,7 +36,7 @@ export interface MetricCardProps {
 }
 
 const toneClasses: Record<MetricTone, { iconBg: string; iconFg: string }> = {
-    neutral: { iconBg: 'bg-slate-100', iconFg: 'text-slate-600' },
+    neutral: { iconBg: 'bg-neutral-100', iconFg: 'text-neutral-600' },
     brand: { iconBg: 'bg-brand-50', iconFg: 'text-brand-600' },
     success: { iconBg: 'bg-emerald-50', iconFg: 'text-emerald-600' },
     warning: { iconBg: 'bg-amber-50', iconFg: 'text-amber-600' },
@@ -60,7 +60,7 @@ export function MetricCard({
 }: MetricCardProps) {
     const t = toneClasses[tone];
 
-    let changeColor = 'text-slate-500';
+    let changeColor = 'text-neutral-500';
     let ChangeIcon: typeof ArrowUp = Minus;
     if (change) {
         if (change.direction === 'up') {
@@ -83,7 +83,7 @@ export function MetricCard({
     const inner = (
         <div className="flex h-full flex-col gap-3">
             <div className="flex items-start justify-between gap-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 truncate">{label}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 truncate">{label}</p>
                 {Icon && (
                     <div
                         className={cn(
@@ -96,7 +96,7 @@ export function MetricCard({
                     </div>
                 )}
             </div>
-            <div className="text-3xl font-bold tabular-nums text-slate-900 leading-none">{value}</div>
+            <div className="text-3xl font-bold tabular-nums text-neutral-900 leading-none">{value}</div>
             <div className="mt-auto flex items-end justify-between gap-3">
                 <div className="flex flex-col gap-0.5 min-w-0">
                     {change && (
@@ -105,7 +105,7 @@ export function MetricCard({
                             {Math.abs(change.value)}%
                         </span>
                     )}
-                    {hint && <span className="text-xs text-slate-400 truncate">{hint}</span>}
+                    {hint && <span className="text-xs text-neutral-400 truncate">{hint}</span>}
                 </div>
                 {sparkline && sparkline.length > 0 && (
                     <div className="w-24 shrink-0">
@@ -117,8 +117,8 @@ export function MetricCard({
     );
 
     const baseCls = cn(
-        'rounded-xl border border-slate-200 bg-white p-4 shadow-soft transition-all',
-        (href || onClick) && 'hover:border-slate-300 hover:shadow-md cursor-pointer',
+        'rounded-xl border border-neutral-200 bg-white p-4 shadow-soft transition-all',
+        (href || onClick) && 'hover:border-neutral-300 hover:shadow-md cursor-pointer',
         className,
     );
 

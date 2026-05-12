@@ -51,23 +51,23 @@ export function useToast(): ToastContextValue {
 
 const variantStyles: Record<ToastVariant, { container: string; icon: React.ReactNode }> = {
     default: {
-        container: 'bg-white border-slate-200 text-slate-900',
-        icon: <Info className="w-5 h-5 text-slate-500" />,
+        container: 'bg-white border-neutral-200 text-neutral-900',
+        icon: <Info className="w-5 h-5 text-neutral-500" />,
     },
     success: {
-        container: 'bg-white border-emerald-200 text-slate-900',
+        container: 'bg-white border-emerald-200 text-neutral-900',
         icon: <CheckCircle2 className="w-5 h-5 text-emerald-600" />,
     },
     error: {
-        container: 'bg-white border-red-200 text-slate-900',
+        container: 'bg-white border-red-200 text-neutral-900',
         icon: <XCircle className="w-5 h-5 text-red-600" />,
     },
     warning: {
-        container: 'bg-white border-amber-200 text-slate-900',
+        container: 'bg-white border-amber-200 text-neutral-900',
         icon: <AlertTriangle className="w-5 h-5 text-amber-600" />,
     },
     info: {
-        container: 'bg-white border-blue-200 text-slate-900',
+        container: 'bg-white border-blue-200 text-neutral-900',
         icon: <Info className="w-5 h-5 text-blue-600" />,
     },
 };
@@ -138,7 +138,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                                             <div className="text-sm font-semibold leading-tight">{item.title}</div>
                                         )}
                                         {item.description && (
-                                            <div className="mt-0.5 text-sm text-slate-600 leading-snug">{item.description}</div>
+                                            <div className="mt-0.5 text-sm text-neutral-600 leading-snug">{item.description}</div>
                                         )}
                                         {item.action && (
                                             <button
@@ -157,7 +157,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                                         type="button"
                                         aria-label="Закрыть"
                                         onClick={() => dismiss(item.id)}
-                                        className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                                        className="shrink-0 rounded-md p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
                                     >
                                         <X className="w-3.5 h-3.5" />
                                     </button>

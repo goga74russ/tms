@@ -201,7 +201,7 @@ export function OnboardingTour({ steps, storageKey, onClose, forceShow }: Onboar
                     ref={tooltipRef}
                     role="dialog"
                     aria-label={step.title}
-                    className="absolute pointer-events-auto bg-white rounded-xl shadow-xl border border-slate-200 p-4"
+                    className="absolute pointer-events-auto bg-white rounded-xl shadow-xl border border-neutral-200 p-4"
                     style={{
                         top: tooltipPos.top - window.scrollY,
                         left: tooltipPos.left - window.scrollX,
@@ -212,19 +212,19 @@ export function OnboardingTour({ steps, storageKey, onClose, forceShow }: Onboar
                     <button
                         onClick={skip}
                         aria-label="Закрыть"
-                        className="absolute top-2 right-2 text-slate-400 hover:text-slate-700 p-1"
+                        className="absolute top-2 right-2 text-neutral-400 hover:text-neutral-700 p-1"
                     >
                         <X className="w-4 h-4" />
                     </button>
                     <div className="text-xs font-medium text-indigo-600 mb-1">
                         Шаг {stepIndex + 1} из {steps.length}
                     </div>
-                    <h3 className="text-sm font-semibold text-slate-900 mb-2">{step.title}</h3>
-                    <p className="text-sm text-slate-600 mb-4">{step.description}</p>
+                    <h3 className="text-sm font-semibold text-neutral-900 mb-2">{step.title}</h3>
+                    <p className="text-sm text-neutral-600 mb-4">{step.description}</p>
                     <div className="flex items-center justify-between gap-2">
                         <button
                             onClick={skip}
-                            className="text-xs text-slate-500 hover:text-slate-800"
+                            className="text-xs text-neutral-500 hover:text-neutral-800"
                         >
                             Пропустить
                         </button>
@@ -232,7 +232,7 @@ export function OnboardingTour({ steps, storageKey, onClose, forceShow }: Onboar
                             <button
                                 onClick={prev}
                                 disabled={isFirst}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:pointer-events-none"
                             >
                                 <ArrowLeft className="w-3 h-3" />Назад
                             </button>

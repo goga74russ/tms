@@ -252,7 +252,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-colors ${
             field && errors[field]
                 ? 'border-red-300 focus:ring-red-500'
-                : 'border-slate-200 focus:ring-indigo-500'
+                : 'border-neutral-200 focus:ring-indigo-500'
         }`;
 
     return (
@@ -260,11 +260,11 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
-                <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 flex items-center justify-between rounded-t-2xl">
-                    <h2 className="text-lg font-bold text-slate-900">Новая заявка</h2>
+                <div className="sticky top-0 bg-white px-6 py-4 border-b border-neutral-100 flex items-center justify-between rounded-t-2xl">
+                    <h2 className="text-lg font-bold text-neutral-900">Новая заявка</h2>
                     <button
                         onClick={onClose}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -272,8 +272,8 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
 
                 <div className="px-6 py-5 space-y-5">
                     <div>
-                        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
-                            <User className="w-4 h-4 text-slate-400" />
+                        <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
+                            <User className="w-4 h-4 text-neutral-400" />
                             Контрагент
                         </label>
                         <select
@@ -308,8 +308,8 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
 
                     <div className="grid grid-cols-3 gap-3">
                         <div className="col-span-2">
-                            <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
-                                <Package className="w-4 h-4 text-slate-400" />
+                            <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
+                                <Package className="w-4 h-4 text-neutral-400" />
                                 Груз
                             </label>
                             <input
@@ -322,7 +322,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             {errors.cargoDescription && <p className="text-xs text-red-500 mt-1">{errors.cargoDescription}</p>}
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Вес (кг)</label>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Вес (кг)</label>
                             <input
                                 type="number"
                                 value={form.cargoWeightKg}
@@ -337,7 +337,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Объем (м3)</label>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Объем (м3)</label>
                             <input
                                 type="number"
                                 value={form.cargoVolumeM3}
@@ -349,7 +349,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             />
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Кол-во мест</label>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Кол-во мест</label>
                             <input
                                 type="number"
                                 value={form.cargoPlaces}
@@ -362,21 +362,21 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
                             <input
                                 type="checkbox"
                                 checked={form.multiTierAllowed}
                                 onChange={(e) => setForm((current) => ({ ...current, multiTierAllowed: e.target.checked }))}
-                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
                             />
-                            <Layers className="w-4 h-4 text-slate-400" />
+                            <Layers className="w-4 h-4 text-neutral-400" />
                             Разрешить негабаритную загрузку
                         </label>
                         {form.multiTierAllowed && (
                             <select
                                 value={form.maxTiers}
                                 onChange={(e) => setForm((current) => ({ ...current, maxTiers: e.target.value }))}
-                                className="px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             >
                                 <option value="2">2 яруса</option>
                                 <option value="3">3 яруса</option>
@@ -384,8 +384,8 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         )}
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+                    <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 cursor-pointer">
                             <input
                                 type="checkbox"
                                 checked={form.coldChainRequired}
@@ -395,7 +395,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                     temperatureMin: e.target.checked ? current.temperatureMin : '',
                                     temperatureMax: e.target.checked ? current.temperatureMax : '',
                                 }))}
-                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
                             />
                             <Thermometer className="w-4 h-4 text-blue-500" />
                             Требуется температурный контроль
@@ -404,7 +404,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             <div className="mt-3">
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="text-xs text-slate-500 mb-1 block">Мин. °C <span className="text-red-500">*</span></label>
+                                        <label className="text-xs text-neutral-500 mb-1 block">Мин. °C <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             min={-50}
@@ -418,7 +418,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                         {errors.temperatureMin && <p className="text-xs text-red-500 mt-1">{errors.temperatureMin}</p>}
                                     </div>
                                     <div>
-                                        <label className="text-xs text-slate-500 mb-1 block">Макс. °C <span className="text-red-500">*</span></label>
+                                        <label className="text-xs text-neutral-500 mb-1 block">Макс. °C <span className="text-red-500">*</span></label>
                                         <input
                                             type="number"
                                             min={-50}
@@ -436,8 +436,8 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         )}
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+                    <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 cursor-pointer">
                             <input
                                 type="checkbox"
                                 checked={form.adrEnabled}
@@ -447,7 +447,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                     adrClass: e.target.checked ? current.adrClass : '',
                                     adrUnNumber: e.target.checked ? current.adrUnNumber : '',
                                 }))}
-                                className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                                className="w-4 h-4 rounded border-neutral-300 text-red-600 focus:ring-red-500"
                             />
                             <AlertTriangle className="w-4 h-4 text-red-500" />
                             Опасный груз (ADR)
@@ -455,7 +455,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         {form.adrEnabled && (
                             <div className="mt-3 grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs text-slate-500 mb-1 block">Класс ADR <span className="text-red-500">*</span></label>
+                                    <label className="text-xs text-neutral-500 mb-1 block">Класс ADR <span className="text-red-500">*</span></label>
                                     <select
                                         value={form.adrClass}
                                         onChange={(e) => setForm((current) => ({ ...current, adrClass: e.target.value }))}
@@ -469,7 +469,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                     {errors.adrClass && <p className="text-xs text-red-500 mt-1">{errors.adrClass}</p>}
                                 </div>
                                 <div>
-                                    <label className="text-xs text-slate-500 mb-1 block">UN-номер <span className="text-red-500">*</span></label>
+                                    <label className="text-xs text-neutral-500 mb-1 block">UN-номер <span className="text-red-500">*</span></label>
                                     <input
                                         type="text"
                                         value={form.adrUnNumber}
@@ -486,8 +486,8 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
-                                <Truck className="w-4 h-4 text-slate-400" />
+                            <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
+                                <Truck className="w-4 h-4 text-neutral-400" />
                                 Тип загрузки
                             </label>
                             <select
@@ -502,12 +502,12 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             </select>
                         </div>
                         <div className="flex items-end pb-1">
-                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={form.hydraulicLiftRequired}
                                     onChange={(e) => setForm((current) => ({ ...current, hydraulicLiftRequired: e.target.checked }))}
-                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
                                 />
                                 Нужен гидроборт
                             </label>
@@ -515,12 +515,12 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     </div>
 
                     <div>
-                        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                        <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
                             <MapPin className="w-4 h-4 text-green-500" />
                             Погрузка
                         </label>
-                        <div className="mb-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2 block">
+                        <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-2 block">
                                 Частые адреса погрузки
                             </label>
                             <select
@@ -540,7 +540,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                     ))
                                 )}
                             </select>
-                            <p className="mt-2 text-xs text-slate-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
+                            <p className="mt-2 text-xs text-neutral-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
                         </div>
                         <input
                             type="text"
@@ -554,7 +554,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         />
                         {errors.loadingAddress && <p className="text-xs text-red-500 mt-1">{errors.loadingAddress}</p>}
                         <div className="mt-2">
-                            <label className="text-xs text-slate-500 mb-1 block">
+                            <label className="text-xs text-neutral-500 mb-1 block">
                                 <Clock className="w-3 h-3 inline mr-1" />
                                 Дата погрузки
                             </label>
@@ -562,18 +562,18 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 type="date"
                                 value={form.loadingDate}
                                 onChange={(e) => setForm((current) => ({ ...current, loadingDate: e.target.value }))}
-                                className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                        <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
                             <MapPin className="w-4 h-4 text-red-500" />
                             Выгрузка
                         </label>
-                        <div className="mb-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2 block">
+                        <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-2 block">
                                 Частые адреса выгрузки
                             </label>
                             <select
@@ -593,7 +593,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                     ))
                                 )}
                             </select>
-                            <p className="mt-2 text-xs text-slate-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
+                            <p className="mt-2 text-xs text-neutral-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
                         </div>
                         <input
                             type="text"
@@ -607,7 +607,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         />
                         {errors.unloadingAddress && <p className="text-xs text-red-500 mt-1">{errors.unloadingAddress}</p>}
                         <div className="mt-2">
-                            <label className="text-xs text-slate-500 mb-1 block">
+                            <label className="text-xs text-neutral-500 mb-1 block">
                                 <Clock className="w-3 h-3 inline mr-1" />
                                 Дата выгрузки
                             </label>
@@ -615,24 +615,24 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 type="date"
                                 value={form.unloadingDate}
                                 onChange={(e) => setForm((current) => ({ ...current, unloadingDate: e.target.value }))}
-                                className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">Требования к транспорту</label>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Требования к транспорту</label>
                         <textarea
                             value={form.vehicleRequirements}
                             onChange={(e) => setForm((current) => ({ ...current, vehicleRequirements: e.target.value }))}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                             rows={2}
                             placeholder="Например: рефрижератор, гидроборт, грузоподъемность..."
                         />
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">Подтверждение доставки</label>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Подтверждение доставки</label>
                         <select
                             value={form.confirmationMode}
                             onChange={(e) => setForm((current) => ({ ...current, confirmationMode: e.target.value as ConfirmationMode }))}
@@ -645,11 +645,11 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">Примечание</label>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Примечание</label>
                         <textarea
                             value={form.notes}
                             onChange={(e) => setForm((current) => ({ ...current, notes: e.target.value }))}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                             rows={3}
                             placeholder="Дополнительная информация..."
                         />
@@ -662,11 +662,11 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     </div>
                 )}
 
-                <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-slate-100 flex gap-3 justify-end rounded-b-2xl">
+                <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-neutral-100 flex gap-3 justify-end rounded-b-2xl">
                     <button
                         onClick={onClose}
                         disabled={submitting}
-                        className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                        className="px-4 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors disabled:opacity-50"
                     >
                         Отмена
                     </button>

@@ -43,7 +43,7 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
             draggable
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
-            className="bg-white rounded-lg p-3.5 shadow-sm border border-slate-200 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-slate-300 transition-all duration-150 group"
+            className="bg-white rounded-lg p-3.5 shadow-sm border border-neutral-200 cursor-grab active:cursor-grabbing hover:shadow-md hover:border-neutral-300 transition-all duration-150 group"
         >
             {/* Header: Number + SLA */}
             <div className="flex items-center justify-between mb-2">
@@ -71,26 +71,26 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
             </div>
 
             {/* Client */}
-            <p className="text-sm font-medium text-slate-800 mb-2 truncate">
+            <p className="text-sm font-medium text-neutral-800 mb-2 truncate">
                 {order.contractorName}
             </p>
 
             {/* Cargo */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-1.5">
-                <Package className="w-3.5 h-3.5 text-slate-400" />
+            <div className="flex items-center gap-1.5 text-xs text-neutral-500 mb-1.5">
+                <Package className="w-3.5 h-3.5 text-neutral-400" />
                 <span className="truncate">{order.cargoDescription}</span>
-                <span className="ml-auto font-semibold text-slate-600 whitespace-nowrap">
+                <span className="ml-auto font-semibold text-neutral-600 whitespace-nowrap">
                     {formatWeight(order.cargoWeightKg)}
                 </span>
             </div>
 
             {/* Route */}
             <div className="space-y-1">
-                <div className="flex items-start gap-1.5 text-xs text-slate-500">
+                <div className="flex items-start gap-1.5 text-xs text-neutral-500">
                     <MapPin className="w-3.5 h-3.5 text-green-500 flex-shrink-0 mt-0.5" />
                     <span className="truncate">{order.loadingAddress}</span>
                 </div>
-                <div className="flex items-start gap-1.5 text-xs text-slate-500">
+                <div className="flex items-start gap-1.5 text-xs text-neutral-500">
                     <MapPin className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
                     <span className="truncate">{order.unloadingAddress}</span>
                 </div>
@@ -98,7 +98,7 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
 
             {/* Time */}
             {order.loadingWindowStart && (
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-1.5 text-[10px] text-neutral-400 mt-2 pt-2 border-t border-neutral-100">
                     <Clock className="w-3 h-3" />
                     <span>
                         {new Date(order.loadingWindowStart).toLocaleDateString('ru-RU', {
@@ -112,11 +112,11 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
                 </div>
             )}
             {/* ТТН */}
-            <div className="flex items-center justify-end mt-2 pt-1 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="flex items-center justify-end mt-2 pt-1 border-t border-neutral-100 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                     onMouseDown={e => e.stopPropagation()}
                     onClick={e => { e.stopPropagation(); downloadTtn(order.id, order.number); }}
-                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition-colors"
+                    className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition-colors"
                     title="Скачать ТТН (PDF)"
                 >
                     <FileText className="w-3 h-3" />
@@ -125,7 +125,7 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
                 <button
                     onMouseDown={e => e.stopPropagation()}
                     onClick={e => { e.stopPropagation(); window.open(`/print/ttn/${order.id}`, '_blank'); }}
-                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-purple-600 px-1.5 py-0.5 rounded hover:bg-purple-50 transition-colors ml-1"
+                    className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-purple-600 px-1.5 py-0.5 rounded hover:bg-purple-50 transition-colors ml-1"
                     title="Печать ТТН"
                 >
                     🖨

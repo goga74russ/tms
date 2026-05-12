@@ -82,7 +82,7 @@ export function OdometerHistoryTable() {
     }
 
     const sourceTone: Record<string, string> = {
-        manual: 'bg-slate-100 text-slate-700',
+        manual: 'bg-neutral-100 text-neutral-700',
         gps: 'bg-emerald-100 text-emerald-700',
         waybill: 'bg-indigo-100 text-indigo-700',
         inspection: 'bg-amber-100 text-amber-700',
@@ -90,14 +90,14 @@ export function OdometerHistoryTable() {
 
     return (
         <div className="space-y-4 p-4">
-            <form onSubmit={handleCreate} className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-5">
-                <select value={form.vehicleId} onChange={(e) => setForm((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <form onSubmit={handleCreate} className="grid gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 md:grid-cols-5">
+                <select value={form.vehicleId} onChange={(e) => setForm((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                     <option value="">Выберите ТС</option>
                     {vehicles.map((vehicle: any) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plateNumber}</option>)}
                 </select>
-                <input type="datetime-local" value={form.recordedAt} onChange={(e) => setForm((prev) => ({ ...prev, recordedAt: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input type="number" min="0" value={form.valueKm} onChange={(e) => setForm((prev) => ({ ...prev, valueKm: e.target.value }))} placeholder="Показание, км" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <select value={form.source} onChange={(e) => setForm((prev) => ({ ...prev, source: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <input type="datetime-local" value={form.recordedAt} onChange={(e) => setForm((prev) => ({ ...prev, recordedAt: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm" />
+                <input type="number" min="0" value={form.valueKm} onChange={(e) => setForm((prev) => ({ ...prev, valueKm: e.target.value }))} placeholder="Показание, км" className="rounded-lg border border-neutral-200 px-3 py-2 text-sm" />
+                <select value={form.source} onChange={(e) => setForm((prev) => ({ ...prev, source: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                     <option value="manual">Вручную</option>
                     <option value="gps">GPS</option>
                     <option value="waybill">Путевой лист</option>
@@ -109,11 +109,11 @@ export function OdometerHistoryTable() {
             </form>
 
             <div className="flex gap-3">
-                <select value={filters.vehicleId} onChange={(e) => setFilters((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <select value={filters.vehicleId} onChange={(e) => setFilters((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                     <option value="">Все ТС</option>
                     {vehicles.map((vehicle: any) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plateNumber}</option>)}
                 </select>
-                <select value={filters.source} onChange={(e) => setFilters((prev) => ({ ...prev, source: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                <select value={filters.source} onChange={(e) => setFilters((prev) => ({ ...prev, source: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                     <option value="">Все источники</option>
                     <option value="manual">Вручную</option>
                     <option value="gps">GPS</option>
@@ -122,10 +122,10 @@ export function OdometerHistoryTable() {
                 </select>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="overflow-x-auto rounded-xl border border-neutral-200">
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="bg-slate-50 text-left text-slate-500">
+                        <tr className="bg-neutral-50 text-left text-neutral-500">
                             <th className="px-4 py-3 font-medium">Дата</th>
                             <th className="px-4 py-3 font-medium">ТС</th>
                             <th className="px-4 py-3 font-medium">Показание</th>
@@ -134,24 +134,24 @@ export function OdometerHistoryTable() {
                             <th className="px-4 py-3 font-medium">Рейс</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-neutral-100">
                         {loading ? (
-                            <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400">Загружаем показания...</td></tr>
+                            <tr><td colSpan={6} className="px-4 py-10 text-center text-neutral-400">Загружаем показания...</td></tr>
                         ) : rows.length === 0 ? (
-                            <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400">История одометра пока пуста.</td></tr>
+                            <tr><td colSpan={6} className="px-4 py-10 text-center text-neutral-400">История одометра пока пуста.</td></tr>
                         ) : rows.map((row) => {
                             const vehicle = vehicles.find((item) => item.id === row.vehicleId);
                             const delta = trends.get(row.id);
                             return (
                                 <tr key={row.id}>
-                                    <td className="px-4 py-3 text-slate-600">{formatDateTime(row.recordedAt)}</td>
-                                    <td className="px-4 py-3 font-medium text-slate-800">{vehicle?.plateNumber || row.vehicleId}</td>
-                                    <td className="px-4 py-3 text-slate-600">{Number(row.valueKm).toLocaleString('ru-RU')} км</td>
+                                    <td className="px-4 py-3 text-neutral-600">{formatDateTime(row.recordedAt)}</td>
+                                    <td className="px-4 py-3 font-medium text-neutral-800">{vehicle?.plateNumber || row.vehicleId}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{Number(row.valueKm).toLocaleString('ru-RU')} км</td>
                                     <td className="px-4 py-3">
-                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${sourceTone[row.source] || 'bg-slate-100 text-slate-700'}`}>{row.source}</span>
+                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${sourceTone[row.source] || 'bg-neutral-100 text-neutral-700'}`}>{row.source}</span>
                                     </td>
-                                    <td className="px-4 py-3 text-slate-600">{delta !== undefined ? `+${delta.toLocaleString('ru-RU')} км` : '—'}</td>
-                                    <td className="px-4 py-3 text-slate-600">{row.tripId || '—'}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{delta !== undefined ? `+${delta.toLocaleString('ru-RU')} км` : '—'}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{row.tripId || '—'}</td>
                                 </tr>
                             );
                         })}

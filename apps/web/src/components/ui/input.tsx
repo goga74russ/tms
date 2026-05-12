@@ -53,7 +53,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                     <label
                         htmlFor={inputId}
                         className={cn(
-                            'block text-sm font-medium text-slate-700 mb-1.5',
+                            'block text-sm font-medium text-neutral-700 mb-1.5',
                             hideLabel && 'sr-only',
                         )}
                     >
@@ -63,7 +63,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 )}
                 <div className="relative">
                     {leftAddon && (
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-neutral-400">
                             {leftAddon}
                         </div>
                     )}
@@ -77,21 +77,21 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                         aria-describedby={describedBy}
                         className={cn(
                             'flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm transition-colors',
-                            'placeholder:text-slate-400',
+                            'placeholder:text-neutral-400',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0',
-                            'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60',
+                            'disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:opacity-60',
                             'file:border-0 file:bg-transparent file:text-sm file:font-medium',
                             Boolean(leftAddon) && 'pl-10',
                             Boolean(rightAddon) && 'pr-10',
                             hasError
                                 ? 'border-red-300 focus-visible:ring-red-400 focus-visible:border-red-400'
-                                : 'border-slate-200 focus-visible:ring-brand-400 focus-visible:border-brand-400',
+                                : 'border-neutral-200 focus-visible:ring-brand-400 focus-visible:border-brand-400',
                             className,
                         )}
                         {...props}
                     />
                     {rightAddon && (
-                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-neutral-400">
                             {rightAddon}
                         </div>
                     )}
@@ -101,7 +101,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                         {error}
                     </p>
                 ) : helperText ? (
-                    <p id={helperId} className="mt-1.5 text-xs text-slate-500">
+                    <p id={helperId} className="mt-1.5 text-xs text-neutral-500">
                         {helperText}
                     </p>
                 ) : null}

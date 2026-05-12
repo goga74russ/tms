@@ -431,8 +431,8 @@ function CatalogPicker({ onSelect }: { onSelect: (item: RepairPartCatalogItem) =
       }}
       renderOption={(item) => (
         <div className="flex flex-col gap-0.5 text-left">
-          <span className="font-medium text-slate-900">{item.name}</span>
-          <span className="text-xs text-slate-500">{item.category} · {item.unit} · {formatMoney(item.suggestedUnitCost)} ₽</span>
+          <span className="font-medium text-neutral-900">{item.name}</span>
+          <span className="text-xs text-neutral-500">{item.category} · {item.unit} · {formatMoney(item.suggestedUnitCost)} ₽</span>
         </div>
       )}
       getLabel={(item) => item.name}
@@ -565,9 +565,9 @@ function PlanPartsDialog({
   return (
     <Dialog open={open} onClose={onClose} title="План закупки запчастей">
       <div className="space-y-4">
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <p className="text-sm font-medium text-slate-900">{repair?.description}</p>
-          <p className="mt-1 text-xs text-slate-500">Укажите, какие запчасти нужны, их количество и примерную стоимость.</p>
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+          <p className="text-sm font-medium text-neutral-900">{repair?.description}</p>
+          <p className="mt-1 text-xs text-neutral-500">Укажите, какие запчасти нужны, их количество и примерную стоимость.</p>
         </div>
 
         
@@ -577,7 +577,7 @@ function PlanPartsDialog({
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-slate-700">Требуемые запчасти</label>
+            <label className="text-sm font-medium text-neutral-700">Требуемые запчасти</label>
             <Button type="button" variant="outline" size="sm" className="gap-1" onClick={addPart}>
               <Plus className="h-3.5 w-3.5" />
               Добавить
@@ -585,16 +585,16 @@ function PlanPartsDialog({
           </div>
 
           {catalogMeta && catalogMeta.total === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+            <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-600">
               Справочник з/ч пока пустой. Он начнет наполняться из реальных заявок на ремонт по мере добавления запчастей в план и факт ремонта.
             </div>
           ) : null}
 
           {catalogMeta?.featured?.length ? (
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <div className="rounded-lg border border-neutral-200 bg-white p-3">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Быстрые запчасти</p>
-                <p className="text-xs text-slate-400">{catalogMeta.total} позиций</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Быстрые запчасти</p>
+                <p className="text-xs text-neutral-400">{catalogMeta.total} позиций</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {catalogMeta.featured.map((item) => (
@@ -602,10 +602,10 @@ function PlanPartsDialog({
                     key={item.id}
                     type="button"
                     onClick={() => appendCatalogItem(item)}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                    className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-left text-xs font-medium text-neutral-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
                   >
                     <span>{item.name}</span>
-                    <span className="text-[11px] text-slate-400">{item.category}</span>
+                    <span className="text-[11px] text-neutral-400">{item.category}</span>
                   </button>
                 ))}
               </div>
@@ -613,10 +613,10 @@ function PlanPartsDialog({
           ) : null}
 
           {recentItems.length ? (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Недавние позиции</p>
-                <p className="text-xs text-slate-400">Для ускоренного выбора</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Недавние позиции</p>
+                <p className="text-xs text-neutral-400">Для ускоренного выбора</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {recentItems.map((item) => (
@@ -624,10 +624,10 @@ function PlanPartsDialog({
                     key={`recent-${item.id}`}
                     type="button"
                     onClick={() => appendCatalogItem(item)}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+                    className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-left text-xs font-medium text-neutral-700 transition hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
                   >
                     <span>{item.name}</span>
-                    <span className="text-[11px] text-slate-400">{item.category}</span>
+                    <span className="text-[11px] text-neutral-400">{item.category}</span>
                   </button>
                 ))}
               </div>
@@ -650,8 +650,8 @@ function PlanPartsDialog({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">{template.name}</p>
-                        <p className="text-xs text-slate-500">{template.description}</p>
+                        <p className="text-sm font-semibold text-neutral-900">{template.name}</p>
+                        <p className="text-xs text-neutral-500">{template.description}</p>
                       </div>
                       <span className="text-[11px] font-medium text-emerald-700">{formatMoney(template.totalSuggestedCost)} ₴</span>
                     </div>
@@ -684,8 +684,8 @@ function PlanPartsDialog({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">{bundle.name}</p>
-                        <p className="text-xs text-slate-500">{bundle.description}</p>
+                        <p className="text-sm font-semibold text-neutral-900">{bundle.name}</p>
+                        <p className="text-xs text-neutral-500">{bundle.description}</p>
                       </div>
                       <span className="text-[11px] font-medium text-indigo-700">{formatMoney(bundle.totalSuggestedCost)} ₽</span>
                     </div>
@@ -711,7 +711,7 @@ function PlanPartsDialog({
                   className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                     activeCategory === 'all'
                       ? 'bg-indigo-600 text-white'
-                      : 'border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700'
+                      : 'border border-neutral-200 bg-white text-neutral-600 hover:border-indigo-300 hover:text-indigo-700'
                   }`}
                 >
                   Все категории
@@ -724,7 +724,7 @@ function PlanPartsDialog({
                     className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                       activeCategory === group.category
                         ? 'bg-emerald-600 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-700'
+                        : 'border border-neutral-200 bg-white text-neutral-600 hover:border-emerald-300 hover:text-emerald-700'
                     }`}
                   >
                     {group.category}
@@ -732,10 +732,10 @@ function PlanPartsDialog({
                 ))}
               </div>
               {visibleCategories.map((group) => (
-                <div key={group.category} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <div key={group.category} className="rounded-lg border border-neutral-100 bg-neutral-50 p-3">
                   <div className="mb-2 flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{group.category}</p>
-                    <p className="text-xs text-slate-400">{group.count}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{group.category}</p>
+                    <p className="text-xs text-neutral-400">{group.count}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {group.items.map((item) => (
@@ -743,10 +743,10 @@ function PlanPartsDialog({
                         key={item.id}
                         type="button"
                         onClick={() => appendCatalogItem(item)}
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                        className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-left text-xs font-medium text-neutral-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
                       >
                         <span>{item.name}</span>
-                        <span className="text-[11px] text-slate-400">{formatMoney(item.suggestedUnitCost)} ₽</span>
+                        <span className="text-[11px] text-neutral-400">{formatMoney(item.suggestedUnitCost)} ₽</span>
                       </button>
                     ))}
                   </div>
@@ -795,7 +795,7 @@ function PlanPartsDialog({
                 placeholder="Цена, ₽"
               />
               <Button type="button" variant="ghost" size="icon" onClick={() => removePart(index)}>
-                <Trash2 className="h-4 w-4 text-slate-500" />
+                <Trash2 className="h-4 w-4 text-neutral-500" />
               </Button>
             </div>
           ))}
@@ -815,18 +815,18 @@ function PlanPartsDialog({
           <p className="mt-2 text-xs text-blue-700">Ориентир на этапе заявки. После подтверждения поступления и закрытия ремонта появится фактическая стоимость.</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 rounded-lg border border-slate-200 bg-white p-3">
+        <div className="grid grid-cols-3 gap-3 rounded-lg border border-neutral-200 bg-white p-3">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">План</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(partsSummary.plannedCost)} ₽</p>
+            <p className="text-[11px] uppercase tracking-wide text-neutral-500">План</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-900">{formatMoney(partsSummary.plannedCost)} ₽</p>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">Получено</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(partsSummary.receivedCost)} ₽</p>
+            <p className="text-[11px] uppercase tracking-wide text-neutral-500">Получено</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-900">{formatMoney(partsSummary.receivedCost)} ₽</p>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">Кол-во</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">
+            <p className="text-[11px] uppercase tracking-wide text-neutral-500">Кол-во</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-900">
               {partsSummary.receivedQuantity}/{partsSummary.plannedQuantity}
             </p>
           </div>
@@ -834,7 +834,7 @@ function PlanPartsDialog({
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+        <div className="flex justify-end gap-3 border-t border-neutral-100 pt-4">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
           <Button type="button" onClick={() => void handleSubmit()} disabled={submitting} className="gap-2">
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -886,9 +886,9 @@ function ReceivePartsDialog({
   return (
     <Dialog open={open} onClose={onClose} title="Подтверждение поступления">
       <div className="space-y-4">
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <p className="text-sm font-medium text-slate-900">{repair?.description}</p>
-          <p className="mt-1 text-xs text-slate-500">Отметьте, какие запчасти реально приехали и по какой цене.</p>
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+          <p className="text-sm font-medium text-neutral-900">{repair?.description}</p>
+          <p className="mt-1 text-xs text-neutral-500">Отметьте, какие запчасти реально приехали и по какой цене.</p>
         </div>
 
         
@@ -898,13 +898,13 @@ function ReceivePartsDialog({
 
         <div className="space-y-3">
           {parts.map((part, index) => (
-            <div key={index} className="rounded-lg border border-slate-200 p-3">
+            <div key={index} className="rounded-lg border border-neutral-200 p-3">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium text-slate-900">{partLabel(part)}</p>
-                  <p className="text-xs text-slate-500">План: {part.plannedQuantity || 0} {part.unit || 'шт'} · {formatMoney(Number(part.estimatedUnitCost || 0))} ₽</p>
+                  <p className="text-sm font-medium text-neutral-900">{partLabel(part)}</p>
+                  <p className="text-xs text-neutral-500">План: {part.plannedQuantity || 0} {part.unit || 'шт'} · {formatMoney(Number(part.estimatedUnitCost || 0))} ₽</p>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2 text-sm text-neutral-700">
                   <input
                     type="checkbox"
                     checked={Boolean(part.received)}
@@ -920,7 +920,7 @@ function ReceivePartsDialog({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Фактически получено</label>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Фактически получено</label>
                   <Input
                     type="number"
                     min="0"
@@ -929,7 +929,7 @@ function ReceivePartsDialog({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Фактическая цена</label>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Фактическая цена</label>
                   <Input
                     type="number"
                     min="0"
@@ -945,7 +945,7 @@ function ReceivePartsDialog({
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+        <div className="flex justify-end gap-3 border-t border-neutral-100 pt-4">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
           <Button type="button" onClick={() => void handleSubmit()} disabled={submitting} className="gap-2">
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -1022,9 +1022,9 @@ function CompleteRepairDialog({
   return (
     <Dialog open={open} onClose={onClose} title="Закрытие ремонта">
       <div className="space-y-4">
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <p className="text-sm font-medium text-slate-900">{repair?.description}</p>
-          <p className="mt-1 text-xs text-slate-500">Зафиксируйте работы и фактически использованные запчасти.</p>
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+          <p className="text-sm font-medium text-neutral-900">{repair?.description}</p>
+          <p className="mt-1 text-xs text-neutral-500">Зафиксируйте работы и фактически использованные запчасти.</p>
         </div>
 
         
@@ -1033,26 +1033,26 @@ function CompleteRepairDialog({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Выполненные работы</label>
+          <label className="mb-1.5 block text-sm font-medium text-neutral-700">Выполненные работы</label>
           <textarea
             value={workDescription}
             onChange={(e) => setWorkDescription(e.target.value)}
             rows={4}
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             placeholder="Например: замена шины, замена ремня, проверка крепежа"
           />
         </div>
 
         <div className="space-y-3">
           {parts.map((part, index) => (
-            <div key={index} className="rounded-lg border border-slate-200 p-3">
+            <div key={index} className="rounded-lg border border-neutral-200 p-3">
               <div className="mb-3">
-                <p className="text-sm font-medium text-slate-900">{partLabel(part)}</p>
-                <p className="text-xs text-slate-500">Получено: {part.receivedQuantity || 0} {part.unit || 'шт'} · {formatMoney(Number(part.actualUnitCost || 0))} ₽</p>
+                <p className="text-sm font-medium text-neutral-900">{partLabel(part)}</p>
+                <p className="text-xs text-neutral-500">Получено: {part.receivedQuantity || 0} {part.unit || 'шт'} · {formatMoney(Number(part.actualUnitCost || 0))} ₽</p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Использовано</label>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Использовано</label>
                   <Input
                     type="number"
                     min="0"
@@ -1061,7 +1061,7 @@ function CompleteRepairDialog({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Цена за единицу</label>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Цена за единицу</label>
                   <Input
                     type="number"
                     min="0"
@@ -1075,17 +1075,17 @@ function CompleteRepairDialog({
           ))}
         </div>
 
-        <div className="grid grid-cols-3 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="grid grid-cols-3 gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">План</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(repairSummary.plannedCost)} ₽</p>
+            <p className="text-[11px] uppercase tracking-wide text-neutral-500">План</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-900">{formatMoney(repairSummary.plannedCost)} ₽</p>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">Факт</p>
-            <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(repairSummary.factCost)} ₽</p>
+            <p className="text-[11px] uppercase tracking-wide text-neutral-500">Факт</p>
+            <p className="mt-1 text-sm font-semibold text-neutral-900">{formatMoney(repairSummary.factCost)} ₽</p>
           </div>
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">Отклонение</p>
+            <p className="text-[11px] uppercase tracking-wide text-neutral-500">Отклонение</p>
             <p className={`mt-1 text-sm font-semibold ${repairSummary.variance >= 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
               {repairSummary.variance >= 0 ? '+' : ''}
               {formatMoney(Math.abs(repairSummary.variance))} ₽
@@ -1095,7 +1095,7 @@ function CompleteRepairDialog({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Итоговая сумма ремонта</label>
+            <label className="mb-1.5 block text-sm font-medium text-neutral-700">Итоговая сумма ремонта</label>
             <Input
               type="number"
               min="0"
@@ -1114,7 +1114,7 @@ function CompleteRepairDialog({
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+        <div className="flex justify-end gap-3 border-t border-neutral-100 pt-4">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
           <Button type="button" onClick={() => void handleSubmit()} disabled={submitting} className="gap-2">
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -1366,7 +1366,7 @@ export function RepairKanban({
             >
               {colSummary && colSummary.partCount > 0 ? (
                 <div className="flex flex-wrap gap-1 px-1 pb-1">
-                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                  <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600">
                     План {formatMoney(colSummary.plannedCost)} ₽
                   </span>
                   <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">

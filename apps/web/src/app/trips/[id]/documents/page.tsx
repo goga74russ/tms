@@ -49,7 +49,7 @@ function formatDate(value?: string | null) {
 
 function getStatusBadge(status: string) {
     const found = STATUSES.find((s) => s.value === status);
-    const tone = found?.tone || 'bg-slate-100 text-slate-600 border-slate-200';
+    const tone = found?.tone || 'bg-neutral-100 text-neutral-600 border-neutral-200';
     const label = found?.label || status;
     return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${tone}`}>
@@ -205,7 +205,7 @@ export default function TripDocumentReturnsPage() {
                     <button
                         type="button"
                         onClick={() => router.push('/trips')}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
                     >
                         <ArrowLeft className="w-4 h-4" />
                         К рейсам
@@ -214,8 +214,8 @@ export default function TripDocumentReturnsPage() {
                         <FileText className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Возврат оригиналов</h1>
-                        <p className="text-sm text-slate-500">
+                        <h1 className="text-2xl font-bold text-neutral-900">Возврат оригиналов</h1>
+                        <p className="text-sm text-neutral-500">
                             Рейс {tripNumber || tripId.slice(0, 8) + '...'}
                         </p>
                     </div>
@@ -253,8 +253,8 @@ export default function TripDocumentReturnsPage() {
                             <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
                         </div>
                     ) : sortedRows.length === 0 ? (
-                        <div className="text-center py-16 text-slate-400">
-                            <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                        <div className="text-center py-16 text-neutral-400">
+                            <FileText className="w-12 h-12 mx-auto mb-3 text-neutral-300" />
                             <p className="text-sm">Нет записей. Нажмите «Добавить», чтобы зафиксировать ожидаемый документ.</p>
                         </div>
                     ) : (
@@ -277,13 +277,13 @@ export default function TripDocumentReturnsPage() {
                                     const isClosed = row.status === 'received' || row.status === 'lost';
                                     return (
                                         <TableRow key={row.id}>
-                                            <TableCell className="font-medium text-slate-900">
+                                            <TableCell className="font-medium text-neutral-900">
                                                 {getDocTypeLabel(docType)}
                                             </TableCell>
-                                            <TableCell className="text-slate-600">{formatDate(expected)}</TableCell>
+                                            <TableCell className="text-neutral-600">{formatDate(expected)}</TableCell>
                                             <TableCell>{getStatusBadge(row.status)}</TableCell>
-                                            <TableCell className="text-slate-600">{formatDate(received)}</TableCell>
-                                            <TableCell className="text-slate-500 text-xs max-w-[260px] truncate" title={row.notes || ''}>
+                                            <TableCell className="text-neutral-600">{formatDate(received)}</TableCell>
+                                            <TableCell className="text-neutral-500 text-xs max-w-[260px] truncate" title={row.notes || ''}>
                                                 {row.notes || '—'}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -321,13 +321,13 @@ export default function TripDocumentReturnsPage() {
             <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title="Добавить ожидаемый документ">
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
                             Тип документа <span className="text-red-500">*</span>
                         </label>
                         <select
                             value={createDocType}
                             onChange={(e) => setCreateDocType(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-indigo-300"
                         >
                             {DOCUMENT_TYPES.map((t) => (
                                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -335,21 +335,21 @@ export default function TripDocumentReturnsPage() {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Ожидается до</label>
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">Ожидается до</label>
                         <input
                             type="date"
                             value={createExpectedDate}
                             onChange={(e) => setCreateExpectedDate(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-indigo-300"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Комментарий</label>
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">Комментарий</label>
                         <textarea
                             value={createNotes}
                             onChange={(e) => setCreateNotes(e.target.value)}
                             rows={3}
-                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300"
                             placeholder="Опционально"
                         />
                     </div>
@@ -378,28 +378,28 @@ export default function TripDocumentReturnsPage() {
             >
                 <div className="space-y-4">
                     {updateRow && (
-                        <p className="text-sm text-slate-500">
-                            Документ: <span className="font-semibold text-slate-700">{getDocTypeLabel(updateRow.documentType || updateRow.docType)}</span>
+                        <p className="text-sm text-neutral-500">
+                            Документ: <span className="font-semibold text-neutral-700">{getDocTypeLabel(updateRow.documentType || updateRow.docType)}</span>
                         </p>
                     )}
                     {updateStatus === 'received' && (
                         <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Дата получения</label>
+                            <label className="block text-xs font-semibold text-neutral-700 mb-1.5">Дата получения</label>
                             <input
                                 type="date"
                                 value={updateReceivedDate}
                                 onChange={(e) => setUpdateReceivedDate(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                                className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
                             />
                         </div>
                     )}
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Комментарий</label>
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">Комментарий</label>
                         <textarea
                             value={updateNotes}
                             onChange={(e) => setUpdateNotes(e.target.value)}
                             rows={3}
-                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300"
                             placeholder="Опционально"
                         />
                     </div>

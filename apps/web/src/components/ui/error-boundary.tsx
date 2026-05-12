@@ -47,15 +47,15 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 <div className="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-3">
                     <AlertTriangle className="w-7 h-7" />
                 </div>
-                <h3 className="text-base font-semibold text-slate-800">Что-то пошло не так</h3>
-                <p className="mt-1.5 text-sm text-slate-500 max-w-md">
+                <h3 className="text-base font-semibold text-neutral-800">Что-то пошло не так</h3>
+                <p className="mt-1.5 text-sm text-neutral-500 max-w-md">
                     {error.message || 'Произошла непредвиденная ошибка. Попробуйте перезагрузить страницу.'}
                 </p>
                 <div className="mt-4 flex gap-2">
                     <button
                         type="button"
                         onClick={this.reset}
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
                     >
                         <RotateCcw className="w-4 h-4" />
                         Повторить
@@ -63,7 +63,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                     <button
                         type="button"
                         onClick={() => typeof window !== 'undefined' && window.location.reload()}
-                        className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                        className="inline-flex items-center gap-2 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
                     >
                         Перезагрузить страницу
                     </button>

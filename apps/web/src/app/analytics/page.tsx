@@ -271,8 +271,8 @@ export default function AnalyticsPage() {
                         <BarChart3 className="w-5 h-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-semibold text-slate-900">Аналитика</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">
+                        <h1 className="text-2xl font-semibold text-neutral-900">Аналитика</h1>
+                        <p className="text-sm text-neutral-500 mt-0.5">
                             Предиктивное ТО и маржинальность рейсов
                         </p>
                     </div>
@@ -318,11 +318,11 @@ export default function AnalyticsPage() {
             </div>
 
             {fleetHealth?.readiness && (
-                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Fleet readiness</p>
-                            <p className="text-sm font-medium text-slate-800">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">Fleet readiness</p>
+                            <p className="text-sm font-medium text-neutral-800">
                                 Готовность парка по известным ограничениям
                             </p>
                         </div>
@@ -379,22 +379,22 @@ export default function AnalyticsPage() {
                 </TabsList>
 
                 <TabsContent value="maintenance" className="m-0">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200">
                         {loadingAlerts ? (
                             <div className="flex items-center justify-center py-20">
                                 <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
                             </div>
                         ) : alerts.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                            <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
                                 <ShieldCheck className="w-12 h-12 mb-3 text-emerald-400" />
                                 <p className="text-sm font-medium text-emerald-600">Все ТС в норме</p>
-                                <p className="text-xs text-slate-400 mt-1">Нет предупреждений о ТО</p>
+                                <p className="text-xs text-neutral-400 mt-1">Нет предупреждений о ТО</p>
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="bg-slate-50 text-slate-500 text-left">
+                                        <tr className="bg-neutral-50 text-neutral-500 text-left">
                                             <th className="px-4 py-3 font-medium">Госномер</th>
                                             <th className="px-4 py-3 font-medium">Марка / Модель</th>
                                             <th className="px-4 py-3 font-medium">Тип</th>
@@ -402,17 +402,17 @@ export default function AnalyticsPage() {
                                             <th className="px-4 py-3 font-medium">Сообщение</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100">
+                                    <tbody className="divide-y divide-neutral-100">
                                         {alerts.map((a, i) => (
-                                            <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-4 py-3 font-mono font-medium text-slate-900">
+                                            <tr key={i} className="hover:bg-neutral-50 transition-colors">
+                                                <td className="px-4 py-3 font-mono font-medium text-neutral-900">
                                                     {a.plateNumber}
                                                 </td>
-                                                <td className="px-4 py-3 text-slate-600">
+                                                <td className="px-4 py-3 text-neutral-600">
                                                     {a.make} {a.model}
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
+                                                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-600">
                                                         {typeName(a.type)}
                                                     </span>
                                                 </td>
@@ -421,7 +421,7 @@ export default function AnalyticsPage() {
                                                         {a.severity === 'critical' ? '🔴 Критично' : '🟡 Внимание'}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3 text-slate-600 max-w-xs truncate">
+                                                <td className="px-4 py-3 text-neutral-600 max-w-xs truncate">
                                                     {a.message}
                                                 </td>
                                             </tr>
@@ -434,10 +434,10 @@ export default function AnalyticsPage() {
                 </TabsContent>
 
                 <TabsContent value="profitability" className="m-0">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200">
                         {/* Summary bar */}
                         {summary && (
-                            <div className="grid grid-cols-4 gap-4 p-4 border-b border-slate-200 bg-slate-50/50 rounded-t-xl">
+                            <div className="grid grid-cols-4 gap-4 p-4 border-b border-neutral-200 bg-neutral-50/50 rounded-t-xl">
                                 <MiniStat label="Выручка" value={`${fmt(summary.totalRevenue)} ₽`} />
                                 <MiniStat label="Себестоимость" value={`${fmt(summary.totalCost)} ₽`} />
                                 <MiniStat label="Маржа" value={`${fmt(summary.totalMargin)} ₽`} />
@@ -450,7 +450,7 @@ export default function AnalyticsPage() {
                                 <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
                             </div>
                         ) : trips.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                            <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
                                 <Gauge className="w-12 h-12 mb-3" />
                                 <p className="text-sm">Нет завершённых рейсов</p>
                             </div>
@@ -458,7 +458,7 @@ export default function AnalyticsPage() {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="bg-slate-50 text-slate-500 text-left">
+                                        <tr className="bg-neutral-50 text-neutral-500 text-left">
                                             <th className="px-4 py-3 font-medium">Рейс</th>
                                             <th className="px-4 py-3 font-medium">ТС</th>
                                             <th className="px-4 py-3 font-medium">Водитель</th>
@@ -469,22 +469,22 @@ export default function AnalyticsPage() {
                                             <th className="px-4 py-3 font-medium w-32">Визуал</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100">
+                                    <tbody className="divide-y divide-neutral-100">
                                         {trips.map(t => (
-                                            <tr key={t.tripId} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-4 py-3 font-mono text-sm text-slate-700">
+                                            <tr key={t.tripId} className="hover:bg-neutral-50 transition-colors">
+                                                <td className="px-4 py-3 font-mono text-sm text-neutral-700">
                                                     {t.tripNumber}
                                                 </td>
-                                                <td className="px-4 py-3 font-mono text-slate-600">
+                                                <td className="px-4 py-3 font-mono text-neutral-600">
                                                     {t.vehiclePlate}
                                                 </td>
-                                                <td className="px-4 py-3 text-slate-600">
+                                                <td className="px-4 py-3 text-neutral-600">
                                                     {t.driverName || '—'}
                                                 </td>
-                                                <td className="px-4 py-3 text-right font-medium text-slate-900">
+                                                <td className="px-4 py-3 text-right font-medium text-neutral-900">
                                                     {fmt(t.revenue)} ₽
                                                 </td>
-                                                <td className="px-4 py-3 text-right text-slate-600">
+                                                <td className="px-4 py-3 text-right text-neutral-600">
                                                     {fmt(t.cost)} ₽
                                                 </td>
                                                 <td className={`px-4 py-3 text-right font-semibold ${marginColor(t.marginPercent)}`}>
@@ -494,7 +494,7 @@ export default function AnalyticsPage() {
                                                     {fmtPct(t.marginPercent)}
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <div className="w-full bg-slate-100 rounded-full h-2">
+                                                    <div className="w-full bg-neutral-100 rounded-full h-2">
                                                         <div
                                                             className={`h-2 rounded-full transition-all ${t.marginPercent >= 15 ? 'bg-emerald-500'
                                                                 : t.marginPercent >= 0 ? 'bg-amber-500'
@@ -514,8 +514,8 @@ export default function AnalyticsPage() {
                 </TabsContent>
 
                 <TabsContent value="fuel" className="m-0">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-                        <div className="grid grid-cols-1 gap-4 border-b border-slate-200 bg-slate-50/60 p-4 md:grid-cols-4">
+                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200">
+                        <div className="grid grid-cols-1 gap-4 border-b border-neutral-200 bg-neutral-50/60 p-4 md:grid-cols-4">
                             <MiniStat label="Заправок" value={String(fuelSummary.fillCount)} />
                             <MiniStat label="Топливо, л" value={`${fmt(fuelSummary.totalLiters)} л`} />
                             <MiniStat label="Топливо, ₽" value={`${fmt(fuelSummary.totalCost)} ₽`} />
@@ -530,7 +530,7 @@ export default function AnalyticsPage() {
                                 <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
                             </div>
                         ) : fuelRows.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                            <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
                                 <Droplets className="w-12 h-12 mb-3" />
                                 <p className="text-sm">Нет данных по топливу за период</p>
                             </div>
@@ -538,7 +538,7 @@ export default function AnalyticsPage() {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="bg-slate-50 text-slate-500 text-left">
+                                        <tr className="bg-neutral-50 text-neutral-500 text-left">
                                             <th className="px-4 py-3 font-medium">ТС</th>
                                             <th className="px-4 py-3 font-medium text-right">Литры</th>
                                             <th className="px-4 py-3 font-medium text-right">Стоимость</th>
@@ -548,20 +548,20 @@ export default function AnalyticsPage() {
                                             <th className="px-4 py-3 font-medium text-right">Отклонение</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100">
+                                    <tbody className="divide-y divide-neutral-100">
                                         {[...fuelRows].sort((a, b) => Math.abs((b.deviation ?? 0)) - Math.abs((a.deviation ?? 0))).map((row) => (
-                                            <tr key={row.vehicleId} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-4 py-3 font-mono font-medium text-slate-900">{row.plateNumber}</td>
-                                                <td className="px-4 py-3 text-right text-slate-700">{fmt(row.totalLiters)}</td>
-                                                <td className="px-4 py-3 text-right text-slate-700">{fmt(row.totalCost)} ₽</td>
-                                                <td className="px-4 py-3 text-right text-slate-600">{row.fillCount}</td>
-                                                <td className="px-4 py-3 text-right font-medium text-slate-900">
+                                            <tr key={row.vehicleId} className="hover:bg-neutral-50 transition-colors">
+                                                <td className="px-4 py-3 font-mono font-medium text-neutral-900">{row.plateNumber}</td>
+                                                <td className="px-4 py-3 text-right text-neutral-700">{fmt(row.totalLiters)}</td>
+                                                <td className="px-4 py-3 text-right text-neutral-700">{fmt(row.totalCost)} ₽</td>
+                                                <td className="px-4 py-3 text-right text-neutral-600">{row.fillCount}</td>
+                                                <td className="px-4 py-3 text-right font-medium text-neutral-900">
                                                     {row.consumptionPer100km !== null ? `${row.consumptionPer100km.toFixed(1)} л/100` : '—'}
                                                 </td>
-                                                <td className="px-4 py-3 text-right text-slate-600">
+                                                <td className="px-4 py-3 text-right text-neutral-600">
                                                     {row.norm !== null ? `${row.norm.toFixed(1)} л/100` : '—'}
                                                 </td>
-                                                <td className={`px-4 py-3 text-right font-semibold ${row.deviation && row.deviation > 0 ? 'text-red-600' : row.deviation && row.deviation < 0 ? 'text-emerald-600' : 'text-slate-600'}`}>
+                                                <td className={`px-4 py-3 text-right font-semibold ${row.deviation && row.deviation > 0 ? 'text-red-600' : row.deviation && row.deviation < 0 ? 'text-emerald-600' : 'text-neutral-600'}`}>
                                                     {row.deviation !== null ? `${row.deviation > 0 ? '+' : ''}${row.deviation.toFixed(1)} л/100` : '—'}
                                                 </td>
                                             </tr>
@@ -574,9 +574,9 @@ export default function AnalyticsPage() {
                 </TabsContent>
 
                 <TabsContent value="ktg" className="m-0">
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200">
                         {ktgSummary && (
-                            <div className="grid grid-cols-1 gap-4 border-b border-slate-200 bg-slate-50/60 p-4 md:grid-cols-4">
+                            <div className="grid grid-cols-1 gap-4 border-b border-neutral-200 bg-neutral-50/60 p-4 md:grid-cols-4">
                                 <MiniStat label="Сред. КТГ" value={ktgSummary.avgKtgPercent !== null ? `${ktgSummary.avgKtgPercent.toFixed(1)}%` : '—'} />
                                 <MiniStat label="Простой, ч" value={`${fmt(ktgSummary.totalDowntimeHours)} ч`} />
                                 <MiniStat label="Работа, ч" value={`${fmt(ktgSummary.totalWorkingHours)} ч`} />
@@ -589,7 +589,7 @@ export default function AnalyticsPage() {
                                 <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
                             </div>
                         ) : ktgRows.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                            <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
                                 <TimerReset className="w-12 h-12 mb-3" />
                                 <p className="text-sm">Нет данных КТГ за период</p>
                             </div>
@@ -597,7 +597,7 @@ export default function AnalyticsPage() {
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="bg-slate-50 text-slate-500 text-left">
+                                        <tr className="bg-neutral-50 text-neutral-500 text-left">
                                             <th className="px-4 py-3 font-medium">ТС</th>
                                             <th className="px-4 py-3 font-medium text-right">КТГ</th>
                                             <th className="px-4 py-3 font-medium text-right">Работа, ч</th>
@@ -605,16 +605,16 @@ export default function AnalyticsPage() {
                                             <th className="px-4 py-3 font-medium text-right">Период, ч</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-100">
+                                    <tbody className="divide-y divide-neutral-100">
                                         {[...ktgRows].sort((a, b) => (a.ktgPercent ?? 0) - (b.ktgPercent ?? 0)).map((row) => (
-                                            <tr key={row.vehicleId} className="hover:bg-slate-50 transition-colors">
-                                                <td className="px-4 py-3 font-mono font-medium text-slate-900">{row.plateNumber}</td>
+                                            <tr key={row.vehicleId} className="hover:bg-neutral-50 transition-colors">
+                                                <td className="px-4 py-3 font-mono font-medium text-neutral-900">{row.plateNumber}</td>
                                                 <td className={`px-4 py-3 text-right font-semibold ${row.ktgPercent !== null && row.ktgPercent < 75 ? 'text-red-600' : row.ktgPercent !== null && row.ktgPercent < 90 ? 'text-amber-600' : 'text-emerald-600'}`}>
                                                     {row.ktgPercent !== null ? `${row.ktgPercent.toFixed(1)}%` : '—'}
                                                 </td>
-                                                <td className="px-4 py-3 text-right text-slate-700">{row.workingHours.toFixed(1)}</td>
-                                                <td className="px-4 py-3 text-right text-slate-700">{row.downtimeHours.toFixed(1)}</td>
-                                                <td className="px-4 py-3 text-right text-slate-500">{row.totalPeriodHours.toFixed(1)}</td>
+                                                <td className="px-4 py-3 text-right text-neutral-700">{row.workingHours.toFixed(1)}</td>
+                                                <td className="px-4 py-3 text-right text-neutral-700">{row.downtimeHours.toFixed(1)}</td>
+                                                <td className="px-4 py-3 text-right text-neutral-500">{row.totalPeriodHours.toFixed(1)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -641,13 +641,13 @@ function StatCard({ icon, label, value, color, subtitle }: {
         indigo: 'bg-indigo-50 border-indigo-100',
     };
     return (
-        <div className={`rounded-xl border p-4 ${bgMap[color] || 'bg-slate-50 border-slate-100'}`}>
+        <div className={`rounded-xl border p-4 ${bgMap[color] || 'bg-neutral-50 border-neutral-100'}`}>
             <div className="flex items-center gap-3">
                 {icon}
                 <div>
-                    <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
-                    <p className="text-xl font-bold text-slate-900 mt-0.5">{value}</p>
-                    {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
+                    <p className="text-xs text-neutral-500 uppercase tracking-wider">{label}</p>
+                    <p className="text-xl font-bold text-neutral-900 mt-0.5">{value}</p>
+                    {subtitle && <p className="mt-1 text-xs text-neutral-500">{subtitle}</p>}
                 </div>
             </div>
         </div>
@@ -657,8 +657,8 @@ function StatCard({ icon, label, value, color, subtitle }: {
 function MiniStat({ label, value }: { label: string; value: string }) {
     return (
         <div className="text-center">
-            <p className="text-xs text-slate-500">{label}</p>
-            <p className="text-sm font-semibold text-slate-800 mt-0.5">{value}</p>
+            <p className="text-xs text-neutral-500">{label}</p>
+            <p className="text-sm font-semibold text-neutral-800 mt-0.5">{value}</p>
         </div>
     );
 }

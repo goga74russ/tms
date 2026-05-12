@@ -74,25 +74,25 @@ export function MaintenanceScheduleTable() {
         planned: 'bg-blue-100 text-blue-700',
         overdue: 'bg-red-100 text-red-700',
         done: 'bg-emerald-100 text-emerald-700',
-        cancelled: 'bg-slate-100 text-slate-600',
+        cancelled: 'bg-neutral-100 text-neutral-600',
     };
 
     return (
         <div className="space-y-4 p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="grid gap-3 md:grid-cols-3">
-                    <select value={filters.vehicleId} onChange={(e) => setFilters((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                    <select value={filters.vehicleId} onChange={(e) => setFilters((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                         <option value="">Все ТС</option>
                         {vehicles.map((vehicle: any) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plateNumber}</option>)}
                     </select>
-                    <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                    <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                         <option value="">Все статусы</option>
                         <option value="planned">План</option>
                         <option value="overdue">Просрочено</option>
                         <option value="done">Выполнено</option>
                         <option value="cancelled">Отменено</option>
                     </select>
-                    <select value={filters.maintenanceType} onChange={(e) => setFilters((prev) => ({ ...prev, maintenanceType: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                    <select value={filters.maintenanceType} onChange={(e) => setFilters((prev) => ({ ...prev, maintenanceType: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                         <option value="">Все виды ТО</option>
                         <option value="to1">ТО-1</option>
                         <option value="to2">ТО-2</option>
@@ -102,7 +102,7 @@ export function MaintenanceScheduleTable() {
                     </select>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => loadData()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                    <button onClick={() => loadData()} className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50">
                         <RefreshCw className="h-4 w-4" />
                         Обновить
                     </button>
@@ -113,10 +113,10 @@ export function MaintenanceScheduleTable() {
                 </div>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="overflow-x-auto rounded-xl border border-neutral-200">
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="bg-slate-50 text-left text-slate-500">
+                        <tr className="bg-neutral-50 text-left text-neutral-500">
                             <th className="px-4 py-3 font-medium">ТС</th>
                             <th className="px-4 py-3 font-medium">Вид ТО</th>
                             <th className="px-4 py-3 font-medium">Плановая дата</th>
@@ -128,35 +128,35 @@ export function MaintenanceScheduleTable() {
                             <th className="px-4 py-3 font-medium">Действия</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-neutral-100">
                         {loading ? (
-                            <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-400">Загружаем план ТО...</td></tr>
+                            <tr><td colSpan={9} className="px-4 py-10 text-center text-neutral-400">Загружаем план ТО...</td></tr>
                         ) : rows.length === 0 ? (
-                            <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-400">Плановых работ пока нет.</td></tr>
+                            <tr><td colSpan={9} className="px-4 py-10 text-center text-neutral-400">Плановых работ пока нет.</td></tr>
                         ) : rows.map((record) => {
                             const visualStatus = record.computedStatus || record.status;
                             const draft = completeDrafts[record.id] || { actualDate: '', actualOdometerKm: '', cost: '' };
                             return (
                                 <tr key={record.id}>
-                                    <td className="px-4 py-3 font-medium text-slate-800">{record.vehicle?.plateNumber || record.vehicleId}</td>
-                                    <td className="px-4 py-3 text-slate-600">{record.maintenanceType}</td>
-                                    <td className="px-4 py-3 text-slate-600">{formatDate(record.plannedDate)}</td>
-                                    <td className="px-4 py-3 text-slate-600">{record.plannedOdometerKm ? `${Number(record.plannedOdometerKm).toLocaleString('ru-RU')} км` : '—'}</td>
+                                    <td className="px-4 py-3 font-medium text-neutral-800">{record.vehicle?.plateNumber || record.vehicleId}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{record.maintenanceType}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{formatDate(record.plannedDate)}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{record.plannedOdometerKm ? `${Number(record.plannedOdometerKm).toLocaleString('ru-RU')} км` : '—'}</td>
                                     <td className="px-4 py-3">
-                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusTone[visualStatus] || 'bg-slate-100 text-slate-700'}`}>{visualStatus}</span>
+                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusTone[visualStatus] || 'bg-neutral-100 text-neutral-700'}`}>{visualStatus}</span>
                                     </td>
-                                    <td className="px-4 py-3 text-slate-600">{record.actualDate ? formatDate(record.actualDate) : '—'}</td>
-                                    <td className="px-4 py-3 text-slate-600">{record.cost ? formatMoney(record.cost) : '—'}</td>
-                                    <td className="px-4 py-3 text-slate-600">{record.contractor || '—'}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{record.actualDate ? formatDate(record.actualDate) : '—'}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{record.cost ? formatMoney(record.cost) : '—'}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{record.contractor || '—'}</td>
                                     <td className="px-4 py-3">
                                         {(visualStatus === 'planned' || visualStatus === 'overdue') ? (
                                             <div className="space-y-2">
                                                 <div className="grid gap-2 md:grid-cols-3">
-                                                    <input type="date" value={draft.actualDate} onChange={(e) => setCompleteDrafts((prev) => ({ ...prev, [record.id]: { ...draft, actualDate: e.target.value } }))} className="rounded-lg border border-slate-200 px-2 py-1 text-xs" />
-                                                    <input type="number" min="0" value={draft.actualOdometerKm} onChange={(e) => setCompleteDrafts((prev) => ({ ...prev, [record.id]: { ...draft, actualOdometerKm: e.target.value } }))} placeholder="Км" className="rounded-lg border border-slate-200 px-2 py-1 text-xs" />
-                                                    <input type="number" step="0.01" min="0" value={draft.cost} onChange={(e) => setCompleteDrafts((prev) => ({ ...prev, [record.id]: { ...draft, cost: e.target.value } }))} placeholder="Стоимость" className="rounded-lg border border-slate-200 px-2 py-1 text-xs" />
+                                                    <input type="date" value={draft.actualDate} onChange={(e) => setCompleteDrafts((prev) => ({ ...prev, [record.id]: { ...draft, actualDate: e.target.value } }))} className="rounded-lg border border-neutral-200 px-2 py-1 text-xs" />
+                                                    <input type="number" min="0" value={draft.actualOdometerKm} onChange={(e) => setCompleteDrafts((prev) => ({ ...prev, [record.id]: { ...draft, actualOdometerKm: e.target.value } }))} placeholder="Км" className="rounded-lg border border-neutral-200 px-2 py-1 text-xs" />
+                                                    <input type="number" step="0.01" min="0" value={draft.cost} onChange={(e) => setCompleteDrafts((prev) => ({ ...prev, [record.id]: { ...draft, cost: e.target.value } }))} placeholder="Стоимость" className="rounded-lg border border-neutral-200 px-2 py-1 text-xs" />
                                                 </div>
-                                                <button onClick={() => markDone(record)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                                                <button onClick={() => markDone(record)} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50">
                                                     Отметить выполненным
                                                 </button>
                                             </div>

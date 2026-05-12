@@ -56,7 +56,7 @@ export function Paywall({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/60 backdrop-blur-sm p-4"
             onClick={onClose}
             role="dialog"
             aria-modal="true"
@@ -68,7 +68,7 @@ export function Paywall({
             >
                 <button
                     onClick={onClose}
-                    className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100"
+                    className="absolute top-3 right-3 text-neutral-400 hover:text-neutral-700 p-1 rounded-lg hover:bg-neutral-100"
                     aria-label="Закрыть"
                 >
                     <X className="w-5 h-5" />
@@ -79,12 +79,12 @@ export function Paywall({
                         <Lock className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
-                        <h2 id="paywall-title" className="font-semibold text-slate-900">Требуется тариф {PLAN_LABELS[requiredPlan]}</h2>
-                        <p className="text-xs text-slate-500">Ваш текущий тариф: {PLAN_LABELS[currentPlan]}</p>
+                        <h2 id="paywall-title" className="font-semibold text-neutral-900">Требуется тариф {PLAN_LABELS[requiredPlan]}</h2>
+                        <p className="text-xs text-neutral-500">Ваш текущий тариф: {PLAN_LABELS[currentPlan]}</p>
                     </div>
                 </div>
 
-                <p className="text-sm text-slate-700 leading-relaxed mb-6">{text}</p>
+                <p className="text-sm text-neutral-700 leading-relaxed mb-6">{text}</p>
 
                 <div className="flex items-center gap-2">
                     <button
@@ -96,7 +96,7 @@ export function Paywall({
                     </button>
                     <button
                         onClick={onClose}
-                        className="px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg"
+                        className="px-4 py-2.5 text-sm text-neutral-600 hover:bg-neutral-100 rounded-lg"
                     >
                         Не сейчас
                     </button>

@@ -188,19 +188,19 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
         .slice(0, 50);
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white">
-            <div className="border-b border-slate-100 bg-gradient-to-r from-cyan-50 to-blue-50 px-4 py-3 flex items-start justify-between gap-3 flex-wrap">
+        <div className="rounded-2xl border border-neutral-200 bg-white">
+            <div className="border-b border-neutral-100 bg-gradient-to-r from-cyan-50 to-blue-50 px-4 py-3 flex items-start justify-between gap-3 flex-wrap">
                 <div>
-                    <div className="flex items-center gap-2 text-slate-900 font-semibold">
+                    <div className="flex items-center gap-2 text-neutral-900 font-semibold">
                         <Thermometer className="w-4 h-4 text-blue-600" />
                         Температурный режим
                         {tripNumber && (
-                            <span className="text-xs font-normal text-slate-500">
+                            <span className="text-xs font-normal text-neutral-500">
                                 · рейс {tripNumber}
                             </span>
                         )}
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-neutral-500 mt-0.5">
                         SLA контроль холодовой цепи и журнал замеров
                     </p>
                 </div>
@@ -247,38 +247,38 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
 
                 {/* Summary tiles */}
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                    <div className="rounded-xl border border-slate-200 p-3">
-                        <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                    <div className="rounded-xl border border-neutral-200 p-3">
+                        <p className="text-[11px] uppercase tracking-wide text-neutral-500">
                             SLA
                         </p>
-                        <p className="text-sm font-semibold text-slate-900 mt-1">
+                        <p className="text-sm font-semibold text-neutral-900 mt-1">
                             {slaMin !== null ? `${Number(slaMin).toFixed(1)}` : '—'}
                             {' / '}
                             {slaMax !== null ? `${Number(slaMax).toFixed(1)}` : '—'}{' '}
-                            <span className="text-xs text-slate-500">°C</span>
+                            <span className="text-xs text-neutral-500">°C</span>
                         </p>
                     </div>
-                    <div className="rounded-xl border border-slate-200 p-3">
-                        <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                    <div className="rounded-xl border border-neutral-200 p-3">
+                        <p className="text-[11px] uppercase tracking-wide text-neutral-500">
                             Мин
                         </p>
-                        <p className="text-sm font-semibold text-slate-900 mt-1">
+                        <p className="text-sm font-semibold text-neutral-900 mt-1">
                             {formatTemp(summary?.minC ?? null)}
                         </p>
                     </div>
-                    <div className="rounded-xl border border-slate-200 p-3">
-                        <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                    <div className="rounded-xl border border-neutral-200 p-3">
+                        <p className="text-[11px] uppercase tracking-wide text-neutral-500">
                             Макс
                         </p>
-                        <p className="text-sm font-semibold text-slate-900 mt-1">
+                        <p className="text-sm font-semibold text-neutral-900 mt-1">
                             {formatTemp(summary?.maxC ?? null)}
                         </p>
                     </div>
-                    <div className="rounded-xl border border-slate-200 p-3">
-                        <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                    <div className="rounded-xl border border-neutral-200 p-3">
+                        <p className="text-[11px] uppercase tracking-wide text-neutral-500">
                             Средняя
                         </p>
-                        <p className="text-sm font-semibold text-slate-900 mt-1">
+                        <p className="text-sm font-semibold text-neutral-900 mt-1">
                             {formatTemp(summary?.avgC ?? null)}
                         </p>
                     </div>
@@ -286,19 +286,19 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                         className={`rounded-xl border p-3 ${
                             hasBreaches
                                 ? 'border-rose-300 bg-rose-50'
-                                : 'border-slate-200'
+                                : 'border-neutral-200'
                         }`}
                     >
                         <p
                             className={`text-[11px] uppercase tracking-wide ${
-                                hasBreaches ? 'text-rose-700' : 'text-slate-500'
+                                hasBreaches ? 'text-rose-700' : 'text-neutral-500'
                             }`}
                         >
                             Нарушений
                         </p>
                         <p
                             className={`text-sm font-semibold mt-1 ${
-                                hasBreaches ? 'text-rose-700' : 'text-slate-900'
+                                hasBreaches ? 'text-rose-700' : 'text-neutral-900'
                             }`}
                         >
                             {breachCount} <span className="text-xs">из {summary?.count ?? 0}</span>
@@ -307,13 +307,13 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                 </div>
 
                 {/* Chart */}
-                <div className="rounded-xl border border-slate-200 p-3">
+                <div className="rounded-xl border border-neutral-200 p-3">
                     {loading ? (
                         <div className="h-64 flex items-center justify-center">
-                            <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
+                            <Loader2 className="w-6 h-6 text-neutral-400 animate-spin" />
                         </div>
                     ) : chartData.length === 0 ? (
-                        <div className="h-64 flex flex-col items-center justify-center text-slate-400 text-sm">
+                        <div className="h-64 flex flex-col items-center justify-center text-neutral-400 text-sm">
                             <Thermometer className="w-8 h-8 mb-2" />
                             Нет данных о температуре
                         </div>
@@ -393,8 +393,8 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                 </div>
 
                 {/* Recent readings table */}
-                <div className="rounded-xl border border-slate-200 overflow-hidden">
-                    <div className="bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-100 flex items-center justify-between">
+                <div className="rounded-xl border border-neutral-200 overflow-hidden">
+                    <div className="bg-neutral-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 border-b border-neutral-100 flex items-center justify-between">
                         <span>Последние замеры ({recentReadings.length})</span>
                         {hasBreaches && (
                             <span className="inline-flex items-center gap-1 text-rose-700">
@@ -404,14 +404,14 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                         )}
                     </div>
                     {recentReadings.length === 0 ? (
-                        <div className="px-3 py-6 text-sm text-slate-400 text-center">
+                        <div className="px-3 py-6 text-sm text-neutral-400 text-center">
                             Замеров нет
                         </div>
                     ) : (
                         <div className="max-h-72 overflow-y-auto">
                             <table className="w-full text-xs">
-                                <thead className="bg-slate-50 sticky top-0">
-                                    <tr className="text-slate-500 text-left">
+                                <thead className="bg-neutral-50 sticky top-0">
+                                    <tr className="text-neutral-500 text-left">
                                         <th className="px-3 py-2 font-medium">Время</th>
                                         <th className="px-3 py-2 font-medium">°C</th>
                                         <th className="px-3 py-2 font-medium">Источник</th>
@@ -419,28 +419,28 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                                         <th className="px-3 py-2 font-medium">Статус</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-neutral-100">
                                     {recentReadings.map((r) => (
                                         <tr
                                             key={r.id}
                                             className={r.breach ? 'bg-rose-50/60' : ''}
                                         >
-                                            <td className="px-3 py-1.5 text-slate-700">
+                                            <td className="px-3 py-1.5 text-neutral-700">
                                                 {formatTime(r.recordedAt)}
                                             </td>
                                             <td
                                                 className={`px-3 py-1.5 font-semibold ${
                                                     r.breach
                                                         ? 'text-rose-700'
-                                                        : 'text-slate-900'
+                                                        : 'text-neutral-900'
                                                 }`}
                                             >
                                                 {Number(r.tempC).toFixed(1)}
                                             </td>
-                                            <td className="px-3 py-1.5 text-slate-500">
+                                            <td className="px-3 py-1.5 text-neutral-500">
                                                 {r.source || '—'}
                                             </td>
-                                            <td className="px-3 py-1.5 text-slate-500">
+                                            <td className="px-3 py-1.5 text-neutral-500">
                                                 {r.sensorId || '—'}
                                             </td>
                                             <td className="px-3 py-1.5">
@@ -474,7 +474,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
             >
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
                             Температура (°C) <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -483,11 +483,11 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                             value={addTemp}
                             onChange={(e) => setAddTemp(e.target.value)}
                             placeholder="например, 4.2"
-                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
                             Сенсор (опционально)
                         </label>
                         <input
@@ -495,7 +495,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                             value={addSensorId}
                             onChange={(e) => setAddSensorId(e.target.value)}
                             placeholder="ID сенсора"
-                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
                         />
                     </div>
                     {addError && (

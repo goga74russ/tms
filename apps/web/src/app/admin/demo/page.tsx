@@ -110,7 +110,7 @@ export default function AdminDemoPage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <ul className="text-sm text-slate-600 space-y-1 list-disc pl-5">
+                        <ul className="text-sm text-neutral-600 space-y-1 list-disc pl-5">
                             <li>1 контрагент с договором и тарифом 25 ₽/км</li>
                             <li>2 ТС (тент + рефрижератор) и 1 прицеп</li>
                             <li>2 водителя с действующими ВУ</li>
@@ -129,7 +129,7 @@ export default function AdminDemoPage() {
                             Создать демо-данные
                         </Button>
                         {busy === 'generate' && progress > 0 && (
-                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div className="w-full bg-neutral-100 rounded-full h-2 overflow-hidden">
                                 <div
                                     className="bg-indigo-500 h-2 transition-all duration-200"
                                     style={{ width: `${progress}%` }}
@@ -147,8 +147,8 @@ export default function AdminDemoPage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <p className="text-sm text-slate-600">
-                            Удалит все объекты с пометкой <code className="px-1 py-0.5 rounded bg-slate-100 text-xs font-mono">[ДЕМО]</code> в рамках вашей организации.
+                        <p className="text-sm text-neutral-600">
+                            Удалит все объекты с пометкой <code className="px-1 py-0.5 rounded bg-neutral-100 text-xs font-mono">[ДЕМО]</code> в рамках вашей организации.
                         </p>
                         <Button
                             onClick={handleCleanup}
@@ -208,9 +208,9 @@ export default function AdminDemoPage() {
                     <CardContent>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             {Object.entries(cleanup.deleted).map(([k, v]) => (
-                                <div key={k} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                                    <div className="text-xs text-slate-500">{k}</div>
-                                    <div className="text-lg font-semibold text-slate-900">{v}</div>
+                                <div key={k} className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
+                                    <div className="text-xs text-neutral-500">{k}</div>
+                                    <div className="text-lg font-semibold text-neutral-900">{v}</div>
                                 </div>
                             ))}
                         </div>
@@ -225,10 +225,10 @@ function SummaryItem({ label, count, href }: { label: string; count: number; hre
     return (
         <a
             href={href}
-            className="block rounded-lg border border-slate-200 bg-white px-3 py-2 hover:border-indigo-400 hover:shadow-sm transition-all"
+            className="block rounded-lg border border-neutral-200 bg-white px-3 py-2 hover:border-indigo-400 hover:shadow-sm transition-all"
         >
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className="text-lg font-semibold text-slate-900">{count}</div>
+            <div className="text-xs text-neutral-500">{label}</div>
+            <div className="text-lg font-semibold text-neutral-900">{count}</div>
         </a>
     );
 }

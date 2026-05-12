@@ -71,7 +71,7 @@ const getStatusColor = (status: string) => {
         case 'paid': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
         case 'sent': return 'bg-blue-50 text-blue-700 border-blue-200';
         case 'overdue': return 'bg-red-50 text-red-700 border-red-200';
-        case 'cancelled': return 'bg-slate-100 text-slate-500 border-slate-200';
+        case 'cancelled': return 'bg-neutral-100 text-neutral-500 border-neutral-200';
         default: return 'bg-amber-50 text-amber-700 border-amber-200';
     }
 };
@@ -545,7 +545,7 @@ export default function FinanceDashboard() {
     const overdueCount = periodInvoices.filter(i => i.status === 'overdue').length;
 
     return (
-        <div className="p-8 space-y-6 bg-slate-50 min-h-screen text-slate-900">
+        <div className="p-8 space-y-6 bg-neutral-50 min-h-screen text-neutral-900">
             <DashboardHeader
                 title="Финансы и Бухгалтерия"
                 subtitle="Управление счетами, актами и тарификацией рейсов"
@@ -616,7 +616,7 @@ export default function FinanceDashboard() {
             <Card>
                 <div className="p-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                        <h2 className="text-xl font-semibold text-slate-900">Реестр счетов</h2>
+                        <h2 className="text-xl font-semibold text-neutral-900">Реестр счетов</h2>
                         <div className="flex flex-wrap gap-3 items-center">
                             <Input
                                 placeholder="Поиск по номеру..."
@@ -662,14 +662,14 @@ export default function FinanceDashboard() {
                                     {filteredInvoices.map(inv => (
                                         <TableRow key={inv.id} className="cursor-pointer" onClick={() => setSelectedInvoice(inv)}>
                                             <TableCell className="font-medium text-blue-600" title={inv.number}>{shortInvoiceNo(inv.number)}</TableCell>
-                                            <TableCell className="text-slate-500">{invoiceTypeLabels[inv.type] || inv.type}</TableCell>
-                                            <TableCell className="text-slate-500">
+                                            <TableCell className="text-neutral-500">{invoiceTypeLabels[inv.type] || inv.type}</TableCell>
+                                            <TableCell className="text-neutral-500">
                                                 {inv.periodStart && format(new Date(inv.periodStart), 'dd.MM', { locale: ru })}
                                                 {' — '}
                                                 {inv.periodEnd && format(new Date(inv.periodEnd), 'dd.MM.yy', { locale: ru })}
                                             </TableCell>
                                             <TableCell>{fmtMoney(inv.subtotal)}</TableCell>
-                                            <TableCell className="text-slate-400">{fmtMoney(inv.vatAmount)}</TableCell>
+                                            <TableCell className="text-neutral-400">{fmtMoney(inv.vatAmount)}</TableCell>
                                             <TableCell className="font-semibold">{fmtMoney(inv.total)}</TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className={getStatusColor(inv.status)}>
@@ -713,15 +713,15 @@ export default function FinanceDashboard() {
                 {selectedInvoice && (
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div><span className="text-slate-500">Тип:</span> <span className="font-medium">{invoiceTypeLabels[selectedInvoice.type] || selectedInvoice.type}</span></div>
-                            <div><span className="text-slate-500">Статус:</span> <Badge variant="outline" className={getStatusColor(selectedInvoice.status)}>{getStatusText(selectedInvoice.status)}</Badge></div>
-                            <div><span className="text-slate-500">Подитог:</span> <span className="font-medium">{fmtMoney(selectedInvoice.subtotal)}</span></div>
-                            <div><span className="text-slate-500">НДС:</span> <span className="font-medium">{fmtMoney(selectedInvoice.vatAmount)}</span></div>
-                            <div className="col-span-2"><span className="text-slate-500">Итого:</span> <span className="text-2xl font-bold">{fmtMoney(selectedInvoice.total)}</span></div>
-                            <div><span className="text-slate-500">Период:</span> {selectedInvoice.periodStart && format(new Date(selectedInvoice.periodStart), 'dd.MM.yyyy')} — {selectedInvoice.periodEnd && format(new Date(selectedInvoice.periodEnd), 'dd.MM.yyyy')}</div>
-                            <div><span className="text-slate-500">Создан:</span> {selectedInvoice.createdAt && format(new Date(selectedInvoice.createdAt), 'd MMM yyyy, HH:mm', { locale: ru })}</div>
+                            <div><span className="text-neutral-500">Тип:</span> <span className="font-medium">{invoiceTypeLabels[selectedInvoice.type] || selectedInvoice.type}</span></div>
+                            <div><span className="text-neutral-500">Статус:</span> <Badge variant="outline" className={getStatusColor(selectedInvoice.status)}>{getStatusText(selectedInvoice.status)}</Badge></div>
+                            <div><span className="text-neutral-500">Подитог:</span> <span className="font-medium">{fmtMoney(selectedInvoice.subtotal)}</span></div>
+                            <div><span className="text-neutral-500">НДС:</span> <span className="font-medium">{fmtMoney(selectedInvoice.vatAmount)}</span></div>
+                            <div className="col-span-2"><span className="text-neutral-500">Итого:</span> <span className="text-2xl font-bold">{fmtMoney(selectedInvoice.total)}</span></div>
+                            <div><span className="text-neutral-500">Период:</span> {selectedInvoice.periodStart && format(new Date(selectedInvoice.periodStart), 'dd.MM.yyyy')} — {selectedInvoice.periodEnd && format(new Date(selectedInvoice.periodEnd), 'dd.MM.yyyy')}</div>
+                            <div><span className="text-neutral-500">Создан:</span> {selectedInvoice.createdAt && format(new Date(selectedInvoice.createdAt), 'd MMM yyyy, HH:mm', { locale: ru })}</div>
                             {selectedInvoice.tripIds && selectedInvoice.tripIds.length > 0 && (
-                                <div className="col-span-2"><span className="text-slate-500">Рейсов:</span> <span className="font-medium">{selectedInvoice.tripIds.length}</span></div>
+                                <div className="col-span-2"><span className="text-neutral-500">Рейсов:</span> <span className="font-medium">{selectedInvoice.tripIds.length}</span></div>
                             )}
                         </div>
 
@@ -733,10 +733,10 @@ export default function FinanceDashboard() {
 
                         {/* Document returns section */}
                         {selectedInvoice.tripIds && selectedInvoice.tripIds.length > 0 && (
-                            <div className="border-t border-slate-200 pt-4">
-                                <p className="text-sm font-medium text-slate-700 mb-3">Оригиналы документов:</p>
+                            <div className="border-t border-neutral-200 pt-4">
+                                <p className="text-sm font-medium text-neutral-700 mb-3">Оригиналы документов:</p>
                                 {docReturnsLoading ? (
-                                    <p className="text-xs text-slate-400">Загрузка...</p>
+                                    <p className="text-xs text-neutral-400">Загрузка...</p>
                                 ) : (
                                     <div className="flex flex-wrap gap-3">
                                         {(['ttn', 'upd', 'act'] as const).map(dt => {
@@ -748,7 +748,7 @@ export default function FinanceDashboard() {
                                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                 : anyOverdue
                                                     ? 'bg-red-50 text-red-700 border-red-200'
-                                                    : 'bg-slate-100 text-slate-500 border-slate-200';
+                                                    : 'bg-neutral-100 text-neutral-500 border-neutral-200';
                                             return (
                                                 <div key={dt} className="flex items-center gap-2">
                                                     <Badge variant="outline" className={color + ' px-3 py-1'}>
@@ -771,11 +771,11 @@ export default function FinanceDashboard() {
                             </div>
                         )}
 
-                        <div className="border-t border-slate-200 pt-4">
-                            <p className="text-sm font-medium text-slate-700 mb-3">Оплата, допуслуги и сверка:</p>
+                        <div className="border-t border-neutral-200 pt-4">
+                            <p className="text-sm font-medium text-neutral-700 mb-3">Оплата, допуслуги и сверка:</p>
                             <div className="grid gap-3 lg:grid-cols-3">
-                                <div className="rounded-lg border border-slate-200 p-3 space-y-2">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Оплата</p>
+                                <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Оплата</p>
                                     <Input type="number" step="0.01" placeholder="Сумма" value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
                                     <Input placeholder="Платежное поручение" value={paymentForm.paymentRef} onChange={(e) => setPaymentForm({ ...paymentForm, paymentRef: e.target.value })} />
                                     <Input placeholder="Плательщик" value={paymentForm.payerName} onChange={(e) => setPaymentForm({ ...paymentForm, payerName: e.target.value })} />
@@ -784,11 +784,11 @@ export default function FinanceDashboard() {
                                     </Button>
                                 </div>
 
-                                <div className="rounded-lg border border-slate-200 p-3 space-y-2">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Допуслуга</p>
+                                <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Допуслуга</p>
                                     <Select value={serviceForm.serviceType} onChange={(e) => handleServiceTypeChange(e.target.value)} options={ADDITIONAL_SERVICE_OPTIONS} />
                                     <Input placeholder="Описание" value={serviceForm.description} onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })} />
-                                    <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-slate-700">
+                                    <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-neutral-700">
                                         <div className="flex items-center justify-between gap-2">
                                             <span>Расчет: {SERVICE_UNIT_LABELS[SERVICE_RULES[serviceForm.serviceType]?.unit || 'service']}</span>
                                             <span className="font-semibold">{fmtMoney(calculateServiceAmount() || 0)}</span>
@@ -809,8 +809,8 @@ export default function FinanceDashboard() {
                                     </Button>
                                 </div>
 
-                                <div className="rounded-lg border border-slate-200 p-3 space-y-2">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Сверка 1С</p>
+                                <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Сверка 1С</p>
                                     <Input placeholder="Документ 1С" value={reconciliationForm.externalDocumentId} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalDocumentId: e.target.value })} />
                                     <Input placeholder="Статус 1С" value={reconciliationForm.externalStatus} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalStatus: e.target.value })} />
                                     <div className="grid grid-cols-2 gap-2">
@@ -824,8 +824,8 @@ export default function FinanceDashboard() {
                             </div>
                         </div>
 
-                        <div className="border-t border-slate-200 pt-4">
-                            <p className="text-sm font-medium text-slate-700 mb-3">Сменить статус:</p>
+                        <div className="border-t border-neutral-200 pt-4">
+                            <p className="text-sm font-medium text-neutral-700 mb-3">Сменить статус:</p>
                             <div className="flex flex-wrap gap-2">
                                 {['draft', 'sent', 'paid', 'overdue', 'cancelled'].filter(s => s !== selectedInvoice.status).map(s => (
                                     <Button
@@ -852,21 +852,21 @@ export default function FinanceDashboard() {
                 title="Сформировать счета пакетом"
             >
                 <div className="space-y-4">
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-neutral-500">
                         Создаст счета по завершённым рейсам за период. Можно ограничить одним контрагентом.
                     </p>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">С</label>
+                            <label className="block text-xs font-medium text-neutral-600 mb-1">С</label>
                             <Input type="date" value={bulkFrom} onChange={(e) => setBulkFrom(e.target.value)} />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">По</label>
+                            <label className="block text-xs font-medium text-neutral-600 mb-1">По</label>
                             <Input type="date" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Контрагент (необязательно)</label>
+                        <label className="block text-xs font-medium text-neutral-600 mb-1">Контрагент (необязательно)</label>
                         <Select
                             value={bulkContractorId}
                             onChange={(e) => setBulkContractorId(e.target.value)}

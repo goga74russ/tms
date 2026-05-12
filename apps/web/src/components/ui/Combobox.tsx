@@ -153,7 +153,7 @@ export function Combobox<T>({
         <div ref={containerRef} className={`relative ${className}`}>
             {/* Input */}
             <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
                     {isLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
@@ -174,13 +174,13 @@ export function Combobox<T>({
                         focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400
                         ${selected
                             ? 'border-emerald-300 bg-emerald-50/50'
-                            : 'border-slate-200 bg-white'
+                            : 'border-neutral-200 bg-white'
                         }`}
                 />
                 {(query || selected) && (
                     <button
                         onClick={handleClear}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition"
                     >
                         <X className="w-3.5 h-3.5" />
                     </button>
@@ -191,10 +191,10 @@ export function Combobox<T>({
             {isOpen && (
                 <div
                     ref={listRef}
-                    className="absolute z-50 w-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto"
+                    className="absolute z-50 w-full mt-1.5 bg-white border border-neutral-200 rounded-xl shadow-xl max-h-60 overflow-y-auto"
                 >
                     {options.length === 0 ? (
-                        <div className="px-4 py-3 text-sm text-slate-400 text-center">
+                        <div className="px-4 py-3 text-sm text-neutral-400 text-center">
                             {emptyMessage}
                         </div>
                     ) : (
@@ -202,10 +202,10 @@ export function Combobox<T>({
                             <button
                                 key={getKey(item)}
                                 onClick={() => handleSelect(item)}
-                                className={`w-full text-left px-3 py-2.5 text-sm transition-colors border-b border-slate-50 last:border-0
+                                className={`w-full text-left px-3 py-2.5 text-sm transition-colors border-b border-neutral-50 last:border-0
                                     ${idx === highlightIndex
                                         ? 'bg-indigo-50 text-indigo-900'
-                                        : 'hover:bg-slate-50 text-slate-700'
+                                        : 'hover:bg-neutral-50 text-neutral-700'
                                     }
                                     ${selected && getKey(item) === getKey(selected)
                                         ? 'bg-emerald-50'

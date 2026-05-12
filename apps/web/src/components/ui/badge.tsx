@@ -4,9 +4,9 @@ type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
 
 const variantStyles: Record<BadgeVariant, string> = {
     default: "bg-blue-600 text-white border-transparent",
-    secondary: "bg-slate-100 text-slate-900 border-transparent",
+    secondary: "bg-neutral-100 text-neutral-900 border-transparent",
     destructive: "bg-red-600 text-white border-transparent",
-    outline: "bg-transparent border-slate-200 text-slate-700",
+    outline: "bg-transparent border-neutral-200 text-neutral-700",
 };
 
 interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {

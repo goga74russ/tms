@@ -66,60 +66,60 @@ function CreateContractorModal({ onClose, onCreated }: { onClose: () => void; on
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-slate-900">Новый контрагент</h2>
-                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="w-5 h-5" /></button>
+                <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-neutral-900">Новый контрагент</h2>
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="px-6 py-5 space-y-4">
                     <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">Наименование *</label>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Наименование *</label>
                         <input type="text" value={name} onChange={e => setName(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="ООО Логистика" />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">ИНН *</label>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">ИНН *</label>
                             <input type="text" value={inn} onChange={e => setInn(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 placeholder="7701234567" />
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">КПП</label>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">КПП</label>
                             <input type="text" value={kpp} onChange={e => setKpp(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 placeholder="770101001" />
                         </div>
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">Юридический адрес *</label>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Юридический адрес *</label>
                         <input type="text" value={legalAddress} onChange={e => setLegalAddress(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="г. Москва, ул. Примерная, 1" />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Телефон</label>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Телефон</label>
                             <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 placeholder="+7 (495) 123-45-67" />
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Email</label>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Email</label>
                             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 placeholder="info@company.ru" />
                         </div>
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">Контактное лицо</label>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Контактное лицо</label>
                         <input type="text" value={contactPerson} onChange={e => setContactPerson(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             placeholder="Иванов И.И." />
                     </div>
                     {error && <p className="text-sm text-red-600">{error}</p>}
                 </div>
-                <div className="px-6 py-4 border-t border-slate-100 flex gap-3 justify-end">
+                <div className="px-6 py-4 border-t border-neutral-100 flex gap-3 justify-end">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
                     <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>Создать</Button>
                 </div>
@@ -164,7 +164,7 @@ export default function ContractorsPage() {
             id: 'name',
             header: 'Наименование',
             accessor: (r) => r.name,
-            cell: (r) => <span className="font-medium text-slate-900">{r.name}</span>,
+            cell: (r) => <span className="font-medium text-neutral-900">{r.name}</span>,
             sortable: true,
             sticky: 'left',
             minWidth: '220px',
@@ -181,7 +181,7 @@ export default function ContractorsPage() {
             id: 'kpp',
             header: 'КПП',
             accessor: (r) => r.kpp || '',
-            cell: (r) => r.kpp || <span className="text-slate-400">—</span>,
+            cell: (r) => r.kpp || <span className="text-neutral-400">—</span>,
             monospace: true,
             width: '120px',
         },
@@ -189,21 +189,21 @@ export default function ContractorsPage() {
             id: 'legalAddress',
             header: 'Адрес',
             accessor: (r) => r.legalAddress,
-            cell: (r) => <span className="text-slate-600 truncate block max-w-xs">{r.legalAddress}</span>,
+            cell: (r) => <span className="text-neutral-600 truncate block max-w-xs">{r.legalAddress}</span>,
             minWidth: '240px',
         },
         {
             id: 'phone',
             header: 'Телефон',
             accessor: (r) => r.phone || '',
-            cell: (r) => r.phone || <span className="text-slate-400">—</span>,
+            cell: (r) => r.phone || <span className="text-neutral-400">—</span>,
             width: '160px',
         },
         {
             id: 'email',
             header: 'Email',
             accessor: (r) => r.email || '',
-            cell: (r) => r.email || <span className="text-slate-400">—</span>,
+            cell: (r) => r.email || <span className="text-neutral-400">—</span>,
             width: '180px',
         },
         {
@@ -242,8 +242,8 @@ export default function ContractorsPage() {
                         <Building2 className="w-5 h-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-semibold text-slate-900">Контрагенты</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">Реестр клиентов, перевозчиков и поставщиков</p>
+                        <h1 className="text-2xl font-semibold text-neutral-900">Контрагенты</h1>
+                        <p className="text-sm text-neutral-500 mt-0.5">Реестр клиентов, перевозчиков и поставщиков</p>
                     </div>
                 </div>
                 <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>

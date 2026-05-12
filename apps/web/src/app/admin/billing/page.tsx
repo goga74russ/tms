@@ -151,7 +151,7 @@ export default function AdminBillingPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-semibold text-slate-900">MRR по тарифам</CardTitle>
+                        <CardTitle className="text-base font-semibold text-neutral-900">MRR по тарифам</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="h-[180px] w-full">
@@ -172,7 +172,7 @@ export default function AdminBillingPage() {
                 </Card>
                 <Card>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-semibold text-slate-900">Отток за 6 месяцев</CardTitle>
+                        <CardTitle className="text-base font-semibold text-neutral-900">Отток за 6 месяцев</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="h-[180px] w-full flex items-center justify-center">
@@ -188,25 +188,25 @@ export default function AdminBillingPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap items-center gap-3 bg-white border border-slate-200 rounded-lg p-3">
-                <label className="text-xs text-slate-500 flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3 bg-white border border-neutral-200 rounded-lg p-3">
+                <label className="text-xs text-neutral-500 flex items-center gap-2">
                     Статус:
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-                        className="border border-slate-200 rounded-md px-2 py-1 text-sm text-slate-700"
+                        className="border border-neutral-200 rounded-md px-2 py-1 text-sm text-neutral-700"
                     >
                         {STATUS_FILTER.map((s) => (
                             <option key={s} value={s}>{s === '' ? 'Все' : STATUS_LABEL[s]}</option>
                         ))}
                     </select>
                 </label>
-                <label className="text-xs text-slate-500 flex items-center gap-2">
+                <label className="text-xs text-neutral-500 flex items-center gap-2">
                     Тариф:
                     <select
                         value={planFilter}
                         onChange={(e) => setPlanFilter(e.target.value as typeof planFilter)}
-                        className="border border-slate-200 rounded-md px-2 py-1 text-sm text-slate-700"
+                        className="border border-neutral-200 rounded-md px-2 py-1 text-sm text-neutral-700"
                     >
                         <option value="">Все</option>
                         {PLAN_IDS.map((p) => (
@@ -217,9 +217,9 @@ export default function AdminBillingPage() {
             </div>
 
             {/* Table */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
-                    <thead className="bg-slate-50 text-slate-600 text-xs uppercase">
+                    <thead className="bg-neutral-50 text-neutral-600 text-xs uppercase">
                         <tr>
                             <th className="text-left px-4 py-2.5">Организация</th>
                             <th className="text-left px-4 py-2.5">ИНН</th>
@@ -229,7 +229,7 @@ export default function AdminBillingPage() {
                             <th className="text-right px-4 py-2.5">MRR</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-neutral-100">
                         {rows === null ? (
                             Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} columns={6} />)
                         ) : filtered.length === 0 ? (
@@ -243,9 +243,9 @@ export default function AdminBillingPage() {
                                 </div>
                             </td></tr>
                         ) : filtered.map((r) => (
-                            <tr key={r.organizationId} className="hover:bg-slate-50">
-                                <td className="px-4 py-2.5 text-slate-900">{r.organizationName}</td>
-                                <td className="px-4 py-2.5 text-slate-600 font-mono text-xs">{r.inn ?? '—'}</td>
+                            <tr key={r.organizationId} className="hover:bg-neutral-50">
+                                <td className="px-4 py-2.5 text-neutral-900">{r.organizationName}</td>
+                                <td className="px-4 py-2.5 text-neutral-600 font-mono text-xs">{r.inn ?? '—'}</td>
                                 <td className="px-4 py-2.5">
                                     <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
                                         {r.planId}
@@ -256,15 +256,15 @@ export default function AdminBillingPage() {
                                         r.status === 'active' ? 'bg-emerald-50 text-emerald-700' :
                                         r.status === 'trial' ? 'bg-amber-50 text-amber-700' :
                                         r.status === 'past_due' || r.status === 'suspended' ? 'bg-rose-50 text-rose-700' :
-                                        'bg-slate-100 text-slate-600'
+                                        'bg-neutral-100 text-neutral-600'
                                     }`}>
                                         {STATUS_LABEL[r.status]}
                                     </span>
                                 </td>
-                                <td className="px-4 py-2.5 text-slate-600 text-xs">
+                                <td className="px-4 py-2.5 text-neutral-600 text-xs">
                                     {r.currentPeriodEnd ? new Date(r.currentPeriodEnd).toLocaleDateString('ru-RU') : '—'}
                                 </td>
-                                <td className="px-4 py-2.5 text-right font-medium text-slate-900">
+                                <td className="px-4 py-2.5 text-right font-medium text-neutral-900">
                                     {r.mrrKopecks > 0 ? formatKopecks(r.mrrKopecks) : '—'}
                                 </td>
                             </tr>

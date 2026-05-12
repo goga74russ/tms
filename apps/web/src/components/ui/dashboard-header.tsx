@@ -19,7 +19,7 @@ const iconToneClasses: Record<DashboardIconTone, string> = {
     warning: 'bg-amber-50 text-amber-600',
     danger: 'bg-red-50 text-red-600',
     info: 'bg-blue-50 text-blue-600',
-    neutral: 'bg-slate-100 text-slate-600',
+    neutral: 'bg-neutral-100 text-neutral-600',
 };
 
 export interface DashboardHeaderProps {
@@ -60,8 +60,8 @@ export function DashboardHeader({
                         </div>
                     )}
                     <div className="min-w-0">
-                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 truncate">{title}</h1>
-                        {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+                        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 truncate">{title}</h1>
+                        {subtitle && <p className="text-sm text-neutral-500 mt-0.5">{subtitle}</p>}
                     </div>
                 </div>
                 {showPeriod && (
@@ -78,7 +78,7 @@ export function DashboardHeader({
                             aria-busy={refreshing || undefined}
                             aria-label="Обновить"
                             title="Обновить"
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 transition-colors"
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-50 transition-colors"
                         >
                             <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
                         </button>

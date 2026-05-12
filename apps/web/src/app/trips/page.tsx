@@ -187,7 +187,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-    planning: 'bg-slate-100 text-slate-700',
+    planning: 'bg-neutral-100 text-neutral-700',
     assigned: 'bg-blue-100 text-blue-700',
     waybill_draft: 'bg-indigo-100 text-indigo-700',
     inspection: 'bg-cyan-100 text-cyan-700',
@@ -438,32 +438,32 @@ function TimelineCard({
     const items = (events || []).slice().reverse().slice(0, 6);
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
             <div className="flex items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-                    {subtitle && <p className="mt-1 text-sm font-semibold text-slate-900">{subtitle}</p>}
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{title}</p>
+                    {subtitle && <p className="mt-1 text-sm font-semibold text-neutral-900">{subtitle}</p>}
                 </div>
-                <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                     {items.length}
                 </span>
             </div>
             <div className="mt-3 space-y-2">
                 {items.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                    <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500">
                         {emptyLabel}
                     </div>
                 ) : items.map((event) => (
-                    <div key={event.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <div key={event.id} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(event.severity, 'bg')}`}>
                                         {docEventIcon(event.isProblem, event.severity)}
                                     </span>
-                                    <p className="text-sm font-semibold text-slate-900">{event.title}</p>
+                                    <p className="text-sm font-semibold text-neutral-900">{event.title}</p>
                                 </div>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-neutral-500">
                                     {(event.documentType ? transportDocumentLabel(event.documentType) : etrnTitleTypeLabel(event.titleType))} · {complianceStatusLabel(event.status)}
                                 </p>
                             </div>
@@ -471,7 +471,7 @@ function TimelineCard({
                                 {event.isProblem ? 'проблема' : eventSeverityLabel(event.severity)}
                             </span>
                         </div>
-                        <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                        <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-neutral-500">
                             <span>{event.message || 'Готово к следующему шагу'}</span>
                             <span>{formatTimelineDate(event.at)}</span>
                         </div>
@@ -506,8 +506,8 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
         <div key={item.id} className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{transportDocumentLabel(item.documentType)}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-600">{item.reason || item.blockedReason || 'Требуется проверка документа'}</p>
+                    <p className="text-sm font-semibold text-neutral-900">{transportDocumentLabel(item.documentType)}</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">{item.reason || item.blockedReason || 'Требуется проверка документа'}</p>
                 </div>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                     item.severity === 'blocking' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
@@ -515,17 +515,17 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                     {item.severity === 'blocking' ? 'блокер' : 'риск'}
                 </span>
             </div>
-            <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
-                <span className="rounded-full bg-slate-50 px-2 py-0.5">{dossierItemStatusLabel(item.status)}</span>
-                <span className="rounded-full bg-slate-50 px-2 py-0.5">{item.required ? 'обязательный' : 'необязательный'}</span>
+            <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-neutral-500">
+                <span className="rounded-full bg-neutral-50 px-2 py-0.5">{dossierItemStatusLabel(item.status)}</span>
+                <span className="rounded-full bg-neutral-50 px-2 py-0.5">{item.required ? 'обязательный' : 'необязательный'}</span>
                 {item.sourceDocumentKind && (
-                    <span className="rounded-full bg-slate-50 px-2 py-0.5">{item.sourceDocumentKind}</span>
+                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">{item.sourceDocumentKind}</span>
                 )}
                 {item.dueAt && (
-                    <span className="rounded-full bg-slate-50 px-2 py-0.5">срок: {formatTimelineDate(item.dueAt)}</span>
+                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">срок: {formatTimelineDate(item.dueAt)}</span>
                 )}
                 {item.completedAt && (
-                    <span className="rounded-full bg-slate-50 px-2 py-0.5">закрыт: {formatTimelineDate(item.completedAt)}</span>
+                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">закрыт: {formatTimelineDate(item.completedAt)}</span>
                 )}
             </div>
         </div>
@@ -540,10 +540,10 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                     <p className={`text-xs font-semibold uppercase tracking-wide ${canClose ? 'text-emerald-600' : 'text-rose-600'}`}>
                         Закрытие рейса
                     </p>
-                    <p className="mt-1 text-base font-semibold text-slate-900">
+                    <p className="mt-1 text-base font-semibold text-neutral-900">
                         {canClose ? 'Рейс можно закрывать по досье' : 'Что мешает закрыть рейс'}
                     </p>
-                    <p className="mt-1 text-xs text-slate-600">
+                    <p className="mt-1 text-xs text-neutral-600">
                         Проверка документов: {closeGate.summary?.completedItems ?? 0}/{closeGate.summary?.totalItems ?? 0} готово · обновлено {formatTimelineDate(closeGate.generatedAt)}
                     </p>
                 </div>
@@ -563,16 +563,16 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
             </div>
 
             <div className="mt-3 grid gap-3 md:grid-cols-4">
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Обязательных: {closeGate.summary?.requiredItems ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Исключений: {closeGate.summary?.exceptionedItems ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     ЭТРН: {closeGate.etrn?.present ? 'есть' : closeGate.etrn?.missing ? 'нет' : 'проверить'}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Бумажное исключение: {closeGate.etrn?.paperException ? 'да' : 'нет'}
                 </div>
             </div>
@@ -594,29 +594,29 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                 <div id="document-queue" className="mt-4 rounded-2xl border border-white bg-white p-4 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Очередь документов</p>
-                            <p className="mt-1 text-sm font-semibold text-slate-900">Отсутствующие, просроченные и исключения</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Очередь документов</p>
+                            <p className="mt-1 text-sm font-semibold text-neutral-900">Отсутствующие, просроченные и исключения</p>
                         </div>
-                        <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                        <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                             {documentQueue.length} {documentQueue.length === 1 ? 'действие' : 'действий'}
                         </span>
                     </div>
                     <div className="mt-3 grid gap-2">
                         {documentQueue.map((item) => (
-                            <div key={item.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                            <div key={item.id} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <p className="text-sm font-semibold text-slate-900">{transportDocumentLabel(item.documentType)}</p>
-                                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${bucketClass[item.bucket] || 'bg-slate-100 text-slate-600'}`}>
+                                            <p className="text-sm font-semibold text-neutral-900">{transportDocumentLabel(item.documentType)}</p>
+                                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${bucketClass[item.bucket] || 'bg-neutral-100 text-neutral-600'}`}>
                                                 {bucketLabel(item.bucket)}
                                             </span>
-                                            <span className="inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                            <span className="inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
                                                 ответств.: {roleLabel[item.responsibleRole] || item.responsibleRole}
                                             </span>
                                         </div>
-                                        <p className="mt-1 text-xs text-slate-600">{item.action}</p>
-                                        <p className="mt-1 text-[11px] text-slate-500">
+                                        <p className="mt-1 text-xs text-neutral-600">{item.action}</p>
+                                        <p className="mt-1 text-[11px] text-neutral-500">
                                             {dossierItemStatusLabel(item.status)}
                                             {item.dueAt ? ` · до ${formatTimelineDate(item.dueAt)}` : ''}
                                             {item.reason ? ` · ${item.reason}` : ''}
@@ -657,11 +657,11 @@ function DossierNextActions({
     const repairUrl = `/repair?action=create&tripId=${encodeURIComponent(trip.id || '')}&vehicleId=${encodeURIComponent(trip.vehicleId || '')}&source=mechanic`;
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Дальнейшие действия</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">Ремонт, возврат, закрытие — быстрые ссылки</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Дальнейшие действия</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">Ремонт, возврат, закрытие — быстрые ссылки</p>
                 </div>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                     closeGate?.canClose ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
@@ -673,45 +673,45 @@ function DossierNextActions({
                 <button
                     type="button"
                     onClick={() => window.open(repairUrl, '_blank', 'noopener,noreferrer')}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <Wrench className="h-3.5 w-3.5" />
                         Заявка на ремонт
                     </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Открыть ремонт с контекстом этого ТС и рейса.</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-neutral-500">Открыть ремонт с контекстом этого ТС и рейса.</span>
                 </button>
                 <button
                     type="button"
                     onClick={() => onSelectAction('return')}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <RotateCcw className="h-3.5 w-3.5" />
                         Чек-лист возврата
                     </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Возврат после рейса: документы, одометр, топливо, осмотр.</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-neutral-500">Возврат после рейса: документы, одометр, топливо, осмотр.</span>
                 </button>
                 <button
                     type="button"
                     onClick={() => onSelectAction('breakdown')}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <AlertTriangle className="h-3.5 w-3.5" />
                         Поломка в рейсе
                     </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Зафиксировать блокирующее событие и открыть ремонт/замену.</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-neutral-500">Зафиксировать блокирующее событие и открыть ремонт/замену.</span>
                 </button>
                 <a
                     href="#document-queue"
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         Закрытие рейса
                     </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+                    <span className="mt-1 block text-[11px] leading-4 text-neutral-500">
                         Блокеров: {blockerCount}, рисков: {warningCount}, документов в очереди: {queueCount}.
                     </span>
                 </a>
@@ -783,93 +783,93 @@ function OperationalStructureBlock({
     const routePointById = new globalThis.Map(sortedPoints.map((point, index) => [point.id, `${routePointOrder(point, index)}. ${routePointTypeLabel(point.type)}`]));
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Load structure</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Load structure</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">
                         Multi-order, lot assignments, and route stops
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiOrder ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiOrder ? 'bg-indigo-100 text-indigo-700' : 'bg-neutral-100 text-neutral-600'}`}>
                         {orderCount} orders
                     </span>
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${assignments.length > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${assignments.length > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-600'}`}>
                         {assignments.length} lots
                     </span>
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiStop ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-600'}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiStop ? 'bg-sky-100 text-sky-700' : 'bg-neutral-100 text-neutral-600'}`}>
                         {sortedPoints.length} stops
                     </span>
                 </div>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{'One trip to many orders'}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{hasMultiOrder ? 'Consolidated trip' : 'Single-order trip'}</p>
-                    <p className="mt-1 text-xs text-slate-500">Grouped by linked orders from the dossier.</p>
+                <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{'One trip to many orders'}</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">{hasMultiOrder ? 'Consolidated trip' : 'Single-order trip'}</p>
+                    <p className="mt-1 text-xs text-neutral-500">Grouped by linked orders from the dossier.</p>
                 </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Lot load plan</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Lot load plan</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">
                         {formatWeightKg(summary?.totalAssignedWeightKg)} / {formatWeightKg(summary?.payloadCapacityKg)}
                     </p>
-                    <p className={`mt-1 text-xs ${summary?.overweight || summary?.overVolume ? 'text-rose-600' : 'text-slate-500'}`}>
+                    <p className={`mt-1 text-xs ${summary?.overweight || summary?.overVolume ? 'text-rose-600' : 'text-neutral-500'}`}>
                         {summary?.overweight ? 'Over payload capacity' : summary?.overVolume ? 'Over volume capacity' : 'Capacity summary from load-plan.'}
                     </p>
                 </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Multi-stop route</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{loadingCount} loading / {unloadingCount} unloading</p>
-                    <p className="mt-1 text-xs text-slate-500">Visual sequence only; no solver or VRP changes.</p>
+                <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Multi-stop route</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">{loadingCount} loading / {unloadingCount} unloading</p>
+                    <p className="mt-1 text-xs text-neutral-500">Visual sequence only; no solver or VRP changes.</p>
                 </div>
             </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                <div className="rounded-xl border border-slate-200">
-                    <div className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="rounded-xl border border-neutral-200">
+                    <div className="border-b border-neutral-100 bg-neutral-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
                         Lot assignments
                     </div>
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-neutral-100">
                         {assignments.length === 0 ? (
-                            <div className="px-3 py-4 text-sm text-slate-500">
+                            <div className="px-3 py-4 text-sm text-neutral-500">
                                 No lot assignments returned yet. Split/assignment data will appear here when the load-plan API has it.
                             </div>
                         ) : assignments.slice(0, 6).map((assignment) => (
                             <div key={assignment.id} className="px-3 py-3">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-slate-900">
+                                        <p className="text-sm font-semibold text-neutral-900">
                                             {assignment.orderNumber || 'Order'} / lot {assignment.lotSequence ?? '-'}
                                         </p>
-                                        <p className="truncate text-xs text-slate-500">{assignment.cargoDescription || assignment.cargoType || 'Cargo details not provided'}</p>
+                                        <p className="truncate text-xs text-neutral-500">{assignment.cargoDescription || assignment.cargoType || 'Cargo details not provided'}</p>
                                     </div>
-                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                    <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
                                         {assignment.status || assignment.lotStatus || 'planned'}
                                     </span>
                                 </div>
-                                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
-                                    <span className="rounded-full bg-slate-50 px-2 py-0.5">{formatWeightKg(assignment.assignedWeightKg || assignment.plannedWeightKg)}</span>
-                                    <span className="rounded-full bg-slate-50 px-2 py-0.5">{formatVolumeM3(assignment.assignedVolumeM3)}</span>
+                                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-neutral-500">
+                                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">{formatWeightKg(assignment.assignedWeightKg || assignment.plannedWeightKg)}</span>
+                                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">{formatVolumeM3(assignment.assignedVolumeM3)}</span>
                                     {assignment.assignedPlaces != null && (
-                                        <span className="rounded-full bg-slate-50 px-2 py-0.5">{assignment.assignedPlaces} places</span>
+                                        <span className="rounded-full bg-neutral-50 px-2 py-0.5">{assignment.assignedPlaces} places</span>
                                     )}
                                 </div>
-                                <p className="mt-2 text-[11px] text-slate-400">
+                                <p className="mt-2 text-[11px] text-neutral-400">
                                     {`${routePointById.get(assignment.loadingRoutePointId || '') || 'Loading stop not linked'} to ${routePointById.get(assignment.unloadingRoutePointId || '') || 'Unloading stop not linked'}`}
                                 </p>
                             </div>
                         ))}
                         {assignments.length > 6 && (
-                            <div className="px-3 py-2 text-xs text-slate-500">+{assignments.length - 6} more assignments</div>
+                            <div className="px-3 py-2 text-xs text-neutral-500">+{assignments.length - 6} more assignments</div>
                         )}
                     </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-200">
-                    <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Route sequence</span>
+                <div className="rounded-xl border border-neutral-200">
+                    <div className="flex items-center justify-between gap-2 border-b border-neutral-100 bg-neutral-50 px-3 py-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Route sequence</span>
                         {canSort && (
                             <button
                                 type="button"
@@ -882,9 +882,9 @@ function OperationalStructureBlock({
                             </button>
                         )}
                     </div>
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-neutral-100">
                         {sortedPoints.length === 0 ? (
-                            <div className="px-3 py-4 text-sm text-slate-500">
+                            <div className="px-3 py-4 text-sm text-neutral-500">
                                 No route points returned. The route timeline will appear after points are generated.
                             </div>
                         ) : sortedPoints.map((point, index) => {
@@ -899,13 +899,13 @@ function OperationalStructureBlock({
                                         {routePointOrder(point, index)}
                                     </span>
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-semibold text-slate-900">{routePointTypeLabel(point.type)}</p>
-                                        <p className="truncate text-xs text-slate-500">{point.address || 'Address not provided'}</p>
-                                        <p className="mt-1 text-[11px] text-slate-400">
+                                        <p className="text-sm font-semibold text-neutral-900">{routePointTypeLabel(point.type)}</p>
+                                        <p className="truncate text-xs text-neutral-500">{point.address || 'Address not provided'}</p>
+                                        <p className="mt-1 text-[11px] text-neutral-400">
                                             {point.status || 'planned'} | plan {formatTimelineDate(point.plannedArrivalAt)} | fact {formatTimelineDate(point.actualArrivalAt)}
                                         </p>
                                         {window && (
-                                            <p className={`mt-1 text-[11px] font-medium ${overdue ? 'text-rose-700' : 'text-slate-500'}`}>
+                                            <p className={`mt-1 text-[11px] font-medium ${overdue ? 'text-rose-700' : 'text-neutral-500'}`}>
                                                 Окно: {window}
                                                 {overdue && <span className="ml-1 font-semibold">· просрочено</span>}
                                             </p>
@@ -917,13 +917,13 @@ function OperationalStructureBlock({
                     </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-200">
-                    <div className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="rounded-xl border border-neutral-200">
+                    <div className="border-b border-neutral-100 bg-neutral-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
                         Order grouping
                     </div>
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-neutral-100">
                         {orders.length === 0 ? (
-                            <div className="px-3 py-4 text-sm text-slate-500">
+                            <div className="px-3 py-4 text-sm text-neutral-500">
                                 No linked orders in dossier.
                             </div>
                         ) : orders.map((order: any) => {
@@ -933,7 +933,7 @@ function OperationalStructureBlock({
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2">
-                                                <p className="text-sm font-semibold text-slate-900">{order.number || order.id}</p>
+                                                <p className="text-sm font-semibold text-neutral-900">{order.number || order.id}</p>
                                                 {order.adrClass && (
                                                     <span
                                                         className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold border border-red-200"
@@ -944,13 +944,13 @@ function OperationalStructureBlock({
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="truncate text-xs text-slate-500">{order.cargoDescription || 'Cargo details not provided'}</p>
+                                            <p className="truncate text-xs text-neutral-500">{order.cargoDescription || 'Cargo details not provided'}</p>
                                         </div>
                                         <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
                                             {group.length} lots
                                         </span>
                                     </div>
-                                    <p className="mt-2 text-[11px] text-slate-400">
+                                    <p className="mt-2 text-[11px] text-neutral-400">
                                         {`${order.loadingAddress || 'Loading address not set'} to ${order.unloadingAddress || 'Unloading address not set'}`}
                                     </p>
                                 </div>
@@ -1159,13 +1159,13 @@ function OperationalActionsBlock({
     ] as const;
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Операционные действия</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">Простой, переадресация, поломка, отмена и возврат</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Операционные действия</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">Простой, переадресация, поломка, отмена и возврат</p>
                 </div>
-                <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                     {routePoints.length} точек
                 </span>
             </div>
@@ -1180,7 +1180,7 @@ function OperationalActionsBlock({
                         className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                             activeAction === action.id
                                 ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                         }`}
                     >
                         {action.label}
@@ -1200,11 +1200,11 @@ function OperationalActionsBlock({
 
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
                 <label className="block">
-                    <span className="text-xs font-semibold text-slate-600">Точка маршрута</span>
+                    <span className="text-xs font-semibold text-neutral-600">Точка маршрута</span>
                     <select
                         value={routePointId}
                         onChange={event => setRoutePointId(event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     >
                         <option value="">Без привязки к точке</option>
                         {routePoints.map((point, index) => (
@@ -1216,22 +1216,22 @@ function OperationalActionsBlock({
                 </label>
 
                 <label className="block">
-                    <span className="text-xs font-semibold text-slate-600">Причина</span>
+                    <span className="text-xs font-semibold text-neutral-600">Причина</span>
                     <input
                         value={reason}
                         onChange={event => setReason(event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     />
                 </label>
 
                 {activeAction === 'readdress' && (
                     <label className="block lg:col-span-2">
-                        <span className="text-xs font-semibold text-slate-600">Новый адрес</span>
+                        <span className="text-xs font-semibold text-neutral-600">Новый адрес</span>
                         <input
                             value={address}
                             onChange={event => setAddress(event.target.value)}
                             placeholder="Новый адрес погрузки или выгрузки"
-                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                         />
                     </label>
                 )}
@@ -1239,22 +1239,22 @@ function OperationalActionsBlock({
                 {(activeAction === 'downtime' || activeAction === 'cancel') && (
                     <>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Финансовый резерв, руб.</span>
+                            <span className="text-xs font-semibold text-neutral-600">Финансовый резерв, руб.</span>
                             <input
                                 value={reserveAmount}
                                 onChange={event => setReserveAmount(event.target.value)}
                                 inputMode="decimal"
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                         {activeAction === 'downtime' && (
                             <label className="block">
-                                <span className="text-xs font-semibold text-slate-600">Бесплатные минуты</span>
+                                <span className="text-xs font-semibold text-neutral-600">Бесплатные минуты</span>
                                 <input
                                     value={freeMinutes}
                                     onChange={event => setFreeMinutes(event.target.value)}
                                     inputMode="numeric"
-                                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                                 />
                             </label>
                         )}
@@ -1264,29 +1264,29 @@ function OperationalActionsBlock({
                 {activeAction === 'return' && (
                     <>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Одометр</span>
+                            <span className="text-xs font-semibold text-neutral-600">Одометр</span>
                             <input
                                 value={odometerEnd}
                                 onChange={event => setOdometerEnd(event.target.value)}
                                 inputMode="decimal"
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Топливо</span>
+                            <span className="text-xs font-semibold text-neutral-600">Топливо</span>
                             <input
                                 value={fuelEnd}
                                 onChange={event => setFuelEnd(event.target.value)}
                                 inputMode="decimal"
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Послерейсовый осмотр</span>
+                            <span className="text-xs font-semibold text-neutral-600">Послерейсовый осмотр</span>
                             <select
                                 value={postTripInspectionStatus}
                                 onChange={event => setPostTripInspectionStatus(event.target.value as 'pending' | 'passed' | 'failed')}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="pending">Ожидает</option>
                                 <option value="passed">Пройден</option>
@@ -1299,11 +1299,11 @@ function OperationalActionsBlock({
                 {activeAction === 'replace' && (
                     <>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Новое ТС</span>
+                            <span className="text-xs font-semibold text-neutral-600">Новое ТС</span>
                             <select
                                 value={replacementVehicleId}
                                 onChange={event => setReplacementVehicleId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="">Не менять ТС</option>
                                 {vehicles.map(vehicle => (
@@ -1314,11 +1314,11 @@ function OperationalActionsBlock({
                             </select>
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Новый водитель</span>
+                            <span className="text-xs font-semibold text-neutral-600">Новый водитель</span>
                             <select
                                 value={replacementDriverId}
                                 onChange={event => setReplacementDriverId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="">Не менять водителя</option>
                                 {drivers.map(driver => (
@@ -1329,11 +1329,11 @@ function OperationalActionsBlock({
                             </select>
                         </label>
                         <label className="block lg:col-span-2">
-                            <span className="text-xs font-semibold text-slate-600">Новый прицеп</span>
+                            <span className="text-xs font-semibold text-neutral-600">Новый прицеп</span>
                             <select
                                 value={replacementTrailerId}
                                 onChange={event => setReplacementTrailerId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="">Не менять прицеп</option>
                                 {trailers.map(trailer => (
@@ -1349,11 +1349,11 @@ function OperationalActionsBlock({
                 {activeAction === 'crew' && (
                     <>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Основной водитель</span>
+                            <span className="text-xs font-semibold text-neutral-600">Основной водитель</span>
                             <select
                                 value={crewPrimaryDriverId}
                                 onChange={event => setCrewPrimaryDriverId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="">Выберите водителя</option>
                                 {drivers.map(driver => (
@@ -1364,11 +1364,11 @@ function OperationalActionsBlock({
                             </select>
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Второй водитель</span>
+                            <span className="text-xs font-semibold text-neutral-600">Второй водитель</span>
                             <select
                                 value={crewSecondaryDriverId}
                                 onChange={event => setCrewSecondaryDriverId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="">Без второго водителя</option>
                                 {drivers.map(driver => (
@@ -1379,42 +1379,42 @@ function OperationalActionsBlock({
                             </select>
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Начало смены</span>
+                            <span className="text-xs font-semibold text-neutral-600">Начало смены</span>
                             <input
                                 type="datetime-local"
                                 value={shiftStart}
                                 onChange={event => setShiftStart(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Конец смены</span>
+                            <span className="text-xs font-semibold text-neutral-600">Конец смены</span>
                             <input
                                 type="datetime-local"
                                 value={shiftEnd}
                                 onChange={event => setShiftEnd(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Лимит смены, минут</span>
+                            <span className="text-xs font-semibold text-neutral-600">Лимит смены, минут</span>
                             <input
                                 value={maxShiftMinutes}
                                 onChange={event => setMaxShiftMinutes(event.target.value)}
                                 inputMode="numeric"
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                     </>
                 )}
 
                 <label className="block lg:col-span-2">
-                    <span className="text-xs font-semibold text-slate-600">Комментарий</span>
+                    <span className="text-xs font-semibold text-neutral-600">Комментарий</span>
                     <textarea
                         value={notes}
                         onChange={event => setNotes(event.target.value)}
                         rows={3}
-                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     />
                 </label>
             </div>
@@ -1422,31 +1422,31 @@ function OperationalActionsBlock({
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap gap-3">
                     {activeAction === 'cancel' && (
-                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-600">
                             <input type="checkbox" checked={cancelTrip} onChange={event => setCancelTrip(event.target.checked)} />
                             Отменить рейс
                         </label>
                     )}
                     {activeAction === 'breakdown' && (
-                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-600">
                             <input type="checkbox" checked={requiresReplacement} onChange={event => setRequiresReplacement(event.target.checked)} />
                             Нужна замена ресурса
                         </label>
                     )}
                     {activeAction === 'return' && (
                         <>
-                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-600">
                                 <input type="checkbox" checked={originalDocumentsReceived} onChange={event => setOriginalDocumentsReceived(event.target.checked)} />
                                 Оригиналы сданы
                             </label>
-                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-600">
                                 <input type="checkbox" checked={blockNextTrip} onChange={event => setBlockNextTrip(event.target.checked)} />
                                 Блокировать следующий рейс
                             </label>
                         </>
                     )}
                     {(activeAction === 'replace' || activeAction === 'crew') && optionsLoading && (
-                        <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">
+                        <span className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-500">
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             Загружаем справочники
                         </span>
@@ -1635,10 +1635,10 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Persisted transport documents</p>
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-sm font-semibold text-neutral-900">
                         {phaseLabelMap[transportDocuments?.lifecycle?.documentPhase] || transportDocuments?.lifecycle?.documentPhase || 'сформирован'} · {workflowLabelMap[etrn?.status] || etrn?.status || 'draft'}
                     </p>
-                    <p className="mt-1 text-xs text-slate-600">
+                    <p className="mt-1 text-xs text-neutral-600">
                         {transportDocuments?.summary?.nextAction ? `Next action: ${humanizeNextAction(transportDocuments.summary.nextAction)}` : 'Поток документов доступен через dossier API'}
                     </p>
                 </div>
@@ -1649,7 +1649,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                     {transportDocuments?.lifecycle?.hasWarnings && (
                         <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">check</span>
                     )}
-                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
+                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-600 shadow-sm">
                         {transportDocuments?.summary?.problemCount ?? 0} issues
                     </span>
                 </div>
@@ -1662,16 +1662,16 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
             )}
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Документов: {transportDocuments?.summary?.totalDocuments ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Готово: {transportDocuments?.summary?.completedDocuments ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Последняя активность: {formatTimelineDate(transportDocuments?.summary?.latestActivityAt)}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     ETRN: {etrnTitles.filter((title) => title.status === 'blocked' || title.status === 'missing').length} blocked/missing
                 </div>
             </div>
@@ -1679,24 +1679,24 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
             <div className="rounded-2xl border border-white bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                     <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Внешний обмен</p>
-                        <p className="text-sm font-semibold text-slate-900">Статус провайдера, попытки и квитанции</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Внешний обмен</p>
+                        <p className="text-sm font-semibold text-neutral-900">Статус провайдера, попытки и квитанции</p>
                     </div>
-                    <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                    <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                         {exchangeTotals.providers} providers
                     </span>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Попытки: {exchangeTotals.retries}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Квитанции: {exchangeTotals.receipts}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Последняя попытка: {formatTimelineDate(exchangeTotals.lastAttemptAt)}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Следующий retry: {formatTimelineDate(exchangeTotals.nextRetryAt)}
                     </div>
                 </div>
@@ -1705,7 +1705,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
             {(transportDocuments?.lifecycle?.missingDocumentTypes?.length || etrn?.summary?.blockingTitleTypes?.length) && (
                 <div className="grid gap-3 lg:grid-cols-2">
                     <div className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Missing transport docs</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Missing transport docs</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(transportDocuments?.lifecycle?.missingDocumentTypes || []).map((type: string) => (
                                 <span key={type} className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">
@@ -1713,12 +1713,12 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                 </span>
                             ))}
                             {(transportDocuments?.lifecycle?.missingDocumentTypes || []).length === 0 && (
-                                <span className="text-xs text-slate-500">Нет критичных пробелов</span>
+                                <span className="text-xs text-neutral-500">Нет критичных пробелов</span>
                             )}
                         </div>
                     </div>
                     <div className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">ETRN blockers</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">ETRN blockers</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(etrn?.summary?.blockingTitleTypes || []).map((type: string) => (
                                 <span key={type} className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
@@ -1726,7 +1726,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                 </span>
                             ))}
                             {(etrn?.summary?.blockingTitleTypes || []).length === 0 && (
-                                <span className="text-xs text-slate-500">Блокирующих титулов нет</span>
+                                <span className="text-xs text-neutral-500">Блокирующих титулов нет</span>
                             )}
                         </div>
                     </div>
@@ -1738,7 +1738,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Ошибки и подсказки retry</p>
-                            <p className="text-sm font-semibold text-slate-900">Persisted document issues</p>
+                            <p className="text-sm font-semibold text-neutral-900">Persisted document issues</p>
                         </div>
                         <RetryHint label="Исправить и повторить" />
                     </div>
@@ -1748,13 +1748,13 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
                                         <p className="text-xs font-semibold text-rose-700">{problem.code}</p>
-                                        <p className="text-sm text-slate-900">{problem.message}</p>
+                                        <p className="text-sm text-neutral-900">{problem.message}</p>
                                     </div>
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(problem.severity, 'bg')}`}>
                                         {problem.severity}
                                     </span>
                                 </div>
-                                <p className="mt-1 text-[11px] text-slate-500">
+                                <p className="mt-1 text-[11px] text-neutral-500">
                                     {problem.documentType ? transportDocumentLabel(problem.documentType) : 'Документ'}{problem.at ? ` · ${formatTimelineDate(problem.at)}` : ''}
                                 </p>
                             </div>
@@ -1768,19 +1768,19 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                     <div key={doc.id} className="rounded-2xl border border-white bg-white p-4 shadow-sm">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{transportDocumentLabel(doc.type)}</p>
-                                <p className="text-sm font-semibold text-slate-900">{doc.externalId}</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{transportDocumentLabel(doc.type)}</p>
+                                <p className="text-sm font-semibold text-neutral-900">{doc.externalId}</p>
                             </div>
                             <div className="flex flex-col items-end gap-1">
                                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClass(documentStatusTone(doc.status), 'bg')}`}>
                                     {transportDocumentStatusLabel(doc.status)}
                                 </span>
-                                <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                <span className="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
                                     {doc.providerStatus || doc.providerName || 'internal'}
                                 </span>
                             </div>
                         </div>
-                        <div className="mt-3 grid gap-2 text-[11px] text-slate-500">
+                        <div className="mt-3 grid gap-2 text-[11px] text-neutral-500">
                             <div>Создан: {formatTimelineDate(doc.createdAt)}</div>
                             <div>Обновлён: {formatTimelineDate(doc.updatedAt)}</div>
                             <div>Провайдер: {doc.providerName || 'internal'}</div>
@@ -1806,12 +1806,12 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                 </span>
                             )}
                             {doc.lastSyncedAt && (
-                                <span className="inline-flex rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                                <span className="inline-flex rounded-full bg-neutral-50 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                                     синхр. {formatTimelineDate(doc.lastSyncedAt)}
                                 </span>
                             )}
                         </div>
-                        <div className="mt-3 text-[11px] text-slate-500">
+                        <div className="mt-3 text-[11px] text-neutral-500">
                             {doc.nextRetryAt
                                 ? `Ручное действие: повторить после ${formatTimelineDate(doc.nextRetryAt)}`
                                 : doc.status === 'error' || doc.status === 'rejected'
@@ -1861,7 +1861,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                         return { label: '✕ Отклонено', cls: 'border-rose-200 bg-rose-50 text-rose-700' };
                                     default:
                                         return ediStatus
-                                            ? { label: ediStatus, cls: 'border-slate-200 bg-slate-50 text-slate-600' }
+                                            ? { label: ediStatus, cls: 'border-neutral-200 bg-neutral-50 text-neutral-600' }
                                             : null;
                                 }
                             })();
@@ -1874,11 +1874,11 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                                 {badge.label}
                                             </span>
                                         ) : (
-                                            <span className="text-[10px] text-slate-400">не отправлено</span>
+                                            <span className="text-[10px] text-neutral-400">не отправлено</span>
                                         )}
                                     </div>
                                     {(ediProvider || ediSentAt) && (
-                                        <div className="flex flex-wrap gap-2 text-[10px] text-slate-600">
+                                        <div className="flex flex-wrap gap-2 text-[10px] text-neutral-600">
                                             {ediProvider && <span className="rounded bg-white px-1.5 py-0.5 shadow-sm">{ediProvider}</span>}
                                             {ediSentAt && <span className="rounded bg-white px-1.5 py-0.5 shadow-sm">{formatTimelineDate(ediSentAt)}</span>}
                                         </div>
@@ -1901,7 +1901,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                                 ))}
                                             </div>
                                             <div className="flex flex-wrap items-center gap-1.5">
-                                                <span className="text-[10px] text-slate-500">Mock:</span>
+                                                <span className="text-[10px] text-neutral-500">Mock:</span>
                                                 <select
                                                     onChange={(e) => {
                                                         const value = e.target.value as 'signed_by_carrier' | 'signed_by_client' | 'rejected' | '';
@@ -1911,7 +1911,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                                         }
                                                     }}
                                                     disabled={Boolean(ediActionLoading?.startsWith(`mock-${doc.id}`))}
-                                                    className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700 disabled:opacity-50"
+                                                    className="rounded-md border border-neutral-200 bg-white px-1.5 py-1 text-[10px] text-neutral-700 disabled:opacity-50"
                                                     defaultValue=""
                                                 >
                                                     <option value="">Перейти в...</option>
@@ -1951,11 +1951,11 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                         events={etrn?.timeline || []}
                         emptyLabel="ETRN timeline пока пуст"
                     />
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="rounded-2xl border border-neutral-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">ETRN titles</p>
-                                <p className="text-sm font-semibold text-slate-900">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">ETRN titles</p>
+                                <p className="text-sm font-semibold text-neutral-900">
                                     {etrn?.summary?.completedTitles ?? 0}/{etrn?.summary?.totalTitles ?? 0} completed
                                 </p>
                             </div>
@@ -1965,17 +1965,17 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                         </div>
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                             {etrnTitles.slice(0, 6).map((title: any) => (
-                                <div key={title.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                <div key={title.id} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title.titleNumber}</p>
-                                            <p className="text-sm font-semibold text-slate-900">{title.titleLabel}</p>
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{title.titleNumber}</p>
+                                            <p className="text-sm font-semibold text-neutral-900">{title.titleLabel}</p>
                                         </div>
                                         <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(titleStatusTone(title.status), 'bg')}`}>
                                             {etrnTitleStatusLabel(title.status)}
                                         </span>
                                     </div>
-                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
                                         <span>{title.isRequired ? 'required' : 'optional'}</span>
                                         <span>history {title.history?.length || 0}</span>
                                         {title.error && <RetryHint label="retry after fix" />}
@@ -1994,17 +1994,17 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">ETRN issues</p>
-                                    <p className="text-sm font-semibold text-slate-900">Что мешает пройти по контуру</p>
+                                    <p className="text-sm font-semibold text-neutral-900">Что мешает пройти по контуру</p>
                                 </div>
                                 <RetryHint label="Check blockers" />
                             </div>
                             <div className="mt-3 space-y-2">
                                 {etrnProblems.slice(0, 4).map((problem: any) => (
-                                    <div key={`${problem.code}-${problem.documentId || problem.at || problem.message}`} className="rounded-xl border border-white bg-white px-3 py-2 text-sm text-slate-700">
+                                    <div key={`${problem.code}-${problem.documentId || problem.at || problem.message}`} className="rounded-xl border border-white bg-white px-3 py-2 text-sm text-neutral-700">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="font-semibold text-slate-900">{problem.message}</p>
-                                                <p className="text-[11px] text-slate-500">
+                                                <p className="font-semibold text-neutral-900">{problem.message}</p>
+                                                <p className="text-[11px] text-neutral-500">
                                                     {problem.documentType ? transportDocumentLabel(problem.documentType) : 'ETRN'}{problem.at ? ` · ${formatTimelineDate(problem.at)}` : ''}
                                                 </p>
                                             </div>
@@ -2026,19 +2026,19 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                 title={ediHistoryDoc ? `История EDI · ${transportDocumentLabel(ediHistoryDoc.type)} ${ediHistoryDoc.externalId || ''}` : 'История EDI'}
             >
                 {ediHistoryLoading ? (
-                    <div className="py-6 text-center text-sm text-slate-500">Загрузка...</div>
+                    <div className="py-6 text-center text-sm text-neutral-500">Загрузка...</div>
                 ) : ediHistory.length === 0 ? (
-                    <div className="py-6 text-center text-sm text-slate-400">Событий нет</div>
+                    <div className="py-6 text-center text-sm text-neutral-400">Событий нет</div>
                 ) : (
                     <ul className="space-y-2">
                         {ediHistory.map((evt: any, idx: number) => (
-                            <li key={idx} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                            <li key={idx} className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="text-xs font-bold text-slate-800">{evt.eventType}</span>
-                                    <span className="text-[10px] text-slate-500">{formatTimelineDate(evt.createdAt)}</span>
+                                    <span className="text-xs font-bold text-neutral-800">{evt.eventType}</span>
+                                    <span className="text-[10px] text-neutral-500">{formatTimelineDate(evt.createdAt)}</span>
                                 </div>
                                 {evt.payload && (
-                                    <pre className="mt-1 max-h-32 overflow-auto rounded bg-white p-1.5 text-[10px] text-slate-600">
+                                    <pre className="mt-1 max-h-32 overflow-auto rounded bg-white p-1.5 text-[10px] text-neutral-600">
                                         {typeof evt.payload === 'string' ? evt.payload : JSON.stringify(evt.payload, null, 2)}
                                     </pre>
                                 )}
@@ -2501,7 +2501,7 @@ export default function TripsPage() {
             minWidth: '180px',
             cell: (t) => (
                 <div className="flex flex-col gap-1">
-                    <span className={`inline-flex w-fit px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[t.status] || 'bg-slate-100 text-slate-700'}`}>
+                    <span className={`inline-flex w-fit px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[t.status] || 'bg-neutral-100 text-neutral-700'}`}>
                         {STATUS_LABELS[t.status] || t.status}
                     </span>
                     {(tripOrderNumbers[t.id] || []).length > 1 && (
@@ -2522,7 +2522,7 @@ export default function TripsPage() {
             header: 'ТС',
             minWidth: '180px',
             cell: (t) => t.vehicleId ? (
-                <div className="flex flex-col gap-0.5 text-slate-600">
+                <div className="flex flex-col gap-0.5 text-neutral-600">
                     <span className="flex items-center gap-1">
                         <Truck className="w-3.5 h-3.5" />
                         <span className="font-medium">
@@ -2547,12 +2547,12 @@ export default function TripsPage() {
                         </span>
                     )}
                     {trailerMap[t.vehicleId] && (
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-neutral-400">
                             + прицеп {trailerMap[t.vehicleId].plateNumber}
                         </span>
                     )}
                 </div>
-            ) : <span className="text-slate-400">—</span>,
+            ) : <span className="text-neutral-400">—</span>,
         },
         {
             id: 'orders',
@@ -2566,12 +2566,12 @@ export default function TripsPage() {
                         </span>
                     ))}
                     {(tripOrderNumbers[t.id] || []).length > 2 && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600">
                             +{(tripOrderNumbers[t.id] || []).length - 2}
                         </span>
                     )}
                 </div>
-            ) : <span className="text-slate-400">—</span>,
+            ) : <span className="text-neutral-400">—</span>,
         },
         {
             id: 'distance',
@@ -2579,7 +2579,7 @@ export default function TripsPage() {
             width: '130px',
             align: 'right',
             cell: (t) => (
-                <span className="text-slate-600 text-sm">
+                <span className="text-neutral-600 text-sm">
                     {t.plannedDistanceKm ? `${t.plannedDistanceKm} км` : '—'}
                     {t.actualDistanceKm ? (
                         <span className="text-emerald-600 ml-1">
@@ -2594,7 +2594,7 @@ export default function TripsPage() {
             id: 'plannedDepartureAt',
             header: 'Выезд (план)',
             accessor: (t) => t.plannedDepartureAt,
-            cell: (t) => <span className="text-slate-500 text-xs">{formatDate(t.plannedDepartureAt)}</span>,
+            cell: (t) => <span className="text-neutral-500 text-xs">{formatDate(t.plannedDepartureAt)}</span>,
             sortable: true,
             width: '130px',
             align: 'right',
@@ -2604,7 +2604,7 @@ export default function TripsPage() {
             id: 'actualDepartureAt',
             header: 'Выезд (факт)',
             accessor: (t) => t.actualDepartureAt,
-            cell: (t) => <span className="text-slate-500 text-xs">{formatDate(t.actualDepartureAt)}</span>,
+            cell: (t) => <span className="text-neutral-500 text-xs">{formatDate(t.actualDepartureAt)}</span>,
             sortable: true,
             width: '130px',
             align: 'right',
@@ -2614,7 +2614,7 @@ export default function TripsPage() {
             id: 'actualCompletionAt',
             header: 'Завершён',
             accessor: (t) => t.actualCompletionAt,
-            cell: (t) => <span className="text-slate-500 text-xs">{formatDate(t.actualCompletionAt)}</span>,
+            cell: (t) => <span className="text-neutral-500 text-xs">{formatDate(t.actualCompletionAt)}</span>,
             sortable: true,
             width: '130px',
             align: 'right',
@@ -2628,7 +2628,7 @@ export default function TripsPage() {
             width: '120px',
             align: 'right',
             monospace: true,
-            cell: (t) => <span className="text-slate-400 text-xs">{formatDate(t.createdAt)}</span>,
+            cell: (t) => <span className="text-neutral-400 text-xs">{formatDate(t.createdAt)}</span>,
         },
     ];
 
@@ -2655,8 +2655,8 @@ export default function TripsPage() {
                         <Map className="w-5 h-5 text-white" />
                     </div>
                     <div className="min-w-0">
-                        <h1 className="text-2xl font-bold text-slate-900 leading-tight">Рейсы</h1>
-                        <p className="text-sm text-slate-500 truncate">Все рейсы — {trips.length} записей</p>
+                        <h1 className="text-2xl font-bold text-neutral-900 leading-tight">Рейсы</h1>
+                        <p className="text-sm text-neutral-500 truncate">Все рейсы — {trips.length} записей</p>
                     </div>
                 </div>
                 <Button
@@ -2682,7 +2682,7 @@ export default function TripsPage() {
                 <button
                     onClick={() => setStatusFilter('')}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all
-                        ${!statusFilter ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        ${!statusFilter ? 'bg-indigo-600 text-white shadow-sm' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
                 >
                     Все ({trips.length})
                 </button>
@@ -2691,7 +2691,7 @@ export default function TripsPage() {
                         key={key}
                         onClick={() => setStatusFilter(key === statusFilter ? '' : key)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all
-                            ${statusFilter === key ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                            ${statusFilter === key ? 'bg-indigo-600 text-white shadow-sm' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
                     >
                         {label} ({statusCounts[key] || 0})
                     </button>
@@ -2701,13 +2701,13 @@ export default function TripsPage() {
             {/* Search row (server-side) */}
             <div className="flex flex-wrap gap-2 items-center">
                 <div className="relative flex-1 min-w-[220px] max-w-xs">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <input
                         type="text"
                         placeholder="Поиск по номеру рейса..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        className="w-full h-9 pl-10 pr-3 rounded-lg border border-slate-200 bg-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
+                        className="w-full h-9 pl-10 pr-3 rounded-lg border border-neutral-200 bg-white text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
                     />
                 </div>
             </div>
@@ -2784,11 +2784,11 @@ export default function TripsPage() {
                 title={startTripFor ? `Начать рейс ${startTripFor.number}` : 'Начать рейс'}
             >
                 <div className="space-y-4">
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-neutral-500">
                         Укажите показания одометра на момент начала рейса.
                     </p>
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
                             Одометр (км) <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -2799,7 +2799,7 @@ export default function TripsPage() {
                             value={lifecycleOdometer}
                             onChange={(e) => setLifecycleOdometer(e.target.value)}
                             placeholder="например 145320"
-                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
                         />
                     </div>
                     {lifecycleError && (
@@ -2826,11 +2826,11 @@ export default function TripsPage() {
                 title={completeTripFor ? `Завершить рейс ${completeTripFor.number}` : 'Завершить рейс'}
             >
                 <div className="space-y-4">
-                    <p className="text-sm text-slate-500">
+                    <p className="text-sm text-neutral-500">
                         Зафиксируйте показания одометра на финише и при необходимости оставьте комментарий.
                     </p>
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
                             Одометр (км) <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -2841,11 +2841,11 @@ export default function TripsPage() {
                             value={lifecycleOdometer}
                             onChange={(e) => setLifecycleOdometer(e.target.value)}
                             placeholder="например 145890"
-                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
                             Комментарий
                         </label>
                         <textarea
@@ -2853,7 +2853,7 @@ export default function TripsPage() {
                             onChange={(e) => setLifecycleNotes(e.target.value)}
                             rows={3}
                             placeholder="Опционально"
-                            className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
                         />
                     </div>
                     {lifecycleError && (
@@ -2876,15 +2876,15 @@ export default function TripsPage() {
             {dossierTripId && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeDossier} />
-                    <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200">
-                        <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
+                    <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-neutral-200">
+                        <div className="sticky top-0 bg-white px-6 py-4 border-b border-neutral-100 flex items-start justify-between gap-4">
                             <div>
-                                <h2 className="text-lg font-bold text-slate-900">Досье рейса</h2>
-                                <p className="text-sm text-slate-500">{dossier?.trip?.number || dossierTripId}</p>
+                                <h2 className="text-lg font-bold text-neutral-900">Досье рейса</h2>
+                                <p className="text-sm text-neutral-500">{dossier?.trip?.number || dossierTripId}</p>
                             </div>
                             <button
                                 onClick={closeDossier}
-                                className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                                className="p-2 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -2902,10 +2902,10 @@ export default function TripsPage() {
                             ) : dossier ? (
                                 <div className="space-y-6">
                                     <div className="grid gap-4 md:grid-cols-3">
-                                        <div className="rounded-2xl border border-slate-200 p-4">
-                                            <div className="text-xs uppercase tracking-wide text-slate-400">Рейс</div>
-                                            <div className="mt-2 text-lg font-bold text-slate-900">{dossier.trip?.number}</div>
-                                            <div className="mt-1 text-sm text-slate-500">{dossier.trip?.status}</div>
+                                        <div className="rounded-2xl border border-neutral-200 p-4">
+                                            <div className="text-xs uppercase tracking-wide text-neutral-400">Рейс</div>
+                                            <div className="mt-2 text-lg font-bold text-neutral-900">{dossier.trip?.number}</div>
+                                            <div className="mt-1 text-sm text-neutral-500">{dossier.trip?.status}</div>
                                             {dossier?.trip?.status === 'in_transit' && (
                                                 <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
                                                     <Clock3 className="w-3 h-3" />
@@ -2913,36 +2913,36 @@ export default function TripsPage() {
                                                 </div>
                                             )}
                                             {dossier?.trip?.carrierContractorId && (
-                                                <div className="mt-2 text-xs text-slate-600">
+                                                <div className="mt-2 text-xs text-neutral-600">
                                                     Перевозчик: <span className="font-medium">{dossier?.carrier?.name || dossier?.trip?.carrierContractorId}</span>
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="rounded-2xl border border-slate-200 p-4">
-                                            <div className="text-xs uppercase tracking-wide text-slate-400">ТС / прицеп</div>
-                                            <div className="mt-2 text-sm font-medium text-slate-900">
+                                        <div className="rounded-2xl border border-neutral-200 p-4">
+                                            <div className="text-xs uppercase tracking-wide text-neutral-400">ТС / прицеп</div>
+                                            <div className="mt-2 text-sm font-medium text-neutral-900">
                                                 {dossier.vehicle?.plateNumber || 'Нет ТС'}
                                             </div>
-                                            <div className="text-sm text-slate-500">
+                                            <div className="text-sm text-neutral-500">
                                                 {dossier.trailer?.plateNumber ? `Прицеп: ${dossier.trailer.plateNumber}` : 'Прицеп не назначен'}
                                             </div>
                                         </div>
-                                        <div className="rounded-2xl border border-slate-200 p-4">
-                                            <div className="text-xs uppercase tracking-wide text-slate-400">ПЛ</div>
-                                            <div className="mt-2 text-sm font-medium text-slate-900">
+                                        <div className="rounded-2xl border border-neutral-200 p-4">
+                                            <div className="text-xs uppercase tracking-wide text-neutral-400">ПЛ</div>
+                                            <div className="mt-2 text-sm font-medium text-neutral-900">
                                                 {dossier.waybill?.number || 'Не оформлен'}
                                             </div>
-                                            <div className="text-sm text-slate-500">
+                                            <div className="text-sm text-neutral-500">
                                                 {dossier.summary?.orderCount || 0} заявок в рейсе
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                                    <div className="rounded-2xl border border-neutral-200 bg-white p-4">
                                         <div className="flex items-start justify-between gap-3">
                                             <div>
-                                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Готовность</p>
-                                                <p className="text-sm font-semibold text-slate-900">
+                                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Готовность</p>
+                                                <p className="text-sm font-semibold text-neutral-900">
                                                     {dossierReadiness.title} · {dossierReadiness.doneCount}/{dossierReadiness.totalCount}
                                                 </p>
                                             </div>
@@ -2958,20 +2958,20 @@ export default function TripsPage() {
                                         </div>
                                         <div className="mt-3 grid gap-2 md:grid-cols-2">
                                             {dossierReadiness.items.map(item => (
-                                                <div key={item.key} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                                <div key={item.key} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                                                     <div className="flex items-center justify-between gap-3">
-                                                        <span className="text-xs font-medium text-slate-700">{item.label}</span>
+                                                        <span className="text-xs font-medium text-neutral-700">{item.label}</span>
                                                         <span className={`text-[11px] font-semibold ${
                                                             item.state === 'done'
                                                                 ? 'text-emerald-700'
                                                                 : item.state === 'warn'
                                                                     ? 'text-amber-700'
-                                                                    : 'text-slate-500'
+                                                                    : 'text-neutral-500'
                                                         }`}>
                                                             {item.state === 'done' ? 'OK' : item.state === 'warn' ? 'Проверить' : 'Опц.'}
                                                         </span>
                                                     </div>
-                                                    <p className="mt-1 text-[11px] leading-4 text-slate-500">{item.hint}</p>
+                                                    <p className="mt-1 text-[11px] leading-4 text-neutral-500">{item.hint}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -3006,20 +3006,20 @@ export default function TripsPage() {
                                         const startedStatuses = ['in_transit', 'completed', 'billed', 'cancelled'];
                                         if (status && startedStatuses.includes(status)) return null;
                                         return (
-                                            <div className="rounded-2xl border border-slate-200 p-4">
-                                                <div className="text-sm font-semibold text-slate-900 mb-2">Назначить перевозчика</div>
+                                            <div className="rounded-2xl border border-neutral-200 p-4">
+                                                <div className="text-sm font-semibold text-neutral-900 mb-2">Назначить перевозчика</div>
                                                 {dossier?.trip?.carrierContractorId && (
-                                                    <p className="text-xs text-slate-500 mb-2">
+                                                    <p className="text-xs text-neutral-500 mb-2">
                                                         Текущий перевозчик: {dossier?.carrier?.name || dossier?.trip?.carrierContractorId}
                                                     </p>
                                                 )}
                                                 <div className="flex items-end gap-2">
                                                     <div className="flex-1">
-                                                        <label className="block text-xs text-slate-500 mb-1">Перевозчик с активным договором</label>
+                                                        <label className="block text-xs text-neutral-500 mb-1">Перевозчик с активным договором</label>
                                                         <select
                                                             value={selectedCarrierId}
                                                             onChange={(e) => setSelectedCarrierId(e.target.value)}
-                                                            className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm"
+                                                            className="flex h-9 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm shadow-sm"
                                                         >
                                                             <option value="">— выбрать —</option>
                                                             {carrierOptions
@@ -3060,17 +3060,17 @@ export default function TripsPage() {
                                     })()}
 
                                     <div className="grid gap-6 lg:grid-cols-2">
-                                        <div className="rounded-2xl border border-slate-200">
-                                            <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 font-semibold text-slate-900">
+                                        <div className="rounded-2xl border border-neutral-200">
+                                            <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3 font-semibold text-neutral-900">
                                                 Заявки
                                             </div>
-                                            <div className="divide-y divide-slate-100">
+                                            <div className="divide-y divide-neutral-100">
                                                 {(dossier.orders || []).map((order: any) => (
                                                     <div key={order.id} className="p-4">
                                                         <div className="flex items-start justify-between gap-3">
                                                             <div>
                                                                 <div className="flex items-center gap-2">
-                                                                    <div className="text-sm font-semibold text-slate-900">{order.number}</div>
+                                                                    <div className="text-sm font-semibold text-neutral-900">{order.number}</div>
                                                                     {order.adrClass && (
                                                                         <span
                                                                             className="inline-flex items-center gap-0.5 rounded border border-red-200 bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700"
@@ -3081,8 +3081,8 @@ export default function TripsPage() {
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                <div className="text-xs text-slate-500">{order.cargoDescription || 'Без описания груза'}</div>
-                                                                <div className="mt-2 text-xs text-slate-500">
+                                                                <div className="text-xs text-neutral-500">{order.cargoDescription || 'Без описания груза'}</div>
+                                                                <div className="mt-2 text-xs text-neutral-500">
                                                                     Контрагент: {order.contractor?.name || 'Не указан'}
                                                                 </div>
                                                             </div>
@@ -3090,13 +3090,13 @@ export default function TripsPage() {
                                                                 {order.status}
                                                             </span>
                                                         </div>
-                                                        <div className="mt-3 grid gap-2 text-xs text-slate-500">
+                                                        <div className="mt-3 grid gap-2 text-xs text-neutral-500">
                                                             <div className="flex items-start gap-2">
-                                                                <MapPin className="mt-0.5 w-3.5 h-3.5 text-slate-400" />
+                                                                <MapPin className="mt-0.5 w-3.5 h-3.5 text-neutral-400" />
                                                                 <span>Погрузка: {order.loadingAddress || '—'}</span>
                                                             </div>
                                                             <div className="flex items-start gap-2">
-                                                                <MapPin className="mt-0.5 w-3.5 h-3.5 text-slate-400" />
+                                                                <MapPin className="mt-0.5 w-3.5 h-3.5 text-neutral-400" />
                                                                 <span>Выгрузка: {order.unloadingAddress || '—'}</span>
                                                             </div>
                                                         </div>
@@ -3106,24 +3106,24 @@ export default function TripsPage() {
                                         </div>
 
                                         <div className="space-y-4">
-                                            <div className="rounded-2xl border border-slate-200">
-                                                <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 font-semibold text-slate-900">
+                                            <div className="rounded-2xl border border-neutral-200">
+                                                <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3 font-semibold text-neutral-900">
                                                     Участники
                                                 </div>
-                                                <div className="divide-y divide-slate-100">
+                                                <div className="divide-y divide-neutral-100">
                                                     {(dossier.parties || []).map((party: any) => (
                                                         <div key={party.id} className="p-4">
-                                                            <div className="text-sm font-medium text-slate-900">{party.name}</div>
-                                                            <div className="text-xs text-slate-500">{party.inn}</div>
-                                                            <div className="text-xs text-slate-500">{party.legalAddress}</div>
+                                                            <div className="text-sm font-medium text-neutral-900">{party.name}</div>
+                                                            <div className="text-xs text-neutral-500">{party.inn}</div>
+                                                            <div className="text-xs text-neutral-500">{party.legalAddress}</div>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
 
-                                            <div className="rounded-2xl border border-slate-200 p-4">
-                                                <div className="text-sm font-semibold text-slate-900 mb-3">Сводка</div>
-                                                <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
+                                            <div className="rounded-2xl border border-neutral-200 p-4">
+                                                <div className="text-sm font-semibold text-neutral-900 mb-3">Сводка</div>
+                                                <div className="grid grid-cols-2 gap-3 text-sm text-neutral-600">
                                                     <div>Заявок: {dossier.summary?.orderCount ?? 0}</div>
                                                     <div>ПЛ: {dossier.summary?.hasWaybill ? 'да' : 'нет'}</div>
                                                     <div>ТС: {dossier.summary?.hasVehicle ? 'да' : 'нет'}</div>

@@ -18,12 +18,12 @@ export default function Error({
         <div className="flex items-center justify-center min-h-[60vh]">
             <div className="text-center space-y-4 max-w-md">
                 <div className="text-6xl">⚠️</div>
-                <h2 className="text-2xl font-bold text-slate-900">Что-то пошло не так</h2>
-                <p className="text-slate-500">
+                <h2 className="text-2xl font-bold text-neutral-900">Что-то пошло не так</h2>
+                <p className="text-neutral-500">
                     Произошла непредвиденная ошибка. Попробуйте обновить страницу.
                 </p>
                 {error.digest && (
-                    <p className="text-xs text-slate-400 font-mono">ID: {error.digest}</p>
+                    <p className="text-xs text-neutral-400 font-mono">ID: {error.digest}</p>
                 )}
                 <button
                     onClick={reset}

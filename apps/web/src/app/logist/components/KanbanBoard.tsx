@@ -128,8 +128,8 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
                                 : highlight === 'valid'
                                     ? 'bg-emerald-50/50 border border-dashed border-emerald-300'
                                     : highlight === 'invalid'
-                                        ? 'bg-slate-100/50 opacity-50'
-                                        : 'bg-slate-100/70'
+                                        ? 'bg-neutral-100/50 opacity-50'
+                                        : 'bg-neutral-100/70'
                             }`}
                         onDragOver={(e: any) => handleDragOver(e, col.key)}
                         onDragLeave={handleDragLeave}
@@ -142,11 +142,11 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
                                     className="w-3 h-3 rounded-full shadow-sm"
                                     style={{ backgroundColor: col.color }}
                                 />
-                                <span className="text-sm font-semibold text-slate-700">
+                                <span className="text-sm font-semibold text-neutral-700">
                                     {col.label}
                                 </span>
                             </div>
-                            <span className="text-xs font-bold text-slate-400 bg-white rounded-full w-6 h-6 flex items-center justify-center">
+                            <span className="text-xs font-bold text-neutral-400 bg-white rounded-full w-6 h-6 flex items-center justify-center">
                                 {columnOrders.length}
                             </span>
                         </div>
@@ -162,7 +162,7 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
                                 />
                             ))}
                             {columnOrders.length === 0 && (
-                                <div className="text-center py-8 text-xs text-slate-400">
+                                <div className="text-center py-8 text-xs text-neutral-400">
                                     Перетащите заявку сюда
                                 </div>
                             )}

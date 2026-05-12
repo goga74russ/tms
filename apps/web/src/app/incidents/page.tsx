@@ -101,43 +101,43 @@ function CreateIncidentModal({ onClose, onCreated }: { onClose: () => void; onCr
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-            <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl border border-slate-200">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+            <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl border border-neutral-200">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
                     <div>
-                        <h3 className="text-lg font-bold text-slate-900">Новый инцидент</h3>
-                        <p className="text-sm text-slate-500">Sprint 9: мед / тех / дорожные и грузовые инциденты</p>
+                        <h3 className="text-lg font-bold text-neutral-900">Новый инцидент</h3>
+                        <p className="text-sm text-neutral-500">Sprint 9: мед / тех / дорожные и грузовые инциденты</p>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100">
-                        <X className="w-4 h-4 text-slate-500" />
+                    <button onClick={onClose} className="p-2 rounded-lg hover:bg-neutral-100">
+                        <X className="w-4 h-4 text-neutral-500" />
                     </button>
                 </div>
                 <div className="p-6 grid grid-cols-2 gap-4">
-                    <select value={form.type} onChange={(e) => setForm(f => ({ ...f, type: e.target.value }))} className="px-4 py-3 rounded-xl border border-slate-200 text-sm">
+                    <select value={form.type} onChange={(e) => setForm(f => ({ ...f, type: e.target.value }))} className="px-4 py-3 rounded-xl border border-neutral-200 text-sm">
                         <option value="med_inspection">Медосмотр</option>
                         <option value="tech_inspection">Техосмотр</option>
                         <option value="road">Дорожный</option>
                         <option value="cargo">Грузовой</option>
                         <option value="other">Другое</option>
                     </select>
-                    <select value={form.severity} onChange={(e) => setForm(f => ({ ...f, severity: e.target.value }))} className="px-4 py-3 rounded-xl border border-slate-200 text-sm">
+                    <select value={form.severity} onChange={(e) => setForm(f => ({ ...f, severity: e.target.value }))} className="px-4 py-3 rounded-xl border border-neutral-200 text-sm">
                         <option value="low">Низкая</option>
                         <option value="medium">Средняя</option>
                         <option value="critical">Критичная</option>
                     </select>
-                    <select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))} className="px-4 py-3 rounded-xl border border-slate-200 text-sm">
+                    <select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))} className="px-4 py-3 rounded-xl border border-neutral-200 text-sm">
                         <option value="open">Открыт</option>
                         <option value="investigating">На разборе</option>
                         <option value="resolved">Решён</option>
                         <option value="dismissed">Отклонён</option>
                     </select>
-                    <label className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-700">
+                    <label className="flex items-center gap-3 px-4 py-3 rounded-xl border border-neutral-200 text-sm text-neutral-700">
                         <input type="checkbox" checked={form.blocksRelease} onChange={(e) => setForm(f => ({ ...f, blocksRelease: e.target.checked }))} />
                         Блокирует выпуск на линию
                     </label>
-                    <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Описание инцидента" className="col-span-2 min-h-32 px-4 py-3 rounded-xl border border-slate-200 text-sm resize-none" />
+                    <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Описание инцидента" className="col-span-2 min-h-32 px-4 py-3 rounded-xl border border-neutral-200 text-sm resize-none" />
                 </div>
                 {error && <p className="px-6 pb-2 text-sm text-red-600">{error}</p>}
-                <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100">
+                <div className="flex justify-end gap-3 px-6 py-4 border-t border-neutral-100">
                     <Button variant="outline" onClick={onClose}>Отмена</Button>
                     <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
                         Создать инцидент
@@ -185,7 +185,7 @@ export default function IncidentsPage() {
             id: 'description',
             header: 'Описание',
             accessor: (r) => r.description,
-            cell: (r) => <span className="font-medium text-slate-900">{r.description}</span>,
+            cell: (r) => <span className="font-medium text-neutral-900">{r.description}</span>,
             sticky: 'left',
             minWidth: '260px',
         },
@@ -222,14 +222,14 @@ export default function IncidentsPage() {
             accessor: (r) => (r.blocksRelease ? 1 : 0),
             cell: (r) => r.blocksRelease
                 ? <Pill tone="danger">Блокирует</Pill>
-                : <span className="text-xs text-slate-500">Не блокирует</span>,
+                : <span className="text-xs text-neutral-500">Не блокирует</span>,
             width: '130px',
         },
         {
             id: 'createdAt',
             header: 'Создан',
             accessor: (r) => r.createdAt,
-            cell: (r) => <span className="text-xs text-slate-500">{new Date(r.createdAt).toLocaleString('ru-RU')}</span>,
+            cell: (r) => <span className="text-xs text-neutral-500">{new Date(r.createdAt).toLocaleString('ru-RU')}</span>,
             sortable: true,
             width: '160px',
         },
@@ -243,8 +243,8 @@ export default function IncidentsPage() {
                         <ShieldAlert className="w-5 h-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-semibold text-slate-900">Инциденты</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">Инциденты по осмотрам, дороге и грузу</p>
+                        <h1 className="text-2xl font-semibold text-neutral-900">Инциденты</h1>
+                        <p className="text-sm text-neutral-500 mt-0.5">Инциденты по осмотрам, дороге и грузу</p>
                     </div>
                 </div>
                 <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>

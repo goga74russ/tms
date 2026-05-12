@@ -125,7 +125,7 @@ interface WaybillDetail extends Waybill {
 function StatusBadge({ status }: { status: string }) {
     const config: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
         draft: {
-            color: 'bg-slate-100 text-slate-600 border-slate-200',
+            color: 'bg-neutral-100 text-neutral-600 border-neutral-200',
             label: 'Черновик',
             icon: <Clock className="w-3.5 h-3.5" />,
         },
@@ -289,22 +289,22 @@ function ComplianceTimeline({
     const items = (events || []).slice().reverse().slice(0, 6);
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
             <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">{items.length}</span>
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{title}</p>
+                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">{items.length}</span>
             </div>
             <div className="mt-3 space-y-2">
                 {items.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                    <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500">
                         {emptyLabel}
                     </div>
                 ) : items.map((event) => (
-                    <div key={event.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <div key={event.id} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                                <p className="text-sm font-semibold text-slate-900">{event.title}</p>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-sm font-semibold text-neutral-900">{event.title}</p>
+                                <p className="text-xs text-neutral-500">
                                     {(event.documentType ? transportDocLabel(event.documentType) : etrnTitleTypeLabel(event.titleType))} · {complianceStatusLabel(event.status)}
                                 </p>
                             </div>
@@ -312,7 +312,7 @@ function ComplianceTimeline({
                                 {event.isProblem ? 'problem' : event.severity}
                             </span>
                         </div>
-                        <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                        <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-neutral-500">
                             <span>{event.message || 'Готово к следующему шагу'}</span>
                             <span>{formatComplianceDate(event.at)}</span>
                         </div>
@@ -353,10 +353,10 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Persisted transport documents</p>
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-sm font-semibold text-neutral-900">
                         {transportDocuments?.lifecycle?.documentPhase || 'planning'} · {etrn?.status || 'draft'}
                     </p>
-                    <p className="mt-1 text-xs text-slate-600">
+                    <p className="mt-1 text-xs text-neutral-600">
                         {transportDocuments?.summary?.nextAction ? `Next action: ${humanizeNextAction(transportDocuments.summary.nextAction)}` : 'Досье и ЭТРН доступны через dossier API'}
                     </p>
                 </div>
@@ -367,23 +367,23 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                     {transportDocuments?.lifecycle?.hasWarnings && (
                         <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">check</span>
                     )}
-                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
+                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-600 shadow-sm">
                         {transportDocuments?.summary?.problemCount ?? 0} issues
                     </span>
                 </div>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Документов: {transportDocuments?.summary?.totalDocuments ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Готово: {transportDocuments?.summary?.completedDocuments ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Последняя активность: {formatComplianceDate(transportDocuments?.summary?.latestActivityAt)}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     ETRN: {etrn?.summary?.blockedTitles ?? 0} blocked
                 </div>
             </div>
@@ -391,24 +391,24 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
             <div className="rounded-2xl border border-white bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                     <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Внешний обмен</p>
-                        <p className="text-sm font-semibold text-slate-900">Статус провайдера, попытки и квитанции</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Внешний обмен</p>
+                        <p className="text-sm font-semibold text-neutral-900">Статус провайдера, попытки и квитанции</p>
                     </div>
-                    <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                    <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                         {exchangeTotals.providers} providers
                     </span>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Попытки: {exchangeTotals.retries}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Квитанции: {exchangeTotals.receipts}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Последняя попытка: {formatComplianceDate(exchangeTotals.lastAttemptAt)}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Следующий retry: {formatComplianceDate(exchangeTotals.nextRetryAt)}
                     </div>
                 </div>
@@ -417,7 +417,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
             {(transportDocuments?.lifecycle?.missingDocumentTypes?.length || etrn?.summary?.blockingTitleTypes?.length) && (
                 <div className="grid gap-3 lg:grid-cols-2">
                     <div className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Missing transport docs</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Missing transport docs</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(transportDocuments?.lifecycle?.missingDocumentTypes || []).map((type: string) => (
                                 <span key={type} className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">
@@ -425,12 +425,12 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                 </span>
                             ))}
                             {(transportDocuments?.lifecycle?.missingDocumentTypes || []).length === 0 && (
-                                <span className="text-xs text-slate-500">Нет критичных пробелов</span>
+                                <span className="text-xs text-neutral-500">Нет критичных пробелов</span>
                             )}
                         </div>
                     </div>
                     <div className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">ETRN blockers</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">ETRN blockers</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(etrn?.summary?.blockingTitleTypes || []).map((type: string) => (
                                 <span key={type} className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
@@ -438,7 +438,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                 </span>
                             ))}
                             {(etrn?.summary?.blockingTitleTypes || []).length === 0 && (
-                                <span className="text-xs text-slate-500">Блокирующих титулов нет</span>
+                                <span className="text-xs text-neutral-500">Блокирующих титулов нет</span>
                             )}
                         </div>
                     </div>
@@ -450,7 +450,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Ошибки и подсказки retry</p>
-                            <p className="text-sm font-semibold text-slate-900">Persisted document issues</p>
+                            <p className="text-sm font-semibold text-neutral-900">Persisted document issues</p>
                         </div>
                         <RetryHint label="Исправить и повторить" />
                     </div>
@@ -460,13 +460,13 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
                                         <p className="text-xs font-semibold text-rose-700">{problem.code}</p>
-                                        <p className="text-sm text-slate-900">{problem.message}</p>
+                                        <p className="text-sm text-neutral-900">{problem.message}</p>
                                     </div>
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(problem.severity, 'bg')}`}>
                                         {problem.severity}
                                     </span>
                                 </div>
-                                <p className="mt-1 text-[11px] text-slate-500">
+                                <p className="mt-1 text-[11px] text-neutral-500">
                                     {problem.documentType ? transportDocLabel(problem.documentType) : 'Документ'}{problem.at ? ` · ${formatComplianceDate(problem.at)}` : ''}
                                 </p>
                             </div>
@@ -480,19 +480,19 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                     <div key={doc.id} className="rounded-2xl border border-white bg-white p-4 shadow-sm">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{transportDocLabel(doc.type)}</p>
-                                <p className="text-sm font-semibold text-slate-900">{doc.externalId}</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{transportDocLabel(doc.type)}</p>
+                                <p className="text-sm font-semibold text-neutral-900">{doc.externalId}</p>
                             </div>
                             <div className="flex flex-col items-end gap-1">
                                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClass(transportTone(doc.status), 'bg')}`}>
                                     {transportDocStatusLabel(doc.status)}
                                 </span>
-                                <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                <span className="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
                                     {doc.providerStatus || doc.providerName || 'internal'}
                                 </span>
                             </div>
                         </div>
-                        <div className="mt-3 grid gap-2 text-[11px] text-slate-500">
+                        <div className="mt-3 grid gap-2 text-[11px] text-neutral-500">
                             <div>Создан: {formatComplianceDate(doc.createdAt)}</div>
                             <div>Обновлён: {formatComplianceDate(doc.updatedAt)}</div>
                             <div>Провайдер: {doc.providerName || 'internal'}</div>
@@ -518,12 +518,12 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                 </span>
                             )}
                             {doc.lastSyncedAt && (
-                                <span className="inline-flex rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                                <span className="inline-flex rounded-full bg-neutral-50 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                                     синхр. {formatComplianceDate(doc.lastSyncedAt)}
                                 </span>
                             )}
                         </div>
-                        <div className="mt-3 text-[11px] text-slate-500">
+                        <div className="mt-3 text-[11px] text-neutral-500">
                             {doc.nextRetryAt
                                 ? `Ручное действие: повторить после ${formatComplianceDate(doc.nextRetryAt)}`
                                 : doc.status === 'error' || doc.status === 'rejected'
@@ -554,11 +554,11 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         events={etrn?.timeline || []}
                         emptyLabel="ETRN timeline пока пуст"
                     />
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="rounded-2xl border border-neutral-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">ETRN titles</p>
-                                <p className="text-sm font-semibold text-slate-900">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">ETRN titles</p>
+                                <p className="text-sm font-semibold text-neutral-900">
                                     {etrn?.summary?.completedTitles ?? 0}/{etrn?.summary?.totalTitles ?? 0} completed
                                 </p>
                             </div>
@@ -568,17 +568,17 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         </div>
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                             {titles.slice(0, 6).map((title: any) => (
-                                <div key={title.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                <div key={title.id} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title.titleNumber}</p>
-                                            <p className="text-sm font-semibold text-slate-900">{title.titleLabel}</p>
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{title.titleNumber}</p>
+                                            <p className="text-sm font-semibold text-neutral-900">{title.titleLabel}</p>
                                         </div>
                                         <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(titleTone(title.status), 'bg')}`}>
                                             {etrnTitleStatusLabel(title.status)}
                                         </span>
                                     </div>
-                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
                                         <span>{title.isRequired ? 'обязат.' : 'опц.'}</span>
                                         <span>история {title.history?.length || 0}</span>
                                         {title.error && <RetryHint label="повторить после исправления" />}
@@ -597,17 +597,17 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Проблемы ЭТРН</p>
-                                    <p className="text-sm font-semibold text-slate-900">Что мешает пройти по контуру</p>
+                                    <p className="text-sm font-semibold text-neutral-900">Что мешает пройти по контуру</p>
                                 </div>
                                 <RetryHint label="Проверить блокеры" />
                             </div>
                             <div className="mt-3 space-y-2">
                                 {(etrnProblems.slice(0, 4)).map((problem: any) => (
-                                    <div key={`${problem.code}-${problem.documentId || problem.at || problem.message}`} className="rounded-xl border border-white bg-white px-3 py-2 text-sm text-slate-700">
+                                    <div key={`${problem.code}-${problem.documentId || problem.at || problem.message}`} className="rounded-xl border border-white bg-white px-3 py-2 text-sm text-neutral-700">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="font-semibold text-slate-900">{problem.message}</p>
-                                                <p className="text-[11px] text-slate-500">
+                                                <p className="font-semibold text-neutral-900">{problem.message}</p>
+                                                <p className="text-[11px] text-neutral-500">
                                                     {problem.documentType ? transportDocLabel(problem.documentType) : 'ETRN'}{problem.at ? ` · ${formatComplianceDate(problem.at)}` : ''}
                                                 </p>
                                             </div>
@@ -679,21 +679,21 @@ function CloseWaybillModal({
                             <Lock className="w-5 h-5 text-emerald-600" />
                             Закрытие путевого листа
                         </CardTitle>
-                        <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100">
-                            <X className="w-5 h-5 text-slate-400" />
+                        <button onClick={onClose} className="p-1 rounded-lg hover:bg-neutral-100">
+                            <X className="w-5 h-5 text-neutral-400" />
                         </button>
                     </div>
-                    <p className="text-sm text-slate-500 mt-1">
+                    <p className="text-sm text-neutral-500 mt-1">
                         {waybill.number} • {waybill.vehicle?.plateNumber}
                     </p>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
+                    <div className="p-3 bg-neutral-50 rounded-lg text-sm text-neutral-600">
                         Одометр при выезде: <strong>{waybill.odometerOut.toLocaleString()} км</strong>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-semibold text-slate-700">
+                        <label className="block text-sm font-semibold text-neutral-700">
                             Одометр при возврате (км) *
                         </label>
                         <input
@@ -701,13 +701,13 @@ function CloseWaybillModal({
                             placeholder="Пробег при возврате"
                             value={odometerIn}
                             onChange={e => setOdometerIn(e.target.value)}
-                            className="w-full px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                            className="w-full px-4 py-3 text-base border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
                             min={waybill.odometerOut}
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-semibold text-slate-700">
+                        <label className="block text-sm font-semibold text-neutral-700">
                             Остаток топлива (л)
                         </label>
                         <input
@@ -716,7 +716,7 @@ function CloseWaybillModal({
                             placeholder="Необязательное поле"
                             value={fuelIn}
                             onChange={e => setFuelIn(e.target.value)}
-                            className="w-full px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                            className="w-full px-4 py-3 text-base border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
                         />
                     </div>
 
@@ -795,8 +795,8 @@ function DetailModal({
                             <FileText className="w-5 h-5 text-blue-600" />
                             Путевой лист {waybill.number}
                         </CardTitle>
-                        <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100">
-                            <X className="w-5 h-5 text-slate-400" />
+                        <button onClick={onClose} className="p-1 rounded-lg hover:bg-neutral-100">
+                            <X className="w-5 h-5 text-neutral-400" />
                         </button>
                     </div>
                     <StatusBadge status={waybill.status} />
@@ -804,13 +804,13 @@ function DetailModal({
                 <CardContent className="space-y-4">
                     {/* Vehicle */}
                     {(waybill.vehicle || vehicleInfo) && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                            <Truck className="w-5 h-5 text-slate-500" />
+                        <div className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl">
+                            <Truck className="w-5 h-5 text-neutral-500" />
                             <div>
-                                <p className="text-sm font-semibold text-slate-800">
+                                <p className="text-sm font-semibold text-neutral-800">
                                     {waybill.vehicle?.plateNumber || vehicleInfo?.plateNumber}
                                 </p>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-neutral-500">
                                     {waybill.vehicle?.make || vehicleInfo?.make} {waybill.vehicle?.model || vehicleInfo?.model}
                                 </p>
                                 {resolvedVehicleProfile && (
@@ -822,7 +822,7 @@ function DetailModal({
                                     <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
                                         {waybillCue.modeLabel}
                                     </span>
-                                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">
+                                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-600 shadow-sm">
                                         {waybillCue.profileLabel}
                                     </span>
                                 </div>
@@ -832,7 +832,7 @@ function DetailModal({
                                     </div>
                                 )}
                                 {trailerInfo && (
-                                    <p className="text-xs text-slate-400">
+                                    <p className="text-xs text-neutral-400">
                                         Прицеп: {trailerInfo.plateNumber}
                                     </p>
                                 )}
@@ -860,34 +860,34 @@ function DetailModal({
                                 }`}>
                                     Профиль ПЛ
                                 </p>
-                                <p className="text-sm font-semibold text-slate-900">{waybillCue.title}</p>
+                                <p className="text-sm font-semibold text-neutral-900">{waybillCue.title}</p>
                             </div>
-                            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-600 shadow-sm">
                                 {waybillCue.tone === 'ready' ? 'Готов' : 'Проверить'}
                             </span>
                         </div>
-                        <p className="mt-2 text-xs leading-5 text-slate-600">{waybillCue.description}</p>
+                        <p className="mt-2 text-xs leading-5 text-neutral-600">{waybillCue.description}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                             {waybillCue.markers.map((marker) => (
                                 <span
                                     key={marker}
-                                    className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm"
+                                    className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-600 shadow-sm"
                                 >
                                     {marker}
                                 </span>
                             ))}
                         </div>
                         <div className="mt-3 rounded-xl border border-white/70 bg-white/80 px-3 py-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Что влияет на ПЛ</p>
-                            <p className="mt-1 text-xs leading-5 text-slate-600">{waybillCue.impactLabel}</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Что влияет на ПЛ</p>
+                            <p className="mt-1 text-xs leading-5 text-neutral-600">{waybillCue.impactLabel}</p>
                         </div>
                         <div className="mt-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Обязательные поля и проверки</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Обязательные поля и проверки</p>
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {waybillCue.requirements.map((requirement) => (
                                     <span
                                         key={requirement}
-                                        className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700"
+                                        className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-700"
                                     >
                                         {requirement}
                                     </span>
@@ -913,21 +913,21 @@ function DetailModal({
 
                     {/* Driver */}
                     {waybill.driver && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                            <User className="w-5 h-5 text-slate-500" />
+                        <div className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl">
+                            <User className="w-5 h-5 text-neutral-500" />
                             <div>
-                                <p className="text-sm font-semibold text-slate-800">{waybill.driver.fullName}</p>
-                                <p className="text-xs text-slate-500">ВУ: {waybill.driver.licenseNumber}</p>
+                                <p className="text-sm font-semibold text-neutral-800">{waybill.driver.fullName}</p>
+                                <p className="text-xs text-neutral-500">ВУ: {waybill.driver.licenseNumber}</p>
                             </div>
                         </div>
                     )}
 
                     {/* Trip */}
                     {waybill.trip && (
-                        <div className="p-3 bg-slate-50 rounded-xl">
-                            <p className="text-sm text-slate-600">
+                        <div className="p-3 bg-neutral-50 rounded-xl">
+                            <p className="text-sm text-neutral-600">
                                 Рейс: <strong>{waybill.trip.number}</strong>
-                                <span className="ml-2 text-xs text-slate-400">({waybill.trip.status})</span>
+                                <span className="ml-2 text-xs text-neutral-400">({waybill.trip.status})</span>
                             </p>
                         </div>
                     )}
@@ -937,29 +937,29 @@ function DetailModal({
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Сводка по compliance</p>
-                                    <p className="text-sm font-semibold text-slate-900">Досье рейса</p>
+                                    <p className="text-sm font-semibold text-neutral-900">Досье рейса</p>
                                 </div>
                                 <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
                                     {dossier.summary?.hasWaybill ? 'ПЛ есть' : 'ПЛ нет'}
                                 </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                            <div className="grid grid-cols-2 gap-2 text-xs text-neutral-600">
                                 <div className="rounded-xl bg-white px-3 py-2">Заявок: {dossier.summary?.orderCount ?? 0}</div>
                                 <div className="rounded-xl bg-white px-3 py-2">ТС: {dossier.summary?.hasVehicle ? 'да' : 'нет'}</div>
                                 <div className="rounded-xl bg-white px-3 py-2">Прицеп: {dossier.summary?.hasTrailer ? 'да' : 'нет'}</div>
                                 <div className="rounded-xl bg-white px-3 py-2">ПЛ: {dossier.summary?.hasWaybill ? 'да' : 'нет'}</div>
                             </div>
-                            <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-500">
+                            <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-500">
                                 {dossier.parties?.length || 0} участников • {dossier.orders?.length || 0} заявок в досье
                             </div>
                         </div>
                     )}
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="rounded-2xl border border-neutral-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Готовность</p>
-                                <p className="text-sm font-semibold text-slate-900">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Готовность</p>
+                                <p className="text-sm font-semibold text-neutral-900">
                                     {readiness.title} · {readiness.doneCount}/{readiness.totalCount}
                                 </p>
                             </div>
@@ -975,20 +975,20 @@ function DetailModal({
                         </div>
                         <div className="mt-3 grid gap-2 md:grid-cols-2">
                             {readiness.items.map(item => (
-                                <div key={item.key} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                <div key={item.key} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                                     <div className="flex items-center justify-between gap-3">
-                                        <span className="text-xs font-medium text-slate-700">{item.label}</span>
+                                        <span className="text-xs font-medium text-neutral-700">{item.label}</span>
                                         <span className={`text-[11px] font-semibold ${
                                             item.state === 'done'
                                                 ? 'text-emerald-700'
                                                 : item.state === 'warn'
                                                     ? 'text-amber-700'
-                                                    : 'text-slate-500'
+                                                    : 'text-neutral-500'
                                         }`}>
                                             {item.state === 'done' ? 'OK' : item.state === 'warn' ? 'Проверить' : 'Опц.'}
                                         </span>
                                     </div>
-                                    <p className="mt-1 text-[11px] leading-4 text-slate-500">{item.hint}</p>
+                                    <p className="mt-1 text-[11px] leading-4 text-neutral-500">{item.hint}</p>
                                 </div>
                             ))}
                         </div>
@@ -1008,15 +1008,15 @@ function DetailModal({
                                 {waybill.odometerIn ? `${waybill.odometerIn.toLocaleString()} км` : '—'}
                             </p>
                         </div>
-                        <div className="p-3 bg-slate-50 rounded-xl">
-                            <p className="text-xs text-slate-400 mb-1">Выезд</p>
-                            <p className="text-sm font-medium text-slate-700">
+                        <div className="p-3 bg-neutral-50 rounded-xl">
+                            <p className="text-xs text-neutral-400 mb-1">Выезд</p>
+                            <p className="text-sm font-medium text-neutral-700">
                                 {waybill.departureAt ? new Date(waybill.departureAt).toLocaleString('ru-RU') : '—'}
                             </p>
                         </div>
-                        <div className="p-3 bg-slate-50 rounded-xl">
-                            <p className="text-xs text-slate-400 mb-1">Возврат</p>
-                            <p className="text-sm font-medium text-slate-700">
+                        <div className="p-3 bg-neutral-50 rounded-xl">
+                            <p className="text-xs text-neutral-400 mb-1">Возврат</p>
+                            <p className="text-sm font-medium text-neutral-700">
                                 {waybill.returnAt ? new Date(waybill.returnAt).toLocaleString('ru-RU') : '—'}
                             </p>
                         </div>
@@ -1046,16 +1046,16 @@ function DetailModal({
                     </div>
 
                     {waybill.drivers && waybill.drivers.length > 0 && (
-                        <div className="p-3 bg-slate-50 rounded-xl space-y-2">
-                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Водители на путевом</p>
+                        <div className="p-3 bg-neutral-50 rounded-xl space-y-2">
+                            <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wide">Водители на путевом</p>
                             <div className="space-y-2">
                                 {waybill.drivers.map((link) => (
                                     <div key={link.id} className="flex items-center justify-between gap-3 text-sm">
                                         <div>
-                                            <p className="font-medium text-slate-800">{link.driverName}</p>
-                                            <p className="text-xs text-slate-500">ВУ: {link.licenseNumber}</p>
+                                            <p className="font-medium text-neutral-800">{link.driverName}</p>
+                                            <p className="text-xs text-neutral-500">ВУ: {link.licenseNumber}</p>
                                         </div>
-                                        <div className="text-right text-xs text-slate-500">
+                                        <div className="text-right text-xs text-neutral-500">
                                             {link.isPrimary && <p className="text-emerald-600 font-semibold">Основной</p>}
                                             {(link.shiftStart || link.shiftEnd) && (
                                                 <p>
@@ -1072,16 +1072,16 @@ function DetailModal({
                     )}
 
                     {waybill.expenses && waybill.expenses.length > 0 && (
-                        <div className="p-3 bg-slate-50 rounded-xl space-y-2">
-                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Расходы по путевому</p>
+                        <div className="p-3 bg-neutral-50 rounded-xl space-y-2">
+                            <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wide">Расходы по путевому</p>
                             <div className="space-y-2">
                                 {waybill.expenses.map((expense) => (
-                                    <div key={expense.id} className="flex items-center justify-between gap-3 text-sm border-b border-slate-200 pb-2 last:border-b-0 last:pb-0">
+                                    <div key={expense.id} className="flex items-center justify-between gap-3 text-sm border-b border-neutral-200 pb-2 last:border-b-0 last:pb-0">
                                         <div>
-                                            <p className="font-medium text-slate-800">{expense.category}</p>
-                                            <p className="text-xs text-slate-500">{expense.description || 'Без описания'}</p>
+                                            <p className="font-medium text-neutral-800">{expense.category}</p>
+                                            <p className="text-xs text-neutral-500">{expense.description || 'Без описания'}</p>
                                         </div>
-                                        <div className="text-right text-xs text-slate-600">
+                                        <div className="text-right text-xs text-neutral-600">
                                             <p>План: {expense.plannedAmount ?? 0} в‚Ѕ</p>
                                             <p>Факт: {expense.actualAmount ?? 0} в‚Ѕ</p>
                                         </div>
@@ -1090,13 +1090,13 @@ function DetailModal({
                             </div>
                         </div>
                     )}
-                    <div className="p-3 bg-slate-50 rounded-xl space-y-3">
+                    <div className="p-3 bg-neutral-50 rounded-xl space-y-3">
                         <div className="flex items-center justify-between gap-3">
                             <div>
-                                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Вложения</p>
-                                <p className="text-sm text-slate-600">Файлы Рё сканы, прикреплённые к путевому листу.</p>
+                                <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wide">Вложения</p>
+                                <p className="text-sm text-neutral-600">Файлы Рё сканы, прикреплённые к путевому листу.</p>
                             </div>
-                            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-100 cursor-pointer">
+                            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-100 cursor-pointer">
                                 <Upload className="w-4 h-4" />
                                 {uploadingAttachment ? 'Загрузка...' : 'Загрузить'}
                                 <input
@@ -1115,10 +1115,10 @@ function DetailModal({
                         {waybill.attachments && waybill.attachments.length > 0 ? (
                             <div className="space-y-2">
                                 {waybill.attachments.map((attachment) => (
-                                    <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-lg bg-white border border-slate-200 px-3 py-2">
+                                    <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-lg bg-white border border-neutral-200 px-3 py-2">
                                         <div className="min-w-0">
-                                            <p className="text-sm font-medium text-slate-800 truncate">{attachment.originalName}</p>
-                                            <p className="text-xs text-slate-500">{Math.max(1, Math.round(attachment.fileSize / 1024))} KB</p>
+                                            <p className="text-sm font-medium text-neutral-800 truncate">{attachment.originalName}</p>
+                                            <p className="text-xs text-neutral-500">{Math.max(1, Math.round(attachment.fileSize / 1024))} KB</p>
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <button
@@ -1140,14 +1140,14 @@ function DetailModal({
                                 ))}
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2 text-sm text-slate-500">
+                            <div className="flex items-center gap-2 text-sm text-neutral-500">
                                 <Paperclip className="w-4 h-4" />
                                 Вложений пока нет
                             </div>
                         )}
                     </div>
 
-                    <div className="text-xs text-slate-400 pt-2">
+                    <div className="text-xs text-neutral-400 pt-2">
                         Выдан: {new Date(waybill.issuedAt).toLocaleString('ru-RU')}
                         {waybill.closedAt && ' Закрыт: ' + new Date(waybill.closedAt).toLocaleString('ru-RU')}
                     </div>
@@ -1390,7 +1390,7 @@ export default function WaybillsPage() {
                 });
                 return (
                     <div className="flex flex-col gap-0.5 text-xs">
-                        <span className="font-medium text-slate-700">
+                        <span className="font-medium text-neutral-700">
                             {vehicleMap[r.vehicleId]?.plateNumber || r.vehicleId.substring(0, 8)}
                         </span>
                         <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
@@ -1405,10 +1405,10 @@ export default function WaybillsPage() {
                         }`}>
                             {rowCue.tone === 'ready' ? 'ПЛ готов' : rowCue.tone === 'attention' ? 'Проверь ПЛ' : 'ПЛ заблокирован'}
                         </span>
-                        <span className="inline-flex w-fit rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 shadow-sm">
+                        <span className="inline-flex w-fit rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-neutral-500 shadow-sm">
                             {rowCue.modeLabel}
                         </span>
-                        <span className="text-[11px] leading-4 text-slate-500">
+                        <span className="text-[11px] leading-4 text-neutral-500">
                             {rowCue.impactLabel}
                         </span>
                         {rowReadiness && (
@@ -1423,7 +1423,7 @@ export default function WaybillsPage() {
                             </span>
                         )}
                         {trailerMap[r.vehicleId] && (
-                            <span className="text-[11px] text-slate-400">
+                            <span className="text-[11px] text-neutral-400">
                                 + прицеп {trailerMap[r.vehicleId].plateNumber}
                             </span>
                         )}
@@ -1435,7 +1435,7 @@ export default function WaybillsPage() {
         {
             id: 'driver',
             header: 'Водитель',
-            cell: (r) => <span className="text-slate-700 text-xs">{driverMap[r.driverId] || r.driverId.substring(0, 8)}</span>,
+            cell: (r) => <span className="text-neutral-700 text-xs">{driverMap[r.driverId] || r.driverId.substring(0, 8)}</span>,
             minWidth: '160px',
         },
         {
@@ -1443,7 +1443,7 @@ export default function WaybillsPage() {
             header: 'Выезд',
             accessor: (r) => r.departureAt,
             cell: (r) => (
-                <span className="text-slate-600 text-xs">
+                <span className="text-neutral-600 text-xs">
                     {r.departureAt ? new Date(r.departureAt).toLocaleString('ru-RU', {
                         day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
                     }) : '—'}
@@ -1456,7 +1456,7 @@ export default function WaybillsPage() {
             id: 'odometer',
             header: 'Одометр (км)',
             cell: (r) => (
-                <span className="text-slate-600 text-xs font-mono whitespace-nowrap">
+                <span className="text-neutral-600 text-xs font-mono whitespace-nowrap">
                     {r.odometerOut.toLocaleString('ru-RU')}
                     {' → '}
                     {r.odometerIn ? r.odometerIn.toLocaleString('ru-RU') : '…'}
@@ -1470,7 +1470,7 @@ export default function WaybillsPage() {
             id: 'issuedAt',
             header: 'Дата выдачи',
             accessor: (r) => r.issuedAt,
-            cell: (r) => <span className="text-slate-500 text-xs">{new Date(r.issuedAt).toLocaleDateString('ru-RU')}</span>,
+            cell: (r) => <span className="text-neutral-500 text-xs">{new Date(r.issuedAt).toLocaleDateString('ru-RU')}</span>,
             sortable: true,
             width: '120px',
             align: 'right',
@@ -1479,17 +1479,17 @@ export default function WaybillsPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-neutral-50">
             {/* Header */}
-            <header className="bg-white border-b border-slate-200 px-6 py-4 -m-6 mb-6">
+            <header className="bg-white border-b border-neutral-200 px-6 py-4 -m-6 mb-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
                             <FileText className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900">Путевые листы</h1>
-                            <p className="text-sm text-slate-500">Управление путевыми листами</p>
+                            <h1 className="text-xl font-bold text-neutral-900">Путевые листы</h1>
+                            <p className="text-sm text-neutral-500">Управление путевыми листами</p>
                         </div>
                     </div>
                     <Button variant="outline" size="sm" onClick={loadWaybills}>
@@ -1515,7 +1515,7 @@ export default function WaybillsPage() {
                         placeholder="Поиск по номеру (WB-...)"
                         value={searchFilter}
                         onChange={e => { setSearchFilter(e.target.value); setPage(1); }}
-                        className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
+                        className="w-full h-9 px-3 rounded-lg border border-neutral-200 bg-white text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
                     />
                 </div>
             </div>
@@ -1571,7 +1571,7 @@ export default function WaybillsPage() {
             />
             {/* Server-side pagination */}
             {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 -mt-3 bg-white border border-slate-200 border-t-0 rounded-b-xl text-xs text-slate-500">
+                <div className="flex items-center justify-between px-4 py-3 -mt-3 bg-white border border-neutral-200 border-t-0 rounded-b-xl text-xs text-neutral-500">
                     <p>
                         Показано {((page - 1) * limit) + 1}–{Math.min(page * limit, total)} из {total}
                     </p>

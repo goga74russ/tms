@@ -172,14 +172,14 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
                             <Truck className="w-4 h-4 text-white" />
                         </div>
-                        <h2 className="text-lg font-bold text-slate-900">Создать рейс</h2>
+                        <h2 className="text-lg font-bold text-neutral-900">Создать рейс</h2>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+                    <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -188,8 +188,8 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                 <div className="flex-1 overflow-y-auto p-6 space-y-5">
                     {loadingData && (
                         <div className="flex items-center justify-center py-12">
-                            <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
-                            <span className="ml-2 text-sm text-slate-500">Загрузка...</span>
+                            <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
+                            <span className="ml-2 text-sm text-neutral-500">Загрузка...</span>
                         </div>
                     )}
 
@@ -197,14 +197,14 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                         <>
                             {/* Vehicle selection */}
                             <div>
-                                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-2">
+                                <label className="text-sm font-semibold text-neutral-700 flex items-center gap-2 mb-2">
                                     <Truck className="w-4 h-4 text-emerald-500" />
                                     Транспортное средство
                                 </label>
                                 <select
                                     value={selectedVehicle}
                                     onChange={e => setSelectedVehicle(e.target.value)}
-                                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
                                     <option value="">Выберите ТС...</option>
                                     {vehicles.map(v => (
@@ -220,14 +220,14 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
 
                             {/* Driver selection */}
                             <div>
-                                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-2">
+                                <label className="text-sm font-semibold text-neutral-700 flex items-center gap-2 mb-2">
                                     <User className="w-4 h-4 text-blue-500" />
                                     Водитель
                                 </label>
                                 <select
                                     value={selectedDriver}
                                     onChange={e => setSelectedDriver(e.target.value)}
-                                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 >
                                     <option value="">Выберите водителя...</option>
                                     {drivers.map(d => (
@@ -243,7 +243,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
 
                             {/* Orders selection */}
                             <div>
-                                <label className="text-sm font-semibold text-slate-700 flex items-center gap-2 mb-2">
+                                <label className="text-sm font-semibold text-neutral-700 flex items-center gap-2 mb-2">
                                     <Package className="w-4 h-4 text-indigo-500" />
                                     Заявки ({selectedOrders.length} выбрано
                                     {totalWeight > 0 && ` • ${(totalWeight / 1000).toFixed(1)}т`})
@@ -268,26 +268,26 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                             key={order.id}
                                             className={`flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all ${selectedOrders.includes(order.id)
                                                 ? 'bg-indigo-50 border border-indigo-200'
-                                                : 'bg-slate-50 border border-transparent hover:bg-slate-100'
+                                                : 'bg-neutral-50 border border-transparent hover:bg-neutral-100'
                                                 }`}
                                         >
                                             <input
                                                 type="checkbox"
                                                 checked={selectedOrders.includes(order.id)}
                                                 onChange={() => toggleOrder(order.id)}
-                                                className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                className="mt-0.5 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
                                             />
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-xs font-bold text-indigo-600 font-mono">{order.number}</span>
-                                                    <span className="text-xs text-slate-500">
+                                                    <span className="text-xs text-neutral-500">
                                                         {order.cargoWeightKg >= 1000
                                                             ? `${(order.cargoWeightKg / 1000).toFixed(1)}т`
                                                             : `${order.cargoWeightKg}кг`}
                                                     </span>
                                                 </div>
-                                                <p className="text-xs text-slate-500 truncate">{order.cargoDescription}</p>
-                                                <p className="text-xs text-slate-400 truncate">
+                                                <p className="text-xs text-neutral-500 truncate">{order.cargoDescription}</p>
+                                                <p className="text-xs text-neutral-400 truncate">
                                                     {order.loadingAddress} → {order.unloadingAddress}
                                                 </p>
                                                 {selectedVehicleData && (
@@ -319,7 +319,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                         );
                                     })}
                                     {orders.length === 0 && (
-                                        <p className="text-xs text-slate-400 text-center py-4">
+                                        <p className="text-xs text-neutral-400 text-center py-4">
                                             Нет подтверждённых заявок
                                         </p>
                                     )}
@@ -347,7 +347,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <div className="px-6 py-4 border-t border-neutral-100 flex items-center justify-end gap-3">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>
                         Отмена
                     </Button>

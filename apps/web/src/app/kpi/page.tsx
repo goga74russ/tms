@@ -74,7 +74,7 @@ const TrafficLight = ({ label, status, amount }: {
         <div className={`${c.bg} ${c.border} flex items-center gap-3 rounded-xl border p-4`}>
             <div className={`h-4 w-4 rounded-full ${c.dot} animate-pulse`} />
             <div>
-                <p className="text-sm font-medium text-slate-700">{label}</p>
+                <p className="text-sm font-medium text-neutral-700">{label}</p>
                 <p className={`text-lg font-bold ${c.text}`}>{amount}</p>
             </div>
         </div>
@@ -184,13 +184,13 @@ function DriverScoreboardSection() {
                 key={`${entry.id || entry.driverId || idx}`}
                 type="button"
                 onClick={() => openDriver(entry)}
-                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-slate-50"
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-neutral-50"
             >
                 <div className="flex items-center gap-3 min-w-0">
                     <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${bg} ${accent}`}>
                         {idx + 1}
                     </span>
-                    <span className="truncate text-slate-800">{name}</span>
+                    <span className="truncate text-neutral-800">{name}</span>
                 </div>
                 <span className={`font-bold ${accent}`}>{scoreNum != null && Number.isFinite(scoreNum) ? scoreNum.toFixed(1) : "—"}</span>
             </button>
@@ -200,10 +200,10 @@ function DriverScoreboardSection() {
     return (
         <Card>
             <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <CardTitle className="text-lg font-semibold text-slate-900">Рейтинг водителей</CardTitle>
+                <CardTitle className="text-lg font-semibold text-neutral-900">Рейтинг водителей</CardTitle>
                 <div className="flex items-center gap-2">
                     <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-36" />
-                    <span className="text-slate-400">-</span>
+                    <span className="text-neutral-400">-</span>
                     <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-36" />
                     <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
                         {loading ? "..." : "Обновить"}
@@ -216,7 +216,7 @@ function DriverScoreboardSection() {
                     <div>
                         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-600">Top 5</p>
                         {top.length === 0 ? (
-                            <p className="py-4 text-center text-sm text-slate-400">Нет данных</p>
+                            <p className="py-4 text-center text-sm text-neutral-400">Нет данных</p>
                         ) : (
                             <div className="space-y-1">{top.map((e, i) => renderRow(e, i, "green"))}</div>
                         )}
@@ -224,7 +224,7 @@ function DriverScoreboardSection() {
                     <div>
                         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-600">Bottom 5</p>
                         {bottom.length === 0 ? (
-                            <p className="py-4 text-center text-sm text-slate-400">Нет данных</p>
+                            <p className="py-4 text-center text-sm text-neutral-400">Нет данных</p>
                         ) : (
                             <div className="space-y-1">{bottom.map((e, i) => renderRow(e, i, "red"))}</div>
                         )}
@@ -238,30 +238,30 @@ function DriverScoreboardSection() {
                 title={`Детали водителя · ${selected?.name || selected?.fullName || ""}`}
             >
                 {detailLoading ? (
-                    <p className="py-6 text-center text-sm text-slate-500">Загрузка...</p>
+                    <p className="py-6 text-center text-sm text-neutral-500">Загрузка...</p>
                 ) : !detail ? (
-                    <p className="py-6 text-center text-sm text-slate-400">Данных нет</p>
+                    <p className="py-6 text-center text-sm text-neutral-400">Данных нет</p>
                 ) : (
                     <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <p className="text-xs text-slate-500">Рейсов</p>
-                            <p className="text-lg font-bold text-slate-900">{detail.tripsCount}</p>
+                        <div className="rounded-lg bg-neutral-50 px-3 py-2">
+                            <p className="text-xs text-neutral-500">Рейсов</p>
+                            <p className="text-lg font-bold text-neutral-900">{detail.tripsCount}</p>
                         </div>
-                        <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <p className="text-xs text-slate-500">В срок (%)</p>
-                            <p className="text-lg font-bold text-slate-900">{detail.onTimePercent}</p>
+                        <div className="rounded-lg bg-neutral-50 px-3 py-2">
+                            <p className="text-xs text-neutral-500">В срок (%)</p>
+                            <p className="text-lg font-bold text-neutral-900">{detail.onTimePercent}</p>
                         </div>
-                        <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <p className="text-xs text-slate-500">Cold breaches</p>
-                            <p className="text-lg font-bold text-slate-900">{detail.coldBreaches}</p>
+                        <div className="rounded-lg bg-neutral-50 px-3 py-2">
+                            <p className="text-xs text-neutral-500">Cold breaches</p>
+                            <p className="text-lg font-bold text-neutral-900">{detail.coldBreaches}</p>
                         </div>
-                        <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <p className="text-xs text-slate-500">RTO breaches</p>
-                            <p className="text-lg font-bold text-slate-900">{detail.rtoBreaches}</p>
+                        <div className="rounded-lg bg-neutral-50 px-3 py-2">
+                            <p className="text-xs text-neutral-500">RTO breaches</p>
+                            <p className="text-lg font-bold text-neutral-900">{detail.rtoBreaches}</p>
                         </div>
-                        <div className="rounded-lg bg-slate-50 px-3 py-2">
-                            <p className="text-xs text-slate-500">Штрафы</p>
-                            <p className="text-lg font-bold text-slate-900">{detail.fines}</p>
+                        <div className="rounded-lg bg-neutral-50 px-3 py-2">
+                            <p className="text-xs text-neutral-500">Штрафы</p>
+                            <p className="text-lg font-bold text-neutral-900">{detail.fines}</p>
                         </div>
                         <div className="rounded-lg bg-emerald-50 px-3 py-2">
                             <p className="text-xs text-emerald-600">Score</p>
@@ -368,7 +368,7 @@ export default function KPIDashboard() {
     }));
 
     return (
-        <div className="min-h-screen space-y-6 bg-slate-50 p-8 text-slate-900">
+        <div className="min-h-screen space-y-6 bg-neutral-50 p-8 text-neutral-900">
             <DashboardHeader
                 title="Панель KPI"
                 subtitle="Ключевые показатели бизнеса и аналитика затрат"
@@ -445,7 +445,7 @@ export default function KPIDashboard() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <Card className="col-span-1 lg:col-span-2">
                     <CardHeader>
-                        <CardTitle className="text-lg font-semibold text-slate-900">Выручка, себестоимость и маржа</CardTitle>
+                        <CardTitle className="text-lg font-semibold text-neutral-900">Выручка, себестоимость и маржа</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="h-80 w-full">
@@ -470,7 +470,7 @@ export default function KPIDashboard() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-lg font-semibold text-slate-900">Структура затрат</CardTitle>
+                        <CardTitle className="text-lg font-semibold text-neutral-900">Структура затрат</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="h-64 w-full">
@@ -493,7 +493,7 @@ export default function KPIDashboard() {
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-lg font-semibold text-slate-900">Топливо: факт против нормы</CardTitle>
+                        <CardTitle className="text-lg font-semibold text-neutral-900">Топливо: факт против нормы</CardTitle>
                         {fuelData.some((item) => item.status === "overconsumption") && (
                             <span className="rounded-full border border-yellow-200 bg-yellow-100 px-2 py-1 text-xs text-yellow-700">
                                 Есть перерасход
@@ -516,19 +516,19 @@ export default function KPIDashboard() {
                                 </ResponsiveContainer>
                             </div>
                         ) : (
-                            <div className="py-12 text-center text-slate-400">Нет данных по ГСМ за выбранный период.</div>
+                            <div className="py-12 text-center text-neutral-400">Нет данных по ГСМ за выбранный период.</div>
                         )}
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="text-lg font-semibold text-slate-900">Топ водителей (KPI)</CardTitle>
+                        <CardTitle className="text-lg font-semibold text-neutral-900">Топ водителей (KPI)</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left text-sm">
-                                <thead className="border-b border-slate-200 text-xs uppercase text-slate-500">
+                                <thead className="border-b border-neutral-200 text-xs uppercase text-neutral-500">
                                     <tr>
                                         <th className="px-4 py-3 font-medium">Водитель</th>
                                         <th className="px-4 py-3 font-medium">Рейсы</th>
@@ -536,10 +536,10 @@ export default function KPIDashboard() {
                                         <th className="px-4 py-3 text-right font-medium">Оценка</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-neutral-100">
                                     {(kpi?.topDrivers || []).map((driver, index) => (
-                                        <tr key={`${driver.name}-${index}`} className="transition-colors hover:bg-slate-50">
-                                            <td className="px-4 py-4 font-medium text-slate-900">
+                                        <tr key={`${driver.name}-${index}`} className="transition-colors hover:bg-neutral-50">
+                                            <td className="px-4 py-4 font-medium text-neutral-900">
                                                 <div className="flex items-center gap-2">
                                                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600">
                                                         {index + 1}
@@ -547,7 +547,7 @@ export default function KPIDashboard() {
                                                     {driver.name}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-4 text-slate-500">{driver.trips}</td>
+                                            <td className="px-4 py-4 text-neutral-500">{driver.trips}</td>
                                             <td className="px-4 py-4 text-emerald-600">{driver.eco}</td>
                                             <td className="px-4 py-4 text-right font-medium text-yellow-600">{driver.score}</td>
                                         </tr>

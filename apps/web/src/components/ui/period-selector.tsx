@@ -110,7 +110,7 @@ export function PeriodSelector({ value, onChange, presets = ALL_PRESETS, classNa
                             'inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
                             active
                                 ? 'border-brand-200 bg-brand-50 text-brand-700'
-                                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100',
+                                : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100',
                         )}
                         aria-pressed={active}
                     >
@@ -125,7 +125,7 @@ export function PeriodSelector({ value, onChange, presets = ALL_PRESETS, classNa
                     'inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
                     value.preset === 'custom' || showCustom
                         ? 'border-brand-200 bg-brand-50 text-brand-700'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100',
+                        : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100',
                 )}
                 aria-pressed={value.preset === 'custom'}
                 aria-expanded={showCustom}
@@ -142,10 +142,10 @@ export function PeriodSelector({ value, onChange, presets = ALL_PRESETS, classNa
                             setCustomFrom(e.target.value);
                             applyCustom(e.target.value, customTo);
                         }}
-                        className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-brand-500 focus:outline-none"
+                        className="h-8 rounded-lg border border-neutral-200 bg-white px-2 text-xs text-neutral-700 focus:border-brand-500 focus:outline-none"
                         aria-label="С"
                     />
-                    <span className="text-xs text-slate-400">—</span>
+                    <span className="text-xs text-neutral-400">—</span>
                     <input
                         type="date"
                         value={customTo}
@@ -153,7 +153,7 @@ export function PeriodSelector({ value, onChange, presets = ALL_PRESETS, classNa
                             setCustomTo(e.target.value);
                             applyCustom(customFrom, e.target.value);
                         }}
-                        className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-brand-500 focus:outline-none"
+                        className="h-8 rounded-lg border border-neutral-200 bg-white px-2 text-xs text-neutral-700 focus:border-brand-500 focus:outline-none"
                         aria-label="По"
                     />
                 </div>

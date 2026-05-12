@@ -67,7 +67,7 @@ export default function TariffsPage() {
             id: 'contractorName',
             header: 'Контрагент',
             accessor: (r) => r.contractorName,
-            cell: (r) => <span className="font-medium text-slate-900">{r.contractorName}</span>,
+            cell: (r) => <span className="font-medium text-neutral-900">{r.contractorName}</span>,
             sortable: true,
             sticky: 'left',
             minWidth: '200px',
@@ -90,7 +90,7 @@ export default function TariffsPage() {
             id: 'rate',
             header: 'Ставка',
             accessor: (r) => rateAsNumber(r.rate),
-            cell: (r) => <span className="font-semibold text-slate-900">{r.rate}</span>,
+            cell: (r) => <span className="font-semibold text-neutral-900">{r.rate}</span>,
             sortable: true,
             align: 'right',
             width: '130px',
@@ -103,9 +103,9 @@ export default function TariffsPage() {
                 <div className="flex flex-wrap gap-1">
                     {r.modifiers.length > 0
                         ? r.modifiers.map((m, i) => (
-                            <span key={i} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{m}</span>
+                            <span key={i} className="text-xs bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full">{m}</span>
                         ))
-                        : <span className="text-xs text-slate-400">—</span>
+                        : <span className="text-xs text-neutral-400">—</span>
                     }
                 </div>
             ),
@@ -116,7 +116,7 @@ export default function TariffsPage() {
             header: 'НДС',
             accessor: (r) => r.vatRate,
             cell: (r) => (
-                <span className="text-slate-600 text-sm">
+                <span className="text-neutral-600 text-sm">
                     {r.vatRate > 0 ? `${r.vatRate}% ${r.vatIncluded ? '(вкл.)' : '(сверху)'}` : 'Без НДС'}
                 </span>
             ),
@@ -127,7 +127,7 @@ export default function TariffsPage() {
             header: 'Мин. стоимость',
             accessor: (r) => r.minTripCost,
             cell: (r) => (
-                <span className="text-slate-600 text-sm">
+                <span className="text-neutral-600 text-sm">
                     {r.minTripCost > 0 ? `${r.minTripCost.toLocaleString('ru-RU')} ₽` : '—'}
                 </span>
             ),
@@ -148,15 +148,15 @@ export default function TariffsPage() {
     ];
 
     return (
-        <div className="p-8 space-y-6 bg-slate-50 min-h-screen text-slate-900">
+        <div className="p-8 space-y-6 bg-neutral-50 min-h-screen text-neutral-900">
             <div className="flex justify-between items-center flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                     <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
                         <Receipt className="w-5 h-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Тарифы</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">Тарифные сетки по договорам с контрагентами</p>
+                        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Тарифы</h1>
+                        <p className="text-sm text-neutral-500 mt-0.5">Тарифные сетки по договорам с контрагентами</p>
                     </div>
                 </div>
                 <Button variant="brand" disabled>

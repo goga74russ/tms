@@ -216,7 +216,7 @@ export default function LogistPage() {
         {
             id: 'route',
             header: 'Маршрут',
-            cell: r => <span className="text-xs text-slate-600">{shortPlace(r.loadingAddress)} → {shortPlace(r.unloadingAddress)}</span>,
+            cell: r => <span className="text-xs text-neutral-600">{shortPlace(r.loadingAddress)} → {shortPlace(r.unloadingAddress)}</span>,
         },
         {
             id: 'cargo',
@@ -237,7 +237,7 @@ export default function LogistPage() {
             header: 'SLA',
             cell: r => {
                 const sla = getSla(r);
-                if (!sla) return <span className="text-xs text-slate-400">—</span>;
+                if (!sla) return <span className="text-xs text-neutral-400">—</span>;
                 return <Pill tone={sla.tone}>{sla.label}</Pill>;
             },
             width: '100px',
@@ -253,13 +253,13 @@ export default function LogistPage() {
                         <ClipboardList className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Заявки</h1>
-                        <p className="text-sm text-slate-500">Управление заявками на перевозку</p>
+                        <h1 className="text-2xl font-bold text-neutral-900">Заявки</h1>
+                        <p className="text-sm text-neutral-500">Управление заявками на перевозку</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     {loading && (
-                        <div className="flex items-center gap-2 text-slate-400 text-sm mr-2">
+                        <div className="flex items-center gap-2 text-neutral-400 text-sm mr-2">
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <span>Обновление...</span>
                         </div>
@@ -378,14 +378,14 @@ export default function LogistPage() {
                                             <div className="p-3 space-y-2">
                                                 <div className="flex items-start justify-between gap-2">
                                                     <div className="min-w-0 flex-1">
-                                                        <p className="text-sm font-semibold text-slate-900 leading-tight truncate">
+                                                        <p className="text-sm font-semibold text-neutral-900 leading-tight truncate">
                                                             {shortPlace(order.loadingAddress)} → {shortPlace(order.unloadingAddress)}
                                                         </p>
-                                                        <p className="text-xs text-slate-500 mt-0.5 truncate flex items-center gap-1">
-                                                            <Package className="w-3 h-3 text-slate-400" />
+                                                        <p className="text-xs text-neutral-500 mt-0.5 truncate flex items-center gap-1">
+                                                            <Package className="w-3 h-3 text-neutral-400" />
                                                             <span className="truncate">{order.cargoDescription}</span>
-                                                            <span className="text-slate-400">·</span>
-                                                            <span className="font-medium text-slate-600 whitespace-nowrap">{formatWeight(order.cargoWeightKg)}</span>
+                                                            <span className="text-neutral-400">·</span>
+                                                            <span className="font-medium text-neutral-600 whitespace-nowrap">{formatWeight(order.cargoWeightKg)}</span>
                                                         </p>
                                                     </div>
                                                     {sla && (
@@ -399,9 +399,9 @@ export default function LogistPage() {
                                                     )}
                                                 </div>
 
-                                                <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100">
-                                                    <span className="text-xs text-slate-600 truncate flex items-center gap-1">
-                                                        <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                                                <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-neutral-100">
+                                                    <span className="text-xs text-neutral-600 truncate flex items-center gap-1">
+                                                        <MapPin className="w-3 h-3 text-neutral-400 shrink-0" />
                                                         <span className="truncate">{order.contractorName}</span>
                                                     </span>
                                                     <span className="text-[10px] font-mono font-semibold text-brand-600 shrink-0">

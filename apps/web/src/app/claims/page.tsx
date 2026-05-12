@@ -518,11 +518,11 @@ export default function ClaimsPage() {
             accessor: (r) => r.description,
             cell: (r) => (
                 <div className="max-w-xs">
-                    <span className="block truncate text-sm font-medium text-slate-900" title={r.description}>
+                    <span className="block truncate text-sm font-medium text-neutral-900" title={r.description}>
                         {r.description}
                     </span>
                     {r.resolution && (
-                        <span className="block truncate text-xs text-slate-400 mt-0.5" title={r.resolution}>
+                        <span className="block truncate text-xs text-neutral-400 mt-0.5" title={r.resolution}>
                             → {r.resolution}
                         </span>
                     )}
@@ -532,7 +532,7 @@ export default function ClaimsPage() {
                         </span>
                     )}
                     {collectEvidence(r).length > 0 && (
-                        <span className="block truncate text-xs text-slate-500 mt-0.5" title={collectEvidence(r).map(e => `${e.label}: ${e.value}`).join('; ')}>
+                        <span className="block truncate text-xs text-neutral-500 mt-0.5" title={collectEvidence(r).map(e => `${e.label}: ${e.value}`).join('; ')}>
                             Доказательства: {collectEvidence(r).map(e => e.label).join(', ')}
                         </span>
                     )}
@@ -564,7 +564,7 @@ export default function ClaimsPage() {
             accessor: (r) => r.tripId ?? '',
             cell: (r) => r.tripId
                 ? <span className="font-mono text-xs">{r.tripId.slice(0, 8)}…</span>
-                : <span className="text-slate-400">—</span>,
+                : <span className="text-neutral-400">—</span>,
             width: '110px',
         },
         {
@@ -573,13 +573,13 @@ export default function ClaimsPage() {
             accessor: (r) => claimAmount(r, 'amount') ?? 0,
             cell: (r) => (
                 <div className="space-y-1 text-xs">
-                    <div className="font-medium text-sm text-slate-900">{money(claimAmount(r, 'amount'))}</div>
-                    <div className="text-slate-500">Резерв: {money(claimAmount(r, 'reserveAmount'))}</div>
-                    <div className="text-slate-500">Оценка: {money(claimAmount(r, 'estimatedAmount'))}</div>
+                    <div className="font-medium text-sm text-neutral-900">{money(claimAmount(r, 'amount'))}</div>
+                    <div className="text-neutral-500">Резерв: {money(claimAmount(r, 'reserveAmount'))}</div>
+                    <div className="text-neutral-500">Оценка: {money(claimAmount(r, 'estimatedAmount'))}</div>
                     <div className="text-orange-700">
                         Эффект.: {money(claimAmount(r, 'effectiveExposureAmount'))}
                         {claimExposureBasis(r) !== 'none' && (
-                            <span className="ml-1 text-slate-400">({EXPOSURE_BASIS_LABELS[claimExposureBasis(r)] ?? claimExposureBasis(r)})</span>
+                            <span className="ml-1 text-neutral-400">({EXPOSURE_BASIS_LABELS[claimExposureBasis(r)] ?? claimExposureBasis(r)})</span>
                         )}
                     </div>
                 </div>
@@ -593,11 +593,11 @@ export default function ClaimsPage() {
             accessor: (r) => claimAmount(r, 'resolvedAmount') ?? 0,
             cell: (r) => (
                 <div className="space-y-1 text-xs">
-                    <div className="font-medium text-sm text-slate-900">{money(claimAmount(r, 'resolvedAmount'))}</div>
-                    <div className="text-slate-500">
+                    <div className="font-medium text-sm text-neutral-900">{money(claimAmount(r, 'resolvedAmount'))}</div>
+                    <div className="text-neutral-500">
                         {r.resolvedAt ? format(new Date(r.resolvedAt), 'dd.MM.yy', { locale: ru }) : 'Не урегулирована'}
                     </div>
-                    <div className="text-slate-500">
+                    <div className="text-neutral-500">
                         Причина: {CAUSE_LABELS[r.cause ?? r.exposure?.cause ?? ''] ?? r.cause ?? r.exposure?.cause ?? '—'}
                     </div>
                 </div>
@@ -610,7 +610,7 @@ export default function ClaimsPage() {
             header: 'Создана',
             accessor: (r) => r.createdAt,
             cell: (r) => (
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-neutral-500">
                     {format(new Date(r.createdAt), 'dd.MM.yy', { locale: ru })}
                 </span>
             ),
@@ -627,8 +627,8 @@ export default function ClaimsPage() {
                         <AlertOctagon className="w-5 h-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-semibold text-slate-900">Претензии</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">Реестр претензий, расследование и урегулирование</p>
+                        <h1 className="text-2xl font-semibold text-neutral-900">Претензии</h1>
+                        <p className="text-sm text-neutral-500 mt-0.5">Реестр претензий, расследование и урегулирование</p>
                     </div>
                 </div>
                 <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreate(true)}>

@@ -629,7 +629,14 @@ References: **Fishbowl / Navan / Luma**.
 - New primitive: `AuthSplitLayout` (form left, brand-gradient right with organic SVG / illustration / showcase).
 - Applied to: `/login` (remember-me + social buttons + ProductShowcase mockup), `/signup` (ShowcaseCarousel rotating cockpit/mobile/pricing), `/signup/verify` (paste-from-clipboard + email pill with edit + countdown + MailCheck illustration), `/onboarding` (vertical sidebar stepper 260px + per-step help panel 280px on xl+).
 
-### Admin design-system consolidation (wave-polish-3, commit pending)
+### Global palette unification (wave-polish-4, commit pending)
+Across every `apps/web/src/**/*.{ts,tsx}` file: `slate-*` → `neutral-*`. 76 files touched, +1717/-1717 (pure rename, zero structural changes). This finishes the palette consolidation begun in Round 4A — every page, every primitive, every component now uses the same grayscale ramp.
+
+- Mechanical bulk replace via sed, then audit for collisions.
+- One collision found: `-translate-x-1/2` / `-translate-y-1/2` Tailwind utility contains the substring `slate-`. Caught and reversed via second sed pass (`tranneutral-` → `translate-`). 17 files affected by the collision, all restored to correct form.
+- Verification: precise grep `(^|[^a-z])slate-` returns **0** matches. TSC clean web. API tests 140/140 pass.
+
+### Admin design-system consolidation (wave-polish-3, commit `b566556`)
 After Detail/Settings + wave-bugs-2 walkthroughs, four admin pages still used the legacy pattern: hand-rolled icon-tile header, ad-hoc `fixed inset-0` modals, native `confirm()` dialogs, raw `<input>`/`<select>`, slate/indigo palette.
 
 - **Dialog primitive enhanced**: native `<dialog>` for free Esc-close + focus trap, backdrop click → close, `size` prop (`sm`/`md`/`lg`/`xl`), optional `description`, palette swap slate → neutral. New `ConfirmDialog` helper replaces `window.confirm()` with styled RU-friendly dialog (destructive variant + loading state).

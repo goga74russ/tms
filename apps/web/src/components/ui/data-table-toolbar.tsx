@@ -30,5 +30,5 @@ export function DataTableToolbar({
  * Optional vertical divider for spacing groups inside a toolbar.
  */
 export function DataTableToolbarDivider() {
-    return <div aria-hidden="true" className="h-5 w-px bg-slate-200" />;
+    return <div aria-hidden="true" className="h-5 w-px bg-neutral-200" />;
 }

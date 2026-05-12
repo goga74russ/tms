@@ -22,7 +22,7 @@ export interface StatProps {
 }
 
 const toneClasses: Record<NonNullable<StatProps['tone']>, { iconBg: string; iconFg: string; ring: string }> = {
-    neutral: { iconBg: 'bg-slate-100', iconFg: 'text-slate-500', ring: '' },
+    neutral: { iconBg: 'bg-neutral-100', iconFg: 'text-neutral-500', ring: '' },
     brand: { iconBg: 'bg-brand-50', iconFg: 'text-brand-600', ring: '' },
     success: { iconBg: 'bg-emerald-50', iconFg: 'text-emerald-600', ring: '' },
     warning: { iconBg: 'bg-amber-50', iconFg: 'text-amber-600', ring: '' },
@@ -42,7 +42,7 @@ export function Stat({
     className,
 }: StatProps) {
     const t = toneClasses[tone];
-    let trendColor = 'text-slate-500';
+    let trendColor = 'text-neutral-500';
     let TrendIcon: typeof ArrowUpRight = Minus;
     if (trendType === 'up') {
         TrendIcon = ArrowUpRight;
@@ -55,14 +55,14 @@ export function Stat({
     return (
         <div
             className={cn(
-                'rounded-xl border border-slate-200 bg-white p-4 shadow-soft hover:border-slate-300 transition-colors',
+                'rounded-xl border border-neutral-200 bg-white p-4 shadow-soft hover:border-neutral-300 transition-colors',
                 className,
             )}
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wide truncate">{label}</p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900 leading-none">{value}</p>
+                    <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide truncate">{label}</p>
+                    <p className="mt-2 text-2xl font-bold text-neutral-900 leading-none">{value}</p>
                     {(trend || hint) && (
                         <div className="mt-2 flex items-center gap-2 text-xs">
                             {trend && (
@@ -71,7 +71,7 @@ export function Stat({
                                     {trend}
                                 </span>
                             )}
-                            {hint && <span className="text-slate-400">{hint}</span>}
+                            {hint && <span className="text-neutral-400">{hint}</span>}
                         </div>
                     )}
                 </div>

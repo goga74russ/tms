@@ -30,25 +30,25 @@ export function VehicleTimeline({ data }: VehicleTimelineProps) {
     const currentHour = new Date().getHours();
 
     return (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
             {/* Header */}
-            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-neutral-800 flex items-center gap-2">
                     <Clock className="w-4 h-4 text-blue-500" />
                     Таймлайн занятости ТС
                 </h3>
                 <div className="flex items-center gap-4 text-xs">
                     <div className="flex items-center gap-1.5">
                         <div className="w-3 h-2 rounded-sm" style={{ backgroundColor: SEGMENT_COLORS.trip }} />
-                        <span className="text-slate-500">Рейс</span>
+                        <span className="text-neutral-500">Рейс</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <div className="w-3 h-2 rounded-sm" style={{ backgroundColor: SEGMENT_COLORS.broken }} />
-                        <span className="text-slate-500">Неисправен</span>
+                        <span className="text-neutral-500">Неисправен</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <div className="w-3 h-2 rounded-sm" style={{ backgroundColor: SEGMENT_COLORS.maintenance }} />
-                        <span className="text-slate-500">ТО</span>
+                        <span className="text-neutral-500">ТО</span>
                     </div>
                 </div>
             </div>
@@ -56,7 +56,7 @@ export function VehicleTimeline({ data }: VehicleTimelineProps) {
             <div className="overflow-x-auto">
                 <div className="min-w-[900px]">
                     {/* Hour labels */}
-                    <div className="flex border-b border-slate-100">
+                    <div className="flex border-b border-neutral-100">
                         <div className="w-28 flex-shrink-0" />
                         <div className="flex-1 flex">
                             {HOURS.map(h => (
@@ -64,7 +64,7 @@ export function VehicleTimeline({ data }: VehicleTimelineProps) {
                                     key={h}
                                     className={`flex-1 text-center text-[10px] py-1.5 ${h === currentHour
                                             ? 'font-bold text-blue-600'
-                                            : 'text-slate-400'
+                                            : 'text-neutral-400'
                                         }`}
                                 >
                                     {h.toString().padStart(2, '0')}
@@ -77,11 +77,11 @@ export function VehicleTimeline({ data }: VehicleTimelineProps) {
                     {data.map((row) => (
                         <div
                             key={row.vehicleId}
-                            className="flex items-center border-b border-slate-50 hover:bg-slate-50/50 transition-colors"
+                            className="flex items-center border-b border-neutral-50 hover:bg-neutral-50/50 transition-colors"
                         >
                             {/* Vehicle label */}
                             <div className="w-28 flex-shrink-0 px-3 py-3">
-                                <span className="text-xs font-bold text-slate-700">
+                                <span className="text-xs font-bold text-neutral-700">
                                     {row.plateNumber}
                                 </span>
                             </div>
@@ -95,7 +95,7 @@ export function VehicleTimeline({ data }: VehicleTimelineProps) {
                                             key={h}
                                             className={`flex-1 border-l ${h === currentHour
                                                     ? 'border-blue-300 border-dashed'
-                                                    : 'border-slate-100'
+                                                    : 'border-neutral-100'
                                                 }`}
                                         />
                                     ))}

@@ -167,14 +167,14 @@ function RowActionsMenu<T>({ row, actions }: { row: T; actions: RowAction<T>[] }
                 type="button"
                 aria-label="Действия"
                 onClick={() => setOpen((s) => !s)}
-                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                className="p-1.5 rounded-md text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             >
                 <MoreHorizontal className="w-4 h-4" />
             </button>
             {open && (
                 <div
                     role="menu"
-                    className="absolute right-0 top-full mt-1 z-20 min-w-[180px] rounded-lg border border-slate-200 bg-white shadow-soft py-1"
+                    className="absolute right-0 top-full mt-1 z-20 min-w-[180px] rounded-lg border border-neutral-200 bg-white shadow-soft py-1"
                 >
                     {actions.map((a) => {
                         const disabled = a.disabled?.(row);
@@ -189,7 +189,7 @@ function RowActionsMenu<T>({ row, actions }: { row: T; actions: RowAction<T>[] }
                                     'disabled:opacity-50 disabled:cursor-not-allowed',
                                     a.tone === 'danger'
                                         ? 'text-red-600 hover:bg-red-50'
-                                        : 'text-slate-700 hover:bg-slate-100',
+                                        : 'text-neutral-700 hover:bg-neutral-100',
                                 )}
                             >
                                 {a.icon && <span className="shrink-0 inline-flex">{a.icon}</span>}
@@ -232,25 +232,25 @@ function ColumnVisibilityMenu<T>({
                 type="button"
                 aria-label="Столбцы"
                 onClick={() => setOpen((s) => !s)}
-                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 bg-white text-sm text-slate-600 hover:bg-slate-50"
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-neutral-200 bg-white text-sm text-neutral-600 hover:bg-neutral-50"
             >
                 <Settings2 className="w-4 h-4" />
                 Столбцы
             </button>
             {open && (
-                <div className="absolute right-0 top-full mt-1 z-20 min-w-[200px] rounded-lg border border-slate-200 bg-white shadow-soft py-1 max-h-80 overflow-auto">
+                <div className="absolute right-0 top-full mt-1 z-20 min-w-[200px] rounded-lg border border-neutral-200 bg-white shadow-soft py-1 max-h-80 overflow-auto">
                     {columns.filter((c) => !c.alwaysVisible).map((c) => {
                         const checked = visible[c.id] !== false;
                         return (
                             <label
                                 key={c.id}
-                                className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                                className="flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 cursor-pointer"
                             >
                                 <input
                                     type="checkbox"
                                     checked={checked}
                                     onChange={() => onChange({ ...visible, [c.id]: !checked })}
-                                    className="rounded border-slate-300"
+                                    className="rounded border-neutral-300"
                                 />
                                 <span>{typeof c.header === 'string' ? c.header : c.id}</span>
                             </label>
@@ -441,12 +441,12 @@ export function DataTable<T>(props: DataTableProps<T>) {
     const rowH = densityRowClass[density];
 
     return (
-        <div className={cn('bg-white rounded-xl shadow-soft border border-slate-200 overflow-hidden', className)}>
+        <div className={cn('bg-white rounded-xl shadow-soft border border-neutral-200 overflow-hidden', className)}>
             {/* Toolbar */}
-            <div className="border-b border-slate-200 px-3 py-2.5 flex flex-wrap items-center gap-2">
+            <div className="border-b border-neutral-200 px-3 py-2.5 flex flex-wrap items-center gap-2">
                 {someSelected && bulkActions ? (
                     <div className="flex items-center gap-2 w-full">
-                        <span className="text-sm text-slate-600 font-medium">
+                        <span className="text-sm text-neutral-600 font-medium">
                             Выбрано: {selected.size}
                         </span>
                         <div className="flex items-center gap-2 flex-1 flex-wrap">
@@ -455,7 +455,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                         <button
                             type="button"
                             onClick={() => setSelected(new Set())}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs text-slate-500 hover:text-slate-800 rounded-md hover:bg-slate-100"
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs text-neutral-500 hover:text-neutral-800 rounded-md hover:bg-neutral-100"
                         >
                             <X className="w-3.5 h-3.5" />
                             Сбросить
@@ -465,20 +465,20 @@ export function DataTable<T>(props: DataTableProps<T>) {
                     <>
                         {searchPlaceholder !== undefined && (
                             <div className="relative flex-1 min-w-[200px] max-w-xs">
-                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
                                 <input
                                     ref={searchRef}
                                     type="text"
                                     placeholder={searchPlaceholder}
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
-                                    className="w-full h-9 pl-10 pr-8 rounded-lg border border-slate-200 bg-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
+                                    className="w-full h-9 pl-10 pr-8 rounded-lg border border-neutral-200 bg-white text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
                                 />
                                 {search && (
                                     <button
                                         type="button"
                                         onClick={() => setSearch('')}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-slate-400 hover:text-slate-700"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-neutral-400 hover:text-neutral-700"
                                         aria-label="Очистить поиск"
                                     >
                                         <X className="w-3.5 h-3.5" />
@@ -492,14 +492,14 @@ export function DataTable<T>(props: DataTableProps<T>) {
                                     value={f.value ?? ''}
                                     onChange={(e) => f.onChange?.(e.target.value)}
                                     aria-label={f.label}
-                                    className="appearance-none h-9 pl-3 pr-8 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 cursor-pointer"
+                                    className="appearance-none h-9 pl-3 pr-8 rounded-lg border border-neutral-200 bg-white text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 cursor-pointer"
                                 >
                                     <option value="">{f.label}: все</option>
                                     {f.options.map((o) => (
                                         <option key={o.value} value={o.value}>{f.label}: {o.label}</option>
                                     ))}
                                 </select>
-                                <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
                             </div>
                         ))}
                         <div className="flex-1" />
@@ -517,13 +517,13 @@ export function DataTable<T>(props: DataTableProps<T>) {
                     role="table"
                     className="w-full text-sm border-separate border-spacing-0"
                 >
-                    <thead className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80">
+                    <thead className="sticky top-0 z-10 bg-neutral-50/95 backdrop-blur supports-[backdrop-filter]:bg-neutral-50/80">
                         <tr>
                             {hasSelection && (
                                 <th
                                     scope="col"
                                     className={cn(
-                                        'sticky left-0 z-20 bg-slate-50 w-10 border-b border-slate-200',
+                                        'sticky left-0 z-20 bg-neutral-50 w-10 border-b border-neutral-200',
                                         cellPad,
                                     )}
                                 >
@@ -532,7 +532,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                                         aria-label="Выделить все"
                                         checked={allPageSelected}
                                         onChange={togglePageSelected}
-                                        className="rounded border-slate-300 cursor-pointer"
+                                        className="rounded border-neutral-300 cursor-pointer"
                                     />
                                 </th>
                             )}
@@ -551,11 +551,11 @@ export function DataTable<T>(props: DataTableProps<T>) {
                                         scope="col"
                                         style={{ width: c.width, minWidth: c.minWidth }}
                                         className={cn(
-                                            'text-xs font-semibold text-slate-600 uppercase tracking-wide border-b border-slate-200 text-left whitespace-nowrap',
+                                            'text-xs font-semibold text-neutral-600 uppercase tracking-wide border-b border-neutral-200 text-left whitespace-nowrap',
                                             cellPad,
                                             c.align === 'right' && 'text-right',
                                             c.align === 'center' && 'text-center',
-                                            c.sticky === 'left' && 'sticky left-0 z-20 bg-slate-50',
+                                            c.sticky === 'left' && 'sticky left-0 z-20 bg-neutral-50',
                                             hasSelection && c.sticky === 'left' && 'left-10',
                                         )}
                                     >
@@ -563,14 +563,14 @@ export function DataTable<T>(props: DataTableProps<T>) {
                                             <button
                                                 type="button"
                                                 onClick={() => toggleSort(c.id)}
-                                                className="inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                                                className="inline-flex items-center gap-1 hover:text-neutral-900 transition-colors"
                                             >
                                                 <span>{c.header}</span>
                                                 {SortIcon && (
                                                     <SortIcon
                                                         className={cn(
                                                             'w-3.5 h-3.5',
-                                                            isSorted ? 'text-brand-600' : 'text-slate-400',
+                                                            isSorted ? 'text-brand-600' : 'text-neutral-400',
                                                         )}
                                                     />
                                                 )}
@@ -582,7 +582,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                                 );
                             })}
                             {hasRowActions && (
-                                <th scope="col" className={cn('w-10 border-b border-slate-200', cellPad)} />
+                                <th scope="col" className={cn('w-10 border-b border-neutral-200', cellPad)} />
                             )}
                         </tr>
                     </thead>
@@ -590,13 +590,13 @@ export function DataTable<T>(props: DataTableProps<T>) {
                         {loading ? (
                             Array.from({ length: Math.min(pageSize || 8, 8) }).map((_, i) => (
                                 <tr key={`sk-${i}`} className={rowH}>
-                                    {hasSelection && <td className={cn(cellPad, 'border-b border-slate-100')}><Skeleton className="h-4 w-4" /></td>}
+                                    {hasSelection && <td className={cn(cellPad, 'border-b border-neutral-100')}><Skeleton className="h-4 w-4" /></td>}
                                     {visibleColumns.map((c) => (
-                                        <td key={c.id} className={cn(cellPad, 'border-b border-slate-100')}>
+                                        <td key={c.id} className={cn(cellPad, 'border-b border-neutral-100')}>
                                             <Skeleton className="h-4 w-full max-w-[140px]" />
                                         </td>
                                     ))}
-                                    {hasRowActions && <td className={cn(cellPad, 'border-b border-slate-100')} />}
+                                    {hasRowActions && <td className={cn(cellPad, 'border-b border-neutral-100')} />}
                                 </tr>
                             ))
                         ) : pageRows.length === 0 ? (
@@ -606,7 +606,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                                     className="p-8"
                                 >
                                     {emptyState ?? (
-                                        <div className="text-center text-sm text-slate-500 py-8">
+                                        <div className="text-center text-sm text-neutral-500 py-8">
                                             {search ? 'Ничего не найдено. Попробуйте изменить запрос.' : 'Нет данных.'}
                                         </div>
                                     )}
@@ -634,7 +634,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                                             'group transition-colors',
                                             rowH,
                                             onRowClick && 'cursor-pointer',
-                                            'hover:bg-slate-50',
+                                            'hover:bg-neutral-50',
                                             isSel && 'bg-brand-50/40 hover:bg-brand-50/60',
                                             rowClassName?.(row),
                                         )}
@@ -642,14 +642,14 @@ export function DataTable<T>(props: DataTableProps<T>) {
                                         {hasSelection && (
                                             <td
                                                 onClick={(e) => e.stopPropagation()}
-                                                className={cn(cellPad, 'border-b border-slate-100 sticky left-0 bg-white group-hover:bg-slate-50', isSel && 'bg-brand-50/40 group-hover:bg-brand-50/60')}
+                                                className={cn(cellPad, 'border-b border-neutral-100 sticky left-0 bg-white group-hover:bg-neutral-50', isSel && 'bg-brand-50/40 group-hover:bg-brand-50/60')}
                                             >
                                                 <input
                                                     type="checkbox"
                                                     aria-label="Выделить строку"
                                                     checked={isSel}
                                                     onChange={() => toggleRowSelected(key)}
-                                                    className="rounded border-slate-300 cursor-pointer"
+                                                    className="rounded border-neutral-300 cursor-pointer"
                                                 />
                                             </td>
                                         )}
@@ -660,12 +660,12 @@ export function DataTable<T>(props: DataTableProps<T>) {
                                                     key={c.id}
                                                     style={{ width: c.width, minWidth: c.minWidth }}
                                                     className={cn(
-                                                        'border-b border-slate-100 text-slate-700',
+                                                        'border-b border-neutral-100 text-neutral-700',
                                                         cellPad,
                                                         c.align === 'right' && 'text-right',
                                                         c.align === 'center' && 'text-center',
                                                         c.monospace && 'font-mono text-[12.5px]',
-                                                        c.sticky === 'left' && 'sticky left-0 bg-white group-hover:bg-slate-50',
+                                                        c.sticky === 'left' && 'sticky left-0 bg-white group-hover:bg-neutral-50',
                                                         isSel && c.sticky === 'left' && 'bg-brand-50/40 group-hover:bg-brand-50/60',
                                                         hasSelection && c.sticky === 'left' && 'left-10',
                                                     )}
@@ -675,7 +675,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                                             );
                                         })}
                                         {hasRowActions && (
-                                            <td className={cn(cellPad, 'border-b border-slate-100 text-right')}>
+                                            <td className={cn(cellPad, 'border-b border-neutral-100 text-right')}>
                                                 {actions.length > 0 && (
                                                     <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                                         <RowActionsMenu row={row} actions={actions} />
@@ -693,30 +693,30 @@ export function DataTable<T>(props: DataTableProps<T>) {
 
             {/* Pagination footer */}
             {usePaging && totalRows > 0 && (
-                <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-slate-200 text-xs text-slate-500 flex-wrap">
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-neutral-200 text-xs text-neutral-500 flex-wrap">
                     <div>
-                        Показано <span className="font-medium text-slate-700">{pageStart + 1}–{pageEnd}</span> из{' '}
-                        <span className="font-medium text-slate-700">{totalRows}</span>
+                        Показано <span className="font-medium text-neutral-700">{pageStart + 1}–{pageEnd}</span> из{' '}
+                        <span className="font-medium text-neutral-700">{totalRows}</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
                             disabled={currentPage <= 1}
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
                             aria-label="Предыдущая страница"
                         >
                             ←
                         </button>
                         <span className="px-1.5">
-                            Стр. <span className="font-medium text-slate-700">{currentPage}</span> из{' '}
-                            <span className="font-medium text-slate-700">{totalPages}</span>
+                            Стр. <span className="font-medium text-neutral-700">{currentPage}</span> из{' '}
+                            <span className="font-medium text-neutral-700">{totalPages}</span>
                         </span>
                         <button
                             type="button"
                             disabled={currentPage >= totalPages}
                             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                            className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
                             aria-label="Следующая страница"
                         >
                             →
@@ -733,7 +733,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
 export type PillTone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info';
 
 const pillToneClass: Record<PillTone, string> = {
-    neutral: 'bg-slate-100 text-slate-700',
+    neutral: 'bg-neutral-100 text-neutral-700',
     brand: 'bg-brand-50 text-brand-700',
     success: 'bg-emerald-50 text-emerald-700',
     warning: 'bg-amber-50 text-amber-700',

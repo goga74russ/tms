@@ -42,8 +42,8 @@ const DispatcherMap = dynamic(
     () => import('./components/DispatcherMap').then(mod => mod.DispatcherMap),
     {
         ssr: false, loading: () => (
-            <div className="h-full w-full bg-slate-100 flex items-center justify-center">
-                <div className="text-slate-400 flex items-center gap-2">
+            <div className="h-full w-full bg-neutral-100 flex items-center justify-center">
+                <div className="text-neutral-400 flex items-center gap-2">
                     <MapIcon className="w-5 h-5 animate-pulse" />
                     <span className="text-sm">Загрузка карты...</span>
                 </div>
@@ -782,7 +782,7 @@ export default function DispatcherPage() {
                                 emptyMessage="Город не найден"
                                 renderOption={(s) => (
                                     <div className="flex items-center gap-2">
-                                        <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                        <MapPin className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
                                         <span>{s.value}</span>
                                     </div>
                                 )}

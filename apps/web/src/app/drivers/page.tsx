@@ -72,9 +72,9 @@ function HosBadge({ driverId }: { driverId: string }) {
     }, [driverId]);
 
     if (loading && !status) {
-        return <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-300" />;
+        return <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-300" />;
     }
-    if (!status) return <span className="text-xs text-slate-300">—</span>;
+    if (!status) return <span className="text-xs text-neutral-300">—</span>;
 
     const breach = status.breach;
     return (
@@ -91,7 +91,7 @@ function HosBadge({ driverId }: { driverId: string }) {
                 </span>
             )}
             {hover && (
-                <div className="absolute z-10 left-0 top-full mt-1 w-56 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs shadow-lg pointer-events-none">
+                <div className="absolute z-10 left-0 top-full mt-1 w-56 px-3 py-2 rounded-lg bg-neutral-900 text-white text-xs shadow-lg pointer-events-none">
                     <div>Сегодня: {status.dayHours.toFixed(1)} / {status.dayLimit} ч</div>
                     <div>Неделя: {status.weekHours.toFixed(1)} / {status.weekLimit} ч</div>
                     {breach && <div className="text-red-300 mt-0.5 font-semibold">Нарушение режима</div>}
@@ -129,13 +129,13 @@ function HoursChartDialog({ driver, onClose }: { driver: Driver; onClose: () => 
     return (
         <Dialog open onClose={onClose} title={`РТО — ${driver.fullName}`}>
             <div className="space-y-3">
-                <p className="text-sm text-slate-500">Часы работы за последние 7 дней</p>
+                <p className="text-sm text-neutral-500">Часы работы за последние 7 дней</p>
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
                         <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
                     </div>
                 ) : chartData.length === 0 ? (
-                    <p className="text-sm text-slate-400 text-center py-8">Нет данных за период</p>
+                    <p className="text-sm text-neutral-400 text-center py-8">Нет данных за период</p>
                 ) : (
                     <div style={{ width: '100%', height: 240 }}>
                         <ResponsiveContainer>
@@ -214,9 +214,9 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-slate-900">Новый водитель</h2>
-                    <button onClick={onClose} aria-label="Закрыть" className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400"><X className="w-5 h-5" /></button>
+                <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-neutral-900">Новый водитель</h2>
+                    <button onClick={onClose} aria-label="Закрыть" className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="px-6 py-5 space-y-4">
                     <Input
@@ -262,7 +262,7 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
                         placeholder="+7 (999) 123-45-67"
                     />
                 </div>
-                <div className="px-6 py-4 border-t border-slate-100 flex gap-3 justify-end">
+                <div className="px-6 py-4 border-t border-neutral-100 flex gap-3 justify-end">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
                     <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
                         {submitting ? 'Создание...' : 'Создать'}
@@ -335,7 +335,7 @@ export default function DriversPage() {
             id: 'fullName',
             header: 'ФИО',
             accessor: (r) => r.fullName,
-            cell: (r) => <span className="font-medium text-slate-900">{r.fullName}</span>,
+            cell: (r) => <span className="font-medium text-neutral-900">{r.fullName}</span>,
             sortable: true,
             sticky: 'left',
             minWidth: '200px',
@@ -354,7 +354,7 @@ export default function DriversPage() {
             cell: (r) => (
                 <div className="flex gap-1 flex-wrap">
                     {r.licenseCategories.map(c => (
-                        <span key={c} className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-medium text-slate-600">
+                        <span key={c} className="px-1.5 py-0.5 bg-neutral-100 rounded text-xs font-medium text-neutral-600">
                             {c}
                         </span>
                     ))}
@@ -386,7 +386,7 @@ export default function DriversPage() {
         {
             id: 'hos',
             header: 'РТО',
-            cell: (r) => r.isActive ? <HosBadge driverId={r.id} /> : <span className="text-xs text-slate-300">—</span>,
+            cell: (r) => r.isActive ? <HosBadge driverId={r.id} /> : <span className="text-xs text-neutral-300">—</span>,
             width: '90px',
         },
         {
@@ -412,8 +412,8 @@ export default function DriversPage() {
                         <Users className="w-5 h-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-semibold text-slate-900">Водители</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">
+                        <h1 className="text-2xl font-semibold text-neutral-900">Водители</h1>
+                        <p className="text-sm text-neutral-500 mt-0.5">
                             Реестр водителей, документы, режим труда и отдыха
                         </p>
                     </div>

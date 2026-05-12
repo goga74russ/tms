@@ -94,7 +94,7 @@ export function SideDrawer({
         >
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] animate-fade-in"
+                className="absolute inset-0 bg-neutral-900/40 backdrop-blur-[2px] animate-fade-in"
                 onClick={closeOnBackdrop ? onClose : undefined}
             />
             {/* Panel */}
@@ -109,13 +109,13 @@ export function SideDrawer({
                 )}
             >
                 {(title || subtitle || headerActions) && (
-                    <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200 shrink-0">
+                    <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-neutral-200 shrink-0">
                         <div className="min-w-0 flex-1">
                             {title && (
-                                <h2 className="text-base font-semibold text-slate-900 truncate">{title}</h2>
+                                <h2 className="text-base font-semibold text-neutral-900 truncate">{title}</h2>
                             )}
                             {subtitle && (
-                                <p className="text-xs text-slate-500 truncate mt-0.5">{subtitle}</p>
+                                <p className="text-xs text-neutral-500 truncate mt-0.5">{subtitle}</p>
                             )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -124,7 +124,7 @@ export function SideDrawer({
                                 type="button"
                                 onClick={onClose}
                                 aria-label="Закрыть"
-                                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                                className="p-1.5 rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -135,7 +135,7 @@ export function SideDrawer({
                     {children}
                 </div>
                 {footer && (
-                    <div className="px-5 py-3 border-t border-slate-200 bg-slate-50/50 shrink-0">
+                    <div className="px-5 py-3 border-t border-neutral-200 bg-neutral-50/50 shrink-0">
                         {footer}
                     </div>
                 )}

@@ -57,11 +57,11 @@ export function FinesTable() {
 
     return (
         <div>
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+            <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <h3 className="text-sm font-medium text-slate-700">Штрафы ГИБДД</h3>
+                    <h3 className="text-sm font-medium text-neutral-700">Штрафы ГИБДД</h3>
                     <div className="flex items-center gap-2 text-xs">
-                        <span className="px-2 py-1 rounded bg-slate-100 text-slate-600">
+                        <span className="px-2 py-1 rounded bg-neutral-100 text-neutral-600">
                             Всего: {formatMoney(totalAmount)}
                         </span>
                         {unpaidCount > 0 && (
@@ -75,7 +75,7 @@ export function FinesTable() {
                     <select
                         value={statusFilter}
                         onChange={e => setStatusFilter(e.target.value)}
-                        className="px-3 py-2 rounded-lg border border-slate-200 text-sm
+                        className="px-3 py-2 rounded-lg border border-neutral-200 text-sm
                             focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     >
                         <option value="">Все статусы</option>
@@ -97,7 +97,7 @@ export function FinesTable() {
                     <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
                 </div>
             ) : fines.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
                     <AlertTriangle className="w-12 h-12 mb-3" />
                     <p className="text-sm">Штрафы не найдены</p>
                 </div>
@@ -105,7 +105,7 @@ export function FinesTable() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="bg-slate-50 text-slate-500 text-left">
+                            <tr className="bg-neutral-50 text-neutral-500 text-left">
                                 <th className="px-4 py-3 font-medium">Дата нарушения</th>
                                 <th className="px-4 py-3 font-medium">Тип нарушения</th>
                                 <th className="px-4 py-3 font-medium">Номер постановления</th>
@@ -113,17 +113,17 @@ export function FinesTable() {
                                 <th className="px-4 py-3 font-medium">Статус</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-neutral-100">
                             {fines.map(f => {
                                 const st = statusConfig[f.status] || { label: f.status, color: '' };
                                 return (
-                                    <tr key={f.id} className="hover:bg-slate-50">
-                                        <td className="px-4 py-3 text-slate-600">{formatDate(f.violationDate)}</td>
-                                        <td className="px-4 py-3 font-medium text-slate-800">{f.violationType}</td>
-                                        <td className="px-4 py-3 font-mono text-slate-500 text-xs">
+                                    <tr key={f.id} className="hover:bg-neutral-50">
+                                        <td className="px-4 py-3 text-neutral-600">{formatDate(f.violationDate)}</td>
+                                        <td className="px-4 py-3 font-medium text-neutral-800">{f.violationType}</td>
+                                        <td className="px-4 py-3 font-mono text-neutral-500 text-xs">
                                             {f.resolutionNumber || '—'}
                                         </td>
-                                        <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                                        <td className="px-4 py-3 text-right font-semibold text-neutral-900">
                                             {formatMoney(f.amount)}
                                         </td>
                                         <td className="px-4 py-3">

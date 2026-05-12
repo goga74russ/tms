@@ -108,8 +108,8 @@ function OsagoTab() {
                         <AlertTriangle className="w-3.5 h-3.5" />
                         Истёк: <span className="text-red-900">{expiredCount}</span>
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                        Не проверено: <span className="text-slate-900">{unknownCount}</span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700">
+                        Не проверено: <span className="text-neutral-900">{unknownCount}</span>
                     </span>
                 </div>
                 <Button onClick={syncAll} disabled={syncing}>
@@ -122,7 +122,7 @@ function OsagoTab() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="text-left text-xs uppercase text-slate-500 border-b border-slate-200">
+                            <tr className="text-left text-xs uppercase text-neutral-500 border-b border-neutral-200">
                                 <th className="py-2 px-2">Статус</th>
                                 <th className="py-2 px-2">Гос. номер</th>
                                 <th className="py-2 px-2">VIN</th>
@@ -143,14 +143,14 @@ function OsagoTab() {
                             {rows.map(r => {
                                 const band = classifyOsagoExpiry(r.valid, r.expiresAt);
                                 return (
-                                    <tr key={r.vehicleId} className="border-b border-slate-100">
+                                    <tr key={r.vehicleId} className="border-b border-neutral-100">
                                         <td className="py-2 px-2"><OsagoBandPill band={band} /></td>
                                         <td className="py-2 px-2 font-medium">{r.plate}</td>
                                         <td className="py-2 px-2 font-mono text-xs">{r.vin}</td>
                                         <td className="py-2 px-2">{r.insurer ?? '—'}</td>
                                         <td className="py-2 px-2">{r.policyNumber ?? '—'}</td>
                                         <td className="py-2 px-2">{formatDate(r.expiresAt)}</td>
-                                        <td className="py-2 px-2 text-slate-500">{formatDate(r.checkedAt)}</td>
+                                        <td className="py-2 px-2 text-neutral-500">{formatDate(r.checkedAt)}</td>
                                     </tr>
                                 );
                             })}
@@ -167,7 +167,7 @@ function OsagoBandPill({ band }: { band: 'green' | 'yellow' | 'red' | 'unknown' 
         green: { label: 'OK', cls: 'bg-green-100 text-green-700' },
         yellow: { label: '<30 дней', cls: 'bg-amber-100 text-amber-700' },
         red: { label: 'Просрочен', cls: 'bg-red-100 text-red-700' },
-        unknown: { label: 'Не проверен', cls: 'bg-slate-100 text-slate-600' },
+        unknown: { label: 'Не проверен', cls: 'bg-neutral-100 text-neutral-600' },
     } as const;
     const m = map[band];
     return <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${m.cls}`}>{m.label}</span>;
@@ -225,7 +225,7 @@ function TachographTab() {
     return (
         <Card className="p-5 space-y-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="text-sm text-slate-500">
+                <div className="text-sm text-neutral-500">
                     Принимаются файлы .DDD / .ESM (СКЗИ-тахографы РФ).
                     Парсер работает в режиме best-effort — критичные поля парсятся,
                     полная верификация подписи появится после интеграции аккредитованного ридера.
@@ -251,7 +251,7 @@ function TachographTab() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="text-left text-xs uppercase text-slate-500 border-b border-slate-200">
+                            <tr className="text-left text-xs uppercase text-neutral-500 border-b border-neutral-200">
                                 <th className="py-2 px-2">Загружено</th>
                                 <th className="py-2 px-2">Водитель</th>
                                 <th className="py-2 px-2">Карта</th>
@@ -270,8 +270,8 @@ function TachographTab() {
                                 </td></tr>
                             )}
                             {rows.map(r => (
-                                <tr key={r.id} className="border-b border-slate-100">
-                                    <td className="py-2 px-2 text-slate-500">{formatDateTime(r.uploadedAt)}</td>
+                                <tr key={r.id} className="border-b border-neutral-100">
+                                    <td className="py-2 px-2 text-neutral-500">{formatDateTime(r.uploadedAt)}</td>
                                     <td className="py-2 px-2">{r.driverFullName ?? <span className="text-amber-600">не привязан</span>}</td>
                                     <td className="py-2 px-2 font-mono text-xs">{r.driverCardNumber ?? '—'}</td>
                                     <td className="py-2 px-2 font-mono text-xs">{r.vehicleVin ?? '—'}</td>
@@ -329,13 +329,13 @@ function MarkingTab() {
             {error && <ErrorBox message={error} />}
 
             <div>
-                <div className="font-medium text-slate-700 text-sm mb-2">По категориям</div>
+                <div className="font-medium text-neutral-700 text-sm mb-2">По категориям</div>
                 {cats.length === 0 ? (
-                    <div className="text-slate-400 text-sm">Нет данных</div>
+                    <div className="text-neutral-400 text-sm">Нет данных</div>
                 ) : (
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="text-left text-xs uppercase text-slate-500 border-b border-slate-200">
+                            <tr className="text-left text-xs uppercase text-neutral-500 border-b border-neutral-200">
                                 <th className="py-2 px-2">Категория</th>
                                 <th className="py-2 px-2">Всего</th>
                                 <th className="py-2 px-2">Валидных</th>
@@ -344,7 +344,7 @@ function MarkingTab() {
                         </thead>
                         <tbody>
                             {cats.map(c => (
-                                <tr key={c.category} className="border-b border-slate-100">
+                                <tr key={c.category} className="border-b border-neutral-100">
                                     <td className="py-2 px-2 font-medium">{c.category}</td>
                                     <td className="py-2 px-2">{c.total}</td>
                                     <td className="py-2 px-2 text-green-700">{c.valid}</td>
@@ -357,11 +357,11 @@ function MarkingTab() {
             </div>
 
             <div>
-                <div className="font-medium text-slate-700 text-sm mb-2">Последние проверки</div>
+                <div className="font-medium text-neutral-700 text-sm mb-2">Последние проверки</div>
                 {loading ? <Loading /> : (
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="text-left text-xs uppercase text-slate-500 border-b border-slate-200">
+                            <tr className="text-left text-xs uppercase text-neutral-500 border-b border-neutral-200">
                                 <th className="py-2 px-2">Когда</th>
                                 <th className="py-2 px-2">Код</th>
                                 <th className="py-2 px-2">Категория</th>
@@ -378,8 +378,8 @@ function MarkingTab() {
                                 </td></tr>
                             )}
                             {rows.slice(0, 50).map(r => (
-                                <tr key={r.id} className="border-b border-slate-100">
-                                    <td className="py-2 px-2 text-slate-500">{formatDateTime(r.verifiedAt)}</td>
+                                <tr key={r.id} className="border-b border-neutral-100">
+                                    <td className="py-2 px-2 text-neutral-500">{formatDateTime(r.verifiedAt)}</td>
                                     <td className="py-2 px-2 font-mono text-xs truncate max-w-xs">{r.code}</td>
                                     <td className="py-2 px-2">{r.category ?? '—'}</td>
                                     <td className="py-2 px-2">{r.productName ?? '—'}</td>
@@ -443,8 +443,8 @@ function AdrTab() {
             {loading ? <Loading /> : (
                 <div className="flex items-start gap-4 flex-wrap">
                     <div className="flex-1 min-w-[280px]">
-                        <div className="font-medium text-slate-900 mb-1">Строгий режим ADR</div>
-                        <div className="text-sm text-slate-500">
+                        <div className="font-medium text-neutral-900 mb-1">Строгий режим ADR</div>
+                        <div className="text-sm text-neutral-500">
                             Когда режим включён, ошибки ADR-валидации (просроченное свидетельство водителя, ТС не оборудовано) <b>блокируют</b> назначение рейса вместо предупреждения. Используется компаниями, регулярно перевозящими опасные грузы.
                         </div>
                         {!enabled && (
@@ -467,11 +467,11 @@ function AdrTab() {
 
 function StatCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
     return (
-        <div className="rounded-lg border border-slate-200 bg-white p-4 flex items-center gap-3">
-            <div className="text-slate-400">{icon}</div>
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 flex items-center gap-3">
+            <div className="text-neutral-400">{icon}</div>
             <div>
-                <div className="text-xs text-slate-500">{label}</div>
-                <div className="text-xl font-semibold text-slate-900">{value}</div>
+                <div className="text-xs text-neutral-500">{label}</div>
+                <div className="text-xl font-semibold text-neutral-900">{value}</div>
             </div>
         </div>
     );

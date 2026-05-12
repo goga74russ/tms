@@ -235,7 +235,7 @@ export function DispatcherMap({ vehicles, selectedVehicle, onSelectVehicle, trip
         <>
             <div
                 ref={containerRef}
-                className="h-[500px] rounded-xl overflow-hidden border border-slate-200 shadow-sm"
+                className="h-[500px] rounded-xl overflow-hidden border border-neutral-200 shadow-sm"
                 style={{ zIndex: 0 }}
             />
             <TripRouteLayer

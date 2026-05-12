@@ -18,7 +18,7 @@ export interface EmptyStateProps {
 }
 
 const toneClasses: Record<NonNullable<EmptyStateProps['tone']>, string> = {
-    neutral: 'bg-slate-100 text-slate-400',
+    neutral: 'bg-neutral-100 text-neutral-400',
     brand: 'bg-brand-50 text-brand-600',
     success: 'bg-emerald-50 text-emerald-600',
     warning: 'bg-amber-50 text-amber-600',
@@ -36,7 +36,7 @@ export function EmptyState({
     return (
         <div
             className={cn(
-                'flex flex-col items-center justify-center text-center px-6 py-12 min-h-[280px] rounded-xl bg-slate-50/50 border border-dashed border-slate-200',
+                'flex flex-col items-center justify-center text-center px-6 py-12 min-h-[280px] rounded-xl bg-neutral-50/50 border border-dashed border-neutral-200',
                 className,
             )}
         >
@@ -45,9 +45,9 @@ export function EmptyState({
                     <Icon className="w-7 h-7" />
                 </div>
             )}
-            <h3 className="text-base font-semibold text-slate-800">{title}</h3>
+            <h3 className="text-base font-semibold text-neutral-800">{title}</h3>
             {description && (
-                <p className="mt-1.5 text-sm text-slate-500 max-w-md">{description}</p>
+                <p className="mt-1.5 text-sm text-neutral-500 max-w-md">{description}</p>
             )}
             {action && <div className="mt-5">{action}</div>}
         </div>

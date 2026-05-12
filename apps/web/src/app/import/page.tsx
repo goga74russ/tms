@@ -77,8 +77,8 @@ export default function ImportPage() {
                     <FileSpreadsheet className="w-5 h-5" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-semibold text-slate-900">Импорт данных</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">
+                    <h1 className="text-2xl font-semibold text-neutral-900">Импорт данных</h1>
+                    <p className="text-sm text-neutral-500 mt-0.5">
                         Скачайте шаблон Excel, заполните и загрузите обратно. Перед записью покажем предпросмотр с подсветкой ошибок.
                     </p>
                 </div>
@@ -138,7 +138,7 @@ function ImportCard({
             className={`text-left rounded-xl border-2 p-4 transition-all ${
                 active
                     ? 'border-indigo-400 bg-indigo-50/40 shadow-sm'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
+                    : 'border-neutral-200 bg-white hover:border-neutral-300'
             }`}
         >
             <div className="flex items-start gap-3">
@@ -146,14 +146,14 @@ function ImportCard({
                     <Icon className="w-5 h-5" />
                 </div>
                 <div className="flex-1">
-                    <div className="font-semibold text-slate-900">{cfg.label}</div>
-                    <p className="text-xs text-slate-500 mt-0.5">{cfg.description}</p>
+                    <div className="font-semibold text-neutral-900">{cfg.label}</div>
+                    <p className="text-xs text-neutral-500 mt-0.5">{cfg.description}</p>
                 </div>
             </div>
             <div className="mt-3 flex gap-2">
                 <button
                     onClick={downloadTemplate}
-                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-neutral-200 text-neutral-600 hover:bg-neutral-50"
                 >
                     <Download className="w-3 h-3" />Шаблон
                 </button>
@@ -243,7 +243,7 @@ function ImportPanel({
                         <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
                         Импорт: {cfg.label}
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
+                    <button onClick={onClose} className="text-neutral-400 hover:text-neutral-700">
                         <X className="w-4 h-4" />
                     </button>
                 </CardTitle>
@@ -254,7 +254,7 @@ function ImportPanel({
                     className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
                         dragging
                             ? 'border-indigo-400 bg-indigo-50'
-                            : 'border-slate-300 bg-white hover:border-indigo-300 hover:bg-slate-50/50'
+                            : 'border-neutral-300 bg-white hover:border-indigo-300 hover:bg-neutral-50/50'
                     }`}
                     onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
                     onDragLeave={() => setDragging(false)}
@@ -272,21 +272,21 @@ function ImportPanel({
                             e.target.value = '';
                         }}
                     />
-                    <FileSpreadsheet className={`w-8 h-8 mx-auto mb-2 ${dragging ? 'text-indigo-500' : 'text-slate-300'}`} />
+                    <FileSpreadsheet className={`w-8 h-8 mx-auto mb-2 ${dragging ? 'text-indigo-500' : 'text-neutral-300'}`} />
                     {fileName ? (
-                        <p className="text-sm font-medium text-slate-700">{fileName}</p>
+                        <p className="text-sm font-medium text-neutral-700">{fileName}</p>
                     ) : (
                         <>
-                            <p className="text-sm font-medium text-slate-600">
+                            <p className="text-sm font-medium text-neutral-600">
                                 Перетащите .xlsx или <span className="text-indigo-600 underline">выберите файл</span>
                             </p>
-                            <p className="text-xs text-slate-400 mt-1">До 200 строк за импорт</p>
+                            <p className="text-xs text-neutral-400 mt-1">До 200 строк за импорт</p>
                         </>
                     )}
                 </div>
 
                 {loading && (
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <div className="flex items-center gap-2 text-sm text-neutral-500">
                         <Loader2 className="w-4 h-4 animate-spin" />Парсим файл...
                     </div>
                 )}
@@ -306,27 +306,27 @@ function ImportPanel({
                             <Stat label="С ошибками" value={preview.errorCount} valueClass={preview.errorCount > 0 ? 'text-rose-700' : ''} />
                         </div>
 
-                        <div className="overflow-x-auto rounded-xl border border-slate-200 max-h-96">
+                        <div className="overflow-x-auto rounded-xl border border-neutral-200 max-h-96">
                             <table className="w-full text-xs">
-                                <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+                                <thead className="bg-neutral-50 border-b border-neutral-200 sticky top-0">
                                     <tr>
-                                        <th className="px-3 py-2 text-left font-semibold text-slate-500 w-10">#</th>
-                                        <th className="px-3 py-2 text-left font-semibold text-slate-500">Данные</th>
-                                        <th className="px-3 py-2 text-left font-semibold text-slate-500 w-64">Ошибки</th>
+                                        <th className="px-3 py-2 text-left font-semibold text-neutral-500 w-10">#</th>
+                                        <th className="px-3 py-2 text-left font-semibold text-neutral-500">Данные</th>
+                                        <th className="px-3 py-2 text-left font-semibold text-neutral-500 w-64">Ошибки</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {preview.rows.slice(0, 100).map((row) => (
                                         <tr
                                             key={row.index}
-                                            className={`border-b border-slate-100 ${row.valid ? '' : 'bg-rose-50/30'}`}
+                                            className={`border-b border-neutral-100 ${row.valid ? '' : 'bg-rose-50/30'}`}
                                         >
-                                            <td className="px-3 py-2 text-slate-400 font-mono">{row.index + 1}</td>
-                                            <td className="px-3 py-2 text-slate-700">
+                                            <td className="px-3 py-2 text-neutral-400 font-mono">{row.index + 1}</td>
+                                            <td className="px-3 py-2 text-neutral-700">
                                                 <div className="flex flex-wrap gap-x-3 gap-y-0.5">
                                                     {Object.entries(row.data).slice(0, 4).map(([k, v]) => (
                                                         <span key={k} className="text-xs">
-                                                            <span className="text-slate-400">{k}:</span> <span className="font-medium">{Array.isArray(v) ? v.join(', ') : String(v ?? '—')}</span>
+                                                            <span className="text-neutral-400">{k}:</span> <span className="font-medium">{Array.isArray(v) ? v.join(', ') : String(v ?? '—')}</span>
                                                         </span>
                                                     ))}
                                                 </div>
@@ -345,14 +345,14 @@ function ImportPanel({
                                 </tbody>
                             </table>
                             {preview.rows.length > 100 && (
-                                <p className="px-3 py-2 text-xs text-slate-400 bg-slate-50">…и ещё {preview.rows.length - 100} строк</p>
+                                <p className="px-3 py-2 text-xs text-neutral-400 bg-neutral-50">…и ещё {preview.rows.length - 100} строк</p>
                             )}
                         </div>
 
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={reset}
-                                className="px-4 py-2 text-sm border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50"
+                                className="px-4 py-2 text-sm border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"
                             >
                                 Отменить
                             </button>
@@ -403,9 +403,9 @@ function ImportPanel({
 
 function Stat({ label, value, valueClass }: { label: string; value: number; valueClass?: string }) {
     return (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <div className="text-xs text-slate-500">{label}</div>
-            <div className={`text-lg font-semibold text-slate-900 ${valueClass ?? ''}`}>{value}</div>
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
+            <div className="text-xs text-neutral-500">{label}</div>
+            <div className={`text-lg font-semibold text-neutral-900 ${valueClass ?? ''}`}>{value}</div>
         </div>
     );
 }
