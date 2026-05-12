@@ -4,9 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Dialog } from '@/components/ui/dialog';
+import { PageHeader } from '@/components/ui/page-header';
 import { SkeletonRow } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
-import { Edit2, FileText, Plus, Search, X } from 'lucide-react';
+import { Edit2, FileText, Plus, Search } from 'lucide-react';
 
 interface Tariff {
     id: string;
@@ -93,10 +97,12 @@ function tariffDetails(t: Tariff) {
 
 function TariffModal({
     tariff,
+    open,
     onClose,
     onSaved,
 }: {
     tariff: Tariff | null;
+    open: boolean;
     onClose: () => void;
     onSaved: () => void;
 }) {
@@ -153,198 +159,158 @@ function TariffModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <Card className="mx-4 max-h-[90vh] w-full max-w-xl overflow-y-auto shadow-xl">
-                <CardHeader>
-                    <div className="flex items-start justify-between gap-4">
+        <Dialog
+            open={open}
+            onClose={onClose}
+            title={tariff ? 'Редактирование тарифа' : 'Новый тариф'}
+            description={currentHint}
+            size="lg"
+        >
+            <div className="space-y-4">
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+                    Для комбинированного тарифа можно заполнить несколько ставок. Оставьте только нужные поля.
+                </div>
+                <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
                         <div>
-                            <CardTitle>{tariff ? 'Редактирование тарифа' : 'Новый тариф'}</CardTitle>
-                            <p className="mt-1 text-sm text-slate-500">{currentHint}</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-brand-500">Preview</p>
+                            <p className="text-sm font-semibold text-neutral-900">{TYPE_LABELS[form.type] || form.type}</p>
                         </div>
-                        <button type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-slate-100">
-                            <X className="h-5 w-5 text-slate-400" />
-                        </button>
+                        <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-700">
+                            {currentHint}
+                        </span>
                     </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                        Для комбинированного тарифа можно заполнить несколько ставок. Оставьте только нужные поля.
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
+                        {form.fixedRate && <span className="rounded-full bg-white px-2.5 py-1 text-neutral-700 shadow-sm">Фикс: {formatMoney(form.fixedRate)}</span>}
+                        {form.ratePerKm && <span className="rounded-full bg-white px-2.5 py-1 text-neutral-700 shadow-sm">Км: {formatMoney(form.ratePerKm)}</span>}
+                        {form.ratePerHour && <span className="rounded-full bg-white px-2.5 py-1 text-neutral-700 shadow-sm">Час: {formatMoney(form.ratePerHour)}</span>}
+                        {form.ratePerTon && <span className="rounded-full bg-white px-2.5 py-1 text-neutral-700 shadow-sm">Тонна: {formatMoney(form.ratePerTon)}</span>}
+                        <span className="rounded-full bg-white px-2.5 py-1 text-neutral-700 shadow-sm">НДС: {form.vatIncluded ? `${form.vatRate}%` : 'нет'}</span>
                     </div>
-                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
-                        <div className="flex items-start justify-between gap-3">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Preview</p>
-                                <p className="text-sm font-semibold text-slate-900">{TYPE_LABELS[form.type] || form.type}</p>
-                            </div>
-                            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
-                                {currentHint}
-                            </span>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium">
-                            {form.fixedRate && <span className="rounded-full bg-white px-2.5 py-1 text-slate-700 shadow-sm">Фикс: {formatMoney(form.fixedRate)}</span>}
-                            {form.ratePerKm && <span className="rounded-full bg-white px-2.5 py-1 text-slate-700 shadow-sm">Км: {formatMoney(form.ratePerKm)}</span>}
-                            {form.ratePerHour && <span className="rounded-full bg-white px-2.5 py-1 text-slate-700 shadow-sm">Час: {formatMoney(form.ratePerHour)}</span>}
-                            {form.ratePerTon && <span className="rounded-full bg-white px-2.5 py-1 text-slate-700 shadow-sm">Тонна: {formatMoney(form.ratePerTon)}</span>}
-                            <span className="rounded-full bg-white px-2.5 py-1 text-slate-700 shadow-sm">НДС: {form.vatIncluded ? `${form.vatRate}%` : 'нет'}</span>
-                        </div>
-                    </div>
+                </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Как применяется</p>
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs font-medium text-slate-700">
-                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">База: {form.fixedRate ? formatMoney(form.fixedRate) : '—'}</span>
-                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">Км: {form.ratePerKm ? formatMoney(form.ratePerKm) : '—'}</span>
-                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">Час: {form.ratePerHour ? formatMoney(form.ratePerHour) : '—'}</span>
-                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">Тонна: {form.ratePerTon ? formatMoney(form.ratePerTon) : '—'}</span>
-                            <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">Мин. рейс: {form.minTripCost ? formatMoney(form.minTripCost) : '—'}</span>
-                        </div>
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Как применяется</p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs font-medium text-neutral-700">
+                        <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">База: {form.fixedRate ? formatMoney(form.fixedRate) : '—'}</span>
+                        <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">Км: {form.ratePerKm ? formatMoney(form.ratePerKm) : '—'}</span>
+                        <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">Час: {form.ratePerHour ? formatMoney(form.ratePerHour) : '—'}</span>
+                        <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">Тонна: {form.ratePerTon ? formatMoney(form.ratePerTon) : '—'}</span>
+                        <span className="rounded-full bg-white px-2.5 py-1 shadow-sm">Мин. рейс: {form.minTripCost ? formatMoney(form.minTripCost) : '—'}</span>
                     </div>
+                </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <label className="space-y-2">
-                            <span className="block text-sm font-medium text-slate-700">ID контракта *</span>
-                            <input
-                                value={form.contractId}
-                                onChange={e => setForm(prev => ({ ...prev, contractId: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                placeholder="UUID контракта"
-                                disabled={!!tariff}
-                            />
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Input
+                        label="ID контракта"
+                        required
+                        value={form.contractId}
+                        onChange={e => setForm(prev => ({ ...prev, contractId: e.target.value }))}
+                        placeholder="UUID контракта"
+                        disabled={!!tariff}
+                    />
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                            Тип <span className="text-red-500 ml-0.5">*</span>
                         </label>
-                        <label className="space-y-2">
-                            <span className="block text-sm font-medium text-slate-700">Тип *</span>
-                            <select
-                                value={form.type}
-                                onChange={e => setForm(prev => ({ ...prev, type: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            >
-                                {Object.entries(TYPE_LABELS).map(([key, label]) => (
-                                    <option key={key} value={key}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </select>
+                        <Select
+                            value={form.type}
+                            onChange={e => setForm(prev => ({ ...prev, type: e.target.value }))}
+                            options={Object.entries(TYPE_LABELS).map(([key, label]) => ({ value: key, label }))}
+                        />
+                    </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                    <Input
+                        type="number"
+                        step="0.01"
+                        label="Фиксированная ставка"
+                        value={form.fixedRate}
+                        onChange={e => setForm(prev => ({ ...prev, fixedRate: e.target.value }))}
+                    />
+                    <Input
+                        type="number"
+                        step="0.01"
+                        label="Ставка за км"
+                        value={form.ratePerKm}
+                        onChange={e => setForm(prev => ({ ...prev, ratePerKm: e.target.value }))}
+                    />
+                    <Input
+                        type="number"
+                        step="0.01"
+                        label="Ставка за час"
+                        value={form.ratePerHour}
+                        onChange={e => setForm(prev => ({ ...prev, ratePerHour: e.target.value }))}
+                    />
+                    <Input
+                        type="number"
+                        step="0.01"
+                        label="Ставка за тонну"
+                        value={form.ratePerTon}
+                        onChange={e => setForm(prev => ({ ...prev, ratePerTon: e.target.value }))}
+                    />
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                    <Input
+                        type="number"
+                        step="0.1"
+                        label="Ночь, коэффициент"
+                        value={form.nightCoefficient}
+                        onChange={e => setForm(prev => ({ ...prev, nightCoefficient: e.target.value }))}
+                    />
+                    <Input
+                        type="number"
+                        step="0.1"
+                        label="Срочность, коэффициент"
+                        value={form.urgentCoefficient}
+                        onChange={e => setForm(prev => ({ ...prev, urgentCoefficient: e.target.value }))}
+                    />
+                    <Input
+                        type="number"
+                        step="0.1"
+                        label="Выходной, коэффициент"
+                        value={form.weekendCoefficient}
+                        onChange={e => setForm(prev => ({ ...prev, weekendCoefficient: e.target.value }))}
+                    />
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                    <Input
+                        type="number"
+                        step="0.01"
+                        label="Минимальная стоимость рейса"
+                        value={form.minTripCost}
+                        onChange={e => setForm(prev => ({ ...prev, minTripCost: e.target.value }))}
+                    />
+                    <Input
+                        type="number"
+                        step="0.1"
+                        label="НДС %"
+                        value={form.vatRate}
+                        onChange={e => setForm(prev => ({ ...prev, vatRate: e.target.value }))}
+                    />
+                    <div className="flex items-end pb-1">
+                        <label className="flex cursor-pointer items-center gap-2">
+                            <input
+                                type="checkbox"
+                                checked={form.vatIncluded}
+                                onChange={e => setForm(prev => ({ ...prev, vatIncluded: e.target.checked }))}
+                                className="rounded border-neutral-300"
+                            />
+                            <span className="text-sm text-neutral-700">НДС включен</span>
                         </label>
                     </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <label className="space-y-2">
-                            <span className="block text-sm font-medium text-slate-700">Фиксированная ставка</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={form.fixedRate}
-                                onChange={e => setForm(prev => ({ ...prev, fixedRate: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </label>
-                        <label className="space-y-2">
-                            <span className="block text-sm font-medium text-slate-700">Ставка за км</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={form.ratePerKm}
-                                onChange={e => setForm(prev => ({ ...prev, ratePerKm: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </label>
-                        <label className="space-y-2">
-                            <span className="block text-sm font-medium text-slate-700">Ставка за час</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={form.ratePerHour}
-                                onChange={e => setForm(prev => ({ ...prev, ratePerHour: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </label>
-                        <label className="space-y-2">
-                            <span className="block text-sm font-medium text-slate-700">Ставка за тонну</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={form.ratePerTon}
-                                onChange={e => setForm(prev => ({ ...prev, ratePerTon: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </label>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-3">
-                        <label className="space-y-2">
-                            <span className="block text-sm font-medium text-slate-700">Ночь, коэффициент</span>
-                            <input
-                                type="number"
-                                step="0.1"
-                                value={form.nightCoefficient}
-                                onChange={e => setForm(prev => ({ ...prev, nightCoefficient: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </label>
-                        <label className="space-y-2">
-                            <span className="block text-sm font-medium text-slate-700">Срочность, коэффициент</span>
-                            <input
-                                type="number"
-                                step="0.1"
-                                value={form.urgentCoefficient}
-                                onChange={e => setForm(prev => ({ ...prev, urgentCoefficient: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </label>
-                        <label className="space-y-2">
-                            <span className="block text-sm font-medium text-slate-700">Выходной, коэффициент</span>
-                            <input
-                                type="number"
-                                step="0.1"
-                                value={form.weekendCoefficient}
-                                onChange={e => setForm(prev => ({ ...prev, weekendCoefficient: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </label>
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-3">
-                        <label className="space-y-2">
-                            <span className="block text-sm font-medium text-slate-700">Минимальная стоимость рейса</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={form.minTripCost}
-                                onChange={e => setForm(prev => ({ ...prev, minTripCost: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </label>
-                        <label className="space-y-2">
-                            <span className="block text-sm font-medium text-slate-700">НДС %</span>
-                            <input
-                                type="number"
-                                step="0.1"
-                                value={form.vatRate}
-                                onChange={e => setForm(prev => ({ ...prev, vatRate: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            />
-                        </label>
-                        <div className="flex items-end pb-1">
-                            <label className="flex cursor-pointer items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={form.vatIncluded}
-                                    onChange={e => setForm(prev => ({ ...prev, vatIncluded: e.target.checked }))}
-                                    className="rounded border-slate-300"
-                                />
-                                <span className="text-sm text-slate-700">НДС включен</span>
-                            </label>
-                        </div>
-                    </div>
-                    {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</p>}
-                    <div className="flex gap-3 pt-2">
-                        <Button variant="outline" className="flex-1" onClick={onClose}>
-                            Отмена
-                        </Button>
-                        <Button className="flex-1" onClick={save} disabled={submitting}>
-                            {submitting ? 'Сохраняем...' : tariff ? 'Сохранить' : 'Создать'}
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
+                </div>
+                {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</p>}
+                <div className="flex gap-3 pt-2">
+                    <Button variant="outline" className="flex-1" onClick={onClose}>
+                        Отмена
+                    </Button>
+                    <Button variant="brand" className="flex-1" onClick={save} disabled={submitting}>
+                        {submitting ? 'Сохраняем...' : tariff ? 'Сохранить' : 'Создать'}
+                    </Button>
+                </div>
+            </div>
+        </Dialog>
     );
 }
 
@@ -394,59 +360,55 @@ export default function AdminTariffsPage() {
 
     return (
         <div>
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                        <FileText className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-semibold text-slate-900">Тарифы</h1>
-                        <p className="mt-0.5 text-sm text-slate-500">
-                            {tariffs.length} тарифов в системе • {visibleCount} в текущем фильтре
-                        </p>
-                    </div>
-                </div>
-                <Button variant="brand" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setModal({ mode: 'create', tariff: null })}>
-                    Добавить тариф
-                </Button>
+            <div className="mb-6">
+                <PageHeader
+                    icon={FileText}
+                    iconTone="brand"
+                    title="Тарифы"
+                    description={`${tariffs.length} тарифов в системе • ${visibleCount} в текущем фильтре`}
+                    actions={
+                        <Button variant="brand" leftIcon={<Plus className="h-4 w-4" />} onClick={() => setModal({ mode: 'create', tariff: null })}>
+                            Добавить тариф
+                        </Button>
+                    }
+                />
             </div>
 
             <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <Card className="border-slate-200/80 shadow-sm">
+                <Card className="border-neutral-200/80 shadow-sm">
                     <CardContent className="p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Всего тарифов</p>
-                        <p className="mt-2 text-2xl font-bold text-slate-900">{tariffs.length}</p>
+                        <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Всего тарифов</p>
+                        <p className="mt-2 text-2xl font-bold text-neutral-900">{tariffs.length}</p>
                     </CardContent>
                 </Card>
-                <Card className="border-slate-200/80 shadow-sm">
+                <Card className="border-neutral-200/80 shadow-sm">
                     <CardContent className="p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Видно по фильтру</p>
-                        <p className="mt-2 text-2xl font-bold text-slate-900">{visibleCount}</p>
+                        <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Видно по фильтру</p>
+                        <p className="mt-2 text-2xl font-bold text-neutral-900">{visibleCount}</p>
                     </CardContent>
                 </Card>
-                <Card className="border-slate-200/80 shadow-sm">
+                <Card className="border-neutral-200/80 shadow-sm">
                     <CardContent className="p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Маршрутных тарифов</p>
-                        <p className="mt-2 text-2xl font-bold text-slate-900">{routeCount}</p>
+                        <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Маршрутных тарифов</p>
+                        <p className="mt-2 text-2xl font-bold text-neutral-900">{routeCount}</p>
                     </CardContent>
                 </Card>
-                <Card className="border-slate-200/80 shadow-sm">
+                <Card className="border-neutral-200/80 shadow-sm">
                     <CardContent className="p-4">
-                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Тарифов с НДС</p>
-                        <p className="mt-2 text-2xl font-bold text-slate-900">{vatCount}</p>
+                        <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Тарифов с НДС</p>
+                        <p className="mt-2 text-2xl font-bold text-neutral-900">{vatCount}</p>
                     </CardContent>
                 </Card>
             </div>
 
-            <Card className="mb-6 border-slate-200/80 shadow-sm">
+            <Card className="mb-6 border-neutral-200/80 shadow-sm">
                 <CardContent className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="relative w-full max-w-lg">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                        <input
+                    <div className="w-full max-w-lg">
+                        <Input
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                             placeholder="Поиск по контракту или типу тарифа"
-                            className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            leftAddon={<Search className="h-4 w-4" />}
                         />
                     </div>
 
@@ -461,8 +423,8 @@ export default function AdminTariffsPage() {
                                     className={[
                                         'rounded-full border px-3 py-1.5 text-sm font-medium transition',
                                         active
-                                            ? 'border-indigo-600 bg-indigo-600 text-white'
-                                            : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-600',
+                                            ? 'border-brand-600 bg-brand-600 text-white'
+                                            : 'border-neutral-200 bg-white text-neutral-600 hover:border-brand-200 hover:text-brand-600',
                                     ].join(' ')}
                                 >
                                     {filter.label}
@@ -476,7 +438,7 @@ export default function AdminTariffsPage() {
                                     setSearch('');
                                     setTypeFilter('');
                                 }}
-                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-500 hover:border-rose-200 hover:text-rose-600"
+                                className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-500 hover:border-rose-200 hover:text-rose-600"
                             >
                                 Сбросить
                             </button>
@@ -485,16 +447,16 @@ export default function AdminTariffsPage() {
                 </CardContent>
             </Card>
 
-            <Card className="overflow-hidden border-slate-200/80 shadow-sm">
-                <CardHeader className="border-b border-slate-100 bg-slate-50/80">
+            <Card className="overflow-hidden border-neutral-200/80 shadow-sm">
+                <CardHeader className="border-b border-neutral-100 bg-neutral-50/80">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
                             <CardTitle>Реестр тарифов</CardTitle>
-                            <p className="mt-1 text-sm text-slate-500">
+                            <p className="mt-1 text-sm text-neutral-500">
                                 {hasFilters ? 'Показаны только подходящие тарифы.' : 'Все тарифы и их базовые параметры.'}
                             </p>
                         </div>
-                        <div className="text-sm text-slate-500">
+                        <div className="text-sm text-neutral-500">
                             {kmCount} тарифов по километражу • {routeCount} маршрутных
                         </div>
                     </div>
@@ -502,14 +464,14 @@ export default function AdminTariffsPage() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-b border-slate-100 bg-white">
-                                <th className="px-4 py-3 text-left font-semibold text-slate-600">Тип</th>
-                                <th className="px-4 py-3 text-left font-semibold text-slate-600">Контракт</th>
-                                <th className="px-4 py-3 text-left font-semibold text-slate-600">Ставка</th>
-                                <th className="px-4 py-3 text-left font-semibold text-slate-600">Минимум</th>
-                                <th className="px-4 py-3 text-left font-semibold text-slate-600">Коэффициенты</th>
-                                <th className="px-4 py-3 text-left font-semibold text-slate-600">НДС</th>
-                                <th className="w-10 px-4 py-3 text-left font-semibold text-slate-600" />
+                            <tr className="border-b border-neutral-100 bg-white">
+                                <th className="px-4 py-3 text-left font-semibold text-neutral-600">Тип</th>
+                                <th className="px-4 py-3 text-left font-semibold text-neutral-600">Контракт</th>
+                                <th className="px-4 py-3 text-left font-semibold text-neutral-600">Ставка</th>
+                                <th className="px-4 py-3 text-left font-semibold text-neutral-600">Минимум</th>
+                                <th className="px-4 py-3 text-left font-semibold text-neutral-600">Коэффициенты</th>
+                                <th className="px-4 py-3 text-left font-semibold text-neutral-600">НДС</th>
+                                <th className="w-10 px-4 py-3 text-left font-semibold text-neutral-600" />
                             </tr>
                         </thead>
                         <tbody>
@@ -519,17 +481,17 @@ export default function AdminTariffsPage() {
                                 <tr>
                                     <td colSpan={7} className="py-16 text-center">
                                         <div className="mx-auto max-w-md">
-                                            <p className="text-base font-medium text-slate-700">
+                                            <p className="text-base font-medium text-neutral-700">
                                                 {tariffs.length === 0 ? 'Пока нет тарифов' : 'Ничего не найдено'}
                                             </p>
-                                            <p className="mt-2 text-sm text-slate-500">
+                                            <p className="mt-2 text-sm text-neutral-500">
                                                 {tariffs.length === 0
                                                     ? 'Создайте первый тариф, чтобы начать расчеты.'
                                                     : 'Попробуйте изменить поиск или сбросить фильтры.'}
                                             </p>
                                             {tariffs.length === 0 && (
                                                 <div className="mt-4">
-                                                    <Button onClick={() => setModal({ mode: 'create', tariff: null })}>
+                                                    <Button variant="brand" onClick={() => setModal({ mode: 'create', tariff: null })}>
                                                         <Plus className="mr-1.5 h-4 w-4" />
                                                         Добавить тариф
                                                     </Button>
@@ -542,27 +504,27 @@ export default function AdminTariffsPage() {
                                 filteredTariffs.map(tariff => {
                                     const rate = primaryRate(tariff);
                                     return (
-                                        <tr key={tariff.id} className="border-b border-slate-50 align-top hover:bg-slate-50/80">
+                                        <tr key={tariff.id} className="border-b border-neutral-50 align-top hover:bg-neutral-50/80">
                                             <td className="px-4 py-4">
                                                 <div className="space-y-1">
-                                                    <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                                                    <span className="inline-flex rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-700">
                                                         {TYPE_LABELS[tariff.type] || tariff.type}
                                                     </span>
-                                                    <p className="text-xs text-slate-500">{typeHint(tariff.type)}</p>
+                                                    <p className="text-xs text-neutral-500">{typeHint(tariff.type)}</p>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4">
-                                                <div className="font-mono text-sm text-slate-700">{tariff.contractId}</div>
-                                                <p className="mt-1 text-xs text-slate-500">ID договора / контракта</p>
+                                                <div className="font-mono text-sm text-neutral-700">{tariff.contractId}</div>
+                                                <p className="mt-1 text-xs text-neutral-500">ID договора / контракта</p>
                                             </td>
                                             <td className="px-4 py-4">
-                                                <div className="font-medium text-slate-900">{rate.label}</div>
-                                                <div className="mt-1 text-sm text-slate-700">{rate.value}</div>
-                                                <p className="mt-1 text-xs text-slate-500">{tariffDetails(tariff)}</p>
+                                                <div className="font-medium text-neutral-900">{rate.label}</div>
+                                                <div className="mt-1 text-sm text-neutral-700">{rate.value}</div>
+                                                <p className="mt-1 text-xs text-neutral-500">{tariffDetails(tariff)}</p>
                                             </td>
-                                            <td className="px-4 py-4 text-slate-700">{formatMoney(tariff.minTripCost)}</td>
+                                            <td className="px-4 py-4 text-neutral-700">{formatMoney(tariff.minTripCost)}</td>
                                             <td className="px-4 py-4">
-                                                <div className="flex flex-col gap-1 text-xs text-slate-600">
+                                                <div className="flex flex-col gap-1 text-xs text-neutral-600">
                                                     <span>Ночь: ×{formatCoeff(tariff.nightCoefficient)}</span>
                                                     <span>Срочность: ×{formatCoeff(tariff.urgentCoefficient)}</span>
                                                     <span>Выходной: ×{formatCoeff(tariff.weekendCoefficient)}</span>
@@ -574,7 +536,7 @@ export default function AdminTariffsPage() {
                                                         'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
                                                         tariff.vatIncluded
                                                             ? 'bg-emerald-100 text-emerald-700'
-                                                            : 'bg-slate-100 text-slate-600',
+                                                            : 'bg-neutral-100 text-neutral-600',
                                                     ].join(' ')}
                                                 >
                                                     {tariff.vatIncluded ? `${toNumber(tariff.vatRate) ?? 20}% НДС` : 'Без НДС'}
@@ -583,7 +545,7 @@ export default function AdminTariffsPage() {
                                             <td className="px-4 py-4">
                                                 <button
                                                     onClick={() => setModal({ mode: 'edit', tariff })}
-                                                    className="rounded-lg p-1.5 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"
+                                                    className="rounded-lg p-1.5 text-neutral-400 hover:bg-brand-50 hover:text-brand-600"
                                                     type="button"
                                                 >
                                                     <Edit2 className="h-4 w-4" />
@@ -600,11 +562,14 @@ export default function AdminTariffsPage() {
 
             {modal && (
                 <TariffModal
+                    key={modal.tariff?.id ?? 'new'}
                     tariff={modal.tariff}
+                    open={true}
                     onClose={() => setModal(null)}
                     onSaved={() => {
+                        const created = modal.mode === 'create';
                         setModal(null);
-                        setToast(modal.mode === 'create' ? 'Тариф создан' : 'Тариф обновлен');
+                        setToast(created ? 'Тариф создан' : 'Тариф обновлен');
                         load();
                     }}
                 />

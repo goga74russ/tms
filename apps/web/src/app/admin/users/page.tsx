@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Stat } from '@/components/ui/stat';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
 import { DataTable, type Column, Pill } from '@/components/ui/data-table';
+import { PageHeader } from '@/components/ui/page-header';
+import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import {
-    Users, X, Edit2, CheckCircle2,
+    Users, Edit2, CheckCircle2,
     Shield, UserCog, UserPlus, UserX,
 } from 'lucide-react';
 
@@ -51,10 +53,12 @@ const ROLE_LABELS: Record<string, string> = {
 // ================================================================
 function UserFormModal({
     user,
+    open,
     onClose,
     onSuccess,
 }: {
     user: UserRecord | null;
+    open: boolean;
     onClose: () => void;
     onSuccess: () => void;
 }) {
@@ -124,106 +128,91 @@ function UserFormModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <Card className="w-full max-w-md mx-4 shadow-xl">
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <CardTitle>{isEdit ? 'Редактирование' : 'Новый пользователь'}</CardTitle>
-                        <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100">
-                            <X className="w-5 h-5 text-slate-400" />
-                        </button>
+        <Dialog
+            open={open}
+            onClose={onClose}
+            title={isEdit ? 'Редактирование' : 'Новый пользователь'}
+            size="md"
+        >
+            <div className="space-y-4">
+                <Input
+                    type="email"
+                    label="Email"
+                    required
+                    value={form.email}
+                    onChange={e => setForm(prev => ({ ...prev, email: e.target.value }))}
+                    disabled={isEdit}
+                    placeholder="user@company.ru"
+                />
+
+                <Input
+                    type="text"
+                    label="ФИО"
+                    required
+                    value={form.fullName}
+                    onChange={e => setForm(prev => ({ ...prev, fullName: e.target.value }))}
+                    placeholder="Иванов Иван Иванович"
+                />
+
+                <Input
+                    type="tel"
+                    label="Телефон"
+                    value={form.phone}
+                    onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="+7 (999) 123-45-67"
+                />
+
+                <Input
+                    type="password"
+                    label={isEdit ? 'Новый пароль (оставить пустым — без изменений)' : 'Пароль'}
+                    required={!isEdit}
+                    value={form.password}
+                    onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))}
+                />
+
+                {/* Roles */}
+                <div className="space-y-2">
+                    <label className="block text-sm font-medium text-neutral-700">Роли *</label>
+                    <div className="flex flex-wrap gap-2">
+                        {ROLE_OPTIONS.map(role => (
+                            <button
+                                key={role}
+                                type="button"
+                                onClick={() => toggleRole(role)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border ${form.roles.includes(role)
+                                        ? 'bg-brand-100 text-brand-700 border-brand-300'
+                                        : 'bg-neutral-50 text-neutral-500 border-neutral-200 hover:border-brand-300'
+                                    }`}
+                            >
+                                {ROLE_LABELS[role] || role}
+                            </button>
+                        ))}
                     </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-slate-700">Email *</label>
+                </div>
+
+                {/* Active toggle */}
+                {isEdit && (
+                    <label className="flex items-center gap-2 cursor-pointer">
                         <input
-                            type="email"
-                            value={form.email}
-                            onChange={e => setForm(prev => ({ ...prev, email: e.target.value }))}
-                            disabled={isEdit}
-                            className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:bg-slate-50 disabled:text-slate-400"
-                            placeholder="user@company.ru"
+                            type="checkbox"
+                            checked={form.isActive}
+                            onChange={e => setForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                            className="rounded border-neutral-300"
                         />
-                    </div>
+                        <span className="text-sm text-neutral-700">Активен</span>
+                    </label>
+                )}
 
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-slate-700">ФИО *</label>
-                        <input
-                            type="text"
-                            value={form.fullName}
-                            onChange={e => setForm(prev => ({ ...prev, fullName: e.target.value }))}
-                            className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            placeholder="Иванов Иван Иванович"
-                        />
-                    </div>
+                {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
 
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-slate-700">Телефон</label>
-                        <input
-                            type="tel"
-                            value={form.phone}
-                            onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))}
-                            className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            placeholder="+7 (999) 123-45-67"
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-slate-700">
-                            {isEdit ? 'Новый пароль (оставить пустым — без изменений)' : 'Пароль *'}
-                        </label>
-                        <input
-                            type="password"
-                            value={form.password}
-                            onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))}
-                            className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                        />
-                    </div>
-
-                    {/* Roles */}
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-slate-700">Роли *</label>
-                        <div className="flex flex-wrap gap-2">
-                            {ROLE_OPTIONS.map(role => (
-                                <button
-                                    key={role}
-                                    onClick={() => toggleRole(role)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border ${form.roles.includes(role)
-                                            ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
-                                            : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-indigo-300'
-                                        }`}
-                                >
-                                    {ROLE_LABELS[role] || role}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Active toggle */}
-                    {isEdit && (
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={form.isActive}
-                                onChange={e => setForm(prev => ({ ...prev, isActive: e.target.checked }))}
-                                className="rounded border-slate-300"
-                            />
-                            <span className="text-sm text-slate-700">Активен</span>
-                        </label>
-                    )}
-
-                    {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
-
-                    <div className="flex gap-3 pt-2">
-                        <Button variant="outline" className="flex-1" onClick={onClose}>Отмена</Button>
-                        <Button variant="brand" className="flex-1" isLoading={submitting} onClick={handleSubmit}>
-                            {isEdit ? 'Сохранить' : 'Создать'}
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
+                <div className="flex gap-3 pt-2">
+                    <Button variant="outline" className="flex-1" onClick={onClose}>Отмена</Button>
+                    <Button variant="brand" className="flex-1" isLoading={submitting} onClick={handleSubmit}>
+                        {isEdit ? 'Сохранить' : 'Создать'}
+                    </Button>
+                </div>
+            </div>
+        </Dialog>
     );
 }
 
@@ -237,6 +226,7 @@ export default function AdminUsersPage() {
     const [statusFilter, setStatusFilter] = useState('');
     const [roleFilter, setRoleFilter] = useState('');
     const [modal, setModal] = useState<{ mode: 'create' | 'edit'; user: UserRecord | null } | null>(null);
+    const [confirmAction, setConfirmAction] = useState<null | { action: () => Promise<void>; title: string; description: string; destructive?: boolean; confirmLabel?: string }>(null);
 
     const load = useCallback(async () => {
         try {
@@ -283,7 +273,7 @@ export default function AdminUsersPage() {
             id: 'fullName',
             header: 'ФИО',
             accessor: (r) => r.fullName,
-            cell: (r) => <span className="font-medium text-slate-900">{r.fullName}</span>,
+            cell: (r) => <span className="font-medium text-neutral-900">{r.fullName}</span>,
             sortable: true,
             sticky: 'left',
             minWidth: '200px',
@@ -292,7 +282,7 @@ export default function AdminUsersPage() {
             id: 'email',
             header: 'Email',
             accessor: (r) => r.email,
-            cell: (r) => <span className="text-slate-600">{r.email}</span>,
+            cell: (r) => <span className="text-neutral-600">{r.email}</span>,
             sortable: true,
             minWidth: '200px',
         },
@@ -327,7 +317,7 @@ export default function AdminUsersPage() {
             id: 'createdAt',
             header: 'Дата',
             accessor: (r) => r.createdAt,
-            cell: (r) => <span className="text-slate-500 text-xs">{new Date(r.createdAt).toLocaleDateString('ru-RU')}</span>,
+            cell: (r) => <span className="text-neutral-500 text-xs">{new Date(r.createdAt).toLocaleDateString('ru-RU')}</span>,
             sortable: true,
             width: '110px',
             align: 'right',
@@ -337,20 +327,17 @@ export default function AdminUsersPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                        <Users className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-semibold text-slate-900">Пользователи</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">Учётные записи и роли в системе</p>
-                    </div>
-                </div>
-                <Button variant="brand" leftIcon={<UserPlus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', user: null })}>
-                    Добавить
-                </Button>
-            </div>
+            <PageHeader
+                icon={Users}
+                iconTone="brand"
+                title="Пользователи"
+                description="Учётные записи и роли в системе"
+                actions={
+                    <Button variant="brand" leftIcon={<UserPlus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', user: null })}>
+                        Добавить
+                    </Button>
+                }
+            />
 
             {/* Stat cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -393,11 +380,18 @@ export default function AdminUsersPage() {
                             size="sm"
                             variant="outline"
                             leftIcon={<UserX className="w-3.5 h-3.5" />}
-                            onClick={async () => {
+                            onClick={() => {
                                 const active = rows.filter(u => u.isActive);
                                 if (active.length === 0) return;
-                                if (!confirm(`Деактивировать ${active.length} пользователей?`)) return;
-                                await Promise.all(active.map(u => toggleActive(u, false)));
+                                setConfirmAction({
+                                    action: async () => {
+                                        await Promise.all(active.map(u => toggleActive(u, false)));
+                                    },
+                                    title: 'Деактивировать пользователей',
+                                    description: `Деактивировать ${active.length} пользователей?`,
+                                    destructive: true,
+                                    confirmLabel: 'Деактивировать',
+                                });
                             }}
                         >
                             Деактивировать ({rows.length})
@@ -438,7 +432,9 @@ export default function AdminUsersPage() {
 
             {modal && (
                 <UserFormModal
+                    key={modal.user?.id ?? 'new'}
                     user={modal.user}
+                    open={true}
                     onClose={() => setModal(null)}
                     onSuccess={() => {
                         const created = modal.mode === 'create';
@@ -448,6 +444,19 @@ export default function AdminUsersPage() {
                     }}
                 />
             )}
+
+            <ConfirmDialog
+                open={!!confirmAction}
+                onClose={() => setConfirmAction(null)}
+                onConfirm={async () => {
+                    await confirmAction?.action();
+                    setConfirmAction(null);
+                }}
+                title={confirmAction?.title ?? ''}
+                description={confirmAction?.description}
+                destructive={confirmAction?.destructive}
+                confirmLabel={confirmAction?.confirmLabel ?? 'Подтвердить'}
+            />
         </div>
     );
 }

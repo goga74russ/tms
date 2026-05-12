@@ -13,6 +13,7 @@ import { Truck, Plus } from 'lucide-react';
 import { SkeletonRow } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
+import { PageHeader } from '@/components/ui/page-header';
 
 // ============================================================
 // Types
@@ -169,22 +170,19 @@ export default function AdminCarriersPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                        <Truck className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Перевозчики</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">Контрагенты с признаком перевозчика и активные договоры</p>
-                    </div>
-                </div>
-                {contractorsAvailable && (
-                    <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setPromoteOpen(true)}>
-                        Сделать перевозчиком
-                    </Button>
-                )}
-            </div>
+            <PageHeader
+                icon={Truck}
+                iconTone="brand"
+                title="Перевозчики"
+                description="Контрагенты с признаком перевозчика и активные договоры"
+                actions={
+                    contractorsAvailable ? (
+                        <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setPromoteOpen(true)}>
+                            Сделать перевозчиком
+                        </Button>
+                    ) : null
+                }
+            />
 
             {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex justify-between items-center">
@@ -196,7 +194,7 @@ export default function AdminCarriersPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <Truck className="w-5 h-5 text-indigo-600" />
+                        <Truck className="w-5 h-5 text-brand-600" />
                         Перевозчики ({carriers.length})
                     </CardTitle>
                 </CardHeader>
@@ -224,8 +222,8 @@ export default function AdminCarriersPage() {
                             <TableBody>
                                 {carriers.map(c => (
                                     <TableRow key={c.id}>
-                                        <TableCell className="font-medium text-slate-900">{c.name}</TableCell>
-                                        <TableCell className="text-slate-500">{c.inn}</TableCell>
+                                        <TableCell className="font-medium text-neutral-900">{c.name}</TableCell>
+                                        <TableCell className="text-neutral-500">{c.inn}</TableCell>
                                         <TableCell>
                                             {c.activeContract ? (
                                                 <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
@@ -237,7 +235,7 @@ export default function AdminCarriersPage() {
                                                 </Badge>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-slate-500 text-xs">
+                                        <TableCell className="text-neutral-500 text-xs">
                                             {c.activeContract ? (
                                                 <>
                                                     {format(new Date(c.activeContract.startDate), 'dd.MM.yyyy')}
@@ -247,7 +245,7 @@ export default function AdminCarriersPage() {
                                                 </>
                                             ) : '—'}
                                         </TableCell>
-                                        <TableCell className="text-xs text-slate-600">
+                                        <TableCell className="text-xs text-neutral-600">
                                             {c.activeContract ? (
                                                 <div className="space-y-0.5">
                                                     <div>за км: {fmtMoney(c.activeContract.defaultRatePerKm)}</div>
@@ -269,7 +267,7 @@ export default function AdminCarriersPage() {
             </Card>
 
             {!contractorsAvailable && (
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-neutral-400">
                     Список контрагентов недоступен — функция «Сделать перевозчиком» будет недоступна, пока не появится эндпоинт <code>/contractors</code>.
                 </p>
             )}
@@ -277,16 +275,16 @@ export default function AdminCarriersPage() {
             {/* Promote dialog */}
             <Dialog open={promoteOpen} onClose={() => setPromoteOpen(false)} title="Сделать перевозчиком">
                 <div className="space-y-3">
-                    <p className="text-sm text-slate-500">Выберите контрагента, чтобы пометить его как перевозчика.</p>
+                    <p className="text-sm text-neutral-500">Выберите контрагента, чтобы пометить его как перевозчика.</p>
                     {nonCarrierContractors.length === 0 ? (
-                        <p className="text-sm text-slate-400 py-4 text-center">Все контрагенты уже перевозчики или список пуст.</p>
+                        <p className="text-sm text-neutral-400 py-4 text-center">Все контрагенты уже перевозчики или список пуст.</p>
                     ) : (
-                        <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded-lg">
+                        <div className="max-h-80 overflow-y-auto divide-y divide-neutral-100 border border-neutral-100 rounded-lg">
                             {nonCarrierContractors.map(c => (
                                 <div key={c.id} className="flex items-center justify-between px-3 py-2">
                                     <div>
-                                        <div className="text-sm font-medium text-slate-900">{c.name}</div>
-                                        <div className="text-xs text-slate-500">ИНН {c.inn}</div>
+                                        <div className="text-sm font-medium text-neutral-900">{c.name}</div>
+                                        <div className="text-xs text-neutral-500">ИНН {c.inn}</div>
                                     </div>
                                     <Button
                                         size="sm"
@@ -310,7 +308,7 @@ export default function AdminCarriersPage() {
             >
                 <div className="space-y-3">
                     <div>
-                        <label className="block text-xs text-slate-600 mb-1">Номер договора</label>
+                        <label className="block text-xs text-neutral-600 mb-1">Номер договора</label>
                         <Input
                             value={contractForm.number}
                             onChange={(e) => setContractForm({ ...contractForm, number: e.target.value })}
@@ -319,21 +317,21 @@ export default function AdminCarriersPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs text-slate-600 mb-1">Дата начала</label>
+                            <label className="block text-xs text-neutral-600 mb-1">Дата начала</label>
                             <Input type="date" value={contractForm.startDate} onChange={(e) => setContractForm({ ...contractForm, startDate: e.target.value })} />
                         </div>
                         <div>
-                            <label className="block text-xs text-slate-600 mb-1">Дата окончания</label>
+                            <label className="block text-xs text-neutral-600 mb-1">Дата окончания</label>
                             <Input type="date" value={contractForm.endDate} onChange={(e) => setContractForm({ ...contractForm, endDate: e.target.value })} />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs text-slate-600 mb-1">Ставка за км</label>
+                            <label className="block text-xs text-neutral-600 mb-1">Ставка за км</label>
                             <Input type="number" step="0.01" value={contractForm.defaultRatePerKm} onChange={(e) => setContractForm({ ...contractForm, defaultRatePerKm: e.target.value })} />
                         </div>
                         <div>
-                            <label className="block text-xs text-slate-600 mb-1">Ставка за тонну</label>
+                            <label className="block text-xs text-neutral-600 mb-1">Ставка за тонну</label>
                             <Input type="number" step="0.01" value={contractForm.defaultRatePerTon} onChange={(e) => setContractForm({ ...contractForm, defaultRatePerTon: e.target.value })} />
                         </div>
                     </div>

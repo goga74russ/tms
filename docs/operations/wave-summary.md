@@ -629,7 +629,18 @@ References: **Fishbowl / Navan / Luma**.
 - New primitive: `AuthSplitLayout` (form left, brand-gradient right with organic SVG / illustration / showcase).
 - Applied to: `/login` (remember-me + social buttons + ProductShowcase mockup), `/signup` (ShowcaseCarousel rotating cockpit/mobile/pricing), `/signup/verify` (paste-from-clipboard + email pill with edit + countdown + MailCheck illustration), `/onboarding` (vertical sidebar stepper 260px + per-step help panel 280px on xl+).
 
-### Detail/Settings pass (this commit)
+### Admin design-system consolidation (wave-polish-3, commit pending)
+After Detail/Settings + wave-bugs-2 walkthroughs, four admin pages still used the legacy pattern: hand-rolled icon-tile header, ad-hoc `fixed inset-0` modals, native `confirm()` dialogs, raw `<input>`/`<select>`, slate/indigo palette.
+
+- **Dialog primitive enhanced**: native `<dialog>` for free Esc-close + focus trap, backdrop click → close, `size` prop (`sm`/`md`/`lg`/`xl`), optional `description`, palette swap slate → neutral. New `ConfirmDialog` helper replaces `window.confirm()` with styled RU-friendly dialog (destructive variant + loading state).
+- `/admin/users`: `<PageHeader>` + `<Dialog>` for the user form + `<ConfirmDialog>` for bulk-deactivate (was `confirm()`); raw inputs → `<Input label="..." />`.
+- `/admin/carriers`: `<PageHeader>` + palette sweep (already used Dialog).
+- `/admin/tariffs`: `<PageHeader>` + `<Dialog size="lg">` + ~14 fields → `<Input>`/`<Select>`; brand palette for active filter pills + preview card.
+- `/admin/checklists`: `<PageHeader>` + `<Dialog size="lg">` + version/name/type → `<Input>`/`<Select>`.
+
+**Verification**: All four files have **zero** `slate-*` / `indigo-*` / `window.confirm(` / `fixed inset-0 z-50` occurrences after migration. TSC clean web. API tests 140/140.
+
+### Detail/Settings pass (commit `63edcec`)
 References: **Pendo / Calendly / Replit integrations marketplaces + Glean activity log**.
 - New primitive: `PageHeader` (icon-tile + title + description + actions slot + meta strip + 6 tones). Replaces hand-rolled `<icon-tile> + <h1+sub>` repeated in every admin page.
 - Admin layout sidebar refined: sticky vertical rail (240px), user-email in header, active-state left bar accent, neutral palette.
