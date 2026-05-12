@@ -29,6 +29,31 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+// Priority order — when a user has multiple roles, route by the most specific/privileged.
+// Mirrors apps/web/src/app/login/page.tsx ROLE_PRIORITY so a multi-role user
+// (e.g. mechanic + driver) lands on the mechanic home, not the driver home.
+const ROLE_PRIORITY: string[] = [
+    'admin',
+    'manager',
+    'dispatcher',
+    'logist',
+    'accountant',
+    'mechanic',
+    'medic',
+    'repair_service',
+    'client',
+    'driver',
+];
+
+function pickPrimaryRole(roles: string[] | undefined): string | null {
+    if (!roles || roles.length === 0) return null;
+    for (const role of ROLE_PRIORITY) {
+        if (roles.includes(role)) return role;
+    }
+    // Unknown role — fall through to whatever the API returned first.
+    return roles[0] ?? null;
+}
+
 export default function AppNavigator() {
     const { user, isLoading } = useAuth();
 
@@ -40,7 +65,8 @@ export default function AppNavigator() {
         );
     }
 
-    const isMechanic = user?.role === 'mechanic';
+    const primaryRole = pickPrimaryRole(user?.roles);
+    const isMechanic = primaryRole === 'mechanic';
 
     return (
         <Stack.Navigator>

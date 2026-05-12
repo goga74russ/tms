@@ -210,7 +210,7 @@ const tempBreachesTool: CopilotTool<z.infer<typeof TempBreachesInput>> = {
     input_schema: zodToJsonSchema(TempBreachesInput),
     handler: async (input, ctx) => {
         if (input.tripId) {
-            const summary = await summarizeReadings(input.tripId);
+            const summary = await summarizeReadings(input.tripId, ctx.organizationId ?? null);
             return { success: true, data: { tripId: input.tripId, ...summary } };
         }
         const activeTrips = await db
@@ -223,7 +223,7 @@ const tempBreachesTool: CopilotTool<z.infer<typeof TempBreachesInput>> = {
             .limit(20);
         const out: Array<{ tripId: string; tripNumber: string; breachCount: number; minC: number | null; maxC: number | null }> = [];
         for (const t of activeTrips) {
-            const s = await summarizeReadings(t.id);
+            const s = await summarizeReadings(t.id, ctx.organizationId ?? null);
             if (s.breachCount > 0) {
                 out.push({ tripId: t.id, tripNumber: t.number, breachCount: s.breachCount, minC: s.minC, maxC: s.maxC });
             }

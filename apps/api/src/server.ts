@@ -117,11 +117,28 @@ await app.register(helmet, {
     },
 });
 
-// H-2: CORS — multi-origin support for production
-const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
+// H-2: CORS — multi-origin support for production.
+// A-P2: refuse to start in production if no valid origins survive the
+// filter. The old code silently fell back to `'http://localhost:3000'`
+// when CORS_ORIGIN was malformed (typo, missing scheme, accidentally
+// empty), which in prod meant cookies+credentials only worked from a
+// dev URL nobody was on. Fail-fast surfaces the misconfig at boot,
+// not at first user request.
+const rawCorsOrigin = process.env.CORS_ORIGIN;
+const corsOrigins = (rawCorsOrigin || 'http://localhost:3000')
     .split(',')
     .map(s => s.trim())
     .filter(s => s.startsWith('http://') || s.startsWith('https://'));
+
+if (corsOrigins.length === 0) {
+    if (process.env.NODE_ENV === 'production') {
+        console.error('❌ FATAL: CORS_ORIGIN is set but contains no valid http(s) origins. Refusing to start.');
+        process.exit(1);
+    }
+    // Dev: warn and fall back to localhost so the server still boots.
+    console.warn('⚠️  CORS_ORIGIN has no valid http(s) origins; falling back to http://localhost:3000 (dev only).');
+    corsOrigins.push('http://localhost:3000');
+}
 await app.register(multipart, {
     limits: {
         fileSize: 15 * 1024 * 1024,

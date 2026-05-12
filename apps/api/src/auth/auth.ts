@@ -21,6 +21,9 @@ if (!JWT_SECRET) {
     process.exit(1);
 }
 
+// TODO: 24h JWT with no refresh/revocation is acceptable for pilot scale
+// but should be replaced with access + refresh token pair before scaling.
+// Tracked in audit-2026-05-12-deep.md P2.
 const JWT_EXPIRES_IN = '24h';
 const SALT_ROUNDS = 12;
 const COOKIE_NAME = 'tms_token';
@@ -813,6 +816,27 @@ export function registerAuthRoutes(app: FastifyInstance) {
         await adapter.send(email, subject, html, text);
     }
 
+    /**
+     * A-P2: enumeration-safe "you already have an account" notice. Sent to
+     * the address itself when someone re-attempts signup on a verified
+     * email — closes the leak that lets an attacker probe which addresses
+     * are registered. Best-effort send; we still return 201 on the public
+     * endpoint regardless.
+     */
+    async function sendAlreadyRegisteredNotice(email: string, organizationId: string | null): Promise<void> {
+        // organizationId may be null if the user was migrated without org —
+        // selectAdapter accepts a fallback. Use the user's org when present.
+        const registry = getDefaultRegistry();
+        const adapter = await selectAdapter(registry.email, organizationId ?? '', 'email');
+        const subject = 'TMS — учётная запись уже существует';
+        const html = `<p>Здравствуйте!</p>
+            <p>Кто-то попытался зарегистрировать новую учётную запись TMS с этим адресом, но он уже привязан к существующему аккаунту.</p>
+            <p>Если это были вы — просто войдите по email и паролю. Если нет — никаких действий не требуется, регистрация не создана.</p>
+            <p>Если вы забыли пароль, воспользуйтесь функцией восстановления при входе.</p>`;
+        const text = `На ${email} уже зарегистрирован аккаунт TMS. Если это были вы — войдите. Если нет — игнорируйте письмо.`;
+        await adapter.send(email, subject, html, text);
+    }
+
     // POST /api/auth/signup — start self-serve registration.
     app.post('/api/auth/signup', {
         schema: { tags: ['Авторизация'], summary: 'Самостоятельная регистрация', description: 'Создаёт неактивного пользователя + организацию и отправляет 6-значный код подтверждения на email.' },
@@ -847,7 +871,20 @@ export function registerAuthRoutes(app: FastifyInstance) {
             .limit(1);
 
         if (existing?.emailVerifiedAt) {
-            return reply.status(409).send({ success: false, error: 'Email уже зарегистрирован. Войдите.' });
+            // A-P2: enumeration-safe. Don't tell the caller the email is
+            // taken — that lets a probe enumerate registered accounts.
+            // Instead, send a notice to the address itself ("you already
+            // have an account") and return the same 201 success shape as
+            // a fresh signup. Rate-limit on the route prevents flooding.
+            try {
+                await sendAlreadyRegisteredNotice(email, existing.organizationId ?? null);
+            } catch (err) {
+                request.log.error({ err }, 'Failed to send already-registered notice');
+            }
+            return reply.status(201).send({
+                success: true,
+                data: { signupId: existing.id, status: 'pending' as const },
+            });
         }
 
         let organizationId: string;
@@ -1008,16 +1045,28 @@ export function registerAuthRoutes(app: FastifyInstance) {
         }
         const { email } = parsed.data;
 
+        // A-P2: enumeration-safe. Always return the same generic message
+        // regardless of whether the email exists, is verified, or is
+        // within the cooldown window. Eligibility checks still happen
+        // internally — we just don't tell the caller why nothing was
+        // sent. The per-route rate limit + RESEND_COOLDOWN_MS guard the
+        // mailbox; the unified response closes the enumeration leak.
+        const eligibleResponse = {
+            success: true,
+            message: 'Если адрес зарегистрирован и ожидает подтверждения, код отправлен повторно.',
+        };
+
         const [user] = await db
             .select({ id: users.id, organizationId: users.organizationId, emailVerifiedAt: users.emailVerifiedAt })
             .from(users)
             .where(eq(users.email, email))
             .limit(1);
-        if (!user) {
-            return reply.status(404).send({ success: false, error: 'Email не зарегистрирован' });
-        }
-        if (user.emailVerifiedAt) {
-            return reply.status(400).send({ success: false, error: 'Email уже подтверждён' });
+
+        // Bail silently on every non-eligible case (no user / already
+        // verified). Returning the same shape on the same status code
+        // prevents timing- and content-based enumeration.
+        if (!user || user.emailVerifiedAt) {
+            return eligibleResponse;
         }
 
         // Per-email cooldown — last code sent must be > RESEND_COOLDOWN_MS ago.
@@ -1028,7 +1077,9 @@ export function registerAuthRoutes(app: FastifyInstance) {
             .orderBy(desc(emailVerifications.createdAt))
             .limit(1);
         if (latest && Date.now() - new Date(latest.createdAt).getTime() < RESEND_COOLDOWN_MS) {
-            return reply.status(429).send({ success: false, error: 'Подождите минуту перед повторной отправкой' });
+            // Still return the same shape — caller can't distinguish
+            // "cooldown" from "not registered" / "already verified".
+            return eligibleResponse;
         }
 
         const code = generateCode();
@@ -1041,7 +1092,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
             request.log.error({ err }, 'Failed to resend verification code');
         }
 
-        return { success: true };
+        return eligibleResponse;
     });
 }
 

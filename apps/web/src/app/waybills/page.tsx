@@ -353,23 +353,23 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
         <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Persisted transport documents</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Транспортные документы</p>
                     <p className="text-sm font-semibold text-neutral-900">
                         {transportDocuments?.lifecycle?.documentPhase || 'planning'} · {etrn?.status || 'draft'}
                     </p>
                     <p className="mt-1 text-xs text-neutral-600">
-                        {transportDocuments?.summary?.nextAction ? `Next action: ${humanizeNextAction(transportDocuments.summary.nextAction)}` : 'Досье и ЭТРН доступны через dossier API'}
+                        {transportDocuments?.summary?.nextAction ? `Следующее действие: ${humanizeNextAction(transportDocuments.summary.nextAction)}` : 'Досье и ЭТРН доступны через dossier API'}
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {transportDocuments?.lifecycle?.hasBlockingProblems && (
-                        <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-700">blocked</span>
+                        <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-700">блокировка</span>
                     )}
                     {transportDocuments?.lifecycle?.hasWarnings && (
-                        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">check</span>
+                        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">проверить</span>
                     )}
                     <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-600 shadow-sm">
-                        {transportDocuments?.summary?.problemCount ?? 0} issues
+                        Замечаний: {transportDocuments?.summary?.problemCount ?? 0}
                     </span>
                 </div>
             </div>
@@ -385,7 +385,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                     Последняя активность: {formatComplianceDate(transportDocuments?.summary?.latestActivityAt)}
                 </div>
                 <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
-                    ETRN: {etrn?.summary?.blockedTitles ?? 0} blocked
+                    ЭТРН: заблокировано {etrn?.summary?.blockedTitles ?? 0}
                 </div>
             </div>
 
@@ -396,7 +396,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         <p className="text-sm font-semibold text-neutral-900">Статус провайдера, попытки и квитанции</p>
                     </div>
                     <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
-                        {exchangeTotals.providers} providers
+                        Провайдеров: {exchangeTotals.providers}
                     </span>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -418,7 +418,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
             {(transportDocuments?.lifecycle?.missingDocumentTypes?.length || etrn?.summary?.blockingTitleTypes?.length) && (
                 <div className="grid gap-3 lg:grid-cols-2">
                     <div className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Missing transport docs</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Не хватает документов</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(transportDocuments?.lifecycle?.missingDocumentTypes || []).map((type: string) => (
                                 <span key={type} className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">
@@ -431,7 +431,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         </div>
                     </div>
                     <div className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">ETRN blockers</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Блокировки ЭТРН</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(etrn?.summary?.blockingTitleTypes || []).map((type: string) => (
                                 <span key={type} className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">

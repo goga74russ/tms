@@ -13,6 +13,7 @@ import {
     drivers,
     vehicles,
 } from '../../db/schema.js';
+import { containsLikePattern } from '../../utils/search.js';
 
 const paginationSchema = z.object({
     page: z.coerce.number().int().min(1).default(1).catch(1),
@@ -170,7 +171,8 @@ export default async function sprint9Routes(app: FastifyInstance) {
         if (vehicleId) conditions.push(eq(incidents.vehicleId, vehicleId));
         if (driverId) conditions.push(eq(incidents.driverId, driverId));
         if (tripId) conditions.push(eq(incidents.tripId, tripId));
-        if (search) conditions.push(ilike(incidents.description, `%${search}%`));
+        // A-P2: escape %/_/\ to prevent pattern-DoS on free-text search.
+        if (search) conditions.push(ilike(incidents.description, containsLikePattern(search)));
         if (user.roles.includes('driver')) {
             const myDriverId = await resolveDriverId(user.userId);
             if (myDriverId) {

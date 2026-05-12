@@ -6,13 +6,19 @@
 
 **P0**: 13/13 закрыто (100%).
 **P1**: 27/27 закрыто (100%) — критичные через 5 параллельных агентов + архитектурные фиксы.
-**P2**: defense-in-depth, остаются как backlog.
-**P3**: polish, остаются как backlog.
+**P2**: основные закрыты (4 параллельных агента). Остатки — настоящие архитектурные изменения (JWT refresh tokens, split trips.tsx 3K LOC, react-query migration) задокументированы как future work.
+**P3**: polish-категория покрыта (key={i} → stable ids, raw `<a>` → Link, icon+color в Pills для критичных severity, web CSP, hover→focus a11y).
 
 Закрывающие коммиты:
 - `8bab538` — первая волна P0 (HMAC, CREDENTIALS_KEY, CSPRNG, error handler, tempPassword, pino redact)
 - `3138a4b` — массовая волна (provider registry, multi-tenancy, import transactions + 5 агентов: mobile P0, P1 security, P1 frontend, P1 providers, doc sweep)
 - `d949c25` — критичные тесты (+52, total 192) + CI gate hardening (Playwright blocking, smoke-chain job)
+- `b9addc8` — финальная фиксация closure status в audit doc
+- **post-P0/P1 P2/P3 wave** (текущий коммит) — 4 параллельных агента:
+  - Backend P2: user enum unified responses, /demo/cleanup 404 в проде без `ALLOW_DEMO_SEED`, CORS fail-fast в проде, `getCurrentSeason()` через `APP_TIMEZONE`, ilike escape в orders + sprint9, JWT 24h TODO, cold-chain org_id scoping в queries.
+  - Provider P2: decrypt failure surfacing (generic lastError + auto status='error' + cache invalidation), `_errors.ts` с provider-named RU messages (401/403/404/429/5xx), верификация уже-закрытых items (httpFetch adoption, CRPT mock productName, tachograph signatureValid).
+  - Frontend P2/P3: window.location → router (нет матчей — все уже Link/router), key={i} → stable ids в 11 файлах, icon+color в Pill primitive (5 critical sites), aria-label на CockpitTopBar/sidebar/CopilotChat, CSP headers в `next.config.mjs` (production-gated), английские остатки в waybills/trips ("Persisted transport documents" → "Транспортные документы" etc.).
+  - Mobile P2: ROLE_PRIORITY в AppNavigator (multi-role lands on правильный home), upload.ts retry/timeout/progress (30s abort, 2 retries с backoff, RU error), AppState gating ETA polling, TemperatureLog auto-mode warning pill.
 
 Тесты: было 140 → стало **192/192** (+52 на критичные пути: HMAC, CSPRNG, audit-log org scope, RBAC enum, provider registry, credentials cache).
 TSC: API + web + mobile clean.

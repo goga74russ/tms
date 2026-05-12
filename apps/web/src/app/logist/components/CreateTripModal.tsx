@@ -316,8 +316,8 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                             {warnings.length > 0 && (
                                 <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-1">
                                     <p className="text-xs font-semibold text-amber-700">⚠️ Рейс создан с предупреждениями:</p>
-                                    {warnings.map((w, i) => (
-                                        <p key={i} className="text-xs text-amber-600">• {w}</p>
+                                    {warnings.map((w) => (
+                                        <p key={w} className="text-xs text-amber-600">• {w}</p>
                                     ))}
                                 </div>
                             )}

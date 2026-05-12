@@ -4,6 +4,7 @@
 // Round 3B — D8: Demo data generator UI
 // ============================================================
 import { useState } from 'react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -199,8 +200,8 @@ export default function AdminDemoPage() {
                             <SummaryItem label="Тарифы" count={generated.tariffIds.length} href="/tariffs" />
                         </div>
                         <div className="mt-4 flex gap-2 flex-wrap">
-                            <a href="/dispatcher" className="text-sm text-indigo-600 hover:underline">Открыть диспетчерскую →</a>
-                            <a href="/analytics" className="text-sm text-indigo-600 hover:underline">Открыть аналитику →</a>
+                            <Link href="/dispatcher" className="text-sm text-indigo-600 hover:underline">Открыть диспетчерскую →</Link>
+                            <Link href="/analytics" className="text-sm text-indigo-600 hover:underline">Открыть аналитику →</Link>
                         </div>
                     </CardContent>
                 </Card>

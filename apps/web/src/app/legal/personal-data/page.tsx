@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { LegalPageShell } from '../components/LegalPageShell';
 
 export const metadata = {
@@ -103,7 +104,7 @@ export default function PersonalDataConsentPage() {
             <h2 id="confirmation">8. Подтверждение</h2>
             <p>
                 Я подтверждаю, что ознакомлен с условиями обработки персональных данных, изложенными
-                в настоящем документе и в <a href="/legal/privacy">Политике конфиденциальности</a>,
+                в настоящем документе и в <Link href="/legal/privacy">Политике конфиденциальности</Link>,
                 и предоставляю своё согласие на обработку персональных данных на изложенных условиях.
             </p>
             <p className="text-sm text-neutral-500 mt-6">

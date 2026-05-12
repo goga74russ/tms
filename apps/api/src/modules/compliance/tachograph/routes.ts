@@ -8,6 +8,7 @@ import { desc, eq } from 'drizzle-orm';
 import { db } from '../../../db/connection.js';
 import { tachographUploads, drivers } from '../../../db/schema.js';
 import { ingestDddBuffer } from './service.js';
+import { parseDddBuffer } from './ddd-parser.js';
 import { requireFeature } from '../../../auth/plan-guard.js';
 
 interface AuthUser {
@@ -43,6 +44,26 @@ const tachographRoutes: FastifyPluginAsync = async (app) => {
         const buffer = await data.toBuffer();
         if (buffer.length > MAX_BYTES) {
             return reply.status(413).send({ success: false, error: 'Файл превышает 15 МБ' });
+        }
+
+        // A-P2: in production, refuse to persist a .DDD whose СКЗИ signature
+        // we could not verify — the heuristic parser cannot validate CMAC and
+        // an unverified file must not feed compliance records. In dev/sandbox
+        // we accept + log so QA can iterate without certified СКЗИ bindings.
+        // We do a cheap pre-parse just to read the flag; ingestDddBuffer
+        // re-parses afterwards (small files, ~ms cost, acceptable for now).
+        const preParsed = parseDddBuffer(buffer);
+        if (!preParsed.signatureValid) {
+            if (process.env.NODE_ENV === 'production') {
+                return reply.status(422).send({
+                    success: false,
+                    error: 'Подпись файла тахографа не прошла проверку (СКЗИ)',
+                });
+            }
+            request.log.warn({
+                fileName: data.filename,
+                fileSize: buffer.length,
+            }, 'Tachograph file accepted without verified signature (non-prod)');
         }
 
         const result = await ingestDddBuffer({

@@ -39,8 +39,25 @@ function num(value: unknown): number {
     return toFiniteNumber(value);
 }
 
+/**
+ * A-P2: month-in-timezone helper. `new Date().getMonth()` returns the
+ * server's local month — on a UTC host in early November (winter for
+ * the operational window of Russian fleets) you'd get "summer" until
+ * 03:00 Moscow time. Driving fuel coefficients off of server wall
+ * clock is incorrect; everything in this app is Moscow-anchored.
+ */
+function getMonthInTimezone(date: Date, tz: string): number {
+    // Intl returns the 2-digit month string in the requested zone.
+    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, month: '2-digit' });
+    const parsed = Number.parseInt(fmt.format(date), 10);
+    // Intl months are 1-12; getMonth() is 0-11. Keep the original
+    // 0-11 contract so callers don't shift their boundary checks.
+    return Number.isFinite(parsed) ? parsed - 1 : date.getUTCMonth();
+}
+
 function getCurrentSeason(): 'winter' | 'summer' {
-    const month = new Date().getMonth(); // 0-11
+    const tz = process.env.APP_TIMEZONE || 'Europe/Moscow';
+    const month = getMonthInTimezone(new Date(), tz); // 0-11
     return (month >= 10 || month <= 2) ? 'winter' : 'summer';
 }
 

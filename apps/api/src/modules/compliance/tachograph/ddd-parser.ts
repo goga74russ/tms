@@ -37,6 +37,15 @@ export interface DddParseResult {
     activities: TachoActivity[];
     /** soft warnings collected during parse — surfaced in the upload audit row */
     warnings: string[];
+    /**
+     * A-P2: result of CMAC / digital-signature validation over the .DDD
+     * envelope. Always `false` from this heuristic parser — real
+     * validation requires СКЗИ libraries (Атлас, CryptoPro CSP) we don't
+     * link against. The ingest route uses this to refuse storing
+     * unverified files in production while still accepting them in
+     * dev/sandbox so QA can iterate.
+     */
+    signatureValid: boolean;
 }
 
 const ACTIVITY_MAP: Record<number, TachoActivityType> = {
@@ -77,6 +86,10 @@ export function parseDddBuffer(buf: Buffer): DddParseResult {
         periodTo: null,
         activities: [],
         warnings: [],
+        // A-P2: heuristic parser cannot verify the СКЗИ CMAC signature, so
+        // it always reports `false`. Real validation is a TODO that needs
+        // certified СКЗИ bindings (out of scope for this codebase).
+        signatureValid: false,
     };
 
     if (buf.length < 32) {

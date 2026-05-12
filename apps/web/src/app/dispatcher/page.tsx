@@ -898,8 +898,8 @@ export default function DispatcherPage() {
                                     )}
                                     {activeTripDetails.routePoints.length > 0 && (
                                         <div className="mt-2 pt-2 border-t border-neutral-100 space-y-1 max-h-32 overflow-y-auto">
-                                            {activeTripDetails.routePoints.map((rp, i) => (
-                                                <div key={i} className="flex items-center gap-2 text-[11px]">
+                                            {activeTripDetails.routePoints.map((rp) => (
+                                                <div key={`${rp.sequenceNumber}:${rp.type}`} className="flex items-center gap-2 text-[11px]">
                                                     <MapPin className={`w-3 h-3 flex-shrink-0 ${rp.status === 'completed' ? 'text-emerald-500'
                                                         : rp.status === 'arrived' ? 'text-blue-500'
                                                             : 'text-neutral-300'

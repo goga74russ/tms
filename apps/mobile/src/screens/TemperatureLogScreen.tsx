@@ -289,7 +289,14 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                         />
                     </Card>
 
-                    {/* Auto mode */}
+                    {/* Auto mode
+                        Known limitation: this is a foreground-only timer. If the
+                        screen is unmounted (navigation blur) or the app is
+                        force-killed, the interval is gone — there's no
+                        persistence or background task. Real fix would be
+                        server-side scheduled polling; out of scope here.
+                        We surface the limitation to the driver via a pill
+                        below so it's not a silent surprise mid-trip. */}
                     <Card style={{ marginTop: spacing.md }}>
                         <View style={styles.autoRow}>
                             <View style={{ flex: 1 }}>
@@ -310,6 +317,12 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                                 <Pill label="● Авто-режим активен" tone="brand" />
                             </View>
                         )}
+                        <View style={{ marginTop: spacing.sm }}>
+                            <Pill
+                                label="ⓘ Авторежим работает только пока экран открыт"
+                                tone="warning"
+                            />
+                        </View>
                         {pushPermission === 'denied' && (
                             <View style={{ marginTop: spacing.sm }}>
                                 <Pill label="🔕 Push отключены" tone="danger" />

@@ -405,8 +405,8 @@ export default function AnalyticsPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-neutral-100">
-                                        {alerts.map((a, i) => (
-                                            <tr key={i} className="hover:bg-neutral-50 transition-colors">
+                                        {alerts.map((a) => (
+                                            <tr key={`${a.vehicleId}:${a.type}`} className="hover:bg-neutral-50 transition-colors">
                                                 <td className="px-4 py-3 font-mono font-medium text-neutral-900">
                                                     {a.plateNumber}
                                                 </td>

@@ -334,7 +334,8 @@ function ImportPanel({
                                             <td className="px-3 py-2">
                                                 {row.errors.length > 0 ? (
                                                     <ul className="text-rose-700 space-y-0.5">
-                                                        {row.errors.map((e, i) => <li key={i}>• {e}</li>)}
+                                                        {/* errors are plain strings; index is the only stable identity within this row */}
+                                                        {row.errors.map((e, i) => <li key={`${i}:${e}`}>• {e}</li>)}
                                                     </ul>
                                                 ) : (
                                                     <span className="text-emerald-600">OK</span>
@@ -381,8 +382,8 @@ function ImportPanel({
                             <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
                                 <p className="font-medium mb-1">Ошибки ({result.errors.length}):</p>
                                 <ul className="list-disc pl-5 space-y-0.5">
-                                    {result.errors.slice(0, 10).map((e, i) => (
-                                        <li key={i}>Строка {e.index + 1}: {e.error}</li>
+                                    {result.errors.slice(0, 10).map((e) => (
+                                        <li key={`${e.index}:${e.error}`}>Строка {e.index + 1}: {e.error}</li>
                                     ))}
                                     {result.errors.length > 10 && <li>…ещё {result.errors.length - 10}</li>}
                                 </ul>

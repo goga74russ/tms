@@ -102,14 +102,14 @@ export function VehicleTimeline({ data }: VehicleTimelineProps) {
                                 </div>
 
                                 {/* Segments */}
-                                {row.segments.map((seg, i) => {
+                                {row.segments.map((seg) => {
                                     const left = `${(seg.start / 24) * 100}%`;
                                     const width = `${((seg.end - seg.start) / 24) * 100}%`;
                                     const color = SEGMENT_COLORS[seg.type] || '#94a3b8';
 
                                     return (
                                         <div
-                                            key={i}
+                                            key={`${seg.type}:${seg.start}-${seg.end}`}
                                             className="absolute top-1.5 bottom-1.5 rounded-md transition-opacity hover:opacity-80"
                                             style={{
                                                 left,

@@ -74,8 +74,8 @@ export class YookassaPaymentProvider implements PaymentProvider {
         // A-P1-25: Idempotence-Key is derived from orderId so retries hit the
         // same Yookassa transaction instead of creating duplicates.
         const _idempotenceKey = makeIdempotencyKey('create', input);
-        // TODO(real-impl): wire fetch using _idempotenceKey above.
-        // const res = await fetch(`${YOOKASSA_API_URL}/payments`, {
+        // Use httpFetch when wiring up: import { httpFetch } from '../_http.js';
+        // const res = await httpFetch(`${YOOKASSA_API_URL}/payments`, {
         //     method: 'POST',
         //     headers: {
         //         'Authorization': this.authHeader,
@@ -89,7 +89,7 @@ export class YookassaPaymentProvider implements PaymentProvider {
         //         description: input.description,
         //         metadata: { orderId: input.orderId },
         //     }),
-        // });
+        // }, { timeoutMs: 15000, retries: 2 });
         // if (!res.ok) throw new Error(`ЮKassa create payment failed: ${res.status} ${await res.text()}`);
         // const data = await res.json() as { id: string; status: string; confirmation?: { confirmation_url?: string } };
         // return {

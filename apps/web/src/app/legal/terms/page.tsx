@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { LegalPageShell } from '../components/LegalPageShell';
 
 export const metadata = {
@@ -112,7 +113,7 @@ export default function TermsPage() {
             <p>
                 Стороны обязуются соблюдать конфиденциальность сведений, ставших известными в ходе
                 исполнения договора. Обработка персональных данных осуществляется в соответствии с{' '}
-                <a href="/legal/privacy">Политикой конфиденциальности</a>.
+                <Link href="/legal/privacy">Политикой конфиденциальности</Link>.
             </p>
 
             <h2 id="jurisdiction">10. Применимое право и подсудность</h2>

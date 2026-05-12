@@ -140,8 +140,8 @@ function HoursChartDialog({ driver, onClose }: { driver: Driver; onClose: () => 
                             <AlertTriangle className="w-3.5 h-3.5" />
                             Нарушения ({summary.breaches.length})
                         </div>
-                        {summary.breaches.slice(0, 5).map((b, i) => (
-                            <div key={i} className="text-rose-700">
+                        {summary.breaches.slice(0, 5).map((b) => (
+                            <div key={`${b.date}:${b.reason}`} className="text-rose-700">
                                 {format(new Date(b.date), 'dd.MM')}: {b.reason}
                             </div>
                         ))}

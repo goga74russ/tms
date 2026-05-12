@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    AppState,
+    AppStateStatus,
     FlatList,
     Linking,
     Modal,
@@ -163,18 +165,49 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
             setEtaLoaded(false);
             return;
         }
+        // Pause ETA polling when app is backgrounded to save battery
+        // (and avoid pointless network usage on EDGE). Resume + refetch
+        // immediately on return to foreground.
         let cancelled = false;
+        let handle: ReturnType<typeof setInterval> | null = null;
+
         const poll = async () => {
             const res = await getTripEta(tripId);
             if (cancelled) return;
             setEta(res.data);
             setEtaLoaded(true);
         };
-        void poll();
-        const handle = setInterval(() => void poll(), 60_000);
+
+        const startPolling = () => {
+            if (handle !== null) return;
+            void poll();
+            handle = setInterval(() => void poll(), 60_000);
+        };
+
+        const stopPolling = () => {
+            if (handle !== null) {
+                clearInterval(handle);
+                handle = null;
+            }
+        };
+
+        const handleAppStateChange = (next: AppStateStatus) => {
+            if (next === 'active') {
+                startPolling();
+            } else {
+                stopPolling();
+            }
+        };
+
+        if (AppState.currentState === 'active') {
+            startPolling();
+        }
+        const sub = AppState.addEventListener('change', handleAppStateChange);
+
         return () => {
             cancelled = true;
-            clearInterval(handle);
+            stopPolling();
+            sub.remove();
         };
     }, [tripId, tripStatusForEta]);
 

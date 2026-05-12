@@ -38,10 +38,13 @@ export class MockMarkingProvider implements MarkingProvider {
         const valid = h % 10 !== 0;
         const cats = Object.keys(CATEGORY_SCHEDULE);
         const category = cats[h % cats.length]!;
+        // A-P2: real ЦРПТ returns no productName when the code is not valid
+        // (the cis simply isn't in their registry). Match that shape so
+        // downstream UI doesn't render a fake product name for invalid codes.
         return {
             code,
             valid,
-            productName: `Демо-товар ${code.slice(0, 8)}`,
+            productName: valid ? `Демо-товар ${code.slice(0, 8)}` : undefined,
             gtin: code.slice(0, 14),
             serial: code.slice(14, 27),
             status: valid ? 'in_circulation' : 'unknown',

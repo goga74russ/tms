@@ -4,7 +4,7 @@
 // ============================================================
 import { and, asc, desc, eq, gte, lte, or, sql } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
-import { incidents, orders, temperatureReadings, tripOrders } from '../../db/schema.js';
+import { incidents, orders, temperatureReadings, tripOrders, trips } from '../../db/schema.js';
 import { recordEvent } from '../../events/journal.js';
 
 export interface SlaBounds {
@@ -108,12 +108,23 @@ export async function recordReading(
     const breach = detectBreach(input.tempC, sla);
     const recordedAt = input.recordedAt ? new Date(input.recordedAt) : new Date();
 
+    // A-P2: stamp organization_id on every reading directly, instead of
+    // relying on consumer queries to join through trips. Closes the
+    // cross-tenant leak risk in any future query that forgets the join.
+    const [tripRow] = await db
+        .select({ organizationId: trips.organizationId })
+        .from(trips)
+        .where(eq(trips.id, input.tripId))
+        .limit(1);
+    const organizationId = tripRow?.organizationId ?? null;
+
     return db.transaction(async (tx) => {
         const [reading] = await tx
             .insert(temperatureReadings)
             .values({
                 tripId: input.tripId,
                 orderId: input.orderId ?? null,
+                organizationId,
                 recordedAt,
                 tempC: input.tempC,
                 sensorId: input.sensorId ?? null,
@@ -194,11 +205,15 @@ export interface ListFilters {
     limit?: number;
 }
 
-export async function listReadings(tripId: string, filters: ListFilters) {
+export async function listReadings(tripId: string, filters: ListFilters, orgId?: string | null) {
     const limit = Math.min(Math.max(filters.limit ?? 200, 1), 1000);
     const conditions = [eq(temperatureReadings.tripId, tripId)];
     if (filters.from) conditions.push(gte(temperatureReadings.recordedAt, new Date(filters.from)));
     if (filters.to) conditions.push(lte(temperatureReadings.recordedAt, new Date(filters.to)));
+    // A-P2: defense-in-depth tenant filter. The route already calls
+    // assertTripAccess, but stamping the org filter directly closes
+    // any future query that forgets the trip-level guard.
+    if (orgId) conditions.push(eq(temperatureReadings.organizationId, orgId));
 
     const rows = await db
         .select()
@@ -215,8 +230,13 @@ export async function listReadings(tripId: string, filters: ListFilters) {
     }));
 }
 
-export async function summarizeReadings(tripId: string) {
+export async function summarizeReadings(tripId: string, orgId?: string | null) {
     const sla = await resolveTripSla(tripId);
+
+    // A-P2: defense-in-depth tenant filter. Same rationale as listReadings.
+    const baseWhere = orgId
+        ? and(eq(temperatureReadings.tripId, tripId), eq(temperatureReadings.organizationId, orgId))
+        : eq(temperatureReadings.tripId, tripId);
 
     const [agg] = await db
         .select({
@@ -227,19 +247,19 @@ export async function summarizeReadings(tripId: string) {
             breachCount: sql<number>`sum(case when ${temperatureReadings.breach} then 1 else 0 end)::int`,
         })
         .from(temperatureReadings)
-        .where(eq(temperatureReadings.tripId, tripId));
+        .where(baseWhere);
 
     const [first] = await db
         .select({ at: temperatureReadings.recordedAt })
         .from(temperatureReadings)
-        .where(eq(temperatureReadings.tripId, tripId))
+        .where(baseWhere)
         .orderBy(asc(temperatureReadings.recordedAt))
         .limit(1);
 
     const [last] = await db
         .select({ at: temperatureReadings.recordedAt })
         .from(temperatureReadings)
-        .where(eq(temperatureReadings.tripId, tripId))
+        .where(baseWhere)
         .orderBy(desc(temperatureReadings.recordedAt))
         .limit(1);
 

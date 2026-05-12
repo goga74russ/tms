@@ -53,8 +53,9 @@ export class DiadocEdiProvider implements EdiProvider {
         //   }
         // Response: { MessageId: string, EntityId: string }
         // TODO(real-impl): wire fetch + protobuf or JSON shim once ящик id is configured.
+        // Use httpFetch when wiring up: import { httpFetch } from '../_http.js';
         // const url = `${DIADOC_API_URL}/V3/PostMessageJson`;
-        // const res = await fetch(url, {
+        // const res = await httpFetch(url, {
         //     method: 'POST',
         //     headers: {
         //         'Authorization': `DiadocAuth ddauth_api_client_id=${this.creds.apiClientId}, ddauth_token=${this.creds.authToken}`,
@@ -66,7 +67,7 @@ export class DiadocEdiProvider implements EdiProvider {
         //         IsDraft: false,
         //         DocumentAttachments: [{ Type: 'XmlTorg12', SignedContent: { Content: payload } }],
         //     }),
-        // });
+        // }, { timeoutMs: 20000, retries: 2 });
         // if (!res.ok) throw new Error(`Diadoc PostMessage failed: ${res.status}`);
         // const data = await res.json() as { MessageId: string; EntityId: string };
         // return { externalId: data.MessageId, status: 'sent' };

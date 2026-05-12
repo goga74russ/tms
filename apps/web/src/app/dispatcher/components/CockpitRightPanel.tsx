@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronRight, Thermometer, Truck, AlertTriangle, CheckCircle2, Search } from 'lucide-react';
 import { AssignmentPanel, type AssignmentWindows } from './AssignmentPanel';
 import type { Vehicle, UnassignedOrder } from '../page';
@@ -57,6 +58,7 @@ export function CockpitRightPanel({
     coldChainBreaches,
     onAssign,
 }: CockpitRightPanelProps) {
+    const router = useRouter();
     const [assignOpen, setAssignOpen] = useState(true);
     const [vehiclesOpen, setVehiclesOpen] = useState(true);
     const [coldOpen, setColdOpen] = useState(coldChainBreaches.length > 0);
@@ -171,7 +173,7 @@ export function CockpitRightPanel({
                                         href={`/trips?focus=${item.tripId}`}
                                         onClick={(e) => {
                                             e.preventDefault();
-                                            window.location.href = `/trips`;
+                                            router.push(`/trips?focus=${item.tripId}`);
                                         }}
                                         className="block rounded-md border border-rose-200 bg-rose-50/60 px-2 py-1.5 hover:bg-rose-100 transition-colors"
                                     >

@@ -184,7 +184,8 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                                 <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">ADR — внимание</p>
                                 <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-amber-800">
                                     {adrWarnings.map((err, i) => (
-                                        <li key={i}>{err}</li>
+                                        // adrWarnings is a list of plain strings; combine index + content for stability
+                                        <li key={`${i}:${err}`}>{err}</li>
                                     ))}
                                 </ul>
                                 <p className="mt-1.5 text-[10px] text-amber-600">Назначение не блокируется — проверьте перед подтверждением.</p>

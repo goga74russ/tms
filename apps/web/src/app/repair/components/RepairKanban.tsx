@@ -755,6 +755,7 @@ function PlanPartsDialog({
             </div>
           ) : null}
 
+          {/* RepairPart has no stable id; index is the editing identity used by updatePart/removePart callbacks. */}
           {parts.map((part, index) => (
             <div key={index} className="grid grid-cols-[minmax(0,1fr)_110px_140px_36px] gap-2">
               <div className="space-y-2">
@@ -897,6 +898,7 @@ function ReceivePartsDialog({
         </div>
 
         <div className="space-y-3">
+          {/* RepairPart has no stable id; index is the editing identity used by updatePart/removePart callbacks. */}
           {parts.map((part, index) => (
             <div key={index} className="rounded-lg border border-neutral-200 p-3">
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -1044,6 +1046,7 @@ function CompleteRepairDialog({
         </div>
 
         <div className="space-y-3">
+          {/* RepairPart has no stable id; index is the editing identity used by updatePart/removePart callbacks. */}
           {parts.map((part, index) => (
             <div key={index} className="rounded-lg border border-neutral-200 p-3">
               <div className="mb-3">

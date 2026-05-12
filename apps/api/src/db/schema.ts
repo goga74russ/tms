@@ -879,6 +879,10 @@ export const invoiceAdjustments = pgTable('invoice_adjustments', {
 export const tachographRecords = pgTable('tachograph_records', {
     id: uuid('id').primaryKey().defaultRandom(),
     driverId: uuid('driver_id').notNull().references(() => drivers.id),
+    // A-P2 verified 2026-05-13: `date` is `timestamptz` (NOT `date`), so
+    // the JS Date round-trip preserves timezone info. Consumers should
+    // continue to use the timestamp directly (no implicit date-only
+    // conversions). Reviewed in audit-2026-05-12-deep.md.
     date: timestamp('date', { withTimezone: true }).notNull(),
     drivingMinutes: integer('driving_minutes').notNull(),
     restMinutes: integer('rest_minutes').notNull(),
@@ -1442,6 +1446,10 @@ export const temperatureReadings = pgTable('temperature_readings', {
     id: uuid('id').primaryKey().defaultRandom(),
     tripId: uuid('trip_id').notNull().references(() => trips.id, { onDelete: 'cascade' }),
     orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
+    // A-P2: explicit per-row tenancy. Backfilled in migration 0028 from
+    // the trip's organization_id. Stays nullable until a follow-up
+    // verifies no orphan rows; service-layer inserts always set it.
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
     recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
     tempC: numeric('temp_c', { precision: 5, scale: 2 }).$type<number>().notNull(),
     sensorId: text('sensor_id'),
@@ -1457,6 +1465,7 @@ export const temperatureReadings = pgTable('temperature_readings', {
     index('idx_temp_readings_order_recorded')
         .on(table.orderId, sql`${table.recordedAt} DESC`)
         .where(sql`${table.orderId} IS NOT NULL`),
+    index('idx_temperature_readings_org').on(table.organizationId),
 ]);
 
 // ================================================================

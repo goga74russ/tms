@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { DataTable, type Column, type RowAction, Pill, type PillTone } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
-import { AlertOctagon, ShieldAlert, Plus, CheckCircle2, FilePlus2, FileText, PlayCircle, XCircle } from "lucide-react";
+import { AlertOctagon, ShieldAlert, Plus, CheckCircle2, FilePlus2, FileText, PlayCircle, XCircle, AlertCircle, Clock } from "lucide-react";
 
 // ——— Types ———
 interface Claim {
@@ -77,6 +77,13 @@ const STATUS_TONES: Record<string, PillTone> = {
     investigating: 'warning',
     resolved: 'success',
     rejected: 'danger',
+};
+
+const STATUS_ICONS: Record<string, React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>> = {
+    open: AlertCircle,
+    investigating: Clock,
+    resolved: CheckCircle2,
+    rejected: XCircle,
 };
 
 const EXPOSURE_BASIS_LABELS: Record<string, string> = {
@@ -161,8 +168,8 @@ function collectEvidence(claim: Claim): EvidenceItem[] {
             return;
         }
 
-        const label = typeof record.name === 'string' ? record.name : typeof record.type === 'string' ? record.type : `Attachment ${index + 1}`;
-        rows.push({ label, value: evidenceValue(record.url ?? record.fileName ?? record.status ?? record.note ?? record) ?? 'provided' });
+        const label = typeof record.name === 'string' ? record.name : typeof record.type === 'string' ? record.type : `Вложение ${index + 1}`;
+        rows.push({ label, value: evidenceValue(record.url ?? record.fileName ?? record.status ?? record.note ?? record) ?? 'есть' });
     });
 
     return rows.slice(0, 4);
@@ -546,7 +553,7 @@ export default function ClaimsPage() {
             header: 'Статус',
             accessor: (r) => STATUS_LABELS[r.status] ?? r.status,
             cell: (r) => (
-                <Pill tone={STATUS_TONES[r.status] ?? 'neutral'}>
+                <Pill tone={STATUS_TONES[r.status] ?? 'neutral'} icon={STATUS_ICONS[r.status]}>
                     {STATUS_LABELS[r.status] ?? r.status}
                 </Pill>
             ),

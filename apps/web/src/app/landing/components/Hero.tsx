@@ -148,7 +148,7 @@ export function Hero() {
                 </div>
                 <p className="text-[11px] text-brand-100/60 mt-4">
                     * Целевые показатели платформы. Текущие значения — на странице{' '}
-                    <a href="/landing#pricing" className="underline">статус</a>.
+                    <Link href="/landing#pricing" className="underline">статус</Link>.
                 </p>
             </div>
         </section>

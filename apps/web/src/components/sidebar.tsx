@@ -132,6 +132,7 @@ export function Sidebar() {
                                     }
                                 `}
                                 title={collapsed ? item.name : undefined}
+                                aria-label={collapsed ? item.name : undefined}
                                 aria-current={isActive ? 'page' : undefined}
                             >
                                 {isActive && (

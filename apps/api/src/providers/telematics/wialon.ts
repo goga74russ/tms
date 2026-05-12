@@ -4,6 +4,7 @@
 // Auth: token-based — POST /wialon/ajax.html?svc=token/login&params={"token":"..."}
 // ============================================================
 import { nowIso, type ProviderHealth } from '../base.js';
+import { mapProviderError } from '../_errors.js';
 import type {
     TelematicsCredentials, TelematicsPosition, TelematicsProvider, TelematicsVehicle,
 } from './interface.js';
@@ -56,14 +57,24 @@ export class WialonTelematicsProvider implements TelematicsProvider {
         // Request:
         //   GET {apiUrl}/wialon/ajax.html?svc=token/login&params={"token":"<token>"}
         // Response: { eid: string, user: {...} } or { error: number }
-        // TODO(real-impl): wire fetch.
-        // const url = `${this.apiUrl}/wialon/ajax.html?svc=token/login&params=${encodeURIComponent(JSON.stringify({ token: this.creds.token }))}`;
-        // const res = await fetch(url);
-        // if (!res.ok) throw new Error(`Wialon login HTTP ${res.status}`);
-        // const data = await res.json() as { eid?: string; error?: number };
-        // if (!data.eid) throw new Error(`Wialon login error: ${data.error}`);
-        // this.sessionId = data.eid;
-        // this.tokenExpiresAt = Date.now() + WIALON_TOKEN_TTL_MS;
+        // Use httpFetch when wiring up: import { httpFetch } from '../_http.js';
+        // try {
+        //     const url = `${this.apiUrl}/wialon/ajax.html?svc=token/login&params=${encodeURIComponent(JSON.stringify({ token: this.creds.token }))}`;
+        //     const res = await httpFetch(url, {}, { timeoutMs: 10000, retries: 2 });
+        //     if (!res.ok) throw new Error(`Wialon login HTTP ${res.status}`);
+        //     const data = await res.json() as { eid?: string; error?: number };
+        //     if (!data.eid) throw new Error(`Wialon login error code ${data.error}`);
+        //     this.sessionId = data.eid;
+        //     this.tokenExpiresAt = Date.now() + WIALON_TOKEN_TTL_MS;
+        //     return this.sessionId;
+        // } catch (err) {
+        //     // A-P2: surface RU-mapped error to caller; 401 → auth_failed.
+        //     const mapped = mapProviderError('telematics', 'wialon', err);
+        //     throw Object.assign(new Error(mapped.rusMessage), { providerError: mapped });
+        // }
+        // Reference mapProviderError so the import is wired even while the
+        // live path above is commented out — keeps tsc honest.
+        void mapProviderError;
         throw new Error('Wialon login() not yet implemented — awaiting credentials.');
     }
 

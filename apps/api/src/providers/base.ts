@@ -210,18 +210,57 @@ export async function loadCredentials(
     }
 
     let creds: Record<string, unknown> | null = null;
+    let effectiveStatus: ProviderStatus = row.status as ProviderStatus;
     if (row.encryptedCredentials) {
         try {
             creds = decryptCredentials(row.encryptedCredentials);
-        } catch {
+        } catch (err) {
+            // A-P2: decrypt failure used to silently downgrade to mock with
+            // zero observability — meaning a botched CREDENTIALS_KEY rotation
+            // or AES-tampered blob looked like "everything's fine, just on
+            // mock". Now we surface the error: log it (NEVER the encrypted
+            // blob), flip the row to status='error' with a lastError marker,
+            // and still return creds:null so the fallback chain continues.
+            const errMessage = err instanceof Error ? err.message : String(err);
+            // eslint-disable-next-line no-console
+            console.error('[providers/base] decrypt_failed', {
+                organizationId,
+                providerType,
+                providerName: row.providerName,
+                providerCredentialId: row.id,
+                error: errMessage,
+            });
+            // Mark the row as errored. We do not await this critical-path-wise,
+            // but we do await for test determinism; the write is small.
+            // Generic lastError message ONLY — never include the underlying
+            // crypto error text (which could disclose blob length / structure)
+            // or any plaintext. Operators see the full error in logs above.
+            try {
+                await db
+                    .update(providerCredentials)
+                    .set({
+                        status: 'error',
+                        lastError: `decryption failed @ ${nowIso()}`,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(providerCredentials.id, row.id));
+                // Invalidate cache so the next selectAdapter() call re-reads
+                // the row and sees the new 'error' status (instead of serving
+                // a now-stale entry we wrote into cache just below).
+                invalidateCredentialsCache(organizationId, providerType);
+            } catch {
+                // Swallow — the log line is the primary observability surface,
+                // and we must not let a DB blip cascade into the caller.
+            }
             creds = null;
+            effectiveStatus = 'error';
         }
     }
     const result: LoadedCredential = {
         id: row.id,
         providerType: row.providerType as ProviderType,
         providerName: row.providerName,
-        status: row.status as ProviderStatus,
+        status: effectiveStatus,
         credentials: creds,
     };
 

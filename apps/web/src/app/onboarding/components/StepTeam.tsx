@@ -97,6 +97,7 @@ export function StepTeam({ onComplete, onBack }: Props) {
             </p>
 
             <div className="space-y-2.5">
+                {/* invites have no stable id yet (created locally); index is the editing identity used by updateRow/removeRow */}
                 {invites.map((inv, i) => (
                     <div
                         key={i}

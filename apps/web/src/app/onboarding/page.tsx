@@ -350,8 +350,8 @@ export default function OnboardingPage() {
                                 <h2 className="text-sm font-bold text-neutral-900">{currentHelp.title}</h2>
                             </div>
                             <ul className="space-y-2.5">
-                                {currentHelp.bullets.map((b, i) => (
-                                    <li key={i} className="flex gap-2 text-xs text-neutral-600 leading-relaxed">
+                                {currentHelp.bullets.map((b) => (
+                                    <li key={b} className="flex gap-2 text-xs text-neutral-600 leading-relaxed">
                                         <span className="mt-1 w-1 h-1 rounded-full bg-brand-500 shrink-0" />
                                         <span>{b}</span>
                                     </li>

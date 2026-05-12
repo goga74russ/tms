@@ -745,10 +745,17 @@ export function Pill({
     tone = 'neutral',
     children,
     className,
+    icon: Icon,
 }: {
     tone?: PillTone;
     children: React.ReactNode;
     className?: string;
+    /**
+     * Optional Lucide-style icon component. Renders inline before the label so
+     * severity is not communicated by colour alone — important for colour-blind
+     * users. Pass for danger/warning/success Pills on critical screens.
+     */
+    icon?: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
 }) {
     return (
         <span className={cn(
@@ -756,6 +763,7 @@ export function Pill({
             pillToneClass[tone],
             className,
         )}>
+            {Icon ? <Icon className="h-3 w-3" aria-hidden /> : null}
             {children}
         </span>
     );

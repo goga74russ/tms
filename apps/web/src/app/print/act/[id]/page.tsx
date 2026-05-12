@@ -106,7 +106,7 @@ export default function ActPrintPage() {
                             <tr><td colSpan={6} style={{ textAlign: 'center', color: '#888' }}>Данные о рейсах не указаны</td></tr>
                         ) : (
                             tripRows.map((t: any, i: number) => (
-                                <tr key={i}>
+                                <tr key={t.tripNumber ?? `${t.date}:${t.route}:${i}`}>
                                     <td style={{ textAlign: 'center' }}>{i + 1}</td>
                                     <td>{fmt(t.date)}</td>
                                     <td>{t.tripNumber ?? '—'}</td>

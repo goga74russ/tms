@@ -102,8 +102,8 @@ export default function TariffsPage() {
             cell: (r) => (
                 <div className="flex flex-wrap gap-1">
                     {r.modifiers.length > 0
-                        ? r.modifiers.map((m, i) => (
-                            <span key={i} className="text-xs bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full">{m}</span>
+                        ? r.modifiers.map((m) => (
+                            <span key={m} className="text-xs bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full">{m}</span>
                         ))
                         : <span className="text-xs text-neutral-400">—</span>
                     }

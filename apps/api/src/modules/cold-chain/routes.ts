@@ -115,7 +115,7 @@ const coldChainRoutes: FastifyPluginAsync = async (app) => {
             });
         }
 
-        const readings = await listReadings(tripId, parsed.data);
+        const readings = await listReadings(tripId, parsed.data, user.organizationId ?? null);
         const breaches = readings.filter((r) => r.breach);
 
         return { success: true, data: readings, breaches };
@@ -135,7 +135,7 @@ const coldChainRoutes: FastifyPluginAsync = async (app) => {
 
         await assertTripAccess(tripId, user);
 
-        const summary = await summarizeReadings(tripId);
+        const summary = await summarizeReadings(tripId, user.organizationId ?? null);
         return { success: true, data: summary };
     });
 

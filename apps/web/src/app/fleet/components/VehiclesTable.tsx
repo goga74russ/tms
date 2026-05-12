@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Plus, Truck, History, ShieldOff, ShieldCheck, Edit2 } from 'lucide-react';
+import { Plus, Truck, History, ShieldOff, ShieldCheck, Edit2, CheckCircle2, UserCheck, Wrench, AlertCircle, Ban } from 'lucide-react';
 import { VehicleCard } from './VehicleCard';
 import { AddVehicleModal } from './AddVehicleModal';
 import { getVehicleProfile, getVehicleWaybillCue } from './vehicleProfile';
@@ -59,6 +59,15 @@ const STATUS_TONES: Record<string, PillTone> = {
     blocked: 'neutral',
 };
 
+const STATUS_ICONS: Record<string, React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>> = {
+    available: CheckCircle2,
+    assigned: UserCheck,
+    in_trip: Truck,
+    maintenance: Wrench,
+    broken: AlertCircle,
+    blocked: Ban,
+};
+
 const BODY_TYPE_LABELS: Record<string, string> = {
     tent: 'Тент',
     isothermal: 'Изотерм',
@@ -71,7 +80,17 @@ const BODY_TYPE_LABELS: Record<string, string> = {
 };
 
 function DeadlineDot({ color, label }: { color: DeadlineColor; label: string }) {
-    if (!color) return <span className="w-3 h-3 rounded-full bg-neutral-200 inline-block" title={`${label}: нет данных`} />;
+    if (!color) {
+        const text = `${label}: нет данных`;
+        return (
+            <span
+                className="w-3 h-3 rounded-full bg-neutral-200 inline-block"
+                title={text}
+                role="img"
+                aria-label={text}
+            />
+        );
+    }
     const colors: Record<string, string> = {
         green: 'bg-emerald-500',
         yellow: 'bg-amber-400',
@@ -88,6 +107,8 @@ function DeadlineDot({ color, label }: { color: DeadlineColor; label: string }) 
         <span
             className={`w-3 h-3 rounded-full inline-block ${colors[color]}`}
             title={titles[color]}
+            role="img"
+            aria-label={titles[color]}
         />
     );
 }
@@ -280,7 +301,7 @@ export function VehiclesTable() {
             header: 'Статус',
             accessor: (r) => STATUS_LABELS[r.status] ?? r.status,
             cell: (r) => (
-                <Pill tone={STATUS_TONES[r.status] ?? 'neutral'}>
+                <Pill tone={STATUS_TONES[r.status] ?? 'neutral'} icon={STATUS_ICONS[r.status]}>
                     {STATUS_LABELS[r.status] ?? r.status}
                 </Pill>
             ),

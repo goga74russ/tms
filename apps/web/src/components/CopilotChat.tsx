@@ -220,6 +220,7 @@ export function CopilotChat() {
                     onClick={() => setHistoryOpen((v) => !v)}
                     className="p-1.5 rounded-md hover:bg-neutral-100 text-neutral-500"
                     title="История"
+                    aria-label="История"
                 >
                     <History className="w-4 h-4" />
                 </button>
@@ -228,6 +229,7 @@ export function CopilotChat() {
                     onClick={() => setExpanded((v) => !v)}
                     className="p-1.5 rounded-md hover:bg-neutral-100 text-neutral-500"
                     title={expanded ? 'Свернуть' : 'Развернуть'}
+                    aria-label={expanded ? 'Свернуть' : 'Развернуть'}
                 >
                     {expanded ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                 </button>

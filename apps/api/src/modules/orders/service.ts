@@ -6,6 +6,7 @@ import { orders, contractors, trips, tripOrders } from '../../db/schema.js';
 import { eq, and, desc, sql, gte, lte, ilike, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import { OrderStatus } from '@tms/shared';
+import { containsLikePattern } from '../../utils/search.js';
 
 // --- State machine transitions (§4.2) ---
 const ORDER_TRANSITIONS: Record<string, string[]> = {
@@ -189,7 +190,9 @@ export async function getOrders(filters: OrderFilters) {
         conditions.push(lte(orders.createdAt, new Date(filters.dateTo)));
     }
     if (filters.search) {
-        conditions.push(ilike(orders.loadingAddress, `%${filters.search}%`));
+        // A-P2: escape %/_/\ so a user-supplied "%%%" can't blow up
+        // into a quadratic LIKE-pattern scan.
+        conditions.push(ilike(orders.loadingAddress, containsLikePattern(filters.search)));
     }
     if (filters.driverId) {
         conditions.push(

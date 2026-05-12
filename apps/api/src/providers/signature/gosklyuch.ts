@@ -57,7 +57,8 @@ export class GosklyuchSignatureProvider implements SignatureProvider {
             + `&extId=${encodeURIComponent(externalId)}`
             + (callbackUrl ? `&callback=${encodeURIComponent(callbackUrl)}` : '');
 
-        // const res = await fetch(`${GOSKLYUCH_API_URL}/sign-request`, {
+        // Use httpFetch when wiring up: import { httpFetch } from '../_http.js';
+        // const res = await httpFetch(`${GOSKLYUCH_API_URL}/sign-request`, {
         //     method: 'POST',
         //     headers: {
         //         'Authorization': `Bearer ${this.creds.accessToken ?? ''}`,
@@ -69,7 +70,7 @@ export class GosklyuchSignatureProvider implements SignatureProvider {
         //         callbackUrl,
         //         ogrn: this.creds.organizationOgrn,
         //     }),
-        // });
+        // }, { timeoutMs: 15000, retries: 2 });
         // if (!res.ok) throw new Error(`Госключ sign-request failed: ${res.status}`);
         // const data = await res.json() as { externalId: string; deeplink: string };
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { AlertTriangle, Plus, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Plus, ShieldAlert, AlertCircle, CheckCircle2, Circle, Info, Minus, Ban } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
@@ -47,6 +47,12 @@ const severityTones: Record<string, PillTone> = {
     critical: 'danger',
 };
 
+const severityIcons: Record<string, React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>> = {
+    low: Minus,
+    medium: AlertTriangle,
+    critical: AlertCircle,
+};
+
 const severityOrder: Record<string, number> = {
     low: 0,
     medium: 1,
@@ -58,6 +64,13 @@ const statusTones: Record<string, PillTone> = {
     investigating: 'info',
     resolved: 'success',
     dismissed: 'neutral',
+};
+
+const statusIcons: Record<string, React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>> = {
+    open: AlertCircle,
+    investigating: Info,
+    resolved: CheckCircle2,
+    dismissed: Circle,
 };
 
 function normalize(value: string | null | undefined): string {
@@ -197,7 +210,7 @@ export default function IncidentsPage() {
             accessor: (r) => severityOrder[normalize(r.severity)] ?? 0,
             cell: (r) => {
                 const key = normalize(r.severity);
-                return <Pill tone={severityTones[key] ?? 'neutral'}>{severityLabels[key] ?? r.severity}</Pill>;
+                return <Pill tone={severityTones[key] ?? 'neutral'} icon={severityIcons[key]}>{severityLabels[key] ?? r.severity}</Pill>;
             },
             sortable: true,
             width: '140px',
@@ -208,7 +221,7 @@ export default function IncidentsPage() {
             accessor: (r) => statusLabels[normalize(r.status)] ?? r.status,
             cell: (r) => {
                 const key = normalize(r.status);
-                return <Pill tone={statusTones[key] ?? 'neutral'}>{statusLabels[key] ?? r.status}</Pill>;
+                return <Pill tone={statusTones[key] ?? 'neutral'} icon={statusIcons[key]}>{statusLabels[key] ?? r.status}</Pill>;
             },
             width: '130px',
         },
@@ -217,7 +230,7 @@ export default function IncidentsPage() {
             header: 'Выпуск',
             accessor: (r) => (r.blocksRelease ? 1 : 0),
             cell: (r) => r.blocksRelease
-                ? <Pill tone="danger">Блокирует</Pill>
+                ? <Pill tone="danger" icon={Ban}>Блокирует</Pill>
                 : <span className="text-xs text-neutral-500">Не блокирует</span>,
             width: '130px',
         },

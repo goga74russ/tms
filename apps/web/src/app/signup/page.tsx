@@ -178,9 +178,9 @@ function ShowcaseCarousel() {
                 <p className="text-xs text-neutral-500 mt-1 max-w-xs mx-auto">{frame.sub}</p>
             </div>
             <div className="flex items-center justify-center gap-2">
-                {SHOWCASE_FRAMES.map((_, i) => (
+                {SHOWCASE_FRAMES.map((f, i) => (
                     <button
-                        key={i}
+                        key={f.kind}
                         type="button"
                         aria-label={`Слайд ${i + 1}`}
                         onClick={() => setIdx(i)}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { ClipboardList, Plus, Filter, RefreshCw, Loader2, AlertCircle, Truck, LayoutGrid, Rows3, Package, MapPin } from 'lucide-react';
+import { ClipboardList, Plus, Filter, RefreshCw, Loader2, AlertCircle, Truck, LayoutGrid, Rows3, Package, MapPin, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { OrderFilters } from './components/OrderFilters';
 import { CreateOrderModal } from './components/CreateOrderModal';
 import { CreateTripModal } from './components/CreateTripModal';
@@ -74,14 +74,16 @@ function shortPlace(addr: string): string {
     return first || addr;
 }
 
-function getSla(order: Order): { tone: 'neutral' | 'success' | 'warning' | 'danger'; label: string } | null {
+type SlaIcon = React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+
+function getSla(order: Order): { tone: 'neutral' | 'success' | 'warning' | 'danger'; label: string; icon: SlaIcon } | null {
     if (!order.unloadingWindowEnd) return null;
     const deadline = new Date(order.unloadingWindowEnd);
     const hours = (deadline.getTime() - Date.now()) / 3_600_000;
-    if (hours < 0) return { tone: 'danger', label: 'Просрочено' };
-    if (hours < 4) return { tone: 'warning', label: `${Math.round(hours)}ч` };
-    if (hours < 24) return { tone: 'success', label: `${Math.round(hours)}ч` };
-    return { tone: 'success', label: `${Math.round(hours / 24)}д` };
+    if (hours < 0) return { tone: 'danger', label: 'Просрочено', icon: AlertCircle };
+    if (hours < 4) return { tone: 'warning', label: `${Math.round(hours)}ч`, icon: AlertTriangle };
+    if (hours < 24) return { tone: 'success', label: `${Math.round(hours)}ч`, icon: Clock };
+    return { tone: 'success', label: `${Math.round(hours / 24)}д`, icon: CheckCircle2 };
 }
 
 export default function LogistPage() {
@@ -238,7 +240,7 @@ export default function LogistPage() {
             cell: r => {
                 const sla = getSla(r);
                 if (!sla) return <span className="text-xs text-neutral-400">—</span>;
-                return <Pill tone={sla.tone}>{sla.label}</Pill>;
+                return <Pill tone={sla.tone} icon={sla.icon}>{sla.label}</Pill>;
             },
             width: '100px',
         },
