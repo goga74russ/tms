@@ -52,7 +52,30 @@ function rowToPlan(row: typeof plans.$inferSelect): Plan {
 
 // ---------- Subscriptions ----------
 
-export async function getActiveSubscription(orgId: string): Promise<SubscriptionWithPlan> {
+export async function getActiveSubscription(orgId: string | null | undefined): Promise<SubscriptionWithPlan> {
+    // B-14: seed-data users (admin@tms.local, super@tms.local) have NULL
+    // organization_id. Return a synthetic Free-plan response instead of
+    // throwing so billing/copilot routes don't 401/500 on these accounts.
+    if (!orgId) {
+        const freePlan = await getPlan('free');
+        if (freePlan) return { subscription: null, plan: freePlan };
+        // Last-resort hard fallback: a free plan object that matches the
+        // shape but isn't persisted, so dev environments without seed
+        // data still get a 200 response.
+        return {
+            subscription: null,
+            plan: {
+                id: 'free',
+                nameRu: 'Free',
+                priceMonthlyKopecks: 0,
+                vehicleLimit: 3,
+                monthlyOrdersLimit: 30,
+                copilotMessagesDaily: 0,
+                features: {} as PlanFeatures,
+            },
+        };
+    }
+
     const [sub] = await db
         .select()
         .from(subscriptions)

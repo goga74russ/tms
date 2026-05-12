@@ -63,11 +63,12 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.get('/billing/subscription', {
         schema: { tags: ['Биллинг'], summary: 'Подписка организации' },
         preHandler: [fastify.authenticate],
-    }, async (request, reply) => {
+    }, async (request) => {
+        // B-14: seed-data users (admin@tms.local, super@tms.local) have no
+        // organization. Treat them as Free-tier so the UI doesn't break.
         const orgId = requireOrg(request.user as AuthUser);
-        if (!orgId) return reply.status(400).send({ success: false, error: 'no organization in token' });
         const data = await getActiveSubscription(orgId);
-        return { success: true, data };
+        return { success: true, data, note: orgId ? undefined : 'no_organization_in_token' };
     });
 
     fastify.post('/billing/subscribe', {
@@ -107,9 +108,23 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.get('/billing/usage', {
         schema: { tags: ['Биллинг'], summary: 'Использование лимитов в текущем периоде' },
         preHandler: [fastify.authenticate],
-    }, async (request, reply) => {
+    }, async (request) => {
+        // B-14: graceful 200 with default usage for users without org.
         const orgId = requireOrg(request.user as AuthUser);
-        if (!orgId) return reply.status(400).send({ success: false, error: 'no organization in token' });
+        if (!orgId) {
+            const { plan } = await getActiveSubscription(null);
+            return {
+                success: true,
+                data: {
+                    plan: plan.id,
+                    periodStart: new Date(new Date().toISOString().slice(0, 8) + '01T00:00:00.000Z').toISOString(),
+                    vehicles: { current: 0, limit: plan.vehicleLimit },
+                    orders: { current: 0, limit: plan.monthlyOrdersLimit },
+                    copilotMessages: { current: 0, limit: plan.copilotMessagesDaily },
+                },
+                note: 'no_organization_in_token',
+            };
+        }
         const data = await getUsageReport(orgId);
         return { success: true, data };
     });
@@ -117,9 +132,9 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.get('/billing/payments', {
         schema: { tags: ['Биллинг'], summary: 'История платежей' },
         preHandler: [fastify.authenticate],
-    }, async (request, reply) => {
+    }, async (request) => {
         const orgId = requireOrg(request.user as AuthUser);
-        if (!orgId) return reply.status(400).send({ success: false, error: 'no organization in token' });
+        if (!orgId) return { success: true, data: [], note: 'no_organization_in_token' };
         const data = await listPayments(orgId);
         return { success: true, data };
     });

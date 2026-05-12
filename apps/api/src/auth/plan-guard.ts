@@ -40,8 +40,15 @@ export function requireFeature(name: PlanFeature | string): preHandlerHookHandle
     return async (request: FastifyRequest, reply: FastifyReply) => {
         const user = request.user as AuthUser | undefined;
         const orgId = user?.organizationId ?? null;
+        // B-14: seed-data users (admin@tms.local, super@tms.local) have no
+        // organization_id. Don't 401 them — admins/super-admins effectively
+        // see all features in dev. For regular roles without an org we fall
+        // through to the normal feature check (returns 402 on Free).
         if (!orgId) {
-            return reply.status(401).send({ success: false, error: 'No organization in token' });
+            const roles = user?.roles ?? [];
+            if (roles.includes('admin') || roles.includes('super_admin')) {
+                return;
+            }
         }
         const { plan } = await getActiveSubscription(orgId);
         const enabled = (plan.features as Record<string, boolean | undefined>)[name];
@@ -69,7 +76,10 @@ export function requireWithinLimit(type: UsageType): preHandlerHookHandler {
         const user = request.user as AuthUser | undefined;
         const orgId = user?.organizationId ?? null;
         if (!orgId) {
-            return reply.status(401).send({ success: false, error: 'No organization in token' });
+            // B-14: admins/super-admins without org bypass limit checks.
+            // Other roles without org effectively hit no limit (no data
+            // to count). Either way, don't blanket-401 seed users.
+            return;
         }
         const result = await checkLimit(orgId, type);
         if (!result.allowed) {

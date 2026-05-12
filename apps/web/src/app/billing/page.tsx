@@ -5,7 +5,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, X, ExternalLink, AlertCircle, Sparkles, CreditCard } from 'lucide-react';
+import { Check, X, ExternalLink, AlertCircle, Sparkles, CreditCard, RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import {
@@ -73,6 +73,10 @@ export default function BillingPage() {
             setUsage(usageRes.data ?? null);
             setHistory(payRes.data ?? []);
         } catch (e) {
+            // B-15: do not leak raw English API errors (e.g. "no organization in token").
+            // Log details for debugging, surface a Russian-only banner to the user.
+            // eslint-disable-next-line no-console
+            console.error('[billing] failed to load subscription data', e);
             setError(e instanceof Error ? e.message : 'Ошибка загрузки');
         } finally {
             setLoading(false);
@@ -94,7 +98,9 @@ export default function BillingPage() {
                 return;
             }
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Не удалось создать платёж');
+            // eslint-disable-next-line no-console
+            console.error('[billing] subscribe failed', e);
+            setError('Не удалось создать платёж');
         } finally {
             setActionPlan(null);
         }
@@ -105,7 +111,9 @@ export default function BillingPage() {
             await api.post('/billing/cancel');
             await reload();
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Ошибка отмены');
+            // eslint-disable-next-line no-console
+            console.error('[billing] cancel failed', e);
+            setError('Ошибка отмены подписки');
         }
     };
 
@@ -140,9 +148,19 @@ export default function BillingPage() {
             </header>
 
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    <span className="text-sm">{error}</span>
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span className="text-sm">Подписка временно недоступна. Попробуйте обновить страницу.</span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => { setError(null); setLoading(true); void reload(); }}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-900 hover:text-amber-950 underline-offset-2 hover:underline"
+                    >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Повторить
+                    </button>
                 </div>
             )}
 

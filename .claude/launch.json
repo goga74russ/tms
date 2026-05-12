@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "tms-stack",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/preview-proxy.mjs"],
+      "port": 3030
+    }
+  ]
+}

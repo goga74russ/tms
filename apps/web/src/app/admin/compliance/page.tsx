@@ -38,7 +38,7 @@ export default function CompliancePage() {
                     <ShieldCheck className="w-5 h-5" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-semibold text-slate-900">Compliance: ОСАГО, тахограф, маркировка, ADR</h1>
+                    <h1 className="text-2xl font-semibold text-slate-900">Контроль соответствия: ОСАГО, тахограф, маркировка, ADR</h1>
                     <p className="text-sm text-slate-500 mt-0.5">
                         Контроль обязательной отчётности РФ. Все интеграции работают в mock-режиме до получения реальных ключей API.
                     </p>
@@ -105,9 +105,9 @@ function OsagoTab() {
         <Card className="p-5 space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3 text-sm">
-                    <Badge className="bg-green-50 text-green-700 border-green-200">Действителен: {validCount}</Badge>
-                    <Badge className="bg-red-50 text-red-700 border-red-200">Истёк: {expiredCount}</Badge>
-                    <Badge className="bg-slate-100 text-slate-600 border-slate-200">Не проверено: {unknownCount}</Badge>
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold">Действителен: {validCount}</Badge>
+                    <Badge className="bg-red-100 text-red-800 border-red-300 font-semibold">Истёк: {expiredCount}</Badge>
+                    <Badge className="bg-slate-200 text-slate-800 border-slate-300 font-semibold">Не проверено: {unknownCount}</Badge>
                 </div>
                 <Button onClick={syncAll} disabled={syncing}>
                     <RefreshCw className={`w-4 h-4 mr-1 ${syncing ? 'animate-spin' : ''}`} />

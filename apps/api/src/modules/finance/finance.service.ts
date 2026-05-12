@@ -405,25 +405,36 @@ export class FinanceService {
 
     // === 1C EXPORT (JSON — legacy) ===
     async get1CExportData(startDate: Date, endDate: Date, organizationId?: string | null) {
-        const recentInvoices = await db.query.invoices.findMany({
-            where: and(
+        // Plain leftJoin instead of `db.query.invoices.findMany` — drizzle
+        // relations() blocks aren't wired in this codebase, so the rqb API
+        // would throw "Cannot read properties of undefined (reading 'tableConfig')".
+        const recentInvoices = await db
+            .select({
+                id: invoices.id,
+                number: invoices.number,
+                createdAt: invoices.createdAt,
+                total: invoices.total,
+                vatAmount: invoices.vatAmount,
+                subtotal: invoices.subtotal,
+                contractorInn: contractors.inn,
+                contractorName: contractors.name,
+            })
+            .from(invoices)
+            .leftJoin(contractors, eq(invoices.contractorId, contractors.id))
+            .where(and(
                 gte(invoices.createdAt, startDate),
                 lte(invoices.createdAt, endDate),
                 organizationId
-                    ? inArray(invoices.contractorId, db.select({ id: contractors.id }).from(contractors).where(eq(contractors.organizationId, organizationId)))
+                    ? eq(contractors.organizationId, organizationId)
                     : undefined,
-            ),
-            with: {
-                contractor: true
-            }
-        });
+            ));
 
         const documents = recentInvoices.map((inv: any) => ({
             Type: 'РеализацияУслуг',
             Number: inv.number,
-            Date: inv.createdAt.toISOString(),
-            ContractorINN: inv.contractor?.inn,
-            ContractorName: inv.contractor?.name,
+            Date: inv.createdAt instanceof Date ? inv.createdAt.toISOString() : new Date(inv.createdAt).toISOString(),
+            ContractorINN: inv.contractorInn ?? null,
+            ContractorName: inv.contractorName ?? null,
             Total: num(inv.total),
             VAT: num(inv.vatAmount),
             Subtotal: num(inv.subtotal),
@@ -679,21 +690,37 @@ export class FinanceService {
     }
 
     async export1CXml(startDate: Date, endDate: Date, organizationId?: string | null): Promise<string> {
-        const recentInvoices = await db.query.invoices.findMany({
-            where: and(
+        // Plain leftJoin — see note in `get1CExportData`. Empty result must
+        // produce a valid `КоммерческаяИнформация` envelope, not throw.
+        const recentInvoices = await db
+            .select({
+                id: invoices.id,
+                number: invoices.number,
+                type: invoices.type,
+                status: invoices.status,
+                subtotal: invoices.subtotal,
+                vatAmount: invoices.vatAmount,
+                total: invoices.total,
+                periodStart: invoices.periodStart,
+                periodEnd: invoices.periodEnd,
+                createdAt: invoices.createdAt,
+                contractorInn: contractors.inn,
+                contractorName: contractors.name,
+                contractorKpp: contractors.kpp,
+                contractorAddress: contractors.legalAddress,
+            })
+            .from(invoices)
+            .leftJoin(contractors, eq(invoices.contractorId, contractors.id))
+            .where(and(
                 gte(invoices.createdAt, startDate),
                 lte(invoices.createdAt, endDate),
                 organizationId
-                    ? inArray(invoices.contractorId, db.select({ id: contractors.id }).from(contractors).where(eq(contractors.organizationId, organizationId)))
+                    ? eq(contractors.organizationId, organizationId)
                     : undefined,
-            ),
-            with: {
-                contractor: true
-            }
-        });
+            ));
 
         // C-2 FIX: Batch query all invoice-trip links instead of N+1 loop
-        const invoiceIds = (recentInvoices as any[]).map((inv: any) => inv.id);
+        const invoiceIds = recentInvoices.map((inv) => inv.id);
         const allLinkedTrips = invoiceIds.length > 0
             ? await db.select({ invoiceId: invoiceTrips.invoiceId, tripId: invoiceTrips.tripId })
                 .from(invoiceTrips)
@@ -706,28 +733,27 @@ export class FinanceService {
             tripsByInvoice.get(link.invoiceId)!.push(link.tripId);
         }
 
-        const rows: InvoiceExportRow[] = [];
-        for (const inv of recentInvoices as any[]) {
-            rows.push({
-                id: inv.id,
-                number: inv.number,
-                type: inv.type,
-                status: inv.status,
-                subtotal: num(inv.subtotal),
-                vatAmount: num(inv.vatAmount),
-                total: num(inv.total),
-                periodStart: inv.periodStart,
-                periodEnd: inv.periodEnd,
-                createdAt: inv.createdAt,
-                contractor: inv.contractor ? {
-                    name: inv.contractor.name,
-                    inn: inv.contractor.inn,
-                    kpp: inv.contractor.kpp ?? null,
-                    legalAddress: inv.contractor.legalAddress ?? '',
-                } : null,
-                tripIds: tripsByInvoice.get(inv.id) ?? [],
-            });
-        }
+        const rows: InvoiceExportRow[] = recentInvoices.map((inv) => ({
+            id: inv.id,
+            number: inv.number,
+            type: String(inv.type),
+            status: String(inv.status),
+            subtotal: num(inv.subtotal),
+            vatAmount: num(inv.vatAmount),
+            total: num(inv.total),
+            periodStart: inv.periodStart as Date,
+            periodEnd: inv.periodEnd as Date,
+            createdAt: inv.createdAt as Date,
+            contractor: inv.contractorName
+                ? {
+                    name: inv.contractorName,
+                    inn: inv.contractorInn ?? '',
+                    kpp: inv.contractorKpp ?? null,
+                    legalAddress: inv.contractorAddress ?? '',
+                }
+                : null,
+            tripIds: tripsByInvoice.get(inv.id) ?? [],
+        }));
 
         return buildCommerceMLXml(rows);
     }

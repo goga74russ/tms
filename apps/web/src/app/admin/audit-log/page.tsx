@@ -228,7 +228,7 @@ export default function AuditLogPage() {
                         </div>
                     </div>
                     <div className="mt-3 flex gap-2">
-                        <Button size="sm" onClick={onApplyFilters} disabled={loading}>Применить</Button>
+                        <Button size="sm" variant="brand" onClick={onApplyFilters} disabled={loading}>Применить</Button>
                         {filtersActive && (
                             <Button size="sm" variant="ghost" onClick={onResetFilters} className="gap-1">
                                 <X className="w-3 h-3" />Сбросить
@@ -282,8 +282,10 @@ export default function AuditLogPage() {
                                             <td className="px-3 py-2 whitespace-nowrap">
                                                 <span className="inline-block px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">{r.authorRole}</span>
                                             </td>
-                                            <td className="px-3 py-2 whitespace-nowrap font-mono text-xs">{r.eventType}</td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-xs">
+                                            <td className="px-3 py-2 font-mono text-xs max-w-[260px]">
+                                                <span className="block truncate" title={r.eventType}>{r.eventType}</span>
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-xs" title={`${r.entityType} · ${r.entityId}`}>
                                                 <span className="text-slate-700">{r.entityType}</span>
                                                 <span className="text-slate-400"> · {r.entityId.slice(0, 8)}…</span>
                                             </td>

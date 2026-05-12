@@ -4,13 +4,38 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useUser } from '@/lib/user-context';
-import { Users, FileText, ClipboardCheck, ShieldCheck, ChevronLeft, SlidersHorizontal, Truck } from 'lucide-react';
+import {
+    Users,
+    FileText,
+    ClipboardCheck,
+    ShieldCheck,
+    ChevronLeft,
+    Truck,
+    CreditCard,
+    Plug,
+    Sparkles,
+    Settings,
+    ScrollText,
+} from 'lucide-react';
 
-const adminNav = [
-    { name: 'Пользователи', href: '/admin/users', icon: Users },
-    { name: 'Тарифы', href: '/admin/tariffs', icon: FileText },
-    { name: 'Шаблоны ЧЛ', href: '/admin/checklists', icon: ClipboardCheck },
-    { name: 'Перевозчики', href: '/admin/carriers', icon: Truck },
+type AdminNavItem =
+    | { kind: 'link'; name: string; href: string; icon: typeof Users }
+    | { kind: 'divider'; label: string };
+
+const adminNav: AdminNavItem[] = [
+    { kind: 'divider', label: 'Справочники' },
+    { kind: 'link', name: 'Пользователи', href: '/admin/users', icon: Users },
+    { kind: 'link', name: 'Перевозчики', href: '/admin/carriers', icon: Truck },
+    { kind: 'link', name: 'Шаблоны ЧЛ', href: '/admin/checklists', icon: ClipboardCheck },
+    { kind: 'link', name: 'Тарифы', href: '/admin/tariffs', icon: FileText },
+
+    { kind: 'divider', label: 'Эксплуатация' },
+    { kind: 'link', name: 'Биллинг', href: '/admin/billing', icon: CreditCard },
+    { kind: 'link', name: 'Контроль соответствия', href: '/admin/compliance', icon: ShieldCheck },
+    { kind: 'link', name: 'Журнал событий', href: '/admin/audit-log', icon: ScrollText },
+    { kind: 'link', name: 'Интеграции', href: '/admin/integrations', icon: Plug },
+    { kind: 'link', name: 'Демо-данные', href: '/admin/demo', icon: Sparkles },
+    { kind: 'link', name: 'Настройки', href: '/admin/settings', icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -51,7 +76,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     Назад
                 </Link>
 
-                {adminNav.map(item => {
+                {adminNav.map((item, idx) => {
+                    if (item.kind === 'divider') {
+                        return (
+                            <div
+                                key={`divider-${idx}-${item.label}`}
+                                className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400"
+                            >
+                                {item.label}
+                            </div>
+                        );
+                    }
                     const isActive = pathname === item.href;
                     const Icon = item.icon;
                     return (
@@ -63,7 +98,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                                 }`}
                         >
-                            <Icon className={`w-4.5 h-4.5 ${isActive ? 'text-indigo-600' : ''}`} />
+                            <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : ''}`} />
                             {item.name}
                         </Link>
                     );

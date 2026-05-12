@@ -105,7 +105,10 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
     };
 
     return (
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        // B-8: explicit overflow-x scroll + min-w-max on inner row so wider screens
+        // still hard-wrap to a scrolling track instead of clipping the last column.
+        <div className="overflow-x-auto pb-4 -mx-2 px-2">
+            <div className="flex gap-4 min-w-max">
             {columns.map((col) => {
                 const columnOrders = orders.filter(o => o.status === col.key);
                 const isDragOver = dragOverColumn === col.key;
@@ -115,7 +118,7 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
                 return (
                     <div
                         key={col.key}
-                        className={`flex-shrink-0 w-72 rounded-xl transition-all duration-200 ${isRejecting
+                        className={`flex-shrink-0 min-w-[280px] w-72 rounded-xl transition-all duration-200 ${isRejecting
                             ? 'bg-red-50 ring-2 ring-red-300 ring-offset-2 animate-shake'
                             : isDragOver
                                 ? 'bg-indigo-50 ring-2 ring-indigo-300 ring-offset-2'
@@ -164,6 +167,7 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
                     </div>
                 );
             })}
+            </div>
         </div>
     );
 }

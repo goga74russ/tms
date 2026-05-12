@@ -511,6 +511,65 @@ export default function DispatcherPage() {
         return 'Инфо';
     };
 
+    // B-4: Russian labels for blocker/exception titles. The API currently emits
+    // English titles like "Crew and rest plan" / "Post-trip vehicle return" /
+    // "ETRN blocks trip close". Map to Russian via exception.type, falling back
+    // to a known-title map and finally the original title.
+    const EXCEPTION_TYPE_LABEL_RU: Record<string, string> = {
+        crew_rest: 'План отдыха экипажа',
+        post_trip_return: 'Возврат ТС после рейса',
+        etrn_blocking: 'Блокер ЭТрН: документ обязателен',
+        missing_document: 'Документ блокирует закрытие рейса',
+        document_warning: 'Предупреждение по документам',
+        open_claim: 'Открытая претензия',
+        shipment_discrepancy: 'Расхождение при отгрузке',
+        compatibility: 'Совместимость груза/ТС',
+        breakdown: 'Поломка ТС в рейсе',
+        downtime: 'Простой на точке маршрута',
+        cancellation_after_arrival: 'Отмена после прибытия ТС',
+        route_change: 'Изменение маршрута',
+        resource_replacement: 'Замена ТС/водителя',
+        execution_event: 'Событие исполнения',
+    };
+    const EXCEPTION_TITLE_LABEL_RU: Record<string, string> = {
+        'Crew and rest plan': 'План отдыха экипажа',
+        'Post-trip vehicle return': 'Возврат ТС после рейса',
+        'ETRN blocks trip close': 'Блокер ЭТрН: документ обязателен',
+        'Document blocks trip close': 'Документ блокирует закрытие рейса',
+        'Document warning': 'Предупреждение по документам',
+        'Open claim': 'Открытая претензия',
+        'Trip breakdown': 'Поломка ТС в рейсе',
+        'Route point downtime': 'Простой на точке маршрута',
+        'Cancellation after vehicle arrival': 'Отмена после прибытия ТС',
+        'Trip route changed': 'Изменение маршрута',
+        'Trip resource replaced': 'Замена ТС/водителя',
+        'Trip disruption': 'Нарушение хода рейса',
+        'Trip delay': 'Задержка рейса',
+        'Trip downtime': 'Простой рейса',
+        'Manual correction': 'Ручная корректировка',
+        'Pending photo evidence': 'Ожидается фотофиксация',
+        'Execution event': 'Событие исполнения',
+    };
+
+    const localizeExceptionTitle = (item: OperationException) => {
+        if (item.type && EXCEPTION_TYPE_LABEL_RU[item.type]) return EXCEPTION_TYPE_LABEL_RU[item.type];
+        if (item.title && EXCEPTION_TITLE_LABEL_RU[item.title]) return EXCEPTION_TITLE_LABEL_RU[item.title];
+        // Shipment discrepancy with code suffix, e.g. "Shipment discrepancy: damage"
+        if (item.title?.startsWith('Shipment discrepancy:')) return 'Расхождение при отгрузке';
+        if (item.title?.startsWith('Compatibility:')) return 'Совместимость груза/ТС';
+        return item.title;
+    };
+
+    // B-5: hide mojibake messages (strings of only '?' / whitespace / punctuation
+    // come from legacy UTF-8 corrupted seed rows; surface nothing instead of garbage).
+    const isMojibake = (s: string | null | undefined): boolean => {
+        if (!s) return true;
+        const trimmed = s.trim();
+        if (!trimmed) return true;
+        // All non-alphanumeric (only ?, punctuation, whitespace) — treat as mojibake
+        return /^[\s?¿!.,;:\-_*#]+$/.test(trimmed);
+    };
+
     return (
         <div className="space-y-6" data-tour="dispatcher-root">
             {/* D9 Onboarding tour for first-time dispatcher visit */}
@@ -628,8 +687,10 @@ export default function DispatcherPage() {
                                                     <span className="text-[11px] font-medium text-slate-500 truncate">Рейс {item.tripNumber}</span>
                                                 )}
                                             </div>
-                                            <div className="text-sm font-semibold text-slate-900 truncate">{item.title}</div>
-                                            {item.message && <div className="text-xs text-slate-500 line-clamp-2 mt-0.5">{item.message}</div>}
+                                            <div className="text-sm font-semibold text-slate-900 truncate">{localizeExceptionTitle(item)}</div>
+                                            {item.message && !isMojibake(item.message) && (
+                                                <div className="text-xs text-slate-500 line-clamp-2 mt-0.5">{item.message}</div>
+                                            )}
                                         </div>
                                         <span className="text-[11px] text-slate-400 shrink-0">{item.type}</span>
                                     </div>

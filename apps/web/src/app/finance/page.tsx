@@ -86,6 +86,16 @@ const getStatusText = (status: string) => {
 
 const fmtMoney = (n: number | string) => Number(n).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
 
+/**
+ * B-10: Сокращаем длинные номера счетов с timestamp-суффиксом для читаемости.
+ * Полный номер остаётся в title= для подсказки при наведении.
+ * Пример: "СЧ-2504-20260429205232193" → "СЧ-2504-20260429…2193"
+ */
+function shortInvoiceNo(num: string): string {
+    if (!num) return num;
+    return num.length > 20 ? num.slice(0, 16) + '…' + num.slice(-4) : num;
+}
+
 const invoiceTypeLabels: Record<Invoice['type'], string> = {
     invoice: 'Счет',
     act: 'Акт',
@@ -614,7 +624,7 @@ export default function FinanceDashboard() {
                                 <TableBody>
                                     {filteredInvoices.map(inv => (
                                         <TableRow key={inv.id} className="cursor-pointer" onClick={() => setSelectedInvoice(inv)}>
-                                            <TableCell className="font-medium text-blue-600">{inv.number}</TableCell>
+                                            <TableCell className="font-medium text-blue-600" title={inv.number}>{shortInvoiceNo(inv.number)}</TableCell>
                                             <TableCell className="text-slate-500">{invoiceTypeLabels[inv.type] || inv.type}</TableCell>
                                             <TableCell className="text-slate-500">
                                                 {inv.periodStart && format(new Date(inv.periodStart), 'dd.MM', { locale: ru })}
@@ -661,7 +671,7 @@ export default function FinanceDashboard() {
             <Dialog
                 open={!!selectedInvoice}
                 onClose={() => setSelectedInvoice(null)}
-                title={selectedInvoice ? `Счёт ${selectedInvoice.number}` : ''}
+                title={selectedInvoice ? `Счёт ${shortInvoiceNo(selectedInvoice.number)}` : ''}
             >
                 {selectedInvoice && (
                     <div className="space-y-4">
