@@ -126,6 +126,60 @@ Right-side slide-in drawer with backdrop, body scroll lock, focus restore, and E
 </SideDrawer>
 ```
 
+### PeriodSelector (`period-selector.tsx`)
+```tsx
+import { PeriodSelector, computeRange, type PeriodRange } from '@/components/ui/period-selector';
+
+const [period, setPeriod] = useState<PeriodRange>(computeRange('mtd'));
+
+<PeriodSelector
+  value={period}
+  onChange={setPeriod}
+  presets={['1w', '4w', 'mtd', 'qtd', 'ytd', 'all']}  // optional, defaults to all 6
+/>
+```
+Horizontal chip row + "Свой период" button revealing native `<input type="date">` pickers. Active chip uses brand-50 bg + brand-700 text + brand-200 border. Russian labels: «Неделя / 4 недели / Месяц / Квартал / Год / Всё». `PeriodRange = { from: Date; to: Date; label: string; preset: Period }`. `computeRange(preset)` is exported for initialising state.
+
+### Sparkline (`sparkline.tsx`)
+```tsx
+<Sparkline data={[1,3,2,5,4,6,8]} tone="brand" height={32} showArea />
+```
+Pure-visual mini chart (no axis, no tooltip, no grid). Built on `recharts` (`AreaChart`/`LineChart` already in deps). Tones: `brand | success | danger | neutral | warning`. Returns empty placeholder when `data` is empty.
+
+### MetricCard (`metric-card.tsx`)
+```tsx
+<MetricCard
+  label="Выручка"
+  value="78 300 ₽"
+  change={{ value: 14, direction: 'up' }}
+  changeGood={true}            // false = inverse metric (e.g., overdue debt: up is bad)
+  hint="vs прошлый период"
+  sparkline={[1,3,2,5,4,6,8]}
+  sparklineTone="brand"
+  icon={DollarSign}
+  tone="success"               // affects icon-circle bg
+  href="/finance"              // optional — makes whole card a Link
+/>
+```
+Layout: tiny uppercase label + tone-tinted icon circle on top; large 3xl `tabular-nums` value; bottom row has change badge (▲/▼ with green/red driven by `changeGood`) + hint on left, sparkline on right.
+
+### DashboardHeader (`dashboard-header.tsx`)
+```tsx
+<DashboardHeader
+  title="Финансы и Бухгалтерия"
+  subtitle="Управление счетами"
+  icon={Wallet}
+  iconTone="brand"
+  period={period}
+  onPeriodChange={setPeriod}
+  showPeriodSelector            // default true
+  onRefresh={loadData}
+  refreshing={loading}
+  actions={<Button leftIcon={<Plus />}>Новый счёт</Button>}
+/>
+```
+Title block + iconified tone-tinted square (40×40, rounded-xl). PeriodSelector renders inline at md+ and on its own row below at <md. Refresh icon-button + custom `actions` align right.
+
 ### ErrorBoundary (`error-boundary.tsx`)
 ```tsx
 <ErrorBoundary scope="cold-chain-widget">

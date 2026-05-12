@@ -7,11 +7,12 @@ import { api } from '@/lib/api';
 import {
     Package, MapPin, FileText, DollarSign,
     Clock, CheckCircle2, Truck, AlertCircle,
-    RefreshCw, ChevronRight, Search,
+    Search, Briefcase, ChevronRight,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Stat } from '@/components/ui/stat';
+import { MetricCard } from '@/components/ui/metric-card';
+import { DashboardHeader } from '@/components/ui/dashboard-header';
+import { computeRange, type PeriodRange } from '@/components/ui/period-selector';
 import { SkeletonTable } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 
@@ -87,6 +88,7 @@ export default function ClientPortalPage() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'orders' | 'invoices'>('orders');
     const [search, setSearch] = useState('');
+    const [period, setPeriod] = useState<PeriodRange>(() => computeRange('mtd'));
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -116,38 +118,98 @@ export default function ClientPortalPage() {
         i.number.toLowerCase().includes(search.toLowerCase())
     );
 
+    // Period-scoped data
+    const periodOrders = orders.filter((o) => {
+        if (!o.createdAt) return true;
+        const t = new Date(o.createdAt).getTime();
+        return Number.isFinite(t) && t >= period.from.getTime() && t <= period.to.getTime();
+    });
+    const periodInvoices = invoices.filter((i) => {
+        if (!i.createdAt) return true;
+        const t = new Date(i.createdAt).getTime();
+        return Number.isFinite(t) && t >= period.from.getTime() && t <= period.to.getTime();
+    });
+
     // Stats
-    const activeOrders = orders.filter(o => ['confirmed', 'assigned', 'in_transit'].includes(o.status)).length;
-    const completedOrders = orders.filter(o => o.status === 'completed').length;
-    const unpaidInvoices = invoices.filter(i => ['sent', 'overdue'].includes(i.status));
+    const activeOrders = periodOrders.filter(o => ['confirmed', 'assigned', 'in_transit'].includes(o.status)).length;
+    const completedOrders = periodOrders.filter(o => o.status === 'completed' || o.status === 'delivered').length;
+    const unpaidInvoices = periodInvoices.filter(i => ['sent', 'overdue'].includes(i.status));
     const unpaidTotal = unpaidInvoices.reduce((sum, invoice) => {
         return sum + Number(invoice.totalAmount ?? invoice.total ?? 0);
     }, 0);
 
+    // Funnel counts across full order set (lifecycle is independent of created-period filter)
+    const funnel = [
+        { key: 'draft', label: 'Создана', count: orders.filter(o => o.status === 'draft').length },
+        { key: 'confirmed', label: 'В работе', count: orders.filter(o => o.status === 'confirmed').length },
+        { key: 'assigned', label: 'Назначена', count: orders.filter(o => o.status === 'assigned').length },
+        { key: 'in_transit', label: 'В пути', count: orders.filter(o => o.status === 'in_transit').length },
+        { key: 'delivered', label: 'Доставлена', count: orders.filter(o => o.status === 'delivered' || o.status === 'completed').length },
+    ];
+
+    // 14-day sparkline of unpaid invoice volume
+    const unpaidSparkline = (() => {
+        const days = 14;
+        const buckets = new Array<number>(days).fill(0);
+        const todayMs = Date.now();
+        invoices.forEach((inv) => {
+            if (!['sent', 'overdue'].includes(inv.status)) return;
+            if (!inv.createdAt) return;
+            const t = new Date(inv.createdAt).getTime();
+            if (!Number.isFinite(t)) return;
+            const age = Math.floor((todayMs - t) / 86_400_000);
+            if (age < 0 || age >= days) return;
+            buckets[days - 1 - age] += Number(inv.totalAmount ?? inv.total ?? 0);
+        });
+        return buckets;
+    })();
+
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                        <Package className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-semibold text-slate-900">Портал клиента</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">Отслеживание заявок, рейсов и счетов</p>
-                    </div>
-                </div>
-                <Button variant="outline" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={loadData}>
-                    Обновить
-                </Button>
+            <DashboardHeader
+                title="Портал клиента"
+                subtitle="Отслеживание заявок, рейсов и счетов"
+                icon={Briefcase}
+                iconTone="brand"
+                period={period}
+                onPeriodChange={setPeriod}
+                onRefresh={loadData}
+                refreshing={loading}
+            />
+
+            {/* Metric Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <MetricCard label="Активных заявок" value={activeOrders} hint="за период" icon={Package} tone="info" />
+                <MetricCard label="Завершённых" value={completedOrders} hint="доставлено" icon={CheckCircle2} tone="success" />
+                <MetricCard label="Неоплаченных счетов" value={unpaidInvoices.length} hint={unpaidInvoices.length > 0 ? 'требует оплаты' : 'нет неоплаченных'} icon={FileText} tone={unpaidInvoices.length > 0 ? 'warning' : 'neutral'} changeGood={false} />
+                <MetricCard
+                    label="К оплате"
+                    value={formatMoney(unpaidTotal)}
+                    hint="сумма неоплаченных"
+                    sparkline={unpaidSparkline}
+                    sparklineTone={unpaidTotal > 0 ? 'danger' : 'success'}
+                    icon={DollarSign}
+                    tone={unpaidTotal > 0 ? 'danger' : 'success'}
+                    changeGood={false}
+                />
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Stat label="Активных заявок" value={activeOrders} icon={Package} tone="info" />
-                <Stat label="Завершённых" value={completedOrders} icon={CheckCircle2} tone="success" />
-                <Stat label="Неоплаченных счетов" value={unpaidInvoices.length} icon={FileText} tone={unpaidInvoices.length > 0 ? 'warning' : 'neutral'} />
-                <Stat label="К оплате" value={formatMoney(unpaidTotal)} icon={DollarSign} tone={unpaidTotal > 0 ? 'danger' : 'success'} />
+            {/* Order Funnel */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Жизненный цикл заявок</p>
+                <div className="flex flex-wrap items-stretch gap-2">
+                    {funnel.map((step, i) => (
+                        <div key={step.key} className="flex items-center gap-2 flex-1 min-w-[120px]">
+                            <div className="flex-1 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2.5">
+                                <div className="text-2xl font-bold tabular-nums text-brand-700 leading-none">{step.count}</div>
+                                <div className="mt-1 text-xs font-medium text-slate-600">{step.label}</div>
+                            </div>
+                            {i < funnel.length - 1 && (
+                                <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" aria-hidden="true" />
+                            )}
+                        </div>
+                    ))}
+                </div>
             </div>
 
             {/* Tabs + Search */}

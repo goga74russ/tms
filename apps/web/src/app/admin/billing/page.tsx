@@ -7,7 +7,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { formatKopecks, PLAN_IDS, type PlanId, type SubscriptionStatus } from '@tms/shared';
-import { Stat } from '@/components/ui/stat';
+import {
+    Bar,
+    BarChart,
+    CartesianGrid,
+    ResponsiveContainer,
+    Tooltip as RechartsTooltip,
+    XAxis,
+    YAxis,
+} from 'recharts';
+import { MetricCard } from '@/components/ui/metric-card';
+import { DashboardHeader } from '@/components/ui/dashboard-header';
+import { computeRange, type PeriodRange } from '@/components/ui/period-selector';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SkeletonRow } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
@@ -36,18 +48,27 @@ const STATUS_FILTER: Array<'' | SubscriptionStatus> = ['', 'trial', 'active', 'p
 export default function AdminBillingPage() {
     const { toast } = useToast();
     const [rows, setRows] = useState<AdminBillingRow[] | null>(null);
+    const [loading, setLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState<'' | SubscriptionStatus>('');
     const [planFilter, setPlanFilter] = useState<'' | PlanId>('');
+    const [period, setPeriod] = useState<PeriodRange>(() => computeRange('mtd'));
 
-    useEffect(() => {
+    const loadRows = () => {
+        setLoading(true);
         api.get<{ success: boolean; data: AdminBillingRow[] }>('/admin/billing/overview')
             .then((res) => setRows(res.data ?? []))
             .catch((e) => {
                 const msg = e instanceof Error ? e.message : 'Ошибка загрузки';
                 toast({ variant: 'error', title: 'Не удалось загрузить биллинг', description: msg });
                 setRows([]);
-            });
-    }, [toast]);
+            })
+            .finally(() => setLoading(false));
+    };
+
+    useEffect(() => {
+        loadRows();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const filtered = useMemo(() => {
         if (!rows) return [];
@@ -69,26 +90,101 @@ export default function AdminBillingPage() {
         return acc;
     }, [filtered]);
 
+    // MRR by plan, in roubles (kopecks/100), for the mini bar chart.
+    const mrrByPlan = useMemo(() => {
+        const acc: Record<string, number> = {};
+        for (const r of filtered) acc[r.planId] = (acc[r.planId] ?? 0) + r.mrrKopecks;
+        return PLAN_IDS.map((p) => ({ plan: p, mrr: Math.round((acc[p] ?? 0) / 100) }));
+    }, [filtered]);
+
     const pastDueCount = (rows ?? []).filter(r => r.status === 'past_due' || r.status === 'suspended').length;
+    const activeCount = (rows ?? []).filter(r => r.status === 'active').length;
 
     return (
         <div className="space-y-6">
-            <header className="flex items-center gap-3">
-                <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                    <CreditCard className="w-5 h-5" />
-                </div>
-                <div>
-                    <h1 className="text-2xl font-semibold text-slate-900">Биллинг — обзор</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Все организации, их тарифы и статусы</p>
-                </div>
-            </header>
+            <DashboardHeader
+                title="Биллинг — обзор"
+                subtitle="Все организации, их тарифы и статусы"
+                icon={CreditCard}
+                iconTone="brand"
+                period={period}
+                onPeriodChange={setPeriod}
+                onRefresh={loadRows}
+                refreshing={loading}
+            />
 
-            {/* Stat cards */}
+            {/* Metric cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Stat label="Организаций" value={filtered.length} icon={Building2} tone="neutral" />
-                <Stat label="MRR (активные)" value={formatKopecks(totalMrr)} icon={TrendingUp} tone="success" />
-                <Stat label="Просрочки" value={pastDueCount} icon={AlertCircle} tone={pastDueCount > 0 ? 'danger' : 'neutral'} />
-                <Stat label="Тарифов" value={PLAN_IDS.length} icon={Receipt} tone="info" hint={PLAN_IDS.map(p => `${p}: ${byPlan[p] ?? 0}`).join(' · ')} />
+                <MetricCard
+                    label="Организаций"
+                    value={filtered.length}
+                    hint={`${activeCount} активных`}
+                    icon={Building2}
+                    tone="neutral"
+                />
+                <MetricCard
+                    label="MRR (активные)"
+                    value={formatKopecks(totalMrr)}
+                    hint="ежемесячный доход"
+                    icon={TrendingUp}
+                    tone="success"
+                    sparklineTone="success"
+                />
+                <MetricCard
+                    label="Просрочки"
+                    value={pastDueCount}
+                    hint={pastDueCount > 0 ? 'требует внимания' : 'нет просрочек'}
+                    icon={AlertCircle}
+                    tone={pastDueCount > 0 ? 'danger' : 'neutral'}
+                    changeGood={false}
+                />
+                <MetricCard
+                    label="Тарифов"
+                    value={PLAN_IDS.length}
+                    hint={PLAN_IDS.map((p) => `${p}: ${byPlan[p] ?? 0}`).join(' · ')}
+                    icon={Receipt}
+                    tone="info"
+                />
+            </div>
+
+            {/* Mini-charts row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-semibold text-slate-900">MRR по тарифам</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="h-[180px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={mrrByPlan} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                    <XAxis dataKey="plan" stroke="#64748b" axisLine={false} tickLine={false} fontSize={12} />
+                                    <YAxis stroke="#64748b" axisLine={false} tickLine={false} fontSize={12} />
+                                    <RechartsTooltip
+                                        contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '8px' }}
+                                        formatter={(v: any) => [`${Number(v).toLocaleString('ru-RU')} ₽`, 'MRR']}
+                                    />
+                                    <Bar dataKey="mrr" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-semibold text-slate-900">Отток за 6 месяцев</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="h-[180px] w-full flex items-center justify-center">
+                            <EmptyState
+                                icon={TrendingUp}
+                                title="Нет данных по оттоку"
+                                description="Данные появятся после 2+ месяцев работы."
+                                tone="neutral"
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Filters */}

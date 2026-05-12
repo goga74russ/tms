@@ -14,7 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
-import { Stat } from "@/components/ui/stat";
+import { MetricCard } from "@/components/ui/metric-card";
+import { DashboardHeader } from "@/components/ui/dashboard-header";
+import { computeRange, type PeriodRange } from "@/components/ui/period-selector";
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
@@ -140,6 +142,7 @@ export default function FinanceDashboard() {
     // Filters
     const [filterStatus, setFilterStatus] = useState('');
     const [filterSearch, setFilterSearch] = useState('');
+    const [period, setPeriod] = useState<PeriodRange>(() => computeRange('mtd'));
 
     // Invoice modal
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -250,25 +253,55 @@ export default function FinanceDashboard() {
         });
     }, [selectedInvoice]);
 
+    // ——— Period-scoped list ———
+    const periodInvoices = useMemo(() => {
+        const fromMs = period.from.getTime();
+        const toMs = period.to.getTime();
+        return invoices.filter(inv => {
+            if (!inv.createdAt) return true;
+            const t = new Date(inv.createdAt).getTime();
+            if (!Number.isFinite(t)) return true;
+            return t >= fromMs && t <= toMs;
+        });
+    }, [invoices, period.from, period.to]);
+
     // ——— Derived summary ———
     const summary = useMemo(() => {
-        const pending = invoices.filter(i => i.status === 'sent' || i.status === 'draft')
+        const pending = periodInvoices.filter(i => i.status === 'sent' || i.status === 'draft')
             .reduce((sum, i) => sum + Number(i.total), 0);
-        const overdue = invoices.filter(i => i.status === 'overdue')
+        const overdue = periodInvoices.filter(i => i.status === 'overdue')
             .reduce((sum, i) => sum + Number(i.total), 0);
-        const totalPaid = invoices.filter(i => i.status === 'paid')
+        const totalPaid = periodInvoices.filter(i => i.status === 'paid')
             .reduce((sum, i) => sum + Number(i.total), 0);
         return { pending, overdue, totalPaid };
+    }, [periodInvoices]);
+
+    // 30-day sparkline of "К оплате" amounts grouped by day.
+    const pendingSparkline = useMemo(() => {
+        const days = 30;
+        const buckets = new Array<number>(days).fill(0);
+        const todayMs = Date.now();
+        invoices.forEach((inv) => {
+            if (inv.status !== 'sent' && inv.status !== 'draft') return;
+            if (!inv.createdAt) return;
+            const t = new Date(inv.createdAt).getTime();
+            if (!Number.isFinite(t)) return;
+            const ageDays = Math.floor((todayMs - t) / 86_400_000);
+            if (ageDays < 0 || ageDays >= days) return;
+            const idx = days - 1 - ageDays;
+            buckets[idx] += Number(inv.total) || 0;
+        });
+        return buckets;
     }, [invoices]);
 
     // ——— Filtered list ———
     const filteredInvoices = useMemo(() => {
-        return invoices.filter(inv => {
+        return periodInvoices.filter(inv => {
             if (filterStatus && inv.status !== filterStatus) return false;
             if (filterSearch && !inv.number.toLowerCase().includes(filterSearch.toLowerCase())) return false;
             return true;
         });
-    }, [invoices, filterStatus, filterSearch]);
+    }, [periodInvoices, filterStatus, filterSearch]);
 
     // ——— Actions ———
     const handleGenerateInvoice = async () => {
@@ -507,69 +540,73 @@ export default function FinanceDashboard() {
     };
 
     // ================================================================
-    const pendingCount = invoices.filter(i => i.status === 'sent' || i.status === 'draft').length;
-    const paidCount = invoices.filter(i => i.status === 'paid').length;
-    const overdueCount = invoices.filter(i => i.status === 'overdue').length;
+    const pendingCount = periodInvoices.filter(i => i.status === 'sent' || i.status === 'draft').length;
+    const paidCount = periodInvoices.filter(i => i.status === 'paid').length;
+    const overdueCount = periodInvoices.filter(i => i.status === 'overdue').length;
 
     return (
         <div className="p-8 space-y-6 bg-slate-50 min-h-screen text-slate-900">
-            {/* Header */}
-            <div className="flex justify-between items-center flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                        <Wallet className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Финансы и Бухгалтерия</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">Управление счетами, актами и тарификацией рейсов</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <Select
-                        value={selectedContractorId}
-                        onChange={(e) => setSelectedContractorId(e.target.value)}
-                        options={contractors.map((contractor) => ({
-                            value: contractor.id,
-                            label: contractor.name + ' (' + contractor.inn + ')',
-                        }))}
-                        placeholder="Выберите контрагента"
-                        className="w-72"
-                    />
-                    <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} isLoading={generating} onClick={handleGenerateInvoice} disabled={!selectedContractorId}>
-                        Счёт по рейсам
-                    </Button>
-                    <Button variant="outline" leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => { setBulkResult(null); setBulkOpen(true); }}>
-                        Пакетом
-                    </Button>
-                </div>
-            </div>
+            <DashboardHeader
+                title="Финансы и Бухгалтерия"
+                subtitle="Управление счетами, актами и тарификацией рейсов"
+                icon={Wallet}
+                iconTone="brand"
+                period={period}
+                onPeriodChange={setPeriod}
+                onRefresh={() => void fetchInvoices()}
+                refreshing={loading}
+                actions={
+                    <>
+                        <Select
+                            value={selectedContractorId}
+                            onChange={(e) => setSelectedContractorId(e.target.value)}
+                            options={contractors.map((contractor) => ({
+                                value: contractor.id,
+                                label: contractor.name + ' (' + contractor.inn + ')',
+                            }))}
+                            placeholder="Выберите контрагента"
+                            className="w-72"
+                        />
+                        <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} isLoading={generating} onClick={handleGenerateInvoice} disabled={!selectedContractorId}>
+                            Счёт по рейсам
+                        </Button>
+                        <Button variant="outline" leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => { setBulkResult(null); setBulkOpen(true); }}>
+                            Пакетом
+                        </Button>
+                    </>
+                }
+            />
 
-            {/* Summary Stat Cards */}
+            {/* Summary Metric Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <Stat
-                    label="Ожидают оплаты"
+                <MetricCard
+                    label="К оплате"
                     value={fmtMoney(summary.pending)}
+                    hint={`${pendingCount} счетов`}
+                    sparkline={pendingSparkline}
+                    sparklineTone="brand"
                     icon={Receipt}
                     tone="info"
-                    hint={`${pendingCount} счетов`}
                 />
-                <Stat
+                <MetricCard
                     label="Просрочено"
                     value={fmtMoney(summary.overdue)}
+                    hint={overdueCount > 0 ? `${overdueCount} счетов` : 'нет просроченных'}
                     icon={AlertCircle}
                     tone={summary.overdue > 0 ? 'danger' : 'neutral'}
-                    hint={overdueCount > 0 ? `${overdueCount} счетов` : 'нет просроченных'}
+                    changeGood={false}
                 />
-                <Stat
+                <MetricCard
                     label="Оплачено"
                     value={fmtMoney(summary.totalPaid)}
+                    hint={`${paidCount} счетов`}
                     icon={CheckCircle2}
                     tone="success"
-                    hint={`${paidCount} счетов`}
                 />
-                <Stat
+                <MetricCard
                     label="Всего счетов"
-                    value={invoices.length}
+                    value={periodInvoices.length}
+                    hint="за период"
                     icon={Banknote}
                     tone="neutral"
                 />

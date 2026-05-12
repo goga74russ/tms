@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { endOfMonth, format, startOfMonth, subDays, subMonths } from "date-fns";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { differenceInCalendarDays, format, subDays } from "date-fns";
 import { api } from "@/lib/api";
 import {
     Bar,
@@ -21,8 +21,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/toast";
-import { BarChart3, RefreshCw } from "lucide-react";
+import { DashboardHeader } from "@/components/ui/dashboard-header";
+import { MetricCard } from "@/components/ui/metric-card";
+import { computeRange, type PeriodRange } from "@/components/ui/period-selector";
+import { BarChart3, TrendingUp, Truck, Percent, Gauge } from "lucide-react";
 
 interface KpiData {
     revenue: number | string | null;
@@ -55,31 +57,6 @@ interface FuelRow {
 }
 
 type ApiResponse<T> = { success: boolean; data: T };
-
-const MetricCard = ({ title, value, trend, trendUp, subtitle }: {
-    title: string;
-    value: string;
-    trend?: string;
-    trendUp?: boolean;
-    subtitle?: string;
-}) => (
-    <Card className="flex flex-col justify-between">
-        <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-            <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold tracking-tight text-slate-900">{value}</span>
-                {trend && (
-                    <span className={`text-sm font-medium ${trendUp ? "text-emerald-500" : "text-red-500"}`}>
-                        {trend}
-                    </span>
-                )}
-            </div>
-            {subtitle && <p className="mt-2 text-xs text-slate-400">{subtitle}</p>}
-        </CardContent>
-    </Card>
-);
 
 const TrafficLight = ({ label, status, amount }: {
     label: string;
@@ -117,6 +94,13 @@ const formatCompactMoney = (value: number | string | null | undefined) => {
     if (Math.abs(amount) >= 1_000) return `${(amount / 1_000).toFixed(0)}K ₽`;
     return formatMoney(amount);
 };
+
+function computeChange(current: number, previous: number): { value: number; direction: 'up' | 'down' | 'flat' } | undefined {
+    if (!Number.isFinite(previous) || previous === 0) return undefined;
+    const diff = ((current - previous) / Math.abs(previous)) * 100;
+    if (Math.abs(diff) < 0.5) return { value: 0, direction: 'flat' };
+    return { value: Math.round(diff), direction: diff > 0 ? 'up' : 'down' };
+}
 
 interface DriverScoreEntry {
     id?: string;
@@ -293,36 +277,46 @@ function DriverScoreboardSection() {
 export default function KPIDashboard() {
     const [mounted, setMounted] = useState(false);
     const [kpi, setKpi] = useState<KpiData | null>(null);
+    const [prevKpi, setPrevKpi] = useState<KpiData | null>(null);
     const [fuelData, setFuelData] = useState<FuelRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    const now = new Date();
-    const [startDate, setStartDate] = useState(format(startOfMonth(subMonths(now, 1)), "yyyy-MM-dd"));
-    const [endDate, setEndDate] = useState(format(endOfMonth(now), "yyyy-MM-dd"));
+    const [period, setPeriod] = useState<PeriodRange>(() => computeRange('mtd'));
 
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    const startDate = useMemo(() => format(period.from, 'yyyy-MM-dd'), [period.from]);
+    const endDate = useMemo(() => format(period.to, 'yyyy-MM-dd'), [period.to]);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
 
         try {
-            const [kpiRes, fuelRes] = await Promise.all([
+            // Compute prior-period window of equal length for change% comparison.
+            const days = Math.max(1, differenceInCalendarDays(period.to, period.from));
+            const prevTo = subDays(period.from, 1);
+            const prevFrom = subDays(prevTo, days);
+            const prevStart = format(prevFrom, 'yyyy-MM-dd');
+            const prevEnd = format(prevTo, 'yyyy-MM-dd');
+
+            const [kpiRes, prevKpiRes, fuelRes] = await Promise.all([
                 api.get<ApiResponse<KpiData>>(`/finance/kpi?startDate=${startDate}&endDate=${endDate}`),
+                api.get<ApiResponse<KpiData>>(`/finance/kpi?startDate=${prevStart}&endDate=${prevEnd}`).catch(() => ({ success: false, data: null as unknown as KpiData })),
                 api.get<ApiResponse<FuelRow[]>>(`/finance/fuel-analysis?startDate=${startDate}&endDate=${endDate}`),
             ]);
 
             setKpi(kpiRes.data);
+            setPrevKpi(prevKpiRes.data ?? null);
             setFuelData(fuelRes.data || []);
         } catch (err: any) {
             setError(err.message || "Не удалось загрузить данные KPI.");
         } finally {
             setLoading(false);
         }
-    }, [endDate, startDate]);
+    }, [endDate, startDate, period.from, period.to]);
 
     useEffect(() => {
         if (mounted) {
@@ -345,6 +339,22 @@ export default function KPIDashboard() {
     const fleetReady = toNumber(kpi?.fleetReady);
     const fleetUnavailable = toNumber(kpi?.fleetUnavailable);
 
+    const prevRevenue = toNumber(prevKpi?.revenue);
+    const prevTrips = toNumber(prevKpi?.tripsCompleted);
+    const prevMargin = toNumber(prevKpi?.marginPercent);
+    const prevKtg = toNumber(prevKpi?.ktgPercent);
+
+    // Build a 7-point sparkline from the current/prev pair (smooth visual gradient).
+    const sparkBetween = (start: number, end: number, n = 7) => {
+        if (start === 0 && end === 0) return [];
+        const arr: number[] = [];
+        for (let i = 0; i < n; i++) {
+            const t = i / (n - 1);
+            arr.push(start + (end - start) * t);
+        }
+        return arr;
+    };
+
     const costBreakdown = kpi ? [
         { name: "Ремонты", value: repairsAmount },
         { name: "Штрафы", value: finesAmount },
@@ -359,26 +369,16 @@ export default function KPIDashboard() {
 
     return (
         <div className="min-h-screen space-y-6 bg-slate-50 p-8 text-slate-900">
-            <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-                <div className="flex items-center gap-3">
-                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                        <BarChart3 className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Панель KPI</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">Ключевые показатели бизнеса и аналитика затрат</p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40" />
-                    <span className="text-slate-400">—</span>
-                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40" />
-                    <Button variant="outline" leftIcon={<RefreshCw className="w-4 h-4" />} isLoading={loading} onClick={() => void fetchData()}>
-                        Обновить
-                    </Button>
-                </div>
-            </div>
+            <DashboardHeader
+                title="Панель KPI"
+                subtitle="Ключевые показатели бизнеса и аналитика затрат"
+                icon={BarChart3}
+                iconTone="brand"
+                period={period}
+                onPeriodChange={setPeriod}
+                onRefresh={() => void fetchData()}
+                refreshing={loading}
+            />
 
             {error && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
@@ -386,35 +386,46 @@ export default function KPIDashboard() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <MetricCard
-                    title="Выручка"
+                    label="Выручка"
                     value={kpi ? formatCompactMoney(revenue) : "—"}
-                    trend={revenue > 0 ? "+" : undefined}
-                    trendUp
-                    subtitle={`Период: ${startDate} - ${endDate}`}
+                    change={computeChange(revenue, prevRevenue)}
+                    hint="vs прошлый период"
+                    sparkline={sparkBetween(prevRevenue, revenue)}
+                    sparklineTone="brand"
+                    icon={TrendingUp}
+                    tone="brand"
                 />
                 <MetricCard
-                    title="Маржинальность"
-                    value={kpi ? `${marginPercent.toFixed(1)}%` : "—"}
-                    trend={kpi ? (marginPercent > 30 ? "> 30%" : "< 30%") : undefined}
-                    trendUp={marginPercent > 30}
-                    subtitle="Цель: >30%"
-                />
-                <MetricCard
-                    title="Выполнено рейсов"
+                    label="Рейсы"
                     value={kpi ? String(tripsCompleted) : "—"}
-                    subtitle="За выбранный период"
+                    change={computeChange(tripsCompleted, prevTrips)}
+                    hint="за период"
+                    sparkline={sparkBetween(prevTrips, tripsCompleted)}
+                    sparklineTone="success"
+                    icon={Truck}
+                    tone="info"
                 />
                 <MetricCard
-                    title="Затраты на ремонт"
-                    value={kpi ? formatCompactMoney(repairsAmount) : "—"}
-                    subtitle="Ремонты и обслуживание"
+                    label="Маржинальность"
+                    value={kpi ? `${marginPercent.toFixed(1)}%` : "—"}
+                    change={computeChange(marginPercent, prevMargin)}
+                    hint="цель >30%"
+                    sparkline={sparkBetween(prevMargin, marginPercent)}
+                    sparklineTone={marginPercent >= 30 ? 'success' : 'warning'}
+                    icon={Percent}
+                    tone={marginPercent >= 30 ? 'success' : 'warning'}
                 />
                 <MetricCard
-                    title="КТГ"
+                    label="КТГ"
                     value={kpi ? `${ktgPercent.toFixed(1)}%` : "—"}
-                    subtitle={kpi ? `Готовы к выпуску: ${fleetReady} / ${fleetActive}${fleetUnavailable > 0 ? `, не готовы: ${fleetUnavailable}` : ""}` : "Техническая готовность парка"}
+                    change={computeChange(ktgPercent, prevKtg)}
+                    hint={kpi ? `${fleetReady} из ${fleetActive} готовы${fleetUnavailable > 0 ? `, ${fleetUnavailable} не готовы` : ''}` : 'Тех. готовность парка'}
+                    sparkline={sparkBetween(prevKtg, ktgPercent)}
+                    sparklineTone="brand"
+                    icon={Gauge}
+                    tone="info"
                 />
             </div>
 
