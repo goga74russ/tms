@@ -12,6 +12,8 @@ import { and, eq } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import * as WialonMock from '../mocks/wialon.mock.js';
 import { simulateTrack, type TrackWaypoint } from '../mocks/wialon-track-generator.js';
+import { selectAdapter, getDefaultRegistry } from '../../providers/index.js';
+import type { TelematicsProvider } from '../../providers/telematics/interface.js';
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -22,12 +24,13 @@ async function processWialonSync(job: Job): Promise<{
 }> {
     job.log('Starting Wialon odometer sync...');
 
-    // 1. Fetch all non-archived vehicles
+    // 1. Fetch all non-archived vehicles (with org for per-tenant adapter routing).
     const vehicleList = await db
         .select({
             id: vehicles.id,
             plateNumber: vehicles.plateNumber,
             currentOdometerKm: vehicles.currentOdometerKm,
+            organizationId: vehicles.organizationId,
         })
         .from(vehicles)
         .where(eq(vehicles.isArchived, false));
@@ -40,9 +43,46 @@ async function processWialonSync(job: Job): Promise<{
 
     const updatesData: Array<{ id: string; odometerKm: number; plateNumber: string; oldOdometer: number }> = [];
 
+    // A-P1-9 / A-P0-4: pre-resolve per-org telematics adapter. The provider
+    // registry returns a real adapter (Wialon/Omnicomm/GlonassSoft) when the
+    // org has saved credentials with status=active; otherwise mock. We cache
+    // the adapter per orgId across the loop to avoid repeated DB lookups.
+    const orgAdapterCache = new Map<string, TelematicsProvider>();
+    const resolveTelematicsAdapter = async (orgId: string | null): Promise<TelematicsProvider | null> => {
+        if (!orgId) return null;
+        const cached = orgAdapterCache.get(orgId);
+        if (cached) return cached;
+        try {
+            const reg = getDefaultRegistry();
+            const adapter = await selectAdapter(reg.telematics, orgId, 'telematics');
+            orgAdapterCache.set(orgId, adapter);
+            return adapter;
+        } catch {
+            return null;
+        }
+    };
+
     for (const v of vehicleList) {
         try {
-            // 2. Get telemetry from mock Wialon
+            // 2. Get telemetry. Real telematics path: per-org adapter exposes
+            //    getPositions(); we use the latest position's recordedAt and
+            //    estimate odometer increment via plateNumber demo path for now
+            //    (real Wialon odometer comes from message attributes which
+            //    aren't part of TelematicsProvider.getPositions). Until that
+            //    surface is added, we fall through to WialonMock for odometer
+            //    even when real positions are available — the position write
+            //    below still uses the real GPS source.
+            const telematics = await resolveTelematicsAdapter(v.organizationId);
+            if (telematics && telematics.mode !== 'mock') {
+                // Touch the real adapter so configured Wialon credentials are
+                // exercised (health check). Errors don't break the sync — we
+                // still update odometer via the legacy demo path.
+                try {
+                    await telematics.healthCheck();
+                } catch (err: unknown) {
+                    job.log(`Telematics health check failed for org ${v.organizationId}: ${(err as Error).message}`);
+                }
+            }
             const telemetry = WialonMock.getVehicleTelemetry(
                 v.plateNumber,
                 v.currentOdometerKm,

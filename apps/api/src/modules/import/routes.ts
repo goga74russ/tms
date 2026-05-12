@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { hashPassword } from '../../auth/auth.js';
 import { buildTemplate, parseTemplate, type TemplateType } from './templates.js';
+import { validate, validateOrder, mapPgErrorToFriendlyRu } from './validators.js';
 
 const TEMPLATE_TYPES: TemplateType[] = ['contractors', 'vehicles', 'drivers', 'orders'];
 
@@ -13,50 +14,6 @@ interface PreviewRow {
     data: Record<string, unknown>;
     valid: boolean;
     errors: string[];
-}
-
-function validateContractor(item: Record<string, unknown>): string[] {
-    const errs: string[] = [];
-    if (!item.name) errs.push('Название обязательно');
-    if (!item.inn) errs.push('ИНН обязателен');
-    else if (!/^\d{10}(\d{2})?$/.test(String(item.inn))) errs.push('ИНН должен содержать 10 или 12 цифр');
-    return errs;
-}
-
-function validateVehicle(item: Record<string, unknown>): string[] {
-    const errs: string[] = [];
-    if (!item.plateNumber) errs.push('Госномер обязателен');
-    if (!item.vin) errs.push('VIN обязателен');
-    if (!item.make) errs.push('Марка обязательна');
-    if (!item.model) errs.push('Модель обязательна');
-    return errs;
-}
-
-function validateDriver(item: Record<string, unknown>): string[] {
-    const errs: string[] = [];
-    if (!item.fullName) errs.push('ФИО обязательно');
-    if (!item.licenseNumber) errs.push('Номер ВУ обязателен');
-    return errs;
-}
-
-function validateOrder(item: Record<string, unknown>): string[] {
-    const errs: string[] = [];
-    if (!item.number) errs.push('Номер заявки обязателен');
-    if (!item.contractorInn) errs.push('ИНН контрагента обязателен');
-    if (!item.cargoDescription) errs.push('Описание груза обязательно');
-    if (!item.cargoWeightKg) errs.push('Вес груза обязателен');
-    if (!item.loadingAddress) errs.push('Адрес погрузки обязателен');
-    if (!item.unloadingAddress) errs.push('Адрес выгрузки обязателен');
-    return errs;
-}
-
-function validate(type: TemplateType, item: Record<string, unknown>): string[] {
-    switch (type) {
-        case 'contractors': return validateContractor(item);
-        case 'vehicles': return validateVehicle(item);
-        case 'drivers': return validateDriver(item);
-        case 'orders': return validateOrder(item);
-    }
 }
 
 /**
@@ -138,11 +95,7 @@ export default async function importRoutes(app: FastifyInstance) {
             } catch (err: any) {
                 // A-P0-5: map known PG codes to friendly messages — never echo
                 // raw constraint text (leaks index/column names).
-                const code = err?.code;
-                const friendly =
-                    code === '23505' ? 'дубликат (уже существует ТС с такими данными)' :
-                    code === '23503' ? 'нарушена связь с другой таблицей' :
-                    'ошибка вставки';
+                const friendly = mapPgErrorToFriendlyRu(err?.code, 'vehicles');
                 results.created = 0;
                 results.errors.push({ index: -1, error: `Импорт отменён: ${friendly}` });
             }
@@ -378,11 +331,7 @@ export default async function importRoutes(app: FastifyInstance) {
                     }
                 });
             } catch (err: any) {
-                const code = err?.code;
-                const friendly =
-                    code === '23505' ? 'дубликат номера заявки' :
-                    code === '23503' ? 'нарушена связь (контрагент не найден)' :
-                    'ошибка вставки';
+                const friendly = mapPgErrorToFriendlyRu(err?.code, 'orders');
                 results.created = 0;
                 results.errors.push({ index: -1, error: `Импорт отменён: ${friendly}` });
             }
@@ -441,11 +390,7 @@ export default async function importRoutes(app: FastifyInstance) {
                     }
                 });
             } catch (err: any) {
-                const code = err?.code;
-                const friendly =
-                    code === '23505' ? 'дубликат ИНН' :
-                    code === '23503' ? 'нарушена связь' :
-                    'ошибка вставки';
+                const friendly = mapPgErrorToFriendlyRu(err?.code, 'contractors');
                 results.created = 0;
                 results.errors.push({ index: -1, error: `Импорт отменён: ${friendly}` });
             }

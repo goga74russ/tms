@@ -5,7 +5,6 @@
 // All routes require auth — they're called after /verify-email.
 // ============================================================
 import type { FastifyPluginAsync } from 'fastify';
-import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { organizations, users, providerCredentials } from '../../db/schema.js';
@@ -13,72 +12,27 @@ import { encryptCredentials, invalidateCredentialsCache } from '../../providers/
 import { generateTempPassword, hashPassword } from '../../auth/auth.js';
 import { findByInn } from '../../integrations/mocks/dadata.mock.js';
 import {
-    ONBOARDING_SCENARIOS,
     type OnboardingScenario,
     type OnboardingStatus,
     type ProviderType,
     type ProviderName,
 } from '@tms/shared';
 import { selectAdapter, getDefaultRegistry } from '../../providers/index.js';
-import { APP_ROLES } from '../../auth/rbac.js';
 import { escapeHtml } from '../../utils/html.js';
+import {
+    InnLookupSchema,
+    ProfileSchema,
+    ScenarioSchema,
+    IntegrationChoiceSchema,
+    InviteSchema,
+    buildInviteResponse,
+} from './validators.js';
 
 interface AuthUser {
     userId: string;
     roles: string[];
     organizationId?: string | null;
 }
-
-const PROVIDER_TYPES: ProviderType[] = [
-    'signature', 'edi', 'telematics', 'fuel_card',
-    'fines', 'marking', 'payment', 'email',
-];
-
-// Provider names accepted on the wizard. Mirrors `ProviderName` in shared/.
-const PROVIDER_NAMES: ProviderName[] = [
-    'gosklyuch', 'kontur_sign', 'sbis_sign', 'cadesplugin',
-    'diadoc', 'sbis', 'kontur', 'taxcom', 'kaluga_astral',
-    'wialon', 'omnicomm', 'glonasssoft',
-    'lukoil', 'rosneft', 'gazpromneft',
-    'autocode', 'fssp', 'gibdd', 'crpt',
-    'yookassa', 'tinkoff', 'cloudpayments',
-    'mailru_smtp', 'unisender', 'console', 'mock',
-];
-
-const InnLookupSchema = z.object({
-    inn: z.string().regex(/^\d{10}(\d{2})?$/, 'ИНН: 10 или 12 цифр'),
-});
-
-const ProfileSchema = z.object({
-    inn: z.string().regex(/^\d{10}(\d{2})?$/),
-    name: z.string().min(1).max(500),
-    kpp: z.string().nullish(),
-    ogrn: z.string().nullish(),
-    legalAddress: z.string().nullish(),
-    bankBik: z.string().nullish(),
-    bankAccount: z.string().nullish(),
-});
-
-const ScenarioSchema = z.object({
-    scenario: z.enum(ONBOARDING_SCENARIOS as [OnboardingScenario, ...OnboardingScenario[]]),
-});
-
-const IntegrationChoiceSchema = z.object({
-    providerType: z.enum(PROVIDER_TYPES as [ProviderType, ...ProviderType[]]),
-    providerName: z.enum(PROVIDER_NAMES as [ProviderName, ...ProviderName[]]),
-    defer: z.boolean(),
-    credentials: z.record(z.unknown()).optional(),
-});
-
-// A-P1-6: constrain roles to APP_ROLES — was z.string() which accepted any
-// value, polluting users.roles with strings RBAC ignores.
-const InviteSchema = z.object({
-    invites: z.array(z.object({
-        email: z.string().email(),
-        fullName: z.string().min(1),
-        roles: z.array(z.enum(APP_ROLES)).min(1),
-    })).min(1).max(50),
-});
 
 function requireOrg(user: AuthUser | undefined): string | null {
     return user?.organizationId ?? null;
@@ -323,12 +277,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         await db.update(organizations).set({ onboardingStep: 6 }).where(eq(organizations.id, orgId));
         return {
             success: true,
-            data: {
-                invitedCount: created.length,
-                // Surface emails that didn't get the message so admin can resend.
-                // Does NOT contain passwords — they are emailed only.
-                failedToEmail,
-            },
+            data: buildInviteResponse(created, failedToEmail),
         };
     });
 

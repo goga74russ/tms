@@ -15,7 +15,8 @@
         "db:generate": "drizzle-kit generate",
         "db:migrate": "drizzle-kit migrate",
         "db:seed": "tsx --env-file=../../.env src/db/seed.ts",
-        "auth:reset-password": "tsx --env-file=../../.env scripts/reset-password.ts"
+        "auth:reset-password": "tsx --env-file=../../.env scripts/reset-password.ts",
+        "openapi:export": "tsx scripts/export-openapi.ts"
     },
     "dependencies": {
         "@anthropic-ai/sdk": "^0.40.0",

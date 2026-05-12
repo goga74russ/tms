@@ -1,0 +1,29 @@
+# crontab entry — TMS v2 backup + DR drill
+#
+# Install:
+#   sudo crontab -u tms -e   # paste lines below
+#   sudo systemctl enable --now cron
+#
+# Times are in the SERVER'S local timezone. We assume the production host is
+# pinned to UTC; convert mentally to MSK (+3) when scheduling around business
+# hours. 03:00 UTC == 06:00 MSK — well before the dispatcher morning rush.
+
+# m h dom mon dow command
+0 3 * * * /opt/tms/scripts/backup-db.sh >> /var/log/tms-backup.log 2>&1
+# Weekly DR drill: restore latest to staging at 04:00 Sunday MSK (01:00 UTC)
+0 1 * * 0 /opt/tms/scripts/restore-db-to-staging.sh
+
+# ----------------------------------------------------------------------------
+# Optional companions (uncomment when wired):
+#
+# Hourly health probe (push to deadman.io or Better Stack):
+# 0 * * * * curl -fsS --retry 3 https://uptime.betterstack.com/api/v1/heartbeat/<TOKEN> >/dev/null
+#
+# Daily certbot renewal attempt (idempotent; only renews if <30 days):
+# 15 4 * * * docker compose -f /opt/tms/docker-compose.prod.yml run --rm certbot renew --quiet && \
+#            docker compose -f /opt/tms/docker-compose.prod.yml exec nginx nginx -s reload
+#
+# Weekly VACUUM on hot tables (Sunday 02:30 UTC):
+# 30 2 * * 0 docker compose -f /opt/tms/docker-compose.prod.yml exec -T postgres \
+#            psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "VACUUM (ANALYZE) events, temperature_readings, trips;"
+# ----------------------------------------------------------------------------

@@ -63,6 +63,9 @@ jobs:
       - name: API unit tests
         run: pnpm --filter @tms/api test
 
+      - name: Web component tests
+        run: pnpm --filter @tms/web test
+
       - name: Security audit (advisory)
         run: pnpm audit --prod --audit-level high || true
 
