@@ -1,8 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
+import {
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { getMyHosStatus, getMyHoursSummary, HosStatus, HoursSummary } from '../api/rto';
+import { HosStatus, HoursSummary, getMyHosStatus, getMyHoursSummary } from '../api/rto';
+import { Card, Pill } from '../components/ui';
+import { colors, radius, spacing, typography } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MyHours'>;
 
@@ -60,7 +69,7 @@ export default function MyHoursScreen(_props: Props) {
     };
 
     if (loading) {
-        return <ActivityIndicator style={{ flex: 1 }} size="large" color="#2563eb" />;
+        return <ActivityIndicator style={{ flex: 1 }} size="large" color={colors.brand[600]} />;
     }
 
     const dayLimit = status?.dayLimit ?? DAY_LIMIT_FALLBACK;
@@ -72,6 +81,9 @@ export default function MyHoursScreen(_props: Props) {
     const daily = summary?.dailyHours ?? [];
     const maxBar = daily.reduce((m, d) => (d.hours > m ? d.hours : m), dayLimit || 1);
 
+    const dayPct = Math.min(100, Math.round((dayHours / dayLimit) * 100));
+    const weekPct = Math.min(100, Math.round((weekHours / weekLimit) * 100));
+
     return (
         <ScrollView
             style={styles.container}
@@ -79,56 +91,94 @@ export default function MyHoursScreen(_props: Props) {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
             {error && (
-                <View style={styles.errorBox}>
+                <Card style={{ backgroundColor: colors.danger[50], borderColor: '#fecaca', marginBottom: spacing.md }} elevation="none">
                     <Text style={styles.errorText}>{error}</Text>
-                </View>
+                </Card>
             )}
 
-            <View style={[styles.card, breach && styles.cardBreach]}>
-                <Text style={styles.cardLabel}>Сегодня</Text>
-                <Text style={[styles.bigValue, breach && styles.bigValueBreach]}>
-                    {`${formatHours(dayHours)}/${dayLimit} ч`}
+            {/* Today stat card */}
+            <Card style={breach ? { borderColor: '#fecaca', backgroundColor: colors.danger[50] } : null}>
+                <View style={styles.statHeader}>
+                    <Text style={styles.cardLabel}>Сегодня</Text>
+                    <Pill
+                        label={`лимит ${dayLimit} ч`}
+                        tone={breach ? 'danger' : 'neutral'}
+                    />
+                </View>
+                <Text style={[styles.bigValue, breach && { color: colors.danger[700] }]}>
+                    {formatHours(dayHours)} <Text style={styles.bigUnit}>ч</Text>
                 </Text>
-            </View>
+                <View style={styles.miniBar}>
+                    <View
+                        style={[
+                            styles.miniFill,
+                            {
+                                width: `${dayPct}%`,
+                                backgroundColor: breach ? colors.danger[500] : colors.brand[600],
+                            },
+                        ]}
+                    />
+                </View>
+            </Card>
 
-            <View style={[styles.card, breach && styles.cardBreach]}>
-                <Text style={styles.cardLabel}>Неделя</Text>
-                <Text style={[styles.bigValue, breach && styles.bigValueBreach]}>
-                    {`${formatHours(weekHours)}/${weekLimit} ч`}
+            <Card style={[{ marginTop: spacing.md }, breach ? { borderColor: '#fecaca', backgroundColor: colors.danger[50] } : null]}>
+                <View style={styles.statHeader}>
+                    <Text style={styles.cardLabel}>Неделя</Text>
+                    <Pill label={`лимит ${weekLimit} ч`} tone={breach ? 'danger' : 'neutral'} />
+                </View>
+                <Text style={[styles.bigValue, breach && { color: colors.danger[700] }]}>
+                    {formatHours(weekHours)} <Text style={styles.bigUnit}>ч</Text>
                 </Text>
-            </View>
+                <View style={styles.miniBar}>
+                    <View
+                        style={[
+                            styles.miniFill,
+                            {
+                                width: `${weekPct}%`,
+                                backgroundColor: breach ? colors.danger[500] : colors.brand[600],
+                            },
+                        ]}
+                    />
+                </View>
+            </Card>
 
             {breach && (
-                <View style={styles.breachBanner}>
+                <Card style={{ marginTop: spacing.md, backgroundColor: colors.danger[600], borderColor: colors.danger[700] }} elevation="md">
                     <Text style={styles.breachText}>⚠ Превышены лимиты РТО</Text>
-                </View>
+                </Card>
             )}
 
             <Text style={styles.sectionTitle}>Последние 7 дней</Text>
             {daily.length === 0 ? (
                 <Text style={styles.emptyText}>Нет данных за последние 7 дней</Text>
             ) : (
-                daily.map((d) => {
-                    const widthPct = Math.min(100, Math.round((d.hours / maxBar) * 100));
-                    const over = dayLimit > 0 && d.hours > dayLimit;
-                    return (
-                        <View key={d.date} style={styles.row}>
-                            <Text style={styles.rowDate}>{formatDate(d.date)}</Text>
-                            <View style={styles.barTrack}>
-                                <View
-                                    style={[
-                                        styles.barFill,
-                                        { width: `${widthPct}%` },
-                                        over && styles.barFillOver,
-                                    ]}
-                                />
+                <Card>
+                    {daily.map((d, idx) => {
+                        const widthPct = Math.min(100, Math.round((d.hours / maxBar) * 100));
+                        const over = dayLimit > 0 && d.hours > dayLimit;
+                        const isLast = idx === daily.length - 1;
+                        return (
+                            <View
+                                key={d.date}
+                                style={[styles.barRow, !isLast && styles.barRowBordered]}
+                            >
+                                <Text style={styles.barDate}>{formatDate(d.date)}</Text>
+                                <View style={styles.barTrack}>
+                                    <View
+                                        style={[
+                                            styles.barFill,
+                                            { width: `${widthPct}%` },
+                                            over && { backgroundColor: colors.danger[500] },
+                                        ]}
+                                    />
+                                </View>
+                                <Text style={[styles.barHours, over && { color: colors.danger[700], fontWeight: '700' }]}>
+                                    {formatHours(d.hours)} ч
+                                </Text>
                             </View>
-                            <Text style={[styles.rowHours, over && styles.rowHoursOver]}>
-                                {`${formatHours(d.hours)} ч`}
-                            </Text>
-                        </View>
-                    );
-                })
+                        );
+                    })}
+                </Card>
             )}
 
             {summary?.breaches && summary.breaches.length > 0 && (
@@ -137,9 +187,7 @@ export default function MyHoursScreen(_props: Props) {
                     {summary.breaches.map((b, i) => (
                         <View key={`${b.date}-${i}`} style={styles.breachItem}>
                             <Text style={styles.breachItemDate}>{formatDate(b.date)}</Text>
-                            <Text style={styles.breachItemText}>
-                                {b.message || b.type}
-                            </Text>
+                            <Text style={styles.breachItemText}>{b.message || b.type}</Text>
                         </View>
                     ))}
                 </>
@@ -149,85 +197,90 @@ export default function MyHoursScreen(_props: Props) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f8fafc' },
-    content: { padding: 16, paddingBottom: 32 },
-    errorBox: {
-        backgroundColor: '#fee2e2',
-        borderColor: '#fecaca',
-        borderWidth: 1,
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 12,
-    },
-    errorText: { color: '#b91c1c', fontSize: 13 },
-    card: {
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 20,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-    },
-    cardBreach: {
-        borderColor: '#fecaca',
-        backgroundColor: '#fef2f2',
-    },
-    cardLabel: {
-        fontSize: 14,
-        color: '#64748b',
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    bigValue: {
-        fontSize: 40,
-        fontWeight: '700',
-        color: '#0f172a',
-    },
-    bigValueBreach: { color: '#dc2626' },
-    breachBanner: {
-        backgroundColor: '#dc2626',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 12,
-    },
-    breachText: { color: '#fff', fontSize: 14, fontWeight: '700', textAlign: 'center' },
-    sectionTitle: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#0f172a',
-        marginTop: 12,
-        marginBottom: 8,
-    },
-    emptyText: { color: '#64748b', fontSize: 13 },
-    row: {
+    container: { flex: 1, backgroundColor: colors.neutral[50] },
+    content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+    errorText: { color: colors.danger[700], fontSize: 13, fontWeight: '600' },
+    statHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 6,
+        justifyContent: 'space-between',
+        marginBottom: spacing.sm,
     },
-    rowDate: { width: 56, fontSize: 12, color: '#475569' },
+    cardLabel: {
+        ...typography.captionBold,
+        color: colors.neutral[500],
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    bigValue: {
+        fontSize: 48,
+        fontWeight: '700',
+        color: colors.neutral[900],
+        letterSpacing: -1,
+    },
+    bigUnit: {
+        fontSize: 22,
+        fontWeight: '500',
+        color: colors.neutral[500],
+    },
+    miniBar: {
+        height: 8,
+        backgroundColor: colors.neutral[200],
+        borderRadius: radius.pill,
+        marginTop: spacing.md,
+        overflow: 'hidden',
+    },
+    miniFill: {
+        height: '100%',
+        borderRadius: radius.pill,
+    },
+    breachText: {
+        color: colors.white,
+        fontSize: 15,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
+    sectionTitle: {
+        ...typography.captionBold,
+        color: colors.neutral[500],
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginTop: spacing.xl,
+        marginBottom: spacing.sm,
+    },
+    emptyText: { color: colors.neutral[500], fontSize: 13 },
+    barRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: spacing.sm,
+    },
+    barRowBordered: {
+        borderBottomWidth: 1,
+        borderBottomColor: colors.neutral[100],
+    },
+    barDate: { width: 56, fontSize: 12, color: colors.neutral[600], fontWeight: '600' },
     barTrack: {
         flex: 1,
-        height: 16,
-        backgroundColor: '#e2e8f0',
-        borderRadius: 8,
+        height: 14,
+        backgroundColor: colors.neutral[200],
+        borderRadius: radius.pill,
         overflow: 'hidden',
-        marginHorizontal: 8,
+        marginHorizontal: spacing.sm,
     },
     barFill: {
         height: '100%',
-        backgroundColor: '#2563eb',
+        backgroundColor: colors.brand[600],
+        borderRadius: radius.pill,
     },
-    barFillOver: { backgroundColor: '#dc2626' },
-    rowHours: { width: 56, fontSize: 12, color: '#0f172a', textAlign: 'right' },
-    rowHoursOver: { color: '#dc2626', fontWeight: '700' },
+    barHours: { width: 64, fontSize: 12, color: colors.neutral[900], textAlign: 'right', fontWeight: '600' },
     breachItem: {
-        backgroundColor: '#fff',
+        backgroundColor: colors.white,
         borderLeftWidth: 4,
-        borderLeftColor: '#dc2626',
-        padding: 10,
-        marginBottom: 6,
-        borderRadius: 4,
+        borderLeftColor: colors.danger[500],
+        padding: spacing.md,
+        marginBottom: spacing.sm,
+        borderRadius: radius.md,
     },
-    breachItemDate: { fontSize: 12, color: '#dc2626', fontWeight: '700' },
-    breachItemText: { fontSize: 13, color: '#0f172a', marginTop: 2 },
+    breachItemDate: { fontSize: 12, color: colors.danger[700], fontWeight: '700' },
+    breachItemText: { fontSize: 13, color: colors.neutral[900], marginTop: 2 },
 });

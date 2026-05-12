@@ -1,5 +1,13 @@
-﻿import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { Q } from '@nozbe/watermelondb';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -7,9 +15,10 @@ import { database } from '../database';
 import Trip from '../database/models/Trip';
 import RoutePoint from '../database/models/RoutePoint';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { Card, EmptyState, Pill, ProgressSteps } from '../components/ui';
+import { colors, radius, spacing, typography } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripList'>;
-
 type FilterKey = 'active' | 'completed' | 'all';
 
 const ACTIVE_STATUSES = new Set([
@@ -23,10 +32,49 @@ const ACTIVE_STATUSES = new Set([
 const COMPLETED_STATUSES = new Set(['completed', 'billed']);
 
 const FILTERS: { key: FilterKey; label: string }[] = [
-    { key: 'active', label: '\u0410\u043a\u0442\u0438\u0432\u043d\u044b\u0435' },
-    { key: 'completed', label: '\u0417\u0430\u0432\u0435\u0440\u0448\u0451\u043d\u043d\u044b\u0435' },
-    { key: 'all', label: '\u0412\u0441\u0435' },
+    { key: 'active', label: 'Активные' },
+    { key: 'completed', label: 'Завершённые' },
+    { key: 'all', label: 'Все' },
 ];
+
+// Trip status → progress steps mapping (0-indexed)
+const STAGE_BY_STATUS: Record<string, number> = {
+    assigned: 0,
+    waybill_draft: 1,
+    inspection: 1,
+    waybill_issued: 2,
+    loading: 2,
+    in_transit: 3,
+    completed: 4,
+    billed: 4,
+};
+
+const STATUS_PILL: Record<string, { tone: 'success' | 'warning' | 'brand' | 'neutral'; label: string }> = {
+    assigned: { tone: 'brand', label: 'Назначен' },
+    waybill_draft: { tone: 'warning', label: 'Подготовка' },
+    inspection: { tone: 'warning', label: 'Техосмотр' },
+    waybill_issued: { tone: 'brand', label: 'Готов' },
+    loading: { tone: 'warning', label: 'Загрузка' },
+    in_transit: { tone: 'brand', label: 'В пути' },
+    completed: { tone: 'success', label: 'Завершён' },
+    billed: { tone: 'success', label: 'Закрыт' },
+};
+
+function parseRoute(route: string): { from?: string; to?: string; count: number } {
+    try {
+        const parsed = JSON.parse(route);
+        if (!Array.isArray(parsed) || parsed.length === 0) return { count: 0 };
+        const first = parsed[0];
+        const last = parsed[parsed.length - 1];
+        const firstAddr =
+            (typeof first === 'object' && (first.city || first.shortAddress || first.address)) || undefined;
+        const lastAddr =
+            (typeof last === 'object' && (last.city || last.shortAddress || last.address)) || undefined;
+        return { from: firstAddr, to: lastAddr, count: parsed.length };
+    } catch {
+        return { count: 0 };
+    }
+}
 
 export default function TripListScreen({ navigation }: Props) {
     const { user } = useAuth();
@@ -37,13 +85,17 @@ export default function TripListScreen({ navigation }: Props) {
 
     useLayoutEffect(() => {
         navigation.setOptions({
+            title: 'Мои рейсы',
+            headerStyle: { backgroundColor: colors.white },
+            headerTitleStyle: { color: colors.neutral[900], fontWeight: '700' },
             headerRight: () => (
                 <TouchableOpacity
                     onPress={() => navigation.navigate('MyHours')}
                     style={styles.headerBtn}
-                    accessibilityLabel="\u041c\u043e\u0438 \u0447\u0430\u0441\u044b"
+                    accessibilityLabel="Мои часы"
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
-                    <Text style={styles.headerBtnText}>\u23f1</Text>
+                    <Text style={styles.headerBtnText}>⏱</Text>
                 </TouchableOpacity>
             ),
         });
@@ -51,21 +103,17 @@ export default function TripListScreen({ navigation }: Props) {
 
     useEffect(() => {
         const fetchTrips = async () => {
-            if (!user) {
-                return;
-            }
-
+            if (!user) return;
             try {
-                const fetchedTrips = await database.collections
+                const fetched = await database.collections
                     .get<Trip>('trips')
                     .query(Q.where('driver_id', user.driverId ?? user.id))
                     .fetch();
-                setTrips(fetchedTrips);
+                setTrips(fetched);
 
-                // Compute overdue trips: any route point whose windowEnd < now and status != completed.
                 const now = Date.now();
                 const overdue = new Set<string>();
-                const tripIds = fetchedTrips.map((t) => t.tripId);
+                const tripIds = fetched.map((t) => t.tripId);
                 if (tripIds.length > 0) {
                     const allPoints = await database.collections
                         .get<RoutePoint>('route_points')
@@ -74,23 +122,19 @@ export default function TripListScreen({ navigation }: Props) {
                     for (const p of allPoints) {
                         if (p.status === 'completed' || p.status === 'skipped') continue;
                         const winEnd = p.windowEnd ? p.windowEnd.getTime() : null;
-                        if (winEnd !== null && winEnd < now) {
-                            overdue.add(p.tripId);
-                        }
+                        if (winEnd !== null && winEnd < now) overdue.add(p.tripId);
                     }
                 }
                 setOverdueTripIds(overdue);
             } catch {
-                Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0441\u043f\u0438\u0441\u043e\u043a \u0440\u0435\u0439\u0441\u043e\u0432.');
+                Alert.alert('Ошибка', 'Не удалось загрузить список рейсов.');
             } finally {
                 setLoading(false);
             }
         };
-
         fetchTrips();
-
-        const subscription = database.collections.get<Trip>('trips').query().observe().subscribe(fetchTrips);
-        return () => subscription.unsubscribe();
+        const sub = database.collections.get<Trip>('trips').query().observe().subscribe(fetchTrips);
+        return () => sub.unsubscribe();
     }, [user]);
 
     const visibleTrips = useMemo(() => {
@@ -100,24 +144,41 @@ export default function TripListScreen({ navigation }: Props) {
     }, [trips, filter]);
 
     const renderTrip = ({ item }: { item: Trip }) => {
-        let stopsCount = 0;
-        try {
-            const parsedRoute = JSON.parse(item.route);
-            stopsCount = Array.isArray(parsedRoute) ? parsedRoute.length : 0;
-        } catch {}
-
+        const route = parseRoute(item.route);
         const isOverdue = overdueTripIds.has(item.tripId) && !COMPLETED_STATUSES.has(item.status);
+        const stage = STAGE_BY_STATUS[item.status] ?? 0;
+        const statusInfo = STATUS_PILL[item.status] ?? { tone: 'neutral' as const, label: item.status };
+        const tripNo = item.tripId.slice(0, 8);
 
         return (
-            <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('TripDetails', { tripId: item.tripId })}>
-                <Text style={styles.title}>{`\u0420\u0435\u0439\u0441 #${item.tripId.slice(0, 8)}`}</Text>
-                <Text style={styles.text}>{`\u0421\u0442\u0430\u0442\u0443\u0441: ${item.status}`}</Text>
-                <Text style={styles.text}>{`\u0422\u043e\u0447\u0435\u043a: ${stopsCount}`}</Text>
-                {isOverdue && (
-                    <View style={styles.overdueChip}>
-                        <Text style={styles.overdueChipText}>\u23f0 \u041f\u0440\u043e\u0441\u0440\u043e\u0447\u0435\u043d\u043e</Text>
+            <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('TripDetails', { tripId: item.tripId })}
+            >
+                <Card style={styles.tripCard}>
+                    <View style={styles.cardHeader}>
+                        <Pill label={statusInfo.label} tone={statusInfo.tone} />
+                        <Text style={styles.tripNumber}>№ {tripNo}</Text>
                     </View>
-                )}
+
+                    <Text style={styles.route} numberOfLines={2}>
+                        {route.from && route.to
+                            ? `${route.from} → ${route.to}`
+                            : `Рейс с ${route.count} точками`}
+                    </Text>
+
+                    <Text style={styles.cargo} numberOfLines={1}>
+                        {`Точек на маршруте: ${route.count}`}
+                    </Text>
+
+                    <ProgressSteps total={5} activeIndex={stage} style={{ marginTop: spacing.md }} />
+
+                    {isOverdue && (
+                        <View style={{ marginTop: spacing.md }}>
+                            <Pill label="⏰ Просрочено" tone="danger" />
+                        </View>
+                    )}
+                </Card>
             </TouchableOpacity>
         );
     };
@@ -125,30 +186,44 @@ export default function TripListScreen({ navigation }: Props) {
     return (
         <View style={styles.container}>
             <View style={styles.filterRow}>
-                {FILTERS.map((f) => (
-                    <TouchableOpacity
-                        key={f.key}
-                        style={[styles.chip, filter === f.key && styles.chipActive]}
-                        onPress={() => setFilter(f.key)}
-                    >
-                        <Text style={[styles.chipText, filter === f.key && styles.chipTextActive]}>
-                            {f.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
+                {FILTERS.map((f) => {
+                    const active = filter === f.key;
+                    return (
+                        <TouchableOpacity
+                            key={f.key}
+                            style={[styles.chip, active && styles.chipActive]}
+                            onPress={() => setFilter(f.key)}
+                            activeOpacity={0.85}
+                        >
+                            <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                                {f.label}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
             </View>
+
             {loading ? (
-                <ActivityIndicator size="large" color="#2563eb" />
+                <ActivityIndicator size="large" color={colors.brand[600]} style={{ marginTop: 40 }} />
             ) : visibleTrips.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>{'\u0420\u0435\u0439\u0441\u043e\u0432 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e'}</Text>
-                </View>
+                <EmptyState
+                    icon="🚚"
+                    title={
+                        filter === 'active'
+                            ? 'Нет активных рейсов'
+                            : filter === 'completed'
+                            ? 'Завершённых рейсов пока нет'
+                            : 'Рейсов не найдено'
+                    }
+                    description="Новые рейсы появятся здесь, как только их назначит диспетчер."
+                />
             ) : (
                 <FlatList
                     data={visibleTrips}
                     keyExtractor={(item) => item.id}
                     renderItem={renderTrip}
-                    contentContainerStyle={{ paddingBottom: 20 }}
+                    contentContainerStyle={{ paddingBottom: spacing.xl, paddingTop: spacing.xs }}
+                    showsVerticalScrollIndicator={false}
                 />
             )}
         </View>
@@ -156,85 +231,51 @@ export default function TripListScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f8fafc',
-        padding: 16,
-    },
-    card: {
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 16,
-        marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-        minHeight: 80,
-    },
-    title: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#0f172a',
-        marginBottom: 8,
-    },
-    text: {
-        fontSize: 14,
-        color: '#475569',
-        marginBottom: 4,
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    emptyText: {
-        fontSize: 16,
-        color: '#64748b',
-    },
+    container: { flex: 1, backgroundColor: colors.neutral[50], padding: spacing.lg },
+    headerBtn: { paddingHorizontal: spacing.sm, paddingVertical: 4 },
+    headerBtnText: { fontSize: 22 },
     filterRow: {
         flexDirection: 'row',
-        gap: 8,
-        marginBottom: 12,
+        gap: spacing.sm,
+        marginBottom: spacing.md,
     },
     chip: {
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 999,
-        backgroundColor: '#e2e8f0',
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        borderRadius: radius.pill,
+        backgroundColor: colors.white,
+        borderWidth: 1,
+        borderColor: colors.neutral[200],
     },
     chipActive: {
-        backgroundColor: '#2563eb',
+        backgroundColor: colors.brand[600],
+        borderColor: colors.brand[600],
     },
     chipText: {
         fontSize: 13,
-        fontWeight: '600',
-        color: '#475569',
-    },
-    chipTextActive: {
-        color: '#fff',
-    },
-    headerBtn: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-    },
-    headerBtnText: {
-        fontSize: 22,
-    },
-    overdueChip: {
-        alignSelf: 'flex-start',
-        marginTop: 8,
-        backgroundColor: '#fee2e2',
-        borderColor: '#fca5a5',
-        borderWidth: 1,
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 999,
-    },
-    overdueChipText: {
-        color: '#b91c1c',
-        fontSize: 12,
         fontWeight: '700',
+        color: colors.neutral[600],
+    },
+    chipTextActive: { color: colors.white },
+    tripCard: { marginBottom: spacing.md },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+    },
+    tripNumber: {
+        ...typography.caption,
+        color: colors.neutral[400],
+        fontWeight: '600',
+    },
+    route: {
+        ...typography.title,
+        color: colors.neutral[900],
+        marginBottom: 4,
+    },
+    cargo: {
+        ...typography.caption,
+        color: colors.neutral[500],
     },
 });

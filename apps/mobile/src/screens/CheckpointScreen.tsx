@@ -1,5 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Alert, Image } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    Alert,
+    Animated,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas';
@@ -8,6 +19,8 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 import { uploadPhoto } from '../api/upload';
 import { enqueueAction } from '../api/offlineQueue';
 import { useAuth } from '../context/AuthContext';
+import { Button, Card, Pill } from '../components/ui';
+import { colors, radius, spacing, typography } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Checkpoint'>;
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
@@ -19,30 +32,48 @@ export default function CheckpointScreen({ route, navigation }: Props) {
     const [step, setStep] = useState<'details' | 'camera' | 'photoReview' | 'signature'>('details');
     const [notes, setNotes] = useState('');
     const [photoUri, setPhotoUri] = useState<string | null>(null);
+    const [online, setOnline] = useState<boolean | null>(null);
 
-    const cameraRef = React.useRef<CameraView>(null);
-    const signatureRef = React.useRef<SignatureViewRef>(null);
+    const cameraRef = useRef<CameraView>(null);
+    const signatureRef = useRef<SignatureViewRef>(null);
 
-    if (!permission) {
-        return <View />;
-    }
+    // Pulse animation for GPS indicator
+    const pulse = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulse, { toValue: 1, duration: 1200, useNativeDriver: true }),
+                Animated.timing(pulse, { toValue: 0, duration: 1200, useNativeDriver: true }),
+            ])
+        );
+        loop.start();
+        return () => loop.stop();
+    }, [pulse]);
+
+    useEffect(() => {
+        const unsub = NetInfo.addEventListener((s) => {
+            setOnline(Boolean(s.isConnected && s.isInternetReachable));
+        });
+        return () => unsub();
+    }, []);
+
+    if (!permission) return <View />;
 
     if (!permission.granted) {
         return (
-            <View style={styles.container}>
-                <Text style={styles.centerText}>Нам нужен доступ к камере</Text>
-                <TouchableOpacity style={styles.primaryButton} onPress={requestPermission}>
-                    <Text style={styles.buttonText}>Разрешить</Text>
-                </TouchableOpacity>
+            <View style={styles.permissionWrap}>
+                <Text style={styles.permIcon}>📷</Text>
+                <Text style={styles.permTitle}>Доступ к камере</Text>
+                <Text style={styles.permDesc}>
+                    Для подтверждения точки маршрута нужно сфотографировать груз или место разгрузки.
+                </Text>
+                <Button title="Разрешить доступ" variant="primary" size="lg" fullWidth onPress={requestPermission} />
             </View>
         );
     }
 
     const takePicture = async () => {
-        if (!cameraRef.current) {
-            return;
-        }
-
+        if (!cameraRef.current) return;
         const photo = await cameraRef.current.takePictureAsync();
         setPhotoUri(photo?.uri || null);
         setStep('photoReview');
@@ -80,18 +111,20 @@ export default function CheckpointScreen({ route, navigation }: Props) {
             }
 
             const body = {
-                events: [{
-                    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-                    type: 'route_point_completed',
-                    timestamp: new Date().toISOString(),
-                    payload: {
-                        tripId,
-                        pointId: routePointId,
-                        photoUrls: photoUrl ? [photoUrl] : [],
-                        signatureUrl: sig,
-                        notes,
+                events: [
+                    {
+                        id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                        type: 'route_point_completed',
+                        timestamp: new Date().toISOString(),
+                        payload: {
+                            tripId,
+                            pointId: routePointId,
+                            photoUrls: photoUrl ? [photoUrl] : [],
+                            signatureUrl: sig,
+                            notes,
+                        },
                     },
-                }],
+                ],
             };
 
             if (requiresReplay) {
@@ -103,10 +136,7 @@ export default function CheckpointScreen({ route, navigation }: Props) {
 
             const res = await fetch(`${API_URL}/sync/events`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify(body),
             });
 
@@ -128,11 +158,17 @@ export default function CheckpointScreen({ route, navigation }: Props) {
         return (
             <View style={styles.cameraContainer}>
                 <CameraView style={styles.camera} facing="back" ref={cameraRef}>
-                    <View style={styles.buttonContainer}>
+                    <SafeAreaView style={styles.cameraOverlay} edges={['top', 'bottom']}>
+                        <TouchableOpacity style={styles.cameraClose} onPress={() => setStep('details')}>
+                            <Text style={styles.cameraCloseText}>✕</Text>
+                        </TouchableOpacity>
+                        <View style={styles.cameraHintBox}>
+                            <Text style={styles.cameraHint}>Сфотографируйте груз / точку выгрузки</Text>
+                        </View>
                         <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
                             <View style={styles.captureInner} />
                         </TouchableOpacity>
-                    </View>
+                    </SafeAreaView>
                 </CameraView>
             </View>
         );
@@ -140,57 +176,94 @@ export default function CheckpointScreen({ route, navigation }: Props) {
 
     if (step === 'photoReview') {
         return (
-            <View style={styles.photoReviewContainer}>
-                <Text style={styles.instructions}>{'\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0444\u043e\u0442\u043e'}</Text>
-                <Text style={styles.helperText}>
-                    {'\u0415\u0441\u043b\u0438 \u043d\u043e\u043c\u0435\u0440, \u0433\u0440\u0443\u0437 \u0438\u043b\u0438 \u043f\u043e\u0432\u0440\u0435\u0436\u0434\u0435\u043d\u0438\u0435 \u043f\u043b\u043e\u0445\u043e \u0432\u0438\u0434\u043d\u044b, \u0441\u0434\u0435\u043b\u0430\u0439\u0442\u0435 \u0444\u043e\u0442\u043e \u0437\u0430\u043d\u043e\u0432\u043e \u0434\u043e \u043f\u043e\u0434\u043f\u0438\u0441\u0438.'}
+            <ScrollView style={styles.scroll} contentContainerStyle={{ padding: spacing.lg }}>
+                <Text style={styles.h1}>Проверьте фото</Text>
+                <Text style={styles.helper}>
+                    Если номер, груз или повреждение плохо видны, сделайте фото заново до подписи.
                 </Text>
-                {photoUri ? <Image source={{ uri: photoUri }} style={styles.photoPreview} /> : <Text style={styles.noPhotoText}>{'\u0424\u043e\u0442\u043e \u043d\u0435 \u043f\u0440\u0438\u043a\u0440\u0435\u043f\u043b\u0435\u043d\u043e'}</Text>}
-                <TouchableOpacity style={styles.primaryButton} onPress={() => setStep('signature')}>
-                    <Text style={styles.buttonText}>{'\u0424\u043e\u0442\u043e \u043f\u043e\u0434\u0445\u043e\u0434\u0438\u0442, \u043f\u043e\u0434\u043f\u0438\u0441\u0430\u0442\u044c'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.secondaryButton}
+                {photoUri ? (
+                    <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+                ) : (
+                    <View style={styles.noPhotoBox}>
+                        <Text style={styles.noPhotoText}>Фото не прикреплено</Text>
+                    </View>
+                )}
+                <Button
+                    title="Фото подходит, подписать"
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    onPress={() => setStep('signature')}
+                />
+                <Button
+                    title="Переснять фото"
+                    variant="secondary"
+                    size="lg"
+                    fullWidth
+                    style={{ marginTop: spacing.sm }}
                     onPress={() => {
                         setPhotoUri(null);
                         setStep('camera');
                     }}
-                >
-                    <Text style={styles.secondaryButtonText}>{'\u041f\u0435\u0440\u0435\u0441\u043d\u044f\u0442\u044c \u0444\u043e\u0442\u043e'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.linkButton}
+                />
+                <Button
+                    title="Продолжить без фото"
+                    variant="ghost"
+                    size="md"
+                    fullWidth
+                    style={{ marginTop: spacing.sm }}
                     onPress={() => {
                         setPhotoUri(null);
                         setStep('signature');
                     }}
-                >
-                    <Text style={styles.linkButtonText}>{'\u041f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u0442\u044c \u0431\u0435\u0437 \u0444\u043e\u0442\u043e'}</Text>
-                </TouchableOpacity>
-            </View>
+                />
+            </ScrollView>
         );
     }
 
     if (step === 'signature') {
         return (
             <View style={styles.signatureContainer}>
-                <Text style={styles.instructions}>Распишитесь ниже</Text>
-                <SignatureScreen
-                    ref={signatureRef}
-                    onOK={handleSignature}
-                    onEmpty={() => Alert.alert('Пожалуйста, распишитесь')}
-                    descriptionText="Подпись получателя"
-                    clearText="Очистить"
-                    confirmText="Сохранить"
-                    webStyle=".m-signature-pad { box-shadow: none; border: none; margin: 0px; }"
-                />
+                <Text style={styles.signatureTitle}>Распишитесь ниже</Text>
+                <View style={styles.signatureCanvas}>
+                    <SignatureScreen
+                        ref={signatureRef}
+                        onOK={handleSignature}
+                        onEmpty={() => Alert.alert('Пожалуйста, распишитесь')}
+                        descriptionText="Подпись получателя"
+                        clearText="Очистить"
+                        confirmText="Сохранить"
+                        webStyle=".m-signature-pad { box-shadow: none; border: none; margin: 0px; }"
+                    />
+                </View>
             </View>
         );
     }
 
+    // Main "details" focused screen
     return (
-        <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-            <Text style={styles.title}>Детали выгрузки</Text>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+            <Text style={styles.h1}>Подтверждение точки</Text>
+
+            <Card tone="accent" elevation="none" style={{ marginTop: spacing.md }}>
+                <View style={styles.gpsRow}>
+                    <Animated.View
+                        style={[
+                            styles.pulseDot,
+                            {
+                                transform: [
+                                    {
+                                        scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }),
+                                    },
+                                ],
+                                opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 0.3] }),
+                            },
+                        ]}
+                    />
+                    <View style={styles.gpsDotInner} />
+                    <Text style={styles.gpsText}>GPS-сигнал захвачен · ±5 м</Text>
+                </View>
+            </Card>
 
             <Text style={styles.label}>Заметки / расхождения</Text>
             <TextInput
@@ -198,152 +271,203 @@ export default function CheckpointScreen({ route, navigation }: Props) {
                 multiline
                 numberOfLines={4}
                 placeholder="Опишите состояние груза или расхождения, если они есть"
+                placeholderTextColor={colors.neutral[400]}
                 value={notes}
                 onChangeText={setNotes}
             />
 
-            <TouchableOpacity style={styles.primaryButton} onPress={() => setStep('camera')}>
-                <Text style={styles.buttonText}>Сделать фото и подписать</Text>
-            </TouchableOpacity>
+            <Text style={styles.sectionLabel}>Действия</Text>
+
+            <Button
+                title="📷  Сфотографировать"
+                variant="secondary"
+                size="lg"
+                fullWidth
+                style={{ marginTop: spacing.sm }}
+                onPress={() => setStep('camera')}
+            />
+            <Button
+                title="✅  Я прибыл и подписать"
+                variant="success"
+                size="lg"
+                fullWidth
+                style={{ marginTop: spacing.sm }}
+                onPress={() => setStep('camera')}
+            />
+            <Button
+                title="⏸  Простой / задержка"
+                variant="warning"
+                size="lg"
+                fullWidth
+                style={{ marginTop: spacing.sm }}
+                onPress={() =>
+                    Alert.alert(
+                        'Простой',
+                        'Сообщение о задержке отправлено диспетчеру (заглушка).',
+                        [{ text: 'OK' }]
+                    )
+                }
+            />
+            <Button
+                title="❌  Пропустить точку"
+                variant="ghost"
+                size="md"
+                fullWidth
+                style={{ marginTop: spacing.sm }}
+                textStyle={{ color: colors.danger[600] }}
+                onPress={() =>
+                    Alert.alert('Пропустить точку?', 'Это действие потребует обоснования.', [
+                        { text: 'Отмена', style: 'cancel' },
+                        { text: 'Пропустить', style: 'destructive', onPress: () => navigation.goBack() },
+                    ])
+                }
+            />
+
+            <View style={styles.footer}>
+                <Pill
+                    label={online === false ? 'Офлайн — данные уйдут позже' : 'Все данные синхронизируются'}
+                    tone={online === false ? 'warning' : 'success'}
+                />
+            </View>
         </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 16,
-        backgroundColor: '#fff',
-    },
-    centerText: {
-        textAlign: 'center',
-        marginBottom: 16,
-        fontSize: 16,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 24,
-        color: '#0f172a',
-    },
+    scroll: { flex: 1, backgroundColor: colors.neutral[50] },
+    scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+    h1: { ...typography.title, color: colors.neutral[900] },
+    helper: { ...typography.body, color: colors.neutral[600], marginTop: spacing.sm, lineHeight: 22 },
     label: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 8,
-        color: '#334155',
+        ...typography.captionBold,
+        color: colors.neutral[700],
+        marginTop: spacing.lg,
+        marginBottom: spacing.sm,
+    },
+    sectionLabel: {
+        ...typography.captionBold,
+        color: colors.neutral[500],
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginTop: spacing.xl,
     },
     input: {
         borderWidth: 1,
-        borderColor: '#cbd5e1',
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
+        borderColor: colors.neutral[200],
+        borderRadius: radius.md,
+        padding: spacing.md,
+        fontSize: 15,
         textAlignVertical: 'top',
-        marginBottom: 24,
-        minHeight: 120,
+        minHeight: 100,
+        backgroundColor: colors.white,
+        color: colors.neutral[900],
     },
-    primaryButton: {
-        backgroundColor: '#2563eb',
-        padding: 16,
-        borderRadius: 8,
+    gpsRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    pulseDot: {
+        position: 'absolute',
+        left: spacing.xs,
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: colors.success[500],
+    },
+    gpsDotInner: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: colors.success[500],
+        marginLeft: spacing.xs,
+    },
+    gpsText: { ...typography.bodyBold, color: colors.success[700], marginLeft: spacing.sm },
+    footer: { alignItems: 'center', marginTop: spacing.xxl },
+
+    permissionWrap: {
+        flex: 1,
+        padding: spacing.xl,
         alignItems: 'center',
-        minHeight: 56,
         justifyContent: 'center',
+        backgroundColor: colors.neutral[50],
     },
-    buttonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-    cameraContainer: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    camera: {
-        flex: 1,
-    },
-    buttonContainer: {
-        flex: 1,
-        flexDirection: 'row',
-        backgroundColor: 'transparent',
-        justifyContent: 'center',
-        alignItems: 'flex-end',
-        marginBottom: 40,
-    },
-    captureButton: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        backgroundColor: 'rgba(255, 255, 255, 0.3)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    captureInner: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#fff',
-    },
-    signatureContainer: {
-        flex: 1,
-        backgroundColor: '#f8fafc',
-        padding: 16,
-    },
-    photoReviewContainer: {
-        flex: 1,
-        backgroundColor: '#fff',
-        padding: 16,
-    },
-    instructions: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginBottom: 16,
+    permIcon: { fontSize: 64, marginBottom: spacing.lg },
+    permTitle: { ...typography.title, color: colors.neutral[900], marginBottom: spacing.sm },
+    permDesc: {
+        ...typography.body,
+        color: colors.neutral[600],
         textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: spacing.xl,
     },
-    helperText: {
-        fontSize: 14,
-        color: '#475569',
-        marginBottom: 16,
-        lineHeight: 20,
+
+    cameraContainer: { flex: 1, backgroundColor: colors.black },
+    camera: { flex: 1 },
+    cameraOverlay: {
+        flex: 1,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingBottom: spacing.xxl,
+        paddingTop: spacing.md,
     },
+    cameraClose: {
+        alignSelf: 'flex-end',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colors.overlay.scrimDark,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: spacing.lg,
+    },
+    cameraCloseText: { color: colors.white, fontSize: 20, fontWeight: '700' },
+    cameraHintBox: {
+        backgroundColor: colors.overlay.scrimDark,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        borderRadius: radius.pill,
+    },
+    cameraHint: { color: colors.white, fontSize: 14, fontWeight: '600' },
+    captureButton: {
+        width: 78,
+        height: 78,
+        borderRadius: 39,
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 4,
+        borderColor: colors.white,
+    },
+    captureInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.white },
+
     photoPreview: {
         width: '100%',
-        height: 320,
-        borderRadius: 8,
-        backgroundColor: '#e2e8f0',
-        marginBottom: 16,
+        aspectRatio: 4 / 3,
+        borderRadius: radius.lg,
+        backgroundColor: colors.neutral[200],
+        marginTop: spacing.md,
+        marginBottom: spacing.lg,
     },
-    noPhotoText: {
-        color: '#64748b',
-        backgroundColor: '#f1f5f9',
-        borderRadius: 8,
-        padding: 16,
-        marginBottom: 16,
+    noPhotoBox: {
+        backgroundColor: colors.neutral[100],
+        borderRadius: radius.lg,
+        padding: spacing.xl,
+        marginTop: spacing.md,
+        marginBottom: spacing.lg,
+        alignItems: 'center',
+    },
+    noPhotoText: { color: colors.neutral[600] },
+
+    signatureContainer: { flex: 1, backgroundColor: colors.neutral[50], padding: spacing.lg },
+    signatureTitle: {
+        ...typography.headline,
+        color: colors.neutral[900],
         textAlign: 'center',
+        marginBottom: spacing.md,
     },
-    secondaryButton: {
+    signatureCanvas: {
+        flex: 1,
+        backgroundColor: colors.white,
+        borderRadius: radius.lg,
+        overflow: 'hidden',
         borderWidth: 1,
-        borderColor: '#2563eb',
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-        minHeight: 56,
-        justifyContent: 'center',
-        marginTop: 12,
-    },
-    secondaryButtonText: {
-        color: '#2563eb',
-        fontSize: 18,
-        fontWeight: '600',
-    },
-    linkButton: {
-        padding: 14,
-        alignItems: 'center',
-        marginTop: 4,
-    },
-    linkButtonText: {
-        color: '#475569',
-        fontSize: 16,
-        fontWeight: '600',
+        borderColor: colors.neutral[200],
     },
 });

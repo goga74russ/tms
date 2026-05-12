@@ -1,5 +1,18 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, ActivityIndicator, Alert, TextInput, Modal, Platform } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Linking,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { Q } from '@nozbe/watermelondb';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -7,9 +20,21 @@ import { database } from '../database';
 import Trip from '../database/models/Trip';
 import RoutePoint from '../database/models/RoutePoint';
 import { getQueueSummary } from '../api/offlineQueue';
-import { completeTrip, getTripById, getTripEta, getTripOperationExceptions, OperationExceptionItem, OperationExceptionSummary, startTrip, TripEtaData, TripSummary } from '../api/trips';
+import {
+    completeTrip,
+    getTripById,
+    getTripEta,
+    getTripOperationExceptions,
+    OperationExceptionItem,
+    OperationExceptionSummary,
+    startTrip,
+    TripEtaData,
+    TripSummary,
+} from '../api/trips';
 import { getTemperatureSummary, TemperatureSummary } from '../api/temperature';
 import { startWialonMock, stopWialonMock } from '../api/wialonMock';
+import { Button, Card, Pill, ProgressSteps } from '../components/ui';
+import { colors, radius, spacing, typography, shadow } from '../theme/tokens';
 
 const WAYBILL_VISIBLE_STATUSES = new Set([
     'waybill_issued',
@@ -21,12 +46,25 @@ const WAYBILL_VISIBLE_STATUSES = new Set([
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripDetails'>;
 
-const routePointStatusLabels: Record<string, string> = {
-    pending: '\u041e\u0436\u0438\u0434\u0430\u0435\u0442',
-    arrived: '\u041f\u0440\u0438\u0431\u044b\u043b',
-    completed: '\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0430',
-    skipped: '\u041f\u0440\u043e\u043f\u0443\u0449\u0435\u043d\u0430',
+const ROUTE_POINT_STATUS: Record<string, { label: string; tone: 'success' | 'brand' | 'warning' | 'neutral' }> = {
+    pending: { label: 'Ожидает', tone: 'neutral' },
+    arrived: { label: 'Прибыл', tone: 'warning' },
+    completed: { label: 'Завершена', tone: 'success' },
+    skipped: { label: 'Пропущена', tone: 'neutral' },
 };
+
+const STAGE_BY_STATUS: Record<string, number> = {
+    assigned: 0,
+    waybill_draft: 1,
+    inspection: 1,
+    waybill_issued: 2,
+    loading: 2,
+    in_transit: 3,
+    completed: 4,
+    billed: 4,
+};
+
+const STAGE_LABELS = ['План', 'Назначен', 'Готов', 'В пути', 'Завершён'];
 
 function formatWindow(fromIso?: string | null, toIso?: string | null): string | null {
     if (!fromIso && !toIso) return null;
@@ -36,22 +74,17 @@ function formatWindow(fromIso?: string | null, toIso?: string | null): string | 
         `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     const fmtDate = (d: Date) =>
         `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const refDate = fromD && !Number.isNaN(fromD.getTime())
-        ? fromD
-        : toD && !Number.isNaN(toD.getTime())
+    const refDate =
+        fromD && !Number.isNaN(fromD.getTime())
+            ? fromD
+            : toD && !Number.isNaN(toD.getTime())
             ? toD
             : null;
     const fromTime = fromD && !Number.isNaN(fromD.getTime()) ? fmtTime(fromD) : '—';
     const toTime = toD && !Number.isNaN(toD.getTime()) ? fmtTime(toD) : '—';
-    const datePart = refDate ? ` (${fmtDate(refDate)})` : '';
-    return `Окно: ${fromTime} – ${toTime}${datePart}`;
+    const datePart = refDate ? ` · ${fmtDate(refDate)}` : '';
+    return `${fromTime} – ${toTime}${datePart}`;
 }
-
-const exceptionSeverityLabels: Record<string, string> = {
-    blocking: '\u0411\u043b\u043e\u043a\u0435\u0440',
-    warning: '\u0420\u0438\u0441\u043a',
-    info: '\u0418\u043d\u0444\u043e',
-};
 
 export default function TripDetailsScreen({ route, navigation }: Props) {
     const { tripId } = route.params;
@@ -80,12 +113,16 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
 
     const fetchData = useCallback(async () => {
         try {
-            const fetchedTrips = await database.collections.get<Trip>('trips').query(Q.where('trip_id', tripId)).fetch();
-            if (fetchedTrips.length > 0) {
-                setTrip(fetchedTrips[0]);
-            }
+            const fetchedTrips = await database.collections
+                .get<Trip>('trips')
+                .query(Q.where('trip_id', tripId))
+                .fetch();
+            if (fetchedTrips.length > 0) setTrip(fetchedTrips[0]);
 
-            const fetchedPoints = await database.collections.get<RoutePoint>('route_points').query(Q.where('trip_id', tripId)).fetch();
+            const fetchedPoints = await database.collections
+                .get<RoutePoint>('route_points')
+                .query(Q.where('trip_id', tripId))
+                .fetch();
             setPoints(fetchedPoints);
 
             const [exceptionData, queueSize, fetchedTripDetail] = await Promise.all([
@@ -100,7 +137,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
 
             const needsColdChain = Boolean(
                 fetchedTripDetail?.coldChainRequired ||
-                fetchedTripDetail?.orders?.some((o) => o.coldChainRequired)
+                    fetchedTripDetail?.orders?.some((o) => o.coldChainRequired)
             );
             if (needsColdChain) {
                 const ts = await getTemperatureSummary(tripId).catch(() => null);
@@ -109,7 +146,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                 setTempSummary(null);
             }
         } catch {
-            Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u0440\u0435\u0439\u0441\u0430.');
+            Alert.alert('Ошибка', 'Не удалось загрузить данные рейса.');
         } finally {
             setLoading(false);
         }
@@ -134,7 +171,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
             setEtaLoaded(true);
         };
         void poll();
-        const handle = setInterval(() => { void poll(); }, 60_000);
+        const handle = setInterval(() => void poll(), 60_000);
         return () => {
             cancelled = true;
             clearInterval(handle);
@@ -152,13 +189,14 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
     const tripStatus = trip?.status;
     const showWaybillButton = !!tripStatus && WAYBILL_VISIBLE_STATUSES.has(tripStatus);
     const showColdChainButton = Boolean(
-        tripDetail?.coldChainRequired ||
-        tripDetail?.orders?.some((o) => o.coldChainRequired)
+        tripDetail?.coldChainRequired || tripDetail?.orders?.some((o) => o.coldChainRequired)
     );
     const tempBreachCount = tempSummary?.breachCount || 0;
     const canStart = tripStatus === 'waybill_issued';
     const allPointsClosed = points.length > 0 && points.every((p) => p.status === 'completed' || p.status === 'skipped');
     const canComplete = tripStatus === 'in_transit' && allPointsClosed;
+
+    const stage = STAGE_BY_STATUS[trip?.status ?? ''] ?? 0;
 
     const openOdometerModal = (mode: 'start' | 'complete') => {
         setOdometerValue('');
@@ -169,17 +207,15 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
     const submitOdometer = async () => {
         const parsed = Number(odometerValue.replace(',', '.'));
         if (!Number.isFinite(parsed) || parsed < 0) {
-            Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', '\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0439 \u043f\u0440\u043e\u0431\u0435\u0433 (\u043a\u043c).');
+            Alert.alert('Ошибка', 'Введите корректный пробег (км).');
             return;
         }
         const mode = odometerModal;
         if (!mode) return;
-
         setActionInFlight(true);
         try {
             if (mode === 'start') {
                 await startTrip(tripId, { odometerStart: parsed });
-                // Best-effort: kick the GPS mock so the dispatcher sees movement.
                 const vehicleId = trip?.vehicleId;
                 if (vehicleId) {
                     try {
@@ -204,9 +240,9 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
             }
             setOdometerModal(null);
             await fetchData();
-            Alert.alert('\u0413\u043e\u0442\u043e\u0432\u043e', mode === 'start' ? '\u0420\u0435\u0439\u0441 \u043d\u0430\u0447\u0430\u0442' : '\u0420\u0435\u0439\u0441 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d');
+            Alert.alert('Готово', mode === 'start' ? 'Рейс начат' : 'Рейс завершён');
         } catch (e: any) {
-            Alert.alert('\u041e\u0448\u0438\u0431\u043a\u0430', e?.message || '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0432\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u044c \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435');
+            Alert.alert('Ошибка', e?.message || 'Не удалось выполнить действие');
         } finally {
             setActionInFlight(false);
         }
@@ -226,240 +262,335 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
             navigation.navigate('TripCompletion', { tripId });
             return;
         }
-
         const reason = completionReason.trim();
         if (reason.length < 6) {
-            Alert.alert(
-                'Нужна причина',
-                'Укажите, почему водитель продолжает или исправляет статус при блокерах.'
-            );
+            Alert.alert('Нужна причина', 'Укажите, почему водитель продолжает или исправляет статус при блокерах.');
             return;
         }
-
-        Alert.alert(
-            'Есть блокеры',
-            'По рейсу есть незакрытые замечания. Продолжить завершение?',
-            [
-                { text: 'Отмена', style: 'cancel' },
-                { text: 'Продолжить', onPress: () => navigation.navigate('TripCompletion', { tripId, correctionReason: reason }) },
-            ]
-        );
+        Alert.alert('Есть блокеры', 'По рейсу есть незакрытые замечания. Продолжить завершение?', [
+            { text: 'Отмена', style: 'cancel' },
+            {
+                text: 'Продолжить',
+                onPress: () => navigation.navigate('TripCompletion', { tripId, correctionReason: reason }),
+            },
+        ]);
     };
 
-    const queueHintParts = [
-        offlineQueueSummary.hasCheckpoint ? 'checkpoint' : null,
-        offlineQueueSummary.hasCompletion ? 'completion' : null,
-        offlineQueueSummary.hasDelivery ? 'delivery' : null,
-        offlineQueueSummary.hasInspection ? 'inspection' : null,
-    ].filter(Boolean);
-
-    const renderException = ({ item }: { item: OperationExceptionItem }) => (
-        <View style={styles.exceptionItem}>
-            <View style={styles.exceptionHeader}>
-                <Text style={[styles.exceptionBadge, item.severity === 'blocking' ? styles.blockingBadge : item.severity === 'warning' ? styles.warningBadge : styles.infoBadge]}>
-                    {exceptionSeverityLabels[item.severity] || item.severity}
-                </Text>
-                <Text style={styles.exceptionType}>{item.type}</Text>
-            </View>
-            <Text style={styles.exceptionTitle}>{item.title}</Text>
-            {!!item.message && <Text style={styles.exceptionMessage}>{item.message}</Text>}
-        </View>
-    );
+    const nextPoint = useMemo(() => points.find((p) => p.status !== 'completed' && p.status !== 'skipped'), [points]);
 
     if (loading) {
-        return <ActivityIndicator style={{ flex: 1 }} size="large" color="#2563eb" />;
+        return (
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={colors.brand[600]} />
+            </View>
+        );
     }
 
     if (!trip) {
         return (
-            <View style={styles.container}>
-                <Text style={styles.error}>{'\u0420\u0435\u0439\u0441 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d'}</Text>
+            <View style={styles.center}>
+                <Text style={styles.error}>Рейс не найден</Text>
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>{`\u041c\u0430\u0440\u0448\u0440\u0443\u0442 #${trip.tripId.slice(0, 8)}`}</Text>
+        <View style={styles.root}>
+            {/* Hero "map" placeholder — solid surface w/ markers; replace w/ react-native-maps when available */}
+            <View style={styles.mapHero}>
+                <View style={styles.mapGrid} pointerEvents="none">
+                    {/* Decorative grid lines to mimic a map */}
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <View key={`h-${i}`} style={[styles.gridLine, { top: `${(i + 1) * 12}%` }]} />
+                    ))}
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <View key={`v-${i}`} style={[styles.gridLineV, { left: `${(i + 1) * 16}%` }]} />
+                    ))}
+                </View>
+                <View style={styles.mapRoute} pointerEvents="none">
+                    <View style={styles.routeDotStart} />
+                    <View style={styles.routeLine} />
+                    <View style={styles.routeDotEnd} />
+                </View>
+                <View style={styles.mapBadge}>
+                    <Text style={styles.mapBadgeText}>
+                        📍 {nextPoint ? `${points.indexOf(nextPoint) + 1} / ${points.length}` : `${points.length} точек`}
+                    </Text>
+                </View>
+            </View>
 
-            <FlatList
-                data={points}
-                keyExtractor={(item) => item.id}
-                ListHeaderComponent={(
-                    <View>
-                    {tripStatus === 'in_transit' && etaLoaded && (
-                        eta ? (
-                            <View style={styles.etaCard}>
-                                <Text style={styles.etaTitle}>{`До следующей точки: ~${Math.max(0, Math.round((new Date(eta.etaIso).getTime() - Date.now()) / 60000))}мин`}</Text>
-                                <Text style={styles.etaLine}>{`Прибытие: ${(() => { const d = new Date(eta.etaIso); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; })()}`}</Text>
-                                <Text style={styles.etaLine}>{`Расстояние: ${eta.distanceKm.toFixed(1)} км`}</Text>
-                            </View>
-                        ) : (
-                            <View style={styles.etaCardMuted}>
-                                <Text style={styles.etaMutedText}>{'ETA: нет GPS-данных'}</Text>
-                            </View>
-                        )
-                    )}
-                    <View style={styles.cockpitCard}>
-                        <View style={styles.cockpitHeader}>
-                            <View>
-                                <Text style={styles.cockpitTitle}>Контроль рейса</Text>
-                                <Text style={styles.cockpitSubtitle}>
-                                    {canCompleteTrip ? 'Блокеров нет' : 'Есть блокеры перед закрытием'}
-                                </Text>
-                            </View>
-                            {offlineQueueSummary.size > 0 && (
-                                <Text style={styles.queueBadge}>{`Офлайн: ${offlineQueueSummary.size}`}</Text>
-                            )}
-                        </View>
-                        <View style={styles.summaryRow}>
-                            <View style={styles.summaryCell}>
-                                <Text style={styles.summaryValue}>{exceptionSummary?.blocking || 0}</Text>
-                                <Text style={styles.summaryLabel}>Блокеры</Text>
-                            </View>
-                            <View style={styles.summaryCell}>
-                                <Text style={styles.summaryValue}>{exceptionSummary?.warning || 0}</Text>
-                                <Text style={styles.summaryLabel}>Риски</Text>
-                            </View>
-                            <View style={styles.summaryCell}>
-                                <Text style={styles.summaryValue}>{exceptionSummary?.info || 0}</Text>
-                                <Text style={styles.summaryLabel}>Инфо</Text>
-                            </View>
-                        </View>
-                        {exceptions.length > 0 ? (
-                            <FlatList
-                                data={exceptions.slice(0, 3)}
-                                keyExtractor={(item) => item.id}
-                                renderItem={renderException}
-                                scrollEnabled={false}
-                            />
-                        ) : (
-                            <Text style={styles.emptyExceptions}>Нет открытых замечаний по рейсу</Text>
-                        )}
-                        {offlineQueueSummary.size > 0 && (
-                            <View style={styles.queueHint}>
-                                <Text style={styles.queueHintTitle}>Очередь офлайн-отправки</Text>
-                                <Text style={styles.queueHintText}>
-                                    {`В очереди ${offlineQueueSummary.size}. ${queueHintParts.length ? `Типы: ${queueHintParts.join(', ')}. ` : ''}Дубли и конфликты при replay считаются безопасной повторной отправкой; не удаляйте локальные данные до синхронизации.`}
-                                </Text>
-                                {offlineQueueSummary.hasRetries && (
-                                    <Text style={styles.queueRetryText}>Есть повторные попытки: проверьте связь и LAN API.</Text>
-                                )}
-                            </View>
-                        )}
-                        {requiresCompletionReason && (
-                            <View style={styles.reasonBox}>
-                                <Text style={styles.reasonLabel}>Причина продолжения / коррекции</Text>
-                                <TextInput
-                                    style={styles.reasonInput}
-                                    value={completionReason}
-                                    onChangeText={setCompletionReason}
-                                    placeholder="Например: документы у диспетчера, нужно закрыть рейс"
-                                    multiline
-                                    numberOfLines={3}
-                                />
-                                <Text style={styles.reasonHint}>Причина пойдет в event payload для audit/replay.</Text>
-                            </View>
-                        )}
-                    </View>
-                    </View>
-                )}
-                renderItem={({ item, index }) => {
-                    const apiWin = windowsByPointId.get(item.routePointId);
-                    const fromIso = apiWin?.from ?? (item.windowStart ? item.windowStart.toISOString() : null);
-                    const toIso = apiWin?.to ?? (item.windowEnd ? item.windowEnd.toISOString() : null);
-                    const windowLabel = formatWindow(fromIso, toIso);
-                    const toMs = toIso ? new Date(toIso).getTime() : null;
-                    const isOverdue =
-                        toMs !== null &&
-                        !Number.isNaN(toMs) &&
-                        toMs < Date.now() &&
-                        item.status !== 'completed' &&
-                        item.status !== 'skipped';
-
-                    return (
-                    <View style={[styles.pointCard, isOverdue && styles.pointCardOverdue]}>
-                        <View style={styles.pointHeader}>
-                            <Text style={styles.pointTitle}>
-                                {`${index + 1}. ${item.type === 'loading' ? '\u041f\u043e\u0433\u0440\u0443\u0437\u043a\u0430' : '\u0412\u044b\u0433\u0440\u0443\u0437\u043a\u0430'}`}
-                            </Text>
-                            <Text style={styles.statusBadge}>{routePointStatusLabels[item.status] ?? item.status}</Text>
-                        </View>
-                        <Text style={styles.address}>{item.address}</Text>
-                        {windowLabel && (
-                            <View style={styles.windowRow}>
-                                <Text style={[styles.windowText, isOverdue && styles.windowTextOverdue]}>
-                                    {isOverdue ? `\u26a0 ${windowLabel} \u2014 \u043f\u0440\u043e\u0441\u0440\u043e\u0447\u0435\u043d\u043e` : windowLabel}
-                                </Text>
-                            </View>
-                        )}
-
-                        <View style={styles.actionsRow}>
-                            <TouchableOpacity style={styles.navButton} onPress={() => openNavigation(item.address)}>
-                                <Text style={styles.navButtonText}>{'\u041d\u0430\u0432\u0438\u0433\u0430\u0442\u043e\u0440'}</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.actionButton, item.status === 'completed' && styles.disabledButton]}
-                                onPress={() => navigation.navigate('Checkpoint', { tripId: trip.tripId, routePointId: item.routePointId })}
-                                disabled={item.status === 'completed'}
-                            >
-                                <Text style={styles.actionButtonText}>
-                                    {item.status === 'completed' ? '\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u043e' : '\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044c'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                    );
-                }}
-            />
-
-            {showWaybillButton && (
-                <TouchableOpacity
-                    style={styles.waybillButton}
-                    onPress={() => navigation.navigate('MyWaybill', { tripId })}
-                >
-                    <Text style={styles.waybillButtonText}>\u041f\u0443\u0442\u0435\u0432\u043e\u0439 \u043b\u0438\u0441\u0442</Text>
-                </TouchableOpacity>
-            )}
-
-            {showColdChainButton && (
-                <TouchableOpacity
-                    style={styles.coldChainButton}
-                    onPress={() => navigation.navigate('TemperatureLog', { tripId })}
-                >
-                    <Text style={styles.coldChainButtonText}>{'\ud83c\udf21 \u0422\u0435\u043c\u043f\u0435\u0440\u0430\u0442\u0443\u0440\u0430'}</Text>
-                    {tempBreachCount > 0 && (
-                        <Text style={styles.coldChainBreachBadge}>{`\u26a0 ${tempBreachCount}`}</Text>
-                    )}
-                </TouchableOpacity>
-            )}
-
-            {canStart && (
-                <TouchableOpacity
-                    style={styles.startTripButton}
-                    onPress={() => openOdometerModal('start')}
-                >
-                    <Text style={styles.completeTripText}>{'\ud83d\ude80 \u041d\u0430\u0447\u0430\u0442\u044c \u0440\u0435\u0439\u0441'}</Text>
-                </TouchableOpacity>
-            )}
-
-            {canComplete && (
-                <TouchableOpacity
-                    style={styles.finishTripButton}
-                    onPress={() => openOdometerModal('complete')}
-                >
-                    <Text style={styles.completeTripText}>{'\ud83c\udfc1 \u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u0440\u0435\u0439\u0441'}</Text>
-                </TouchableOpacity>
-            )}
-
-            <TouchableOpacity
-                style={[styles.completeTripButton, !canCompleteTrip && styles.completeTripButtonWarning, !canSubmitCompletion && styles.disabledButton]}
-                onPress={markCompleted}
-                disabled={!canSubmitCompletion}
+            <ScrollView
+                style={styles.sheetScroll}
+                contentContainerStyle={styles.sheetContent}
+                showsVerticalScrollIndicator={false}
             >
-                <Text style={styles.completeTripText}>{'\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u0440\u0435\u0439\u0441 (\u043b\u0435\u0433\u0430\u0441\u0438)'}</Text>
-            </TouchableOpacity>
+                <View style={styles.handle} />
+
+                <View style={styles.headerRow}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.tripTitle}>Маршрут № {trip.tripId.slice(0, 8)}</Text>
+                        <Text style={styles.tripSub}>
+                            {points.length > 0
+                                ? `${points.length} ${points.length === 1 ? 'точка' : 'точек'} · ${trip.status}`
+                                : trip.status}
+                        </Text>
+                    </View>
+                    {offlineQueueSummary.size > 0 && (
+                        <Pill label={`Офлайн ${offlineQueueSummary.size}`} tone="warning" />
+                    )}
+                </View>
+
+                <ProgressSteps total={5} activeIndex={stage} labels={STAGE_LABELS} style={{ marginTop: spacing.md }} />
+
+                {tripStatus === 'in_transit' && etaLoaded && (
+                    <Card style={{ marginTop: spacing.lg }} tone="accent" elevation="none">
+                        {eta ? (
+                            <>
+                                <Text style={styles.etaTitle}>
+                                    До следующей точки ~ {Math.max(0, Math.round((new Date(eta.etaIso).getTime() - Date.now()) / 60000))} мин
+                                </Text>
+                                <Text style={styles.etaLine}>
+                                    Прибытие: {(() => {
+                                        const d = new Date(eta.etaIso);
+                                        return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                                    })()} · {eta.distanceKm.toFixed(1)} км
+                                </Text>
+                            </>
+                        ) : (
+                            <Text style={styles.etaMuted}>ETA: нет GPS-данных</Text>
+                        )}
+                    </Card>
+                )}
+
+                {nextPoint && (
+                    <Card style={{ marginTop: spacing.md }}>
+                        <Text style={styles.sectionLabel}>Следующая точка</Text>
+                        <Text style={styles.nextPointName}>
+                            {nextPoint.type === 'loading' ? 'Подъехать к точке погрузки' : 'Доставка'}
+                        </Text>
+                        <Text style={styles.nextPointAddr}>{nextPoint.address}</Text>
+                        <Button
+                            title="Открыть в навигаторе"
+                            variant="secondary"
+                            size="md"
+                            onPress={() => openNavigation(nextPoint.address)}
+                            style={{ marginTop: spacing.md }}
+                            fullWidth
+                        />
+                    </Card>
+                )}
+
+                {/* Cockpit summary */}
+                <Card style={{ marginTop: spacing.md }}>
+                    <View style={styles.cockpitHeader}>
+                        <Text style={styles.cockpitTitle}>Контроль рейса</Text>
+                        <Text style={styles.cockpitSub}>
+                            {canCompleteTrip ? 'Блокеров нет' : 'Есть блокеры перед закрытием'}
+                        </Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                        <View style={styles.summaryCell}>
+                            <Text style={[styles.summaryValue, (exceptionSummary?.blocking || 0) > 0 && { color: colors.danger[600] }]}>
+                                {exceptionSummary?.blocking || 0}
+                            </Text>
+                            <Text style={styles.summaryLabel}>Блокеры</Text>
+                        </View>
+                        <View style={styles.summaryCell}>
+                            <Text style={[styles.summaryValue, (exceptionSummary?.warning || 0) > 0 && { color: colors.warning[600] }]}>
+                                {exceptionSummary?.warning || 0}
+                            </Text>
+                            <Text style={styles.summaryLabel}>Риски</Text>
+                        </View>
+                        <View style={styles.summaryCell}>
+                            <Text style={styles.summaryValue}>{exceptionSummary?.info || 0}</Text>
+                            <Text style={styles.summaryLabel}>Инфо</Text>
+                        </View>
+                    </View>
+
+                    {exceptions.length > 0 ? (
+                        exceptions.slice(0, 3).map((item) => (
+                            <View key={item.id} style={styles.exceptionItem}>
+                                <View style={styles.exceptionHeader}>
+                                    <Pill
+                                        label={
+                                            item.severity === 'blocking'
+                                                ? 'Блокер'
+                                                : item.severity === 'warning'
+                                                ? 'Риск'
+                                                : 'Инфо'
+                                        }
+                                        tone={
+                                            item.severity === 'blocking'
+                                                ? 'danger'
+                                                : item.severity === 'warning'
+                                                ? 'warning'
+                                                : 'info'
+                                        }
+                                    />
+                                    <Text style={styles.exceptionType}>{item.type}</Text>
+                                </View>
+                                <Text style={styles.exceptionTitle}>{item.title}</Text>
+                                {!!item.message && <Text style={styles.exceptionMessage}>{item.message}</Text>}
+                            </View>
+                        ))
+                    ) : (
+                        <View style={styles.cleanBox}>
+                            <Text style={styles.cleanText}>✓ Нет открытых замечаний</Text>
+                        </View>
+                    )}
+
+                    {requiresCompletionReason && (
+                        <View style={styles.reasonBox}>
+                            <Text style={styles.reasonLabel}>Причина продолжения / коррекции</Text>
+                            <TextInput
+                                style={styles.reasonInput}
+                                value={completionReason}
+                                onChangeText={setCompletionReason}
+                                placeholder="Например: документы у диспетчера"
+                                placeholderTextColor={colors.neutral[400]}
+                                multiline
+                                numberOfLines={3}
+                            />
+                            <Text style={styles.reasonHint}>Причина пойдёт в audit/replay payload.</Text>
+                        </View>
+                    )}
+                </Card>
+
+                {/* Cold-chain mini-card */}
+                {showColdChainButton && (
+                    <TouchableOpacity activeOpacity={0.85} onPress={() => navigation.navigate('TemperatureLog', { tripId })}>
+                        <Card style={{ marginTop: spacing.md, backgroundColor: '#ecfeff', borderColor: '#a5f3fc' }}>
+                            <View style={styles.coldRow}>
+                                <Text style={styles.coldIcon}>🌡</Text>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.coldTitle}>Холодовая цепь</Text>
+                                    <Text style={styles.coldSub}>
+                                        {tempBreachCount > 0
+                                            ? `⚠ Нарушений: ${tempBreachCount}`
+                                            : 'Замеры в норме'}
+                                    </Text>
+                                </View>
+                                <Text style={styles.chevron}>›</Text>
+                            </View>
+                        </Card>
+                    </TouchableOpacity>
+                )}
+
+                {/* Route points list */}
+                <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>Точки маршрута</Text>
+                <FlatList
+                    data={points}
+                    keyExtractor={(item) => item.id}
+                    scrollEnabled={false}
+                    renderItem={({ item, index }) => {
+                        const apiWin = windowsByPointId.get(item.routePointId);
+                        const fromIso = apiWin?.from ?? (item.windowStart ? item.windowStart.toISOString() : null);
+                        const toIso = apiWin?.to ?? (item.windowEnd ? item.windowEnd.toISOString() : null);
+                        const windowLabel = formatWindow(fromIso, toIso);
+                        const toMs = toIso ? new Date(toIso).getTime() : null;
+                        const isOverdue =
+                            toMs !== null &&
+                            !Number.isNaN(toMs) &&
+                            toMs < Date.now() &&
+                            item.status !== 'completed' &&
+                            item.status !== 'skipped';
+
+                        const ps = ROUTE_POINT_STATUS[item.status] ?? { label: item.status, tone: 'neutral' as const };
+
+                        return (
+                            <Card
+                                style={[
+                                    { marginTop: spacing.sm },
+                                    isOverdue ? styles.overdueCard : null,
+                                ]}
+                            >
+                                <View style={styles.pointHeader}>
+                                    <Text style={styles.pointTitle}>
+                                        {`${index + 1}. ${item.type === 'loading' ? 'Погрузка' : 'Выгрузка'}`}
+                                    </Text>
+                                    <Pill label={ps.label} tone={ps.tone} />
+                                </View>
+                                <Text style={styles.address}>{item.address}</Text>
+                                {windowLabel && (
+                                    <View style={{ marginTop: 4 }}>
+                                        <Pill
+                                            label={isOverdue ? `⚠ ${windowLabel}` : `🕒 ${windowLabel}`}
+                                            tone={isOverdue ? 'danger' : 'neutral'}
+                                        />
+                                    </View>
+                                )}
+                                <View style={styles.pointActions}>
+                                    <Button
+                                        title="Навигатор"
+                                        variant="secondary"
+                                        size="md"
+                                        onPress={() => openNavigation(item.address)}
+                                        style={{ flex: 1 }}
+                                    />
+                                    <Button
+                                        title={item.status === 'completed' ? 'Готово' : 'Подтвердить'}
+                                        variant="primary"
+                                        size="md"
+                                        disabled={item.status === 'completed'}
+                                        onPress={() =>
+                                            navigation.navigate('Checkpoint', {
+                                                tripId: trip.tripId,
+                                                routePointId: item.routePointId,
+                                            })
+                                        }
+                                        style={{ flex: 1 }}
+                                    />
+                                </View>
+                            </Card>
+                        );
+                    }}
+                />
+
+                {showWaybillButton && (
+                    <Button
+                        title="📄 Путевой лист"
+                        variant="secondary"
+                        size="lg"
+                        fullWidth
+                        onPress={() => navigation.navigate('MyWaybill', { tripId })}
+                        style={{ marginTop: spacing.lg }}
+                    />
+                )}
+
+                <View style={{ height: spacing.xxxl }} />
+            </ScrollView>
+
+            {/* Sticky bottom action bar */}
+            <View style={styles.stickyBar}>
+                {canStart && (
+                    <Button
+                        title="🚀 Начать рейс"
+                        variant="primary"
+                        size="lg"
+                        fullWidth
+                        onPress={() => openOdometerModal('start')}
+                    />
+                )}
+                {canComplete && (
+                    <Button
+                        title="🏁 Завершить рейс"
+                        variant="success"
+                        size="lg"
+                        fullWidth
+                        onPress={() => openOdometerModal('complete')}
+                    />
+                )}
+                {!canStart && !canComplete && (
+                    <Button
+                        title="Завершить рейс (легаси)"
+                        variant={canCompleteTrip ? 'success' : 'warning'}
+                        size="lg"
+                        fullWidth
+                        disabled={!canSubmitCompletion}
+                        onPress={markCompleted}
+                    />
+                )}
+            </View>
 
             <Modal
                 visible={odometerModal !== null}
@@ -470,53 +601,48 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                 <View style={styles.modalBackdrop}>
                     <View style={styles.modalCard}>
                         <Text style={styles.modalTitle}>
-                            {odometerModal === 'start' ? '\u041d\u0430\u0447\u0430\u043b\u043e \u0440\u0435\u0439\u0441\u0430' : '\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0438\u0435 \u0440\u0435\u0439\u0441\u0430'}
+                            {odometerModal === 'start' ? 'Начало рейса' : 'Завершение рейса'}
                         </Text>
                         <Text style={styles.modalLabel}>
-                            {odometerModal === 'start' ? '\u0421\u0442\u0430\u0440\u0442\u043e\u0432\u044b\u0439 \u043e\u0434\u043e\u043c\u0435\u0442\u0440 (\u043a\u043c)' : '\u0424\u0438\u043d\u0430\u043b\u044c\u043d\u044b\u0439 \u043e\u0434\u043e\u043c\u0435\u0442\u0440 (\u043a\u043c)'}
+                            {odometerModal === 'start' ? 'Стартовый одометр (км)' : 'Финальный одометр (км)'}
                         </Text>
                         <TextInput
                             style={styles.modalInput}
                             value={odometerValue}
                             onChangeText={setOdometerValue}
                             placeholder="123456"
+                            placeholderTextColor={colors.neutral[400]}
                             keyboardType={Platform.OS === 'ios' ? 'decimal-pad' : 'numeric'}
                             editable={!actionInFlight}
                         />
                         {odometerModal === 'complete' && (
                             <>
-                                <Text style={styles.modalLabel}>\u0417\u0430\u043c\u0435\u0442\u043a\u0438</Text>
+                                <Text style={styles.modalLabel}>Заметки</Text>
                                 <TextInput
                                     style={[styles.modalInput, styles.modalNotes]}
                                     value={completionNotes}
                                     onChangeText={setCompletionNotes}
-                                    placeholder="\u041d\u0435\u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u044c\u043d\u043e"
+                                    placeholder="Необязательно"
+                                    placeholderTextColor={colors.neutral[400]}
                                     multiline
                                     editable={!actionInFlight}
                                 />
                             </>
                         )}
                         <View style={styles.modalActions}>
-                            <TouchableOpacity
-                                style={[styles.modalCancelBtn, actionInFlight && styles.disabledButton]}
+                            <Button
+                                title="Отмена"
+                                variant="ghost"
                                 onPress={() => setOdometerModal(null)}
                                 disabled={actionInFlight}
-                            >
-                                <Text style={styles.modalCancelText}>\u041e\u0442\u043c\u0435\u043d\u0430</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.modalSubmitBtn, actionInFlight && styles.disabledButton]}
+                            />
+                            <Button
+                                title={odometerModal === 'start' ? 'Начать' : 'Завершить'}
+                                variant={odometerModal === 'start' ? 'primary' : 'success'}
+                                size="md"
                                 onPress={submitOdometer}
-                                disabled={actionInFlight}
-                            >
-                                {actionInFlight ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.modalSubmitText}>
-                                        {odometerModal === 'start' ? '\u041d\u0430\u0447\u0430\u0442\u044c' : '\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c'}
-                                    </Text>
-                                )}
-                            </TouchableOpacity>
+                                isLoading={actionInFlight}
+                            />
                         </View>
                     </View>
                 </View>
@@ -526,389 +652,229 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 16,
-        backgroundColor: '#f8fafc',
-    },
-    title: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 16,
-        color: '#0f172a',
-    },
-    error: {
-        fontSize: 16,
-        color: '#ef4444',
-        textAlign: 'center',
-        marginTop: 20,
-    },
-    etaCard: {
-        backgroundColor: '#ecfeff',
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: '#a5f3fc',
-    },
-    etaTitle: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#0e7490',
-        marginBottom: 4,
-    },
-    etaLine: {
-        fontSize: 13,
-        color: '#155e75',
-        marginTop: 2,
-    },
-    etaCardMuted: {
-        backgroundColor: '#f1f5f9',
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-    },
-    etaMutedText: {
-        fontSize: 13,
-        color: '#94a3b8',
-        fontStyle: 'italic',
-    },
-    cockpitCard: {
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 16,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-    },
-    cockpitHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 12,
-    },
-    cockpitTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#0f172a',
-    },
-    cockpitSubtitle: {
-        fontSize: 13,
-        color: '#64748b',
-        marginTop: 2,
-    },
-    queueBadge: {
-        fontSize: 12,
-        color: '#92400e',
-        backgroundColor: '#fef3c7',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
+    root: { flex: 1, backgroundColor: colors.neutral[50] },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.neutral[50] },
+    error: { fontSize: 16, color: colors.danger[600] },
+
+    // Map hero
+    mapHero: {
+        height: '36%',
+        backgroundColor: '#dbe5f1',
         overflow: 'hidden',
     },
-    summaryRow: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 12,
+    mapGrid: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: '#e8eef7',
     },
+    gridLine: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        height: 1,
+        backgroundColor: '#cfd8e8',
+    },
+    gridLineV: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        width: 1,
+        backgroundColor: '#cfd8e8',
+    },
+    mapRoute: {
+        ...StyleSheet.absoluteFillObject,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 60,
+    },
+    routeDotStart: {
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        backgroundColor: colors.brand[600],
+        borderWidth: 3,
+        borderColor: colors.white,
+    },
+    routeDotEnd: {
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        backgroundColor: colors.success[600],
+        borderWidth: 3,
+        borderColor: colors.white,
+    },
+    routeLine: {
+        flex: 1,
+        height: 3,
+        backgroundColor: colors.brand[600],
+        opacity: 0.7,
+    },
+    mapBadge: {
+        position: 'absolute',
+        top: spacing.md,
+        right: spacing.md,
+        backgroundColor: colors.white,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 6,
+        borderRadius: radius.pill,
+        ...shadow.sm,
+    },
+    mapBadgeText: { fontSize: 13, fontWeight: '700', color: colors.neutral[900] },
+
+    // Sheet
+    sheetScroll: {
+        flex: 1,
+        marginTop: -spacing.xl,
+        backgroundColor: colors.white,
+        borderTopLeftRadius: radius.xl,
+        borderTopRightRadius: radius.xl,
+        ...shadow.lg,
+    },
+    sheetContent: { padding: spacing.lg, paddingTop: 0, paddingBottom: 100 },
+    handle: {
+        alignSelf: 'center',
+        width: 44,
+        height: 5,
+        borderRadius: 3,
+        backgroundColor: colors.neutral[300],
+        marginTop: spacing.sm,
+        marginBottom: spacing.md,
+    },
+    headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    tripTitle: { ...typography.title, color: colors.neutral[900] },
+    tripSub: { ...typography.caption, color: colors.neutral[500], marginTop: 2 },
+
+    etaTitle: { fontSize: 15, fontWeight: '700', color: colors.brand[700] },
+    etaLine: { fontSize: 13, color: colors.brand[700], marginTop: 2 },
+    etaMuted: { fontSize: 13, color: colors.neutral[500], fontStyle: 'italic' },
+
+    sectionLabel: {
+        ...typography.captionBold,
+        color: colors.neutral[500],
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: spacing.sm,
+    },
+    nextPointName: { ...typography.headline, color: colors.neutral[900], marginTop: 4 },
+    nextPointAddr: { ...typography.body, color: colors.neutral[600], marginTop: 4, lineHeight: 22 },
+
+    cockpitHeader: { marginBottom: spacing.md },
+    cockpitTitle: { ...typography.bodyBold, color: colors.neutral[900] },
+    cockpitSub: { ...typography.caption, color: colors.neutral[500], marginTop: 2 },
+    summaryRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
     summaryCell: {
         flex: 1,
-        backgroundColor: '#f8fafc',
-        borderRadius: 8,
-        paddingVertical: 10,
+        backgroundColor: colors.neutral[50],
+        borderRadius: radius.md,
+        paddingVertical: spacing.md,
         alignItems: 'center',
     },
-    summaryValue: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#0f172a',
-    },
-    summaryLabel: {
-        fontSize: 11,
-        color: '#64748b',
-        marginTop: 2,
-    },
+    summaryValue: { fontSize: 22, fontWeight: '700', color: colors.neutral[900] },
+    summaryLabel: { fontSize: 11, color: colors.neutral[500], marginTop: 2 },
     exceptionItem: {
         borderTopWidth: 1,
-        borderTopColor: '#e2e8f0',
-        paddingTop: 10,
-        marginTop: 10,
+        borderTopColor: colors.neutral[100],
+        paddingTop: spacing.sm,
+        marginTop: spacing.sm,
     },
-    exceptionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 4,
+    exceptionHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+    exceptionType: { fontSize: 11, color: colors.neutral[400] },
+    exceptionTitle: { fontSize: 14, fontWeight: '700', color: colors.neutral[900] },
+    exceptionMessage: { fontSize: 12, color: colors.neutral[600], marginTop: 2 },
+    cleanBox: {
+        backgroundColor: colors.success[50],
+        borderRadius: radius.md,
+        padding: spacing.md,
     },
-    exceptionBadge: {
-        fontSize: 11,
-        fontWeight: '700',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 10,
-        overflow: 'hidden',
-    },
-    blockingBadge: {
-        color: '#b91c1c',
-        backgroundColor: '#fee2e2',
-    },
-    warningBadge: {
-        color: '#92400e',
-        backgroundColor: '#fef3c7',
-    },
-    infoBadge: {
-        color: '#1d4ed8',
-        backgroundColor: '#dbeafe',
-    },
-    exceptionType: {
-        fontSize: 11,
-        color: '#94a3b8',
-    },
-    exceptionTitle: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#0f172a',
-    },
-    exceptionMessage: {
-        fontSize: 12,
-        color: '#475569',
-        marginTop: 2,
-    },
-    emptyExceptions: {
-        fontSize: 13,
-        color: '#16a34a',
-        backgroundColor: '#dcfce7',
-        padding: 10,
-        borderRadius: 8,
-        overflow: 'hidden',
-    },
-    queueHint: {
-        backgroundColor: '#fffbeb',
-        borderColor: '#fde68a',
-        borderWidth: 1,
-        borderRadius: 8,
-        padding: 12,
-        marginTop: 12,
-    },
-    queueHintTitle: {
-        color: '#92400e',
-        fontSize: 13,
-        fontWeight: '700',
-        marginBottom: 4,
-    },
-    queueHintText: {
-        color: '#78350f',
-        fontSize: 12,
-        lineHeight: 17,
-    },
-    queueRetryText: {
-        color: '#b45309',
-        fontSize: 12,
-        fontWeight: '700',
-        marginTop: 6,
-    },
+    cleanText: { color: colors.success[700], fontSize: 13, fontWeight: '600' },
+
     reasonBox: {
-        marginTop: 12,
+        marginTop: spacing.md,
         borderTopWidth: 1,
-        borderTopColor: '#e2e8f0',
-        paddingTop: 12,
+        borderTopColor: colors.neutral[100],
+        paddingTop: spacing.md,
     },
     reasonLabel: {
-        color: '#0f172a',
+        color: colors.neutral[900],
         fontSize: 13,
         fontWeight: '700',
         marginBottom: 6,
     },
     reasonInput: {
         borderWidth: 1,
-        borderColor: '#cbd5e1',
-        borderRadius: 8,
-        padding: 10,
-        minHeight: 76,
+        borderColor: colors.neutral[200],
+        borderRadius: radius.md,
+        padding: spacing.md,
+        minHeight: 80,
         fontSize: 14,
-        color: '#0f172a',
+        color: colors.neutral[900],
         textAlignVertical: 'top',
-        backgroundColor: '#fff',
+        backgroundColor: colors.neutral[50],
     },
-    reasonHint: {
-        color: '#64748b',
-        fontSize: 12,
-        marginTop: 6,
-    },
-    pointCard: {
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 16,
-        marginBottom: 16,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        shadowOffset: { width: 0, height: 1 },
-    },
-    pointCardOverdue: {
-        borderWidth: 2,
-        borderColor: '#dc2626',
-    },
-    windowRow: {
-        marginBottom: 12,
-    },
-    windowText: {
-        fontSize: 13,
-        color: '#475569',
-        fontWeight: '600',
-    },
-    windowTextOverdue: {
-        color: '#b91c1c',
-        fontWeight: '700',
-    },
+    reasonHint: { color: colors.neutral[500], fontSize: 12, marginTop: 6 },
+
+    coldRow: { flexDirection: 'row', alignItems: 'center' },
+    coldIcon: { fontSize: 28, marginRight: spacing.md },
+    coldTitle: { ...typography.bodyBold, color: colors.neutral[900] },
+    coldSub: { fontSize: 13, color: colors.neutral[600], marginTop: 2 },
+    chevron: { fontSize: 24, color: colors.neutral[400] },
+
+    overdueCard: { borderColor: colors.danger[500], borderWidth: 1.5 },
     pointHeader: {
         flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 8,
+        marginBottom: 4,
     },
-    pointTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#0f172a',
+    pointTitle: { ...typography.bodyBold, color: colors.neutral[900] },
+    address: { fontSize: 14, color: colors.neutral[600], marginTop: 4, lineHeight: 20 },
+    pointActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+
+    stickyBar: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        padding: spacing.lg,
+        paddingBottom: spacing.xl,
+        backgroundColor: colors.white,
+        borderTopWidth: 1,
+        borderTopColor: colors.neutral[100],
     },
-    statusBadge: {
-        fontSize: 12,
-        color: '#059669',
-        backgroundColor: '#d1fae5',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    address: {
-        fontSize: 14,
-        color: '#475569',
-        marginBottom: 16,
-    },
-    actionsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    navButton: {
-        backgroundColor: '#cbd5e1',
-        padding: 12,
-        borderRadius: 8,
-        flex: 1,
-        marginRight: 8,
-        alignItems: 'center',
-    },
-    navButtonText: {
-        color: '#0f172a',
-        fontWeight: '600',
-    },
-    actionButton: {
-        backgroundColor: '#2563eb',
-        padding: 12,
-        borderRadius: 8,
-        flex: 1,
-        marginLeft: 8,
-        alignItems: 'center',
-    },
-    disabledButton: {
-        backgroundColor: '#94a3b8',
-    },
-    actionButtonText: {
-        color: '#fff',
-        fontWeight: '600',
-    },
-    completeTripButton: {
-        backgroundColor: '#10b981',
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 16,
-    },
-    completeTripButtonWarning: {
-        backgroundColor: '#f59e0b',
-    },
-    completeTripText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    waybillButton: {
-        backgroundColor: '#0f172a',
-        padding: 14,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 12,
-    },
-    waybillButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-    coldChainButton: {
-        flexDirection: 'row',
-        backgroundColor: '#0891b2',
-        padding: 14,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 8,
-        gap: 8,
-    },
-    coldChainButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-    coldChainBreachBadge: {
-        color: '#fff',
-        backgroundColor: '#dc2626',
-        fontSize: 12,
-        fontWeight: '700',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12,
-        overflow: 'hidden',
-    },
-    startTripButton: {
-        backgroundColor: '#2563eb',
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 12,
-    },
-    finishTripButton: {
-        backgroundColor: '#10b981',
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 12,
-    },
+
     modalBackdrop: {
         flex: 1,
-        backgroundColor: 'rgba(15, 23, 42, 0.55)',
+        backgroundColor: colors.overlay.scrim,
         justifyContent: 'center',
-        padding: 16,
+        padding: spacing.lg,
     },
     modalCard: {
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 16,
+        backgroundColor: colors.white,
+        borderRadius: radius.lg,
+        padding: spacing.lg,
     },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 12 },
-    modalLabel: { fontSize: 13, fontWeight: '600', color: '#334155', marginBottom: 4 },
+    modalTitle: { ...typography.headline, color: colors.neutral[900], marginBottom: spacing.md },
+    modalLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: colors.neutral[700],
+        marginBottom: 4,
+    },
     modalInput: {
         borderWidth: 1,
-        borderColor: '#cbd5e1',
-        borderRadius: 8,
-        padding: 12,
+        borderColor: colors.neutral[200],
+        borderRadius: radius.md,
+        padding: spacing.md,
         fontSize: 16,
-        marginBottom: 12,
-        backgroundColor: '#f8fafc',
+        marginBottom: spacing.md,
+        backgroundColor: colors.neutral[50],
+        color: colors.neutral[900],
     },
     modalNotes: { minHeight: 80, textAlignVertical: 'top' },
-    modalActions: { flexDirection: 'row', gap: 8, justifyContent: 'flex-end' },
-    modalCancelBtn: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8 },
-    modalCancelText: { color: '#475569', fontSize: 15, fontWeight: '600' },
-    modalSubmitBtn: {
-        backgroundColor: '#2563eb',
-        paddingHorizontal: 18,
-        paddingVertical: 12,
-        borderRadius: 8,
-        minWidth: 110,
+    modalActions: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        justifyContent: 'flex-end',
         alignItems: 'center',
     },
-    modalSubmitText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

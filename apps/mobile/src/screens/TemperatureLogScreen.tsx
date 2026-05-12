@@ -1,26 +1,27 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
     ActivityIndicator,
     Alert,
     FlatList,
+    StyleSheet,
     Switch,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import {
+    TemperatureReading,
+    TemperatureSummary,
     getTemperatureReadings,
     getTemperatureSummary,
     submitTemperature,
-    TemperatureReading,
-    TemperatureSummary,
 } from '../api/temperature';
+import { Button, Card, Pill } from '../components/ui';
+import { colors, radius, spacing, typography } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TemperatureLog'>;
 
@@ -98,8 +99,6 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
         };
     }, [refresh]);
 
-    // D27 (Round 3C): request notification permission once on mount so cold-chain
-    // breaches can trigger a local push. We don't block UI on the result.
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -114,9 +113,7 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                     return;
                 }
                 const requested = await Notifications.requestPermissionsAsync();
-                if (!cancelled) {
-                    setPushPermission(requested.status === 'granted' ? 'granted' : 'denied');
-                }
+                if (!cancelled) setPushPermission(requested.status === 'granted' ? 'granted' : 'denied');
             } catch {
                 if (!cancelled) setPushPermission('denied');
             }
@@ -146,7 +143,6 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                 recordedAt: new Date().toISOString(),
                 ...gps,
             });
-
             if (!mountedRef.current) return;
 
             if (result.queued) {
@@ -193,7 +189,6 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
         const center = mockValueRef.current ?? slaMid;
         const drift = (Math.random() * 2 - 1) * MOCK_STEP;
         const next = center + drift;
-        // Light clamp so the walker stays close to SLA midpoint.
         const minBound = (slaMin ?? center - 5) - 1;
         const maxBound = (slaMax ?? center + 5) + 1;
         const clamped = Math.min(maxBound, Math.max(minBound, next));
@@ -201,29 +196,22 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
         try {
             await submitReading(Number(clamped.toFixed(2)), 'mock');
         } catch {
-            // Swallow — the next tick will retry.
+            // next tick will retry
         }
     }, [slaMid, slaMin, slaMax, submitReading]);
 
     const startAutoMode = useCallback(() => {
         if (autoTimerRef.current) return;
         mockValueRef.current = slaMid;
-        // Fire one immediately so the user sees feedback.
         void tickAuto();
-        autoTimerRef.current = setInterval(() => {
-            void tickAuto();
-        }, AUTO_INTERVAL_MS);
+        autoTimerRef.current = setInterval(() => void tickAuto(), AUTO_INTERVAL_MS);
     }, [slaMid, tickAuto]);
 
     useEffect(() => {
-        if (autoMode) {
-            startAutoMode();
-        } else {
-            stopAutoMode();
-        }
+        if (autoMode) startAutoMode();
+        else stopAutoMode();
     }, [autoMode, startAutoMode, stopAutoMode]);
 
-    // Stop auto mode on screen blur and on unmount.
     useEffect(() => {
         const unsub = navigation.addListener('blur', () => {
             stopAutoMode();
@@ -232,20 +220,14 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
         return unsub;
     }, [navigation, stopAutoMode]);
 
-    useEffect(() => {
-        return () => {
-            stopAutoMode();
-        };
-    }, [stopAutoMode]);
+    useEffect(() => () => stopAutoMode(), [stopAutoMode]);
 
     if (loading) {
-        return <ActivityIndicator style={{ flex: 1 }} size="large" color="#2563eb" />;
+        return <ActivityIndicator style={{ flex: 1 }} size="large" color={colors.brand[600]} />;
     }
 
     const slaText =
-        slaMin !== null && slaMax !== null
-            ? `${formatTemp(slaMin)} … ${formatTemp(slaMax)}`
-            : 'SLA не задан';
+        slaMin !== null && slaMax !== null ? `${formatTemp(slaMin)} … ${formatTemp(slaMax)}` : 'SLA не задан';
     const breachCount = summary?.breachCount || 0;
 
     return (
@@ -255,18 +237,25 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
             keyboardShouldPersistTaps="handled"
             data={readings.slice(0, 30)}
             keyExtractor={(item) => item.id}
-            ListHeaderComponent={(
+            ListHeaderComponent={
                 <View>
-                    <View style={styles.headerCard}>
-                        <Text style={styles.headerLabel}>SLA-диапазон</Text>
-                        <Text style={styles.headerSla}>{slaText}</Text>
-                        <View style={styles.headerStatsRow}>
+                    {/* SLA header */}
+                    <Card>
+                        <View style={styles.slaHeader}>
+                            <Text style={styles.slaLabel}>SLA-диапазон</Text>
+                            <Pill
+                                label={breachCount > 0 ? `⚠ Нарушений: ${breachCount}` : '✓ В норме'}
+                                tone={breachCount > 0 ? 'danger' : 'success'}
+                            />
+                        </View>
+                        <Text style={styles.slaValue}>{slaText}</Text>
+                        <View style={styles.statRow}>
                             <View style={styles.statCell}>
                                 <Text style={styles.statValue}>{summary?.count ?? 0}</Text>
                                 <Text style={styles.statLabel}>Замеров</Text>
                             </View>
                             <View style={styles.statCell}>
-                                <Text style={[styles.statValue, breachCount > 0 && styles.breachValue]}>
+                                <Text style={[styles.statValue, breachCount > 0 && { color: colors.danger[600] }]}>
                                     {breachCount}
                                 </Text>
                                 <Text style={styles.statLabel}>Нарушений</Text>
@@ -276,65 +265,66 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                                 <Text style={styles.statLabel}>Среднее</Text>
                             </View>
                         </View>
-                    </View>
+                    </Card>
 
-                    <View style={styles.inputCard}>
-                        <Text style={styles.inputLabel}>Записать замер вручную</Text>
+                    {/* Manual input */}
+                    <Card style={{ marginTop: spacing.md }}>
+                        <Text style={styles.cardTitle}>Записать замер вручную</Text>
                         <TextInput
-                            style={styles.tempInput}
+                            style={styles.bigTempInput}
                             value={tempInput}
                             onChangeText={setTempInput}
                             placeholder="например, 4.2"
+                            placeholderTextColor={colors.neutral[300]}
                             keyboardType="numbers-and-punctuation"
                             editable={!submitting}
                         />
-                        <TouchableOpacity
-                            style={[styles.primaryButton, submitting && styles.disabledButton]}
+                        <Button
+                            title="Записать замер"
+                            variant="primary"
+                            size="lg"
+                            fullWidth
+                            isLoading={submitting}
                             onPress={handleManualSubmit}
-                            disabled={submitting}
-                        >
-                            {submitting ? (
-                                <ActivityIndicator color="#fff" />
-                            ) : (
-                                <Text style={styles.primaryButtonText}>Записать</Text>
-                            )}
-                        </TouchableOpacity>
-                    </View>
+                        />
+                    </Card>
 
-                    <View style={styles.autoCard}>
+                    {/* Auto mode */}
+                    <Card style={{ marginTop: spacing.md }}>
                         <View style={styles.autoRow}>
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.autoTitle}>Авто-режим (mock датчик)</Text>
-                                <Text style={styles.autoHint}>
-                                    Записывает замер каждые 60 секунд вокруг середины SLA. Для тестов и демо.
+                                <Text style={styles.cardTitle}>Авто-режим (mock датчик)</Text>
+                                <Text style={styles.cardHint}>
+                                    Замер каждые 60 секунд вокруг середины SLA. Для тестов и демо.
                                 </Text>
                             </View>
                             <Switch
                                 value={autoMode}
                                 onValueChange={setAutoMode}
-                                trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
-                                thumbColor={autoMode ? '#2563eb' : '#f1f5f9'}
+                                trackColor={{ false: colors.neutral[300], true: colors.brand[100] }}
+                                thumbColor={autoMode ? colors.brand[600] : colors.neutral[100]}
                             />
                         </View>
                         {autoMode && (
-                            <Text style={styles.autoActive}>● Авто-режим активен</Text>
+                            <View style={{ marginTop: spacing.sm }}>
+                                <Pill label="● Авто-режим активен" tone="brand" />
+                            </View>
                         )}
                         {pushPermission === 'denied' && (
-                            <Text style={styles.pushHint}>
-                                Push-уведомления отключены — нарушения SLA будут видны только в этом
-                                экране. Включите уведомления в настройках устройства.
-                            </Text>
+                            <View style={{ marginTop: spacing.sm }}>
+                                <Pill label="🔕 Push отключены" tone="danger" />
+                            </View>
                         )}
                         {pushPermission === 'granted' && (
-                            <Text style={styles.pushHintOk}>
-                                Push-уведомления о нарушениях SLA включены.
-                            </Text>
+                            <View style={{ marginTop: spacing.sm }}>
+                                <Pill label="🔔 Push о нарушениях включены" tone="success" />
+                            </View>
                         )}
-                    </View>
+                    </Card>
 
                     <Text style={styles.sectionTitle}>Последние замеры</Text>
                 </View>
-            )}
+            }
             renderItem={({ item }) => (
                 <View style={[styles.readingRow, item.breach && styles.readingRowBreach]}>
                     <View style={styles.readingLeft}>
@@ -344,200 +334,85 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                     <Text style={[styles.readingTemp, item.breach && styles.readingTempBreach]}>
                         {formatTemp(item.tempC)}
                     </Text>
-                    {item.breach && <Text style={styles.breachBadge}>⚠</Text>}
+                    {item.breach && (
+                        <Pill label="⚠" tone="danger" style={{ marginLeft: spacing.sm }} />
+                    )}
                 </View>
             )}
-            ListEmptyComponent={(
-                <Text style={styles.emptyText}>Замеров пока нет — запишите первый.</Text>
-            )}
+            ListEmptyComponent={<Text style={styles.emptyText}>Замеров пока нет — запишите первый.</Text>}
         />
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f8fafc',
-    },
-    content: {
-        padding: 16,
-        paddingBottom: 32,
-    },
-    headerCard: {
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-        marginBottom: 12,
-    },
-    headerLabel: {
-        fontSize: 12,
-        color: '#64748b',
+    container: { flex: 1, backgroundColor: colors.neutral[50] },
+    content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+    slaHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    slaLabel: {
+        ...typography.captionBold,
+        color: colors.neutral[500],
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
-    headerSla: {
-        fontSize: 22,
-        fontWeight: '700',
-        color: '#0f172a',
-        marginTop: 4,
-    },
-    headerStatsRow: {
-        flexDirection: 'row',
-        gap: 8,
-        marginTop: 12,
-    },
+    slaValue: { ...typography.title, color: colors.neutral[900], marginTop: spacing.xs },
+    statRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
     statCell: {
         flex: 1,
-        backgroundColor: '#f8fafc',
-        borderRadius: 8,
-        paddingVertical: 10,
+        backgroundColor: colors.neutral[50],
+        borderRadius: radius.md,
+        paddingVertical: spacing.md,
         alignItems: 'center',
     },
-    statValue: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#0f172a',
-    },
-    breachValue: {
-        color: '#dc2626',
-    },
-    statLabel: {
-        fontSize: 11,
-        color: '#64748b',
-        marginTop: 2,
-    },
-    inputCard: {
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 16,
+    statValue: { ...typography.headline, color: colors.neutral[900] },
+    statLabel: { fontSize: 11, color: colors.neutral[500], marginTop: 2 },
+
+    cardTitle: { ...typography.bodyBold, color: colors.neutral[900] },
+    cardHint: { fontSize: 12, color: colors.neutral[500], marginTop: 4 },
+    bigTempInput: {
         borderWidth: 1,
-        borderColor: '#e2e8f0',
-        marginBottom: 12,
-    },
-    inputLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#0f172a',
-        marginBottom: 8,
-    },
-    tempInput: {
-        borderWidth: 1,
-        borderColor: '#cbd5e1',
-        borderRadius: 8,
-        padding: 14,
-        fontSize: 28,
+        borderColor: colors.neutral[200],
+        borderRadius: radius.md,
+        padding: spacing.lg,
+        fontSize: 32,
         textAlign: 'center',
-        marginBottom: 12,
-        backgroundColor: '#fff',
+        backgroundColor: colors.neutral[50],
         fontWeight: '700',
-        color: '#0f172a',
+        color: colors.neutral[900],
+        marginTop: spacing.md,
+        marginBottom: spacing.md,
     },
-    primaryButton: {
-        backgroundColor: '#2563eb',
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-        minHeight: 56,
-        justifyContent: 'center',
-    },
-    disabledButton: {
-        backgroundColor: '#94a3b8',
-    },
-    primaryButtonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '700',
-    },
-    autoCard: {
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-        marginBottom: 16,
-    },
-    autoRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    autoTitle: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#0f172a',
-    },
-    autoHint: {
-        fontSize: 12,
-        color: '#64748b',
-        marginTop: 4,
-    },
-    autoActive: {
-        marginTop: 10,
-        color: '#2563eb',
-        fontWeight: '700',
-        fontSize: 12,
-    },
-    pushHint: {
-        marginTop: 10,
-        color: '#dc2626',
-        fontSize: 12,
-    },
-    pushHintOk: {
-        marginTop: 10,
-        color: '#16a34a',
-        fontSize: 12,
-    },
+
+    autoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+
     sectionTitle: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#0f172a',
-        marginBottom: 8,
+        ...typography.captionBold,
+        color: colors.neutral[500],
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginTop: spacing.xl,
+        marginBottom: spacing.sm,
     },
+
     readingRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 12,
+        backgroundColor: colors.white,
+        borderRadius: radius.md,
+        padding: spacing.md,
         borderWidth: 1,
-        borderColor: '#e2e8f0',
-        marginBottom: 8,
+        borderColor: colors.neutral[200],
+        marginBottom: spacing.sm,
     },
-    readingRowBreach: {
-        borderColor: '#fecaca',
-        backgroundColor: '#fef2f2',
-    },
-    readingLeft: {
-        flex: 1,
-    },
-    readingTime: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#0f172a',
-    },
-    readingSource: {
-        fontSize: 11,
-        color: '#64748b',
-        marginTop: 2,
-    },
+    readingRowBreach: { borderColor: '#fecaca', backgroundColor: colors.danger[50] },
+    readingLeft: { flex: 1 },
+    readingTime: { ...typography.bodyBold, color: colors.neutral[900] },
+    readingSource: { fontSize: 11, color: colors.neutral[500], marginTop: 2 },
     readingTemp: {
-        fontSize: 18,
+        fontSize: 20,
         fontWeight: '700',
-        color: '#0f172a',
-        marginRight: 8,
+        color: colors.neutral[900],
     },
-    readingTempBreach: {
-        color: '#dc2626',
-    },
-    breachBadge: {
-        fontSize: 16,
-        color: '#dc2626',
-    },
-    emptyText: {
-        textAlign: 'center',
-        color: '#64748b',
-        padding: 16,
-    },
+    readingTempBreach: { color: colors.danger[700] },
+
+    emptyText: { textAlign: 'center', color: colors.neutral[500], padding: spacing.lg },
 });
