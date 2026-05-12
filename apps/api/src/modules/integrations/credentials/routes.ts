@@ -3,7 +3,6 @@
 // Admin-only — manage encrypted API keys per organization.
 // ============================================================
 import type { FastifyPluginAsync } from 'fastify';
-import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../../db/connection.js';
 import { providerCredentials } from '../../../db/schema.js';
@@ -11,26 +10,12 @@ import {
     encryptCredentials,
     invalidateCredentialsCache,
     type ProviderType,
-    type ProviderStatus,
 } from '../../../providers/base.js';
 import {
     getAdaptersForType,
     invalidateAdapterCache,
 } from '../../../providers/index.js';
-
-const PROVIDER_TYPES: ProviderType[] = [
-    'signature', 'edi', 'telematics', 'fuel_card',
-    'fines', 'marking', 'payment', 'email',
-];
-
-const VALID_STATUSES: ProviderStatus[] = ['mock', 'sandbox', 'active', 'disabled', 'error'];
-
-const CreateSchema = z.object({
-    providerType: z.enum(PROVIDER_TYPES as [ProviderType, ...ProviderType[]]),
-    providerName: z.string().min(1).max(64),
-    credentials: z.record(z.unknown()),
-    status: z.enum(VALID_STATUSES as [ProviderStatus, ...ProviderStatus[]]).optional(),
-});
+import { CredentialsCreateSchema as CreateSchema } from './validators.js';
 
 interface AuthUser {
     userId: string;

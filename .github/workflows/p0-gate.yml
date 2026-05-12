@@ -66,6 +66,17 @@ jobs:
       - name: Web component tests
         run: pnpm --filter @tms/web test
 
+      # Mobile unit tests — pure-logic suites (offline queue, fetch retry, sync wrapper,
+      # role priority). Run with continue-on-error initially because:
+      #   1. The mobile stack mocks native modules manually (no jest-expo, see
+      #      apps/mobile/jest.config.js) which is more brittle than the web/api setups.
+      #   2. We do NOT want a transient mock regression to block API/web work while the
+      #      mobile test harness is still bedding in.
+      # Flip continue-on-error to false once the suite is stable for a few weeks.
+      - name: Mobile unit tests
+        run: pnpm --filter @tms/mobile test
+        continue-on-error: true
+
       - name: Security audit (advisory)
         run: pnpm audit --prod --audit-level high || true
 

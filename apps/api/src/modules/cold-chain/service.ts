@@ -89,7 +89,7 @@ export function detectBreach(tempC: number, sla: SlaBounds): boolean {
     return false;
 }
 
-function severityForBreach(tempC: number, sla: SlaBounds): 'medium' | 'critical' {
+export function severityForBreach(tempC: number, sla: SlaBounds): 'medium' | 'critical' {
     let delta = 0;
     if (sla.minC != null && tempC < sla.minC) {
         delta = Math.max(delta, sla.minC - tempC);
