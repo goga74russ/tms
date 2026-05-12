@@ -64,10 +64,11 @@ CREATE INDEX IF NOT EXISTS idx_events_entity_timestamp
 CREATE INDEX IF NOT EXISTS idx_invoice_trips_invoice
     ON invoice_trips (invoice_id);
 
--- 6) tachograph_records: composite (driver_id, started_at DESC)
+-- 6) tachograph_records: composite (driver_id, date DESC)
 --    Drives RTO summary + scoring window queries.
+--    Note: real column is `date` (not started_at) per schema 0004
 CREATE INDEX IF NOT EXISTS idx_tachograph_driver_started
-    ON tachograph_records (driver_id, started_at DESC);
+    ON tachograph_records (driver_id, date DESC);
 
 -- 7) tachograph_records: composite (driver_id, date) — getDriverHoursSummary
 CREATE INDEX IF NOT EXISTS idx_tachograph_driver_date

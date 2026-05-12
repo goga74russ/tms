@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Truck, RefreshCw, ArrowRight, AlertCircle } from 'lucide-react';
@@ -11,6 +11,14 @@ import { useToast } from '@/components/ui/toast';
 const CODE_LENGTH = 6;
 
 export default function VerifyEmailPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-neutral-500">Загрузка...</div>}>
+            <VerifyEmailContent />
+        </Suspense>
+    );
+}
+
+function VerifyEmailContent() {
     const router = useRouter();
     const { toast } = useToast();
     const params = useSearchParams();

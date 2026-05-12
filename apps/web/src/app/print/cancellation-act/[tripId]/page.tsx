@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 
 const API_BASE = '/api';
@@ -44,6 +44,14 @@ function money(value?: string | null) {
 }
 
 export default function CancellationActPrintPage() {
+    return (
+        <Suspense fallback={<div style={{ padding: 24 }}>Загрузка...</div>}>
+            <CancellationActPrintContent />
+        </Suspense>
+    );
+}
+
+function CancellationActPrintContent() {
     const params = useParams();
     const search = useSearchParams();
     const tripId = params?.tripId as string;
