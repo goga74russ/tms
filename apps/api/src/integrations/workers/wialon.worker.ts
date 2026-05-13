@@ -17,7 +17,27 @@ import type { TelematicsProvider } from '../../providers/telematics/interface.js
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
-async function processWialonSync(job: Job): Promise<{
+/**
+ * Pure helper: decide whether telemetry warrants an odometer update.
+ * Returns null when the telemetry should be ignored (sanity check
+ * failure or no real change). Otherwise returns the update record.
+ */
+export function decideOdometerUpdate(
+    vehicle: { id: string; plateNumber: string; currentOdometerKm: number },
+    telemetry: { odometerKm: number },
+): { id: string; plateNumber: string; oldOdometer: number; odometerKm: number } | null {
+    if (telemetry.odometerKm <= vehicle.currentOdometerKm) {
+        return null;
+    }
+    return {
+        id: vehicle.id,
+        plateNumber: vehicle.plateNumber,
+        oldOdometer: vehicle.currentOdometerKm,
+        odometerKm: telemetry.odometerKm,
+    };
+}
+
+export async function processWialonSync(job: Job): Promise<{
     synced: number;
     errors: number;
     details: Array<{ plateNumber: string; oldOdometer: number; newOdometer: number }>;

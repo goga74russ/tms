@@ -34,7 +34,7 @@ interface NotificationJobData {
 }
 
 // --- Worker ---
-async function processNotification(job: Job<NotificationJobData>) {
+export async function processNotification(job: Job<NotificationJobData>) {
     const { eventType, entityType, entityId, data } = job.data;
 
     // Skip non-notifiable events
@@ -123,7 +123,7 @@ export async function enqueueNotification(params: NotificationJobData): Promise<
     }
 }
 
-function getEventPriority(eventType: string): number {
+export function getEventPriority(eventType: string): number {
     // Lower = higher priority
     if (eventType.startsWith('trip.cancelled') || eventType.includes('critical')) return 1;
     if (eventType.startsWith('repair.created')) return 2;

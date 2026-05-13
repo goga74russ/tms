@@ -20,7 +20,7 @@ interface BillingDailyResult {
     to: string;
 }
 
-async function processBillingDaily(job: Job): Promise<BillingDailyResult> {
+export async function processBillingDaily(job: Job): Promise<BillingDailyResult> {
     job.log('Starting billing.daily run...');
 
     const now = new Date();

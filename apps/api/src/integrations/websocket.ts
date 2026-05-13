@@ -8,6 +8,7 @@ import { db } from '../db/connection.js';
 import { vehicles } from '../db/schema.js';
 import { and, eq } from 'drizzle-orm';
 import * as WialonMock from './mocks/wialon.mock.js';
+import { filterPositionsForSubscription, shouldDeliverEvent } from './websocket-filters.js';
 
 // ================================================================
 // Connected clients registry
@@ -40,12 +41,10 @@ export interface VehiclePosition {
 function broadcastPositions(positions: VehiclePosition[]) {
     for (const [client, meta] of connectedClients.entries()) {
         if (client.readyState === 1) { // WebSocket.OPEN
-            const scopedPositions = meta.organizationId
-                ? positions.filter((position) => position.organizationId === meta.organizationId)
-                : positions;
+            const scopedData = filterPositionsForSubscription(positions, meta);
             const message = JSON.stringify({
                 type: 'vehicle_positions',
-                data: scopedPositions.map(({ organizationId: _organizationId, ...position }) => position),
+                data: scopedData,
                 timestamp: new Date().toISOString(),
             });
             client.send(message);
@@ -258,7 +257,7 @@ export function broadcastEvent(eventType: string, payload: Record<string, unknow
     });
     for (const [client, meta] of connectedClients.entries()) {
         if (client.readyState !== 1) continue;
-        if (payload.organizationId && meta.organizationId && payload.organizationId !== meta.organizationId) {
+        if (!shouldDeliverEvent(payload.organizationId ?? null, meta.organizationId ?? null)) {
             continue;
         }
         try {
