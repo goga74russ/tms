@@ -186,7 +186,7 @@ export function Pricing() {
             <p className="text-center text-xs text-neutral-500 mt-8 max-w-xl mx-auto">
                 Цены указаны без НДС. Без долгосрочных обязательств — можно отменить или сменить тариф в любой момент.
                 Нужно больше 100 машин или on-premise?{' '}
-                <a href="mailto:sales@tms-prod.ru" className="text-brand-600 font-semibold underline">
+                <a href="mailto:sales@transpult.ru" className="text-brand-600 font-semibold underline">
                     Напишите в Enterprise-отдел
                 </a>
                 .

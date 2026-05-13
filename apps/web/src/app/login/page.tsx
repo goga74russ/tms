@@ -55,7 +55,7 @@ function ProductShowcase() {
                     <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                    <span className="ml-3 text-[11px] text-neutral-500 font-mono">tms-prod.ru/dispatcher</span>
+                    <span className="ml-3 text-[11px] text-neutral-500 font-mono">transpult.ru/dispatcher</span>
                 </div>
                 <div className="p-5 space-y-4">
                     {/* Stat bar */}

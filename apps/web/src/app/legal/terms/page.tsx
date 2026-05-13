@@ -132,7 +132,7 @@ export default function TermsPage() {
                 <li><strong>ОГРНИП:</strong> 326745600039073</li>
                 <li><strong>Адрес регистрации:</strong> Челябинская область, Чебаркульский район, село Непряхино</li>
                 <li><strong>Режим налогообложения:</strong> УСН</li>
-                <li><strong>E-mail:</strong> legal@&lt;домен-сервиса&gt;</li>
+                <li><strong>E-mail:</strong> legal@transpult.ru</li>
             </ul>
             <p>
                 Банковские реквизиты для оплаты сообщаются Заказчику в счёте на оплату после

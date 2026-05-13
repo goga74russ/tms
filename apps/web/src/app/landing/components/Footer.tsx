@@ -17,14 +17,14 @@ const COLUMNS = [
             { href: '#', label: 'О нас', muted: true },
             { href: '#', label: 'Команда', muted: true },
             { href: '#', label: 'Блог', muted: true },
-            { href: 'mailto:sales@tms-prod.ru', label: 'Партнёрам' },
+            { href: 'mailto:sales@transpult.ru', label: 'Партнёрам' },
         ],
     },
     {
         title: 'Поддержка',
         links: [
             { href: '#', label: 'Документация', muted: true },
-            { href: 'mailto:support@tms-prod.ru', label: 'Связаться' },
+            { href: 'mailto:support@transpult.ru', label: 'Связаться' },
             { href: '#', label: 'Статус системы', muted: true },
             { href: '#faq', label: 'FAQ' },
         ],
@@ -56,10 +56,10 @@ export function Footer() {
                         </p>
                         <div className="mt-5 space-y-2 text-sm">
                             <a
-                                href="mailto:support@tms-prod.ru"
+                                href="mailto:support@transpult.ru"
                                 className="inline-flex items-center gap-2 text-neutral-400 hover:text-white"
                             >
-                                <Mail className="w-3.5 h-3.5" /> support@tms-prod.ru
+                                <Mail className="w-3.5 h-3.5" /> support@transpult.ru
                             </a>
                             <a
                                 href="tel:+78001000000"

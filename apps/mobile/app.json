@@ -14,11 +14,11 @@
     "scheme": "tms",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ru.tms.driver",
+      "bundleIdentifier": "ru.transpult.driver",
       "buildNumber": "1"
     },
     "android": {
-      "package": "ru.tms.driver",
+      "package": "ru.transpult.driver",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
