@@ -1,0 +1,157 @@
+# ============================================================
+# TMS — Monitoring overlay
+# ============================================================
+# Run alongside docker-compose.prod.yml:
+#
+#   docker compose \
+#     -f docker-compose.prod.yml \
+#     -f docker-compose.monitoring.yml \
+#     up -d
+#
+# Adds five services:
+#   - node_exporter       host CPU/RAM/disk/network
+#   - cadvisor            container-level metrics (RSS vs mem_limit etc.)
+#   - postgres_exporter   pg_up + DB stats
+#   - redis_exporter      redis_up + ops/s
+#   - prometheus          scrapes everything above + api:/metrics,
+#                         remote_writes to Grafana Cloud
+#
+# Setup guide: docs/operations/monitoring/setup-grafana-cloud.md
+# Alert rules: docs/operations/monitoring/prometheus-rules.yml
+# ============================================================
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+
+  # ---- Host metrics ----
+  node_exporter:
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    logging: *default-logging
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    expose:
+      - "9100"
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 32m
+
+  # ---- Container metrics ----
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart: unless-stopped
+    logging: *default-logging
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    expose:
+      - "8080"
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 64m
+
+  # ---- Postgres metrics ----
+  postgres_exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
+    expose:
+      - "9187"
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 32m
+
+  # ---- Redis metrics ----
+  redis_exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    expose:
+      - "9121"
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 32m
+
+  # ---- Prometheus: scrape + alert + remote_write ----
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: unless-stopped
+    logging: *default-logging
+    depends_on:
+      - node_exporter
+      - cadvisor
+      - postgres_exporter
+      - redis_exporter
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+      - '--enable-feature=expand-external-labels'
+    environment:
+      GRAFANA_CLOUD_REMOTE_WRITE_URL: ${GRAFANA_CLOUD_REMOTE_WRITE_URL:-}
+      GRAFANA_CLOUD_USERNAME: ${GRAFANA_CLOUD_USERNAME:-}
+      GRAFANA_CLOUD_API_KEY: ${GRAFANA_CLOUD_API_KEY:-}
+    volumes:
+      - ./docs/operations/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docs/operations/monitoring/prometheus-rules.yml:/etc/prometheus/rules/tms-rules.yml:ro
+      - prometheus_data:/prometheus
+    # Bind to localhost only — operators reach the UI via SSH tunnel.
+    # Grafana Cloud receives metrics via remote_write, not by scraping us.
+    ports:
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 128m
+
+volumes:
+  prometheus_data:

@@ -8,6 +8,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
+import metricsPlugin from 'fastify-metrics';
 import { registerAuthRoutes } from './auth/auth.js';
 import { testRedisConnection } from './integrations/redis.js';
 import { setupRepeatableJobs } from './integrations/queues.js';
@@ -170,6 +171,60 @@ await app.register(rateLimit, {
         return false;
     },
 });
+
+// --- Prometheus /metrics endpoint (OBS-1) ---
+// Gated behind METRICS_ENABLED so we don't accidentally expose internal
+// timings + queue depths in production. When enabled with basic-auth env
+// vars set, the endpoint also requires the Prometheus scraper to send
+// `Authorization: Basic ...`; without those vars it serves unauthenticated
+// (assumes Prometheus and the API live on the same internal docker network).
+const metricsEnabled = process.env.METRICS_ENABLED === 'true';
+if (metricsEnabled) {
+    const metricsUser = process.env.METRICS_BASIC_AUTH_USER;
+    const metricsPass = process.env.METRICS_BASIC_AUTH_PASS;
+    const metricsAuthRequired = Boolean(metricsUser && metricsPass);
+
+    if (metricsAuthRequired) {
+        app.addHook('onRequest', (request, reply, done) => {
+            if (request.url !== '/metrics' && !request.url.startsWith('/metrics?')) {
+                return done();
+            }
+            const header = request.headers.authorization;
+            if (!header || !header.startsWith('Basic ')) {
+                reply.header('WWW-Authenticate', 'Basic realm="metrics"');
+                reply.status(401).send({ success: false, error: 'Unauthorized' });
+                return;
+            }
+            try {
+                const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
+                const sep = decoded.indexOf(':');
+                const user = sep >= 0 ? decoded.slice(0, sep) : decoded;
+                const pass = sep >= 0 ? decoded.slice(sep + 1) : '';
+                if (user !== metricsUser || pass !== metricsPass) {
+                    reply.header('WWW-Authenticate', 'Basic realm="metrics"');
+                    reply.status(401).send({ success: false, error: 'Unauthorized' });
+                    return;
+                }
+            } catch {
+                reply.status(401).send({ success: false, error: 'Unauthorized' });
+                return;
+            }
+            done();
+        });
+    }
+
+    // The package exports its plugin via a CJS-style default whose TS
+    // signature confuses fastify@5's overload resolution; cast around it.
+    await app.register(metricsPlugin as unknown as Parameters<typeof app.register>[0], {
+        endpoint: '/metrics',
+        defaultMetrics: { enabled: true },
+        routeMetrics: {
+            enabled: true,
+            registeredRoutesOnly: false,
+            methodBlacklist: ['HEAD', 'OPTIONS'],
+        },
+    });
+}
 
 // --- Swagger / OpenAPI (русский) ---
 const apiDocsEnabled = process.env.ENABLE_API_DOCS === 'true' || process.env.NODE_ENV !== 'production';

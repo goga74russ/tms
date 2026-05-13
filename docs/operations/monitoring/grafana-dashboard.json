@@ -12,7 +12,7 @@
       }
     ]
   },
-  "description": "TMS v2 production overview — request rate, error rate, latency, DB/Redis health, BullMQ depth, memory per container. PLACEHOLDER targets: wire to your Prometheus datasource.",
+  "description": "TMS v2 production overview — request rate, error rate, latency, DB/Redis health, BullMQ depth, memory per container. Panels expect Prometheus datasource (e.g. grafanacloud-prom); see docs/operations/monitoring/setup-grafana-cloud.md for setup and PromQL examples.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -27,7 +27,13 @@
       "id": 1,
       "title": "Request rate (req/s)",
       "type": "timeseries",
-      "targets": []
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status_code) (rate(http_request_duration_seconds_count{job=\"api\"}[1m]))",
+          "legendFormat": "{{status_code}}"
+        }
+      ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
@@ -36,7 +42,13 @@
       "id": 2,
       "title": "Error rate (% 5xx)",
       "type": "timeseries",
-      "targets": []
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_request_duration_seconds_count{job=\"api\",status_code=~\"5..\"}[5m])) / sum(rate(http_request_duration_seconds_count{job=\"api\"}[5m]))",
+          "legendFormat": "5xx ratio"
+        }
+      ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
@@ -45,7 +57,23 @@
       "id": 3,
       "title": "Latency p50 / p95 / p99",
       "type": "timeseries",
-      "targets": []
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"api\"}[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"api\"}[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"api\"}[5m])))",
+          "legendFormat": "p99"
+        }
+      ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
@@ -54,7 +82,18 @@
       "id": 4,
       "title": "DB connections (active / idle / max)",
       "type": "timeseries",
-      "targets": []
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "pg_stat_activity_count{job=\"postgres\"}",
+          "legendFormat": "{{state}}"
+        },
+        {
+          "refId": "B",
+          "expr": "pg_settings_max_connections{job=\"postgres\"}",
+          "legendFormat": "max"
+        }
+      ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
@@ -63,7 +102,13 @@
       "id": 5,
       "title": "Redis ops/sec",
       "type": "timeseries",
-      "targets": []
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(redis_commands_processed_total{job=\"redis\"}[1m])",
+          "legendFormat": "ops/s"
+        }
+      ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
@@ -71,8 +116,15 @@
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 24 },
       "id": 6,
       "title": "BullMQ queue depth (wialon, fines, notification, billing, edi)",
+      "description": "Requires a custom bullmq_jobs_waiting exporter on the API — see setup-grafana-cloud.md.",
       "type": "timeseries",
-      "targets": []
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "bullmq_jobs_waiting{queue=~\"wialon|fines|notification|billing|edi\"}",
+          "legendFormat": "{{queue}}"
+        }
+      ]
     },
     {
       "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
@@ -81,7 +133,18 @@
       "id": 7,
       "title": "Memory usage per container (RSS vs limit)",
       "type": "timeseries",
-      "targets": []
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "container_memory_rss{name=~\"tms-(postgres|redis|api|web|minio|nginx).*\"}",
+          "legendFormat": "{{name}} rss"
+        },
+        {
+          "refId": "B",
+          "expr": "container_spec_memory_limit_bytes{name=~\"tms-(postgres|redis|api|web|minio|nginx).*\"}",
+          "legendFormat": "{{name}} limit"
+        }
+      ]
     }
   ],
   "refresh": "30s",
