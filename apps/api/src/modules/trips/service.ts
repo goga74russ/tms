@@ -10,6 +10,7 @@ import { eq, and, desc, sql, gte, lte, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import { TripStatus, OrderStatus, VehicleStatus, WaybillStatus, TRIP_STATE_TRANSITIONS } from '@tms/shared';
 import { getBlockingIncidents, getIncompleteRoutePoints, lockRowForUpdate } from '../../utils/db-helpers.js';
+import { canTransitionTrip } from './state.js';
 
 async function refreshTransportDocumentsForTrip(tripId: string, createdBy?: string | null) {
     try {
@@ -21,10 +22,13 @@ async function refreshTransportDocumentsForTrip(tripId: string, createdBy?: stri
 }
 
 // --- State machine transitions (§4.2) ---
+// Canonical map kept here for legacy references; the actual logic lives in
+// ./state.ts so it can be unit-tested without booting the DB.
 const TRIP_TRANSITIONS: Record<string, string[]> = TRIP_STATE_TRANSITIONS;
+void TRIP_TRANSITIONS; // keep the symbol for parity with prior diagnostics output
 
 export function canTransition(from: string, to: string): boolean {
-    return TRIP_TRANSITIONS[from]?.includes(to) ?? false;
+    return canTransitionTrip(from, to);
 }
 
 // --- Sequential number: TRP-2026-00001 ---

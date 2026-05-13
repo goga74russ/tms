@@ -10,15 +10,16 @@ import { tachographUploads, drivers } from '../../../db/schema.js';
 import { ingestDddBuffer } from './service.js';
 import { parseDddBuffer } from './ddd-parser.js';
 import { requireFeature } from '../../../auth/plan-guard.js';
+import {
+    validateTachographUpload,
+    summarizeIngestResult,
+} from './helpers.js';
 
 interface AuthUser {
     userId: string;
     roles: string[];
     organizationId?: string | null;
 }
-
-const ALLOWED_EXT = /\.(ddd|esm)$/i;
-const MAX_BYTES = 15 * 1024 * 1024;
 
 const tachographRoutes: FastifyPluginAsync = async (app) => {
     app.post('/compliance/tachograph/upload', {
@@ -35,16 +36,19 @@ const tachographRoutes: FastifyPluginAsync = async (app) => {
         if (!data) {
             return reply.status(400).send({ success: false, error: 'Поле file обязательно' });
         }
-        if (!ALLOWED_EXT.test(data.filename)) {
-            return reply.status(415).send({
-                success: false,
-                error: 'Поддерживаются только .DDD / .ESM файлы тахографа',
-            });
+        // Cheap pre-checks (ext + always-true signature placeholder) before
+        // we materialise the buffer — keeps oversize-with-wrong-ext rejects fast.
+        const extGuard = validateTachographUpload({
+            filename: data.filename,
+            sizeBytes: 0,
+            signatureValid: true,
+            nodeEnv: process.env.NODE_ENV,
+        });
+        if (!extGuard.ok && extGuard.status === 415) {
+            return reply.status(415).send({ success: false, error: extGuard.error });
         }
+
         const buffer = await data.toBuffer();
-        if (buffer.length > MAX_BYTES) {
-            return reply.status(413).send({ success: false, error: 'Файл превышает 15 МБ' });
-        }
 
         // A-P2: in production, refuse to persist a .DDD whose СКЗИ signature
         // we could not verify — the heuristic parser cannot validate CMAC and
@@ -53,13 +57,16 @@ const tachographRoutes: FastifyPluginAsync = async (app) => {
         // We do a cheap pre-parse just to read the flag; ingestDddBuffer
         // re-parses afterwards (small files, ~ms cost, acceptable for now).
         const preParsed = parseDddBuffer(buffer);
+        const guard = validateTachographUpload({
+            filename: data.filename,
+            sizeBytes: buffer.length,
+            signatureValid: preParsed.signatureValid,
+            nodeEnv: process.env.NODE_ENV,
+        });
+        if (!guard.ok) {
+            return reply.status(guard.status).send({ success: false, error: guard.error });
+        }
         if (!preParsed.signatureValid) {
-            if (process.env.NODE_ENV === 'production') {
-                return reply.status(422).send({
-                    success: false,
-                    error: 'Подпись файла тахографа не прошла проверку (СКЗИ)',
-                });
-            }
             request.log.warn({
                 fileName: data.filename,
                 fileSize: buffer.length,
@@ -75,19 +82,17 @@ const tachographRoutes: FastifyPluginAsync = async (app) => {
 
         return reply.status(201).send({
             success: true,
-            data: {
+            data: summarizeIngestResult({
                 uploadId: result.uploadId,
                 driverId: result.driverId,
                 recordsInserted: result.recordsInserted,
-                period: {
-                    from: result.parsed.periodFrom?.toISOString() ?? null,
-                    to: result.parsed.periodTo?.toISOString() ?? null,
-                },
-                totalDrivingHours: +(result.totalDrivingMinutes / 60).toFixed(2),
-                vehicleVin: result.parsed.vehicleVin,
-                driverCardNumber: result.parsed.driverCardNumber,
+                totalDrivingMinutes: result.totalDrivingMinutes,
+                periodFrom: result.parsed.periodFrom ?? null,
+                periodTo: result.parsed.periodTo ?? null,
+                vehicleVin: result.parsed.vehicleVin ?? null,
+                driverCardNumber: result.parsed.driverCardNumber ?? null,
                 warnings: result.parsed.warnings,
-            },
+            }),
         });
     });
 

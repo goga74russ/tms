@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getToken, login as apiLogin, logout as apiLogout, getMe, AuthError } from '../api/auth';
 import { syncDatabase } from '../api/sync';
 import { database } from '../database';
+import { normalizeUser } from '../utils/auth';
 
 type User = {
     id: string;
@@ -21,15 +22,6 @@ type AuthContextType = {
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-function normalizeUser(raw: any): User {
-    const roles = Array.isArray(raw?.roles) ? raw.roles : raw?.role ? [raw.role] : [];
-    return {
-        ...raw,
-        roles,
-        role: roles[0] ?? raw?.role ?? 'driver',
-    };
-}
 
 async function hydrateUser(token: string): Promise<User> {
     const meResponse = await getMe(token);
