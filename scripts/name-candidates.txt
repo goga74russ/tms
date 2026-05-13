@@ -1,0 +1,196 @@
+# Curated TMS naming candidates (transliterated to Latin for domain checks).
+# Comments (after #) and blank lines are ignored by find-domain.mjs.
+# Run: node scripts/find-domain.mjs --list scripts/name-candidates.txt
+# To check specific TLDs:
+#   node scripts/find-domain.mjs --list scripts/name-candidates.txt --tlds ru,app,io,pro,tech,cloud,market
+
+# --- Cockpit / control-tower (aviation flavor, in-product alignment) ----
+cockpit
+kokpit
+bashnya         # башня — control tower
+pult            # пульт — диспетчерский
+mayak           # маяк — guidance
+bridge
+helm
+beacon
+
+# --- Logist / dispatcher angle ----------------------------------------------
+logist
+logiya
+logos
+logbook
+logbuk
+logify
+logiq
+logica
+loghub
+logflow
+logops
+logcore
+logstack
+dispetch
+dispatchr
+dispx
+displo
+
+# --- Российский фольклор / heritage -----------------------------------------
+oboz            # обоз — конвой грузов
+troika          # тройка — Gogol's Russia-as-troika
+sivka           # сивка-бурка
+izvoz           # извоз — старая профессия извозчика
+trakt           # тракт — премиум русское слово
+yamshchik       # ямщик
+artel           # артель — рабочий коллектив
+karavan         # караван
+kochevnik       # кочевник
+eshelon         # эшелон — railway/military column
+
+# --- Челябинск / Урал anchor ------------------------------------------------
+verblud         # верблюд — на челябинском гербе
+baktrian        # двугорбый верблюд (tractor + trailer метафора)
+tankograd       # Челябинск = танкоград
+arkaim          # древний город рядом
+chelyaba        # старое название Челябинска
+ural
+
+# --- Technical / mechanical -------------------------------------------------
+stcepka         # сцепка
+peredacha       # передача (gear/transmission)
+privod          # привод (drive)
+tyaga           # тяга (traction)
+mahovik         # маховик (flywheel)
+shesternya      # шестерня (gear)
+perehod
+peregon         # перегон between stops
+razvyazka       # развязка (interchange)
+magistral       # магистраль
+
+# --- Mythology / antique navigation ----------------------------------------
+atlas
+atlant          # Атлант
+germes          # Hermes
+hermes
+gefest          # Hephaestus
+sextant
+compass
+nikea           # Nike — victory
+
+# --- Birds (overseeing from above) ------------------------------------------
+berkut          # golden eagle
+sokol           # falcon
+zhuravl         # crane
+drozd           # blackbird
+orel            # eagle
+
+# --- Customer-outcome / promise --------------------------------------------
+tochno          # точно — accurate/on time
+srok            # срок
+vovremya        # вовремя
+sdal
+prinyato        # принято — accepted
+podpis          # подпись — signed
+pechat          # печать — stamp
+
+# --- Music / rhythm ---------------------------------------------------------
+takt            # beat
+temp
+metronom
+ritm
+
+# --- Material / element -----------------------------------------------------
+stal            # сталь
+kremen          # кремень
+granit
+platina
+kvarts          # кварц
+yantar          # янтарь — Amber Road (древний trade route)
+
+# --- Bio metaphors (transport as arteries) ----------------------------------
+arteria         # артерия
+puls
+nevro
+aorta
+
+# --- Slavic deep cuts -------------------------------------------------------
+skaz            # сказ — tale
+uklad           # уклад — way of life
+chin            # чин — rank/order
+lad             # лад — harmony/order
+stezya          # стезя — path
+poprische       # поприще — field of work
+dozor           # дозор — patrol/watch
+strazh          # страж — guardian
+
+# --- Geometry / structure ---------------------------------------------------
+gran            # грань — facet
+hrebet          # хребет — backbone
+karkas          # каркас
+setka           # сетка — mesh
+uzel            # узел — node
+sloy            # слой — layer
+
+# --- Made-up / startup-style (2 slogs, brandable) --------------------------
+vezto           # от "везти"
+gruzko          # от "груз"
+reisli
+vozmo
+trako
+movika
+velora
+lumio
+trax
+routa
+rutoq
+vexto
+cargly
+loadar
+routey
+skara
+vorto
+trex
+lokr
+movr
+
+# --- Made-up Russian-Latin hybrids -----------------------------------------
+trakto
+trakly
+trakos
+trakon
+voznik
+vezimo
+rutko
+liko
+loko
+
+# --- Trans- prefix ---------------------------------------------------------
+transhub
+transflow
+transmind
+transops
+transtok
+transet
+trancord
+
+# --- English startup ------------------------------------------------------
+haulr
+convoa
+fleetly
+routy
+loadops
+trucksync
+cargora
+frachta
+
+# --- 1-syllable / minimalist Russian ---------------------------------------
+voz             # воз
+khod            # ход — movement
+dok             # док — dock
+shov            # шов — seam (chain)
+stek            # стек
+
+# --- Pendulum/flow (cyclic routes) -----------------------------------------
+pendulum
+flux
+loop
+helix
+spiral
