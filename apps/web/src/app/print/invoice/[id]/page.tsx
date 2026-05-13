@@ -14,14 +14,19 @@ function money(n: number | string | null | undefined) {
     return Number(n).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Fallbacks mirror apps/api/src/modules/documents/pdf-base.ts CARRIER defaults
+// (ИП Бардин Г.Д. — actual registered entity). Operators should still set
+// NEXT_PUBLIC_CARRIER_* env vars at build time; these defaults exist so a
+// missed env doesn't render fictional "ООО ТМС Логистик" placeholder data.
 const CARRIER = {
-    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'ООО «ТМС Логистик»',
-    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? '7701234567',
-    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? '770101001',
-    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'г. Москва, ул. Транспортная, д. 1',
-    bank: process.env.NEXT_PUBLIC_CARRIER_BANK ?? 'ПАО Сбербанк',
-    bik: process.env.NEXT_PUBLIC_CARRIER_BIK ?? '044525225',
-    account: process.env.NEXT_PUBLIC_CARRIER_ACCOUNT ?? '40702810938000123456',
+    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'ИП Бардин Георгий Дмитриевич',
+    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? '746003023587',
+    // ИП has no КПП.
+    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? '',
+    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'Челябинская область, Чебаркульский район, село Непряхино',
+    bank: process.env.NEXT_PUBLIC_CARRIER_BANK ?? 'ООО "Банк Точка"',
+    bik: process.env.NEXT_PUBLIC_CARRIER_BIK ?? '044525104',
+    account: process.env.NEXT_PUBLIC_CARRIER_ACCOUNT ?? '40802810220000919838',
 };
 
 export default function InvoicePrintPage() {
