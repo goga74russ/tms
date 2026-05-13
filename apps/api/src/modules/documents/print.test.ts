@@ -73,10 +73,11 @@ describe('CARRIER (env-driven defaults)', () => {
         expect(typeof CARRIER.corr).toBe('string');
     });
 
-    it('default ИНН is 10 digits', () => {
+    it('default ИНН is 10 (ООО) or 12 (ИП) digits', () => {
         // CARRIER.inn may be set via env — only assert shape when default.
+        // Default is now ИП (12-digit ИНН), but the registry accepts ООО too.
         if (!process.env.CARRIER_INN) {
-            expect(CARRIER.inn).toMatch(/^\d{10}$/);
+            expect(CARRIER.inn).toMatch(/^\d{10}(\d{2})?$/);
         }
     });
 
