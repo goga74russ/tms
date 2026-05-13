@@ -176,6 +176,27 @@
       "when": 1773640842000,
       "tag": "0025_inspection_decision_trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1773640843000,
+      "tag": "0026_payment_webhook_dedupe",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1773640844000,
+      "tag": "0027_multitenancy_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1773640845000,
+      "tag": "0028_temperature_readings_org_scope",
+      "breakpoints": true
     }
   ]
 }
