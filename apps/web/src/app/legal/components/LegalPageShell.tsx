@@ -17,7 +17,7 @@ interface Props {
     children: React.ReactNode;
 }
 
-export function LegalPageShell({ title, dateline, toc, draft = true, children }: Props) {
+export function LegalPageShell({ title, dateline, toc, draft = false, children }: Props) {
     const [activeId, setActiveId] = useState<string>(toc[0]?.id ?? '');
 
     useEffect(() => {
@@ -65,7 +65,7 @@ export function LegalPageShell({ title, dateline, toc, draft = true, children }:
                 <div className="not-prose flex items-center justify-between gap-3 mb-4">
                     <div className="flex items-center gap-2 text-xs text-neutral-500">
                         <FileText className="w-3.5 h-3.5" />
-                        {dateline ?? 'Последнее обновление: 12 мая 2026 года (пилотная редакция)'}
+                        {dateline ?? 'Действует с 13 мая 2026 года'}
                     </div>
                     <button
                         type="button"
