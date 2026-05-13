@@ -63,6 +63,33 @@ jobs:
       - name: API unit tests
         run: pnpm --filter @tms/api test
 
+      # ----------------------------------------------------------------
+      # OpenAPI spec sync check.
+      #
+      # The export script regenerates docs/api/openapi.{json,md} from the
+      # live Fastify route registrations. If a developer added or changed
+      # routes without running `pnpm --filter @tms/api openapi:export`,
+      # the regenerated files differ from what's checked in and this step
+      # fails with the diff. Keeps the published REST surface honest.
+      #
+      # The export script reads JWT_SECRET / DATABASE_URL / CREDENTIALS_KEY
+      # at module load, so we inject the same CI test values used by the
+      # API unit tests above.
+      # ----------------------------------------------------------------
+      - name: OpenAPI spec sync check
+        env:
+          JWT_SECRET: ${{ env.CI_JWT_SECRET }}
+          CREDENTIALS_KEY: ${{ env.CI_CREDENTIALS_KEY }}
+          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          REDIS_URL: ${{ env.CI_REDIS_URL }}
+        run: |
+          pnpm --filter @tms/api openapi:export
+          if ! git diff --exit-code docs/api/openapi.json docs/api/openapi.md; then
+            echo "::error::OpenAPI spec is out of sync. Run 'pnpm --filter @tms/api openapi:export' and commit the changes."
+            git --no-pager diff docs/api/openapi.json | head -50
+            exit 1
+          fi
+
       - name: Web component tests
         run: pnpm --filter @tms/web test
 

@@ -17,6 +17,10 @@ Architectural Decision Records — immutable, numbered, append-only. New decisio
 - [`adr/0003-append-only-event-journal.md`](./adr/0003-append-only-event-journal.md) — `events` table immutability enforced by DB triggers.
 - [`adr/0004-jwt-24h-no-refresh.md`](./adr/0004-jwt-24h-no-refresh.md) — pilot-stage auth shape and its upgrade path.
 - [`adr/0005-provider-registry-factory-map.md`](./adr/0005-provider-registry-factory-map.md) — `${type}:${name}` factory map + per-org instance cache.
+- [`adr/0006-drizzle-orm-vs-prisma.md`](./adr/0006-drizzle-orm-vs-prisma.md) — Drizzle for SQL-first types, plain-SQL migrations, tiny runtime.
+- [`adr/0007-bullmq-for-async-jobs.md`](./adr/0007-bullmq-for-async-jobs.md) — BullMQ on Redis for scheduled + event-driven jobs.
+- [`adr/0008-nextjs-15-app-router.md`](./adr/0008-nextjs-15-app-router.md) — Next.js 15 App Router; edge middleware for JWT verification.
+- [`adr/0009-test-framework-stack.md`](./adr/0009-test-framework-stack.md) — Vitest for api/web/shared, ts-jest for mobile (with manual native mocks).
 
 ## Reference
 

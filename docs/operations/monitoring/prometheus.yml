@@ -1,0 +1,97 @@
+# ============================================================
+# Prometheus config — TMS v2 monitoring overlay
+# ============================================================
+# Mounted into the `prometheus` container by docker-compose.monitoring.yml.
+# Scrapes the API, node_exporter, cadvisor, postgres_exporter,
+# redis_exporter, and itself, then optionally remote-writes to Grafana Cloud.
+#
+# Environment variables (expanded via docker-compose env_file):
+#   - GRAFANA_CLOUD_REMOTE_WRITE_URL
+#   - GRAFANA_CLOUD_USERNAME
+#   - GRAFANA_CLOUD_API_KEY
+#   - METRICS_BASIC_AUTH_USER  (only used if the API has /metrics behind auth)
+#   - METRICS_BASIC_AUTH_PASS
+#
+# If you don't have Grafana Cloud yet, simply comment out the entire
+# `remote_write:` block — local Prometheus + the bundled alert rules still
+# work standalone (use port 9090 directly to query / view alerts).
+# ============================================================
+
+global:
+  scrape_interval: 30s
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+  external_labels:
+    cluster: tms-prod
+    env: production
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  # Optional — wire Alertmanager here if you self-host. With Grafana Cloud
+  # alerting, leave this empty and import the rules into Grafana Cloud →
+  # Alerting → Alert rules (see setup-grafana-cloud.md, section 5).
+  alertmanagers: []
+
+scrape_configs:
+
+  # ---- TMS API: app metrics (route latency, error counts, queue depth) ----
+  - job_name: api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['api:4000']
+        labels:
+          service: api
+    # Uncomment when METRICS_BASIC_AUTH_* are set on the API:
+    # basic_auth:
+    #   username: ${METRICS_BASIC_AUTH_USER}
+    #   password: ${METRICS_BASIC_AUTH_PASS}
+
+  # ---- Host metrics: CPU, RAM, disk, network ----
+  - job_name: node
+    static_configs:
+      - targets: ['node_exporter:9100']
+        labels:
+          service: node
+
+  # ---- Container metrics: per-service RSS, CPU, FS ----
+  - job_name: cadvisor
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          service: cadvisor
+
+  # ---- Postgres exporter: pg_up, connections, slow queries ----
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres_exporter:9187']
+        labels:
+          service: postgres
+
+  # ---- Redis exporter: redis_up, ops/s, memory ----
+  - job_name: redis
+    static_configs:
+      - targets: ['redis_exporter:9121']
+        labels:
+          service: redis
+
+  # ---- Self-monitoring ----
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: prometheus
+
+# Ship metrics to Grafana Cloud. Comment this block out for local-only mode.
+remote_write:
+  - url: ${GRAFANA_CLOUD_REMOTE_WRITE_URL}
+    basic_auth:
+      username: ${GRAFANA_CLOUD_USERNAME}
+      password: ${GRAFANA_CLOUD_API_KEY}
+    # Drop high-cardinality go_* metrics from Prometheus itself — they eat
+    # the free-tier 10K active-series budget for nothing useful.
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'go_.*'
+        action: drop
