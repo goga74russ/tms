@@ -1,4 +1,4 @@
-function ensureExtension(filename: string, blob: Blob): string {
+export function ensureExtension(filename: string, blob: Blob): string {
     if (/\.[a-z0-9]+$/i.test(filename)) return filename;
 
     const extensionMap: Record<string, string> = {
@@ -15,7 +15,7 @@ function ensureExtension(filename: string, blob: Blob): string {
     return filename + (extensionMap[blob.type] ?? '');
 }
 
-function sanitizeFilename(filename: string) {
+export function sanitizeFilename(filename: string) {
     return filename.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_');
 }
 

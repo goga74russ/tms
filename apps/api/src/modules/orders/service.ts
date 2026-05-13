@@ -7,20 +7,12 @@ import { eq, and, desc, sql, gte, lte, ilike, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import { OrderStatus } from '@tms/shared';
 import { containsLikePattern } from '../../utils/search.js';
+import { canTransitionOrder } from './validators.js';
 
 // --- State machine transitions (§4.2) ---
-const ORDER_TRANSITIONS: Record<string, string[]> = {
-    [OrderStatus.DRAFT]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
-    [OrderStatus.CONFIRMED]: [OrderStatus.ASSIGNED, OrderStatus.CANCELLED],
-    [OrderStatus.ASSIGNED]: [OrderStatus.IN_TRANSIT, OrderStatus.CANCELLED],
-    [OrderStatus.IN_TRANSIT]: [OrderStatus.DELIVERED, OrderStatus.RETURNED],
-    [OrderStatus.DELIVERED]: [],
-    [OrderStatus.RETURNED]: [],
-    [OrderStatus.CANCELLED]: [],
-};
-
+// Canonical map lives in @tms/shared; the pure helper lives in validators.ts.
 export function canTransition(from: string, to: string): boolean {
-    return ORDER_TRANSITIONS[from]?.includes(to) ?? false;
+    return canTransitionOrder(from, to);
 }
 
 // --- Sequential number generation: ORD-2026-00001 ---

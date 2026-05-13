@@ -10,6 +10,7 @@ import { getBusinessDayBounds } from '../../utils/timezone.js';
 import { getBlockingIncidents, getIncompleteRoutePoints, lockRowForUpdate } from '../../utils/db-helpers.js';
 import { containsLikePattern } from '../../utils/search.js';
 import { buildReadinessSnapshot } from '../trips/service.js';
+import { validateOdometerReadings } from './lifecycle.js';
 
 type WaybillVehicleProfile = 'passenger' | 'cargo' | 'special';
 
@@ -595,8 +596,11 @@ export async function closeWaybill(
         throw new Error('Only issued waybills can be closed');
     }
 
-    if (data.odometerIn < (waybill.odometerOut ?? 0)) {
-        throw new Error('Odometer in cannot be less than odometer out');
+    {
+        const validation = validateOdometerReadings(waybill.odometerOut ?? 0, data.odometerIn);
+        if (!validation.ok && validation.reason === 'rollback') {
+            throw new Error('Odometer in cannot be less than odometer out');
+        }
     }
 
     const incompleteRoutePoints = await getIncompleteRoutePoints(waybill.tripId);
@@ -619,8 +623,11 @@ export async function closeWaybill(
             throw new Error('Only issued waybills can be closed');
         }
 
-        if (data.odometerIn < (lockedWaybill.odometerOut ?? 0)) {
-            throw new Error('Odometer in cannot be less than odometer out');
+        {
+            const validation = validateOdometerReadings(lockedWaybill.odometerOut ?? 0, data.odometerIn);
+            if (!validation.ok && validation.reason === 'rollback') {
+                throw new Error('Odometer in cannot be less than odometer out');
+            }
         }
 
         const [result] = await tx.update(waybills)
