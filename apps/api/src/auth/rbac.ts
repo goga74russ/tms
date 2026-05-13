@@ -5,6 +5,26 @@
 import { AbilityBuilder, createMongoAbility, MongoAbility } from '@casl/ability';
 import { FastifyRequest, FastifyReply } from 'fastify';
 
+// A-P1-6: canonical role list. The role names used in `defineAbilitiesFor`
+// below are the ONLY values admin/onboarding endpoints should accept on user
+// creation/update. Anything else was silently stored before and would have
+// granted zero abilities — but the unbounded `z.array(z.string())` schemas
+// gave attackers latitude to fingerprint or seed garbage roles. Use this list
+// in `z.array(z.enum(APP_ROLES))` everywhere user roles are taken as input.
+export const APP_ROLES = [
+    'admin',
+    'manager',
+    'dispatcher',
+    'logist',
+    'accountant',
+    'mechanic',
+    'medic',
+    'repair_service',
+    'client',
+    'driver',
+] as const;
+export type AppRole = typeof APP_ROLES[number];
+
 type Actions = 'read' | 'create' | 'update' | 'delete' | 'manage';
 type Subjects =
     | 'Order' | 'Trip' | 'Vehicle' | 'Driver' | 'Contractor'

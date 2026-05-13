@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // TMS — PostgreSQL Schema (Drizzle ORM)
 // Полная схема БД по §4.1 ТЗ + append-only event journal
 // ============================================================
@@ -7,6 +7,7 @@ import {
     timestamp, jsonb, index, uniqueIndex, pgEnum, serial,
     numeric, doublePrecision,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // ================================================================
 // Enums (PostgreSQL-native)
@@ -153,6 +154,17 @@ export const organizations = pgTable('organizations', {
     inn: varchar('inn', { length: 12 }),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    // Round 1B — onboarding wizard state. See `// === ONBOARDING (Round 1B) ===`.
+    onboardingStep: integer('onboarding_step').notNull().default(0),
+    onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
+    onboardingScenario: text('onboarding_scenario'),
+    kpp: text('kpp'),
+    ogrn: text('ogrn'),
+    legalAddress: text('legal_address'),
+    bankBik: text('bank_bik'),
+    bankAccount: text('bank_account'),
+    // Round 2A: when true, ADR validation failures block trip assignment.
+    adrStrictMode: boolean('adr_strict_mode').notNull().default(false),
 });
 
 // ================================================================
@@ -170,6 +182,8 @@ export const users = pgTable('users', {
     contractorId: uuid('contractor_id').references(() => contractors.id),
     // Multitenancy (Sprint 14): isolate data by organization
     organizationId: uuid('organization_id').references(() => organizations.id),
+    // Round 1B — set when the user verifies their email via 6-digit code.
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -189,12 +203,15 @@ export const contractors = pgTable('contractors', {
     phone: varchar('phone', { length: 20 }),
     email: varchar('email', { length: 255 }),
     isArchived: boolean('is_archived').notNull().default(false),
+    // Wave 4: контрагент может выступать как перевозчик-субподрядчик.
+    isCarrier: boolean('is_carrier').notNull().default(false),
     // Multitenancy (Sprint 14)
     organizationId: uuid('organization_id').references(() => organizations.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
     uniqueIndex('idx_contractors_inn').on(table.inn),
+    index('idx_contractors_is_carrier').on(table.isCarrier),
 ]);
 
 // ================================================================
@@ -267,6 +284,8 @@ export const vehicles = pgTable('vehicles', {
     fuelCardNumber: varchar('fuel_card_number', { length: 50 }),
     transponderNumber: varchar('transponder_number', { length: 50 }),
     hasHydraulicLift: boolean('has_hydraulic_lift').notNull().default(false),
+    // Wave 5: ADR (опасные грузы) — оборудование ADR на ТС
+    adrEquipped: boolean('adr_equipped').notNull().default(false),
     isArchived: boolean('is_archived').notNull().default(false),
     // Multitenancy (Sprint 14)
     organizationId: uuid('organization_id').references(() => organizations.id),
@@ -302,6 +321,11 @@ export const drivers = pgTable('drivers', {
     fuelCardNumber: varchar('fuel_card_number', { length: 50 }),
     // Sprint 19: Приказ Минтранса 390 — СНИЛС обязателен для путевого листа
     snils: varchar('snils', { length: 14 }),
+    // Wave 5: ADR-свидетельство (опасные грузы) — срок окончания
+    adrCertificateExpiry: timestamp('adr_certificate_expiry', { withTimezone: true }),
+    // Round 2A: тахограф — номер карты водителя (СКЗИ). Используется для
+    // привязки записей при загрузке .DDD.
+    tachographCardNumber: varchar('tachograph_card_number', { length: 32 }),
     isActive: boolean('is_active').notNull().default(true),
     // Multitenancy (Sprint 14)
     organizationId: uuid('organization_id').references(() => organizations.id),
@@ -332,9 +356,17 @@ export const orders = pgTable('orders', {
     // Sprint 9: Температурный режим (рефрижераторы)
     temperatureMin: doublePrecision('temperature_min'),
     temperatureMax: doublePrecision('temperature_max'),
+    // Wave 2: Cold chain v0 — SLA bounds for refrigerated cargo
+    coldChainRequired: boolean('cold_chain_required').notNull().default(false),
+    temperatureMinC: numeric('temperature_min_c', { precision: 5, scale: 2 }).$type<number>(),
+    temperatureMaxC: numeric('temperature_max_c', { precision: 5, scale: 2 }).$type<number>(),
     // Sprint 9: Тип загрузки
     loadingType: varchar('loading_type', { length: 20 }),  // rear, side, top
     hydraulicLiftRequired: boolean('hydraulic_lift_required').notNull().default(false),
+    // Wave 5: ADR (опасные грузы) — UN ADR классы 1, 2, 3, 4.1, 4.2, 4.3,
+    // 5.1, 5.2, 6.1, 6.2, 7, 8, 9. NULL означает не-опасный груз.
+    adrClass: text('adr_class'),
+    adrUnNumber: text('adr_un_number'),
     // Адреса
     loadingAddress: text('loading_address').notNull(),
     loadingLat: doublePrecision('loading_lat'),
@@ -391,6 +423,8 @@ export const trips = pgTable('trips', {
     notes: text('notes'),
     originalDocumentsReceived: boolean('original_documents_received').notNull().default(false),
     organizationId: uuid('organization_id').references(() => organizations.id),
+    // Wave 4: рейс выполняется субподрядчиком-перевозчиком.
+    carrierContractorId: uuid('carrier_contractor_id').references(() => contractors.id, { onDelete: 'set null' }),
     createdBy: uuid('created_by').notNull().references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -401,6 +435,7 @@ export const trips = pgTable('trips', {
     index('idx_trips_trailer').on(table.trailerId),
     index('idx_trips_driver').on(table.driverId),
     index('idx_trips_org').on(table.organizationId),
+    index('idx_trips_carrier_contractor').on(table.carrierContractorId),
 ]);
 
 // ================================================================
@@ -470,6 +505,9 @@ export const routePoints = pgTable('route_points', {
     lon: doublePrecision('lon'),
     windowStart: timestamp('window_start', { withTimezone: true }),
     windowEnd: timestamp('window_end', { withTimezone: true }),
+    // Wave 3: Дополнительные окна доставки (РТО)
+    windowFrom: timestamp('window_from', { withTimezone: true }),
+    windowTo: timestamp('window_to', { withTimezone: true }),
     arrivedAt: timestamp('arrived_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     signatureUrl: text('signature_url'),
@@ -841,6 +879,10 @@ export const invoiceAdjustments = pgTable('invoice_adjustments', {
 export const tachographRecords = pgTable('tachograph_records', {
     id: uuid('id').primaryKey().defaultRandom(),
     driverId: uuid('driver_id').notNull().references(() => drivers.id),
+    // A-P2 verified 2026-05-13: `date` is `timestamptz` (NOT `date`), so
+    // the JS Date round-trip preserves timezone info. Consumers should
+    // continue to use the timestamp directly (no implicit date-only
+    // conversions). Reviewed in audit-2026-05-12-deep.md.
     date: timestamp('date', { withTimezone: true }).notNull(),
     drivingMinutes: integer('driving_minutes').notNull(),
     restMinutes: integer('rest_minutes').notNull(),
@@ -870,6 +912,11 @@ export const restrictionZones = pgTable('restriction_zones', {
 // ================================================================
 export const checklistTemplates = pgTable('checklist_templates', {
     id: uuid('id').primaryKey().defaultRandom(),
+    // A-P0-12: tenant scoping. Pre-multitenancy templates have null
+    // organization_id and act as system defaults (read-only, visible to all
+    // tenants). New templates created via /admin/checklists belong to the
+    // creator's org and are tenant-scoped.
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
     type: varchar('type', { length: 10 }).notNull(), // tech, med
     version: varchar('version', { length: 20 }).notNull(),
     name: varchar('name', { length: 255 }).notNull(),
@@ -880,7 +927,9 @@ export const checklistTemplates = pgTable('checklist_templates', {
     }>>().notNull(),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+    index('idx_checklist_templates_organization').on(table.organizationId),
+]);
 
 // ================================================================
 // Addresses (Адреса)
@@ -905,6 +954,10 @@ export const addresses = pgTable('addresses', {
 export const events = pgTable('events', {
     id: uuid('id').primaryKey().defaultRandom(),
     timestamp: timestamp('timestamp', { withTimezone: true }).notNull().defaultNow(),
+    // A-P0-12: tenant scoping. Backfilled from author's org in migration 0027.
+    // Nullable for now — old rows where the author was deleted may have no
+    // org. App-side queries filter `IS NOT NULL` + match request.orgId.
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
     authorId: uuid('author_id').notNull().references(() => users.id),
     authorRole: varchar('author_role', { length: 30 }).notNull(),
     eventType: varchar('event_type', { length: 100 }).notNull(),
@@ -921,6 +974,7 @@ export const events = pgTable('events', {
     index('idx_events_type').on(table.eventType),
     index('idx_events_timestamp').on(table.timestamp),
     index('idx_events_author').on(table.authorId),
+    index('idx_events_organization').on(table.organizationId, sql`${table.timestamp} DESC`),
     uniqueIndex('idx_events_external_id').on(table.externalId),
 ]);
 
@@ -1166,6 +1220,13 @@ export const transportDocuments = pgTable('transport_documents', {
     history: jsonb('history').$type<Array<Record<string, unknown>>>().notNull().default([]),
     timeline: jsonb('timeline').$type<Array<Record<string, unknown>>>().notNull().default([]),
     metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+    // Wave 5: EDI / Diadoc / SBIS / Kontur (mock).
+    // ediStatus ∈ 'not_sent' | 'sent' | 'signed_by_carrier' | 'signed_by_client' | 'rejected'
+    // ediProvider ∈ 'diadoc' | 'sbis' | 'kontur'
+    ediStatus: text('edi_status'),
+    ediProvider: text('edi_provider'),
+    ediExternalId: text('edi_external_id'),
+    ediSentAt: timestamp('edi_sent_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -1175,6 +1236,21 @@ export const transportDocuments = pgTable('transport_documents', {
     index('idx_transport_documents_waybill').on(table.waybillId),
     index('idx_transport_documents_kind').on(table.artifactKind),
     index('idx_transport_documents_status').on(table.status),
+]);
+
+// ================================================================
+// Wave 5: EDI events log (Diadoc/SBIS/Kontur mock)
+// ================================================================
+export const ediEvents = pgTable('edi_events', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    documentId: uuid('document_id').notNull().references(() => transportDocuments.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    eventType: text('event_type').notNull(), // 'sent' | 'signed' | 'rejected'
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_edi_events_document').on(table.documentId),
+    index('idx_edi_events_created').on(sql`${table.createdAt} DESC`),
 ]);
 
 export const transportDocumentEvents = pgTable('transport_document_events', {
@@ -1288,6 +1364,8 @@ export const fuelRecords = pgTable('fuel_records', {
     tripId: uuid('trip_id').references(() => trips.id, { onDelete: 'set null' }),
     driverId: uuid('driver_id').references(() => drivers.id),
     organizationId: uuid('organization_id').references(() => organizations.id),
+    // Wave 6: provenance — 'manual' (default), 'fuel_card_mock', or future real-provider tags.
+    source: varchar('source', { length: 50 }).notNull().default('manual'),
     createdBy: uuid('created_by').notNull().references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -1357,3 +1435,284 @@ export const maintenanceSchedule = pgTable('maintenance_schedule', {
     index('idx_maintenance_vehicle_status').on(table.vehicleId, table.status),
 ]);
 
+// ================================================================
+// Wave 2 — Cold chain v0 (Temperature Readings)
+// ================================================================
+export const temperatureReadingSourceEnum = pgEnum('temperature_reading_source', [
+    'sensor', 'manual', 'mock',
+]);
+
+export const temperatureReadings = pgTable('temperature_readings', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tripId: uuid('trip_id').notNull().references(() => trips.id, { onDelete: 'cascade' }),
+    orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
+    // A-P2: explicit per-row tenancy. Backfilled in migration 0028 from
+    // the trip's organization_id. Stays nullable until a follow-up
+    // verifies no orphan rows; service-layer inserts always set it.
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
+    tempC: numeric('temp_c', { precision: 5, scale: 2 }).$type<number>().notNull(),
+    sensorId: text('sensor_id'),
+    latitude: doublePrecision('latitude'),
+    longitude: doublePrecision('longitude'),
+    source: temperatureReadingSourceEnum('source').notNull().default('mock'),
+    breach: boolean('breach').notNull().default(false),
+    breachMinC: numeric('breach_min_c', { precision: 5, scale: 2 }).$type<number>(),
+    breachMaxC: numeric('breach_max_c', { precision: 5, scale: 2 }).$type<number>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_temp_readings_trip_recorded').on(table.tripId, sql`${table.recordedAt} DESC`),
+    index('idx_temp_readings_order_recorded')
+        .on(table.orderId, sql`${table.recordedAt} DESC`)
+        .where(sql`${table.orderId} IS NOT NULL`),
+    index('idx_temperature_readings_org').on(table.organizationId),
+]);
+
+// ================================================================
+// Wave 4: Carrier subcontracting v0
+// Договоры с перевозчиками-субподрядчиками. status управляет
+// жизненным циклом (draft → active → terminated), договор вступает
+// в силу только в статусе 'active'.
+// ================================================================
+export const carrierContracts = pgTable('carrier_contracts', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    contractorId: uuid('contractor_id').notNull().references(() => contractors.id, { onDelete: 'cascade' }),
+    number: varchar('number', { length: 100 }).notNull(),
+    startDate: timestamp('start_date', { withTimezone: true }).notNull(),
+    endDate: timestamp('end_date', { withTimezone: true }),
+    defaultRatePerKm: numeric('default_rate_per_km', { precision: 12, scale: 2 }).$type<number>(),
+    defaultRatePerTon: numeric('default_rate_per_ton', { precision: 12, scale: 2 }).$type<number>(),
+    status: varchar('status', { length: 20 }).notNull().default('draft'),
+    organizationId: uuid('organization_id').references(() => organizations.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_carrier_contracts_contractor').on(table.contractorId),
+    index('idx_carrier_contracts_status').on(table.status),
+    index('idx_carrier_contracts_org').on(table.organizationId),
+]);
+
+// ================================================================
+// Wave 3: Vehicle Positions (история GPS)
+// Хранит исторические позиции ТС для ETA/треков. WS broadcast
+// читает эту таблицу или fallback на mock-телеметрию.
+// ================================================================
+export const vehiclePositions = pgTable('vehicle_positions', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id, { onDelete: 'cascade' }),
+    recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
+    latitude: doublePrecision('latitude').notNull(),
+    longitude: doublePrecision('longitude').notNull(),
+    speedKmh: doublePrecision('speed_kmh'),
+    headingDeg: doublePrecision('heading_deg'),
+    source: text('source').notNull().default('mock'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_vehicle_positions_vehicle_recorded').on(table.vehicleId, sql`${table.recordedAt} DESC`),
+]);
+
+// === PROVIDER FRAMEWORK (Round 1C) ===
+// Pluggable adapters for signature/EDI/telematics/fuel-card/fines/marking/payment/email
+// providers. Real credentials live encrypted in `encrypted_credentials` (AES-256-GCM,
+// key from CREDENTIALS_KEY env). The framework lets us swap a mock for a real provider
+// per organization within hours when API keys arrive.
+export const providerCredentials = pgTable('provider_credentials', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    // 'signature' | 'edi' | 'telematics' | 'fuel_card' | 'fines' | 'marking' | 'payment' | 'email'
+    providerType: text('provider_type').notNull(),
+    // 'gosklyuch' | 'kontur_sign' | 'sbis_sign' | 'cadesplugin' | 'diadoc' | 'sbis' |
+    // 'kontur' | 'wialon' | 'omnicomm' | 'glonasssoft' | 'lukoil' | 'rosneft' |
+    // 'gazpromneft' | 'autocode' | 'fssp' | 'gibdd' | 'crpt' | 'yookassa' | 'tinkoff' |
+    // 'cloudpayments' | 'mailru_smtp' | 'unisender' | 'mock'
+    providerName: text('provider_name').notNull(),
+    // 'mock' | 'sandbox' | 'active' | 'disabled' | 'error'
+    status: text('status').notNull().default('mock'),
+    encryptedCredentials: text('encrypted_credentials'),
+    lastHealthCheckAt: timestamp('last_health_check_at', { withTimezone: true }),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('uniq_provider_credentials_org_type_name')
+        .on(table.organizationId, table.providerType, table.providerName),
+    index('idx_provider_credentials_org_type').on(table.organizationId, table.providerType),
+]);
+
+// === COPILOT (Round 1A) ===
+export const copilotMessageRoleEnum = pgEnum('copilot_message_role', [
+    'user', 'assistant', 'tool', 'system',
+]);
+
+export const copilotConversations = pgTable('copilot_conversations', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    messageCount: integer('message_count').notNull().default(0),
+    lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_copilot_conversations_user').on(table.userId, sql`${table.lastActivityAt} DESC`),
+    index('idx_copilot_conversations_org').on(table.organizationId, sql`${table.lastActivityAt} DESC`),
+]);
+
+export const copilotMessages = pgTable('copilot_messages', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    conversationId: uuid('conversation_id').notNull().references(() => copilotConversations.id, { onDelete: 'cascade' }),
+    role: copilotMessageRoleEnum('role').notNull(),
+    content: text('content').notNull().default(''),
+    toolName: text('tool_name'),
+    toolInput: jsonb('tool_input').$type<Record<string, unknown>>(),
+    toolOutput: jsonb('tool_output').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_copilot_messages_conv_created').on(table.conversationId, table.createdAt),
+]);
+
+// === ONBOARDING (Round 1B) ===
+// Self-serve signup + 6-step onboarding wizard. The signup flow
+// creates an inactive `users` row (isActive=false, emailVerifiedAt=null)
+// plus an organization, and sends a 6-digit code stored here. The
+// onboarding wizard then walks the new admin through ИНН lookup,
+// company profile, scenario pick, EDI/signature provider hookup, and
+// teammate invites. `organizations.onboarding_step` is the resumable
+// pointer; `onboarding_completed_at` flips when step 6 finishes.
+export const emailVerifications = pgTable('email_verifications', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: varchar('email', { length: 255 }).notNull(),
+    code: varchar('code', { length: 6 }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_email_verifications_email').on(table.email),
+    index('idx_email_verifications_created').on(sql`${table.createdAt} DESC`),
+]);
+
+// === COMPLIANCE (Round 2A) ===
+// РФ-специфичные интеграции: РСА-ОСАГО, ЦРПТ (Честный знак), тахограф.
+// Все таблицы scope-аются по organization_id, чтобы один тенант не видел
+// чужие данные. Реальные провайдеры в `apps/api/src/providers/{osago,marking}`,
+// при отсутствии креденшелов используется mock-адаптер.
+export const osagoChecks = pgTable('osago_checks', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id, { onDelete: 'cascade' }),
+    checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+    valid: boolean('valid').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    insurer: text('insurer'),
+    policyNumber: text('policy_number'),
+    rawResponse: jsonb('raw_response').$type<Record<string, unknown>>(),
+    providerName: text('provider_name').notNull().default('mock'),
+}, (table) => [
+    index('idx_osago_checks_vehicle').on(table.vehicleId, sql`${table.checkedAt} DESC`),
+    index('idx_osago_checks_org').on(table.organizationId, sql`${table.checkedAt} DESC`),
+]);
+
+export const markingVerifications = pgTable('marking_verifications', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    lotId: uuid('lot_id').references(() => shipmentLots.id, { onDelete: 'set null' }),
+    code: text('code').notNull(),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }).notNull().defaultNow(),
+    valid: boolean('valid').notNull(),
+    category: text('category'),
+    productName: text('product_name'),
+    gtin: text('gtin'),
+    serial: text('serial'),
+    rawResponse: jsonb('raw_response').$type<Record<string, unknown>>(),
+    providerName: text('provider_name').notNull().default('mock'),
+}, (table) => [
+    index('idx_marking_verifications_org_code').on(table.organizationId, table.code),
+    index('idx_marking_verifications_lot').on(table.lotId),
+]);
+
+export const tachographUploads = pgTable('tachograph_uploads', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    driverId: uuid('driver_id').references(() => drivers.id, { onDelete: 'set null' }),
+    driverCardNumber: varchar('driver_card_number', { length: 32 }),
+    vehicleVin: varchar('vehicle_vin', { length: 17 }),
+    periodFrom: timestamp('period_from', { withTimezone: true }),
+    periodTo: timestamp('period_to', { withTimezone: true }),
+    fileName: text('file_name'),
+    fileSizeBytes: integer('file_size_bytes'),
+    recordsInserted: integer('records_inserted').notNull().default(0),
+    totalDrivingMinutes: integer('total_driving_minutes').notNull().default(0),
+    uploadedBy: uuid('uploaded_by').references(() => users.id),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+    parseWarnings: jsonb('parse_warnings').$type<string[]>(),
+}, (table) => [
+    index('idx_tachograph_uploads_org').on(table.organizationId, sql`${table.uploadedAt} DESC`),
+    index('idx_tachograph_uploads_driver').on(table.driverId, sql`${table.uploadedAt} DESC`),
+]);
+
+// === MONETIZATION (Round 2B) ===
+// Plan catalogue + per-organization subscriptions, payment history, monthly
+// usage counters. Plans seeded by 0023_monetization.sql migration; new orgs
+// default to 'free' (no subscription row required).
+export const plans = pgTable('plans', {
+    id: text('id').primaryKey(), // 'free' | 'pro' | 'business' | 'enterprise'
+    nameRu: text('name_ru').notNull(),
+    priceMonthlyKopecks: integer('price_monthly_kopecks').notNull().default(0),
+    vehicleLimit: integer('vehicle_limit'),
+    monthlyOrdersLimit: integer('monthly_orders_limit'),
+    copilotMessagesDaily: integer('copilot_messages_daily'),
+    features: jsonb('features').$type<Record<string, boolean>>().notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const subscriptions = pgTable('subscriptions', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    planId: text('plan_id').notNull().references(() => plans.id),
+    // 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled'
+    status: text('status').notNull().default('trial'),
+    trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }),
+    currentPeriodStart: timestamp('current_period_start', { withTimezone: true }).notNull().defaultNow(),
+    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }).notNull(),
+    cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+    paymentProvider: text('payment_provider'),
+    paymentExternalId: text('payment_external_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('uniq_subscriptions_org').on(table.organizationId),
+    index('idx_subscriptions_status').on(table.status),
+    index('idx_subscriptions_period_end').on(table.currentPeriodEnd),
+]);
+
+export const payments = pgTable('payments', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    subscriptionId: uuid('subscription_id').notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
+    amountKopecks: integer('amount_kopecks').notNull(),
+    // 'pending' | 'succeeded' | 'failed' | 'refunded'
+    status: text('status').notNull().default('pending'),
+    providerPaymentId: text('provider_payment_id'),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    receiptUrl: text('receipt_url'),
+    failureReason: text('failure_reason'),
+    // A-P0-1: stores `lastWebhookEventId` for replay dedupe + provider-side
+    // correlation ids. JSONB so future providers (Tinkoff, CloudPayments) can
+    // add fields without further migrations. See migration 0026.
+    providerMetadata: jsonb('provider_metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_payments_subscription').on(table.subscriptionId, sql`${table.createdAt} DESC`),
+    index('idx_payments_provider_id').on(table.providerPaymentId),
+]);
+
+export const usageCounters = pgTable('usage_counters', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    /** First day of month, UTC midnight. */
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+    vehiclesCount: integer('vehicles_count').notNull().default(0),
+    ordersCount: integer('orders_count').notNull().default(0),
+    copilotMessagesCount: integer('copilot_messages_count').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('uniq_usage_counters_org_period').on(table.organizationId, table.periodStart),
+]);

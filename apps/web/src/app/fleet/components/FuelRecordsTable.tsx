@@ -70,13 +70,13 @@ export function FuelRecordsTable() {
         <div className="space-y-4 p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="grid gap-3 md:grid-cols-4">
-                    <select value={filters.vehicleId} onChange={(e) => setFilters((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                    <select value={filters.vehicleId} onChange={(e) => setFilters((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                         <option value="">Все ТС</option>
                         {vehicles.map((vehicle: any) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plateNumber}</option>)}
                     </select>
-                    <input type="date" value={filters.dateFrom} onChange={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                    <input type="date" value={filters.dateTo} onChange={(e) => setFilters((prev) => ({ ...prev, dateTo: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                    <select value={filters.fuelType} onChange={(e) => setFilters((prev) => ({ ...prev, fuelType: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                    <input type="date" value={filters.dateFrom} onChange={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm" />
+                    <input type="date" value={filters.dateTo} onChange={(e) => setFilters((prev) => ({ ...prev, dateTo: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm" />
+                    <select value={filters.fuelType} onChange={(e) => setFilters((prev) => ({ ...prev, fuelType: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                         <option value="">Все типы топлива</option>
                         <option value="diesel">Дизель</option>
                         <option value="petrol">Бензин</option>
@@ -85,7 +85,7 @@ export function FuelRecordsTable() {
                     </select>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => loadData()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                    <button onClick={() => loadData()} className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50">
                         <RefreshCw className="h-4 w-4" />
                         Обновить
                     </button>
@@ -97,20 +97,20 @@ export function FuelRecordsTable() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Итог за период</p>
-                    <p className="mt-1 text-2xl font-bold text-slate-900">{summary.liters.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} л</p>
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                    <p className="text-xs uppercase tracking-wide text-neutral-500">Итог за период</p>
+                    <p className="mt-1 text-2xl font-bold text-neutral-900">{summary.liters.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} л</p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Стоимость</p>
-                    <p className="mt-1 text-2xl font-bold text-slate-900">{formatMoney(summary.totalCost)}</p>
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                    <p className="text-xs uppercase tracking-wide text-neutral-500">Стоимость</p>
+                    <p className="mt-1 text-2xl font-bold text-neutral-900">{formatMoney(summary.totalCost)}</p>
                 </div>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="overflow-x-auto rounded-xl border border-neutral-200">
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="bg-slate-50 text-left text-slate-500">
+                        <tr className="bg-neutral-50 text-left text-neutral-500">
                             <th className="px-4 py-3 font-medium">Дата</th>
                             <th className="px-4 py-3 font-medium">ТС</th>
                             <th className="px-4 py-3 font-medium">Водитель</th>
@@ -122,26 +122,26 @@ export function FuelRecordsTable() {
                             <th className="px-4 py-3 font-medium">Рейс</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-neutral-100">
                         {loading ? (
-                            <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-400">Загружаем записи...</td></tr>
+                            <tr><td colSpan={9} className="px-4 py-10 text-center text-neutral-400">Загружаем записи...</td></tr>
                         ) : rows.length === 0 ? (
-                            <tr><td colSpan={9} className="px-4 py-10 text-center text-slate-400">Заправки пока не зарегистрированы.</td></tr>
+                            <tr><td colSpan={9} className="px-4 py-10 text-center text-neutral-400">Заправки пока не зарегистрированы.</td></tr>
                         ) : rows.map((row: any) => {
                             const record = getRowRecord<FuelRow>(row, 'fuel_records');
                             const vehicle = row.vehicles;
                             const driver = row.drivers;
                             return (
                                 <tr key={record.id}>
-                                    <td className="px-4 py-3 text-slate-600">{formatDateTime(record.recordedAt)}</td>
-                                    <td className="px-4 py-3 font-medium text-slate-800">{vehicle?.plateNumber || record.vehicleId}</td>
-                                    <td className="px-4 py-3 text-slate-600">{driver?.fullName || driver?.name || '—'}</td>
-                                    <td className="px-4 py-3 text-slate-600">{Number(record.liters).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
-                                    <td className="px-4 py-3 text-slate-600">{record.fuelType}</td>
-                                    <td className="px-4 py-3 text-slate-600">{formatMoney(record.totalCost)}</td>
-                                    <td className="px-4 py-3 text-slate-600">{record.station || '—'}</td>
-                                    <td className="px-4 py-3 text-slate-600">{record.odometerAtFill ? `${Number(record.odometerAtFill).toLocaleString('ru-RU')} км` : '—'}</td>
-                                    <td className="px-4 py-3 text-slate-600">{record.tripId || '—'}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{formatDateTime(record.recordedAt)}</td>
+                                    <td className="px-4 py-3 font-medium text-neutral-800">{vehicle?.plateNumber || record.vehicleId}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{driver?.fullName || driver?.name || '—'}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{Number(record.liters).toLocaleString('ru-RU', { maximumFractionDigits: 2 })}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{record.fuelType}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{formatMoney(record.totalCost)}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{record.station || '—'}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{record.odometerAtFill ? `${Number(record.odometerAtFill).toLocaleString('ru-RU')} км` : '—'}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{record.tripId || '—'}</td>
                                 </tr>
                             );
                         })}

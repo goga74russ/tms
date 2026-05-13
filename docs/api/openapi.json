@@ -1,0 +1,5752 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "TMS API — Управление транспортом",
+    "description": "REST API для системы управления грузоперевозками (TMS). Включает управление заявками, рейсами, автопарком, водителями, финансами, аналитикой и импортом данных.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "TMS Team",
+      "email": "admin@tms.local"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "tms_token",
+        "description": "JWT токен в httpOnly cookie"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Bearer токен (для мобильного приложения)"
+      }
+    },
+    "schemas": {}
+  },
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "summary": "Вход в систему",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Аутентификация по email/password. Устанавливает httpOnly cookie. Rate limit: 5/мин.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/mobile/login": {
+      "post": {
+        "summary": "Вход (mobile)",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Аутентификация для мобильного клиента. Возвращает Bearer token в body.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "Выход",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Очистка JWT cookie.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "summary": "Текущий пользователь",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Информация об авторизованном пользователе (без passwordHash).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/ws-token": {
+      "get": {
+        "summary": "WS токен",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Краткосрочный JWT (5 минут) для WebSocket подключения.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/users": {
+      "get": {
+        "summary": "Список пользователей",
+        "tags": [
+          "Администрирование"
+        ],
+        "description": "Все пользователи системы (только admin). Пагинация.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать пользователя",
+        "tags": [
+          "Администрирование"
+        ],
+        "description": "Регистрация нового пользователя (admin). Валидация email, пароля, ролей.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/users/{id}": {
+      "put": {
+        "summary": "Обновить пользователя",
+        "tags": [
+          "Администрирование"
+        ],
+        "description": "Обновление данных пользователя. Защита от self-escalation.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/tariffs": {
+      "get": {
+        "summary": "Список тарифов",
+        "tags": [
+          "Администрирование"
+        ],
+        "description": "Все тарифы (admin). Для управления ценообразованием.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать тариф",
+        "tags": [
+          "Администрирование"
+        ],
+        "description": "Новый тариф с модификаторами (ночь, выходные, НДС).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/tariffs/{id}": {
+      "put": {
+        "summary": "Обновить тариф",
+        "tags": [
+          "Администрирование"
+        ],
+        "description": "Обновление тарифа и коэффициентов.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/checklist-templates": {
+      "get": {
+        "summary": "Шаблоны чек-листов",
+        "tags": [
+          "Администрирование"
+        ],
+        "description": "Все шаблоны чек-листов (техосмотр/медосмотр).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать шаблон",
+        "tags": [
+          "Администрирование"
+        ],
+        "description": "Новый шаблон чек-листа для осмотров.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/checklist-templates/{id}": {
+      "put": {
+        "summary": "Обновить шаблон чек-листа",
+        "tags": [
+          "Администрирование"
+        ],
+        "description": "Обновление шаблона чек-листа.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/signup": {
+      "post": {
+        "summary": "Самостоятельная регистрация",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Создаёт неактивного пользователя + организацию и отправляет 6-значный код подтверждения на email.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/verify-email": {
+      "post": {
+        "summary": "Подтверждение email",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Проверяет 6-значный код, активирует пользователя и выставляет cookie.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/resend-code": {
+      "post": {
+        "summary": "Повторная отправка кода",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Регенерирует 6-значный код. Rate limit: 1 раз в минуту на email.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders": {
+      "get": {
+        "summary": "Список заявок",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Получить список заявок с фильтрацией по статусу, контрагенту, дате и поиском. Поддерживает пагинацию. Для водителей/клиентов — только свои заявки (RLS).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать заявку",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Создание новой заявки на перевозку. Валидация через Zod. Автоматическая генерация номера.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders/kanban": {
+      "get": {
+        "summary": "Kanban доска",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Заявки сгруппированные по статусам для Kanban-доски логиста.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders/{id}/lots/split": {
+      "post": {
+        "summary": "Разбить заявку на партии",
+        "tags": [
+          "Заявки"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders/{id}/fulfillment": {
+      "get": {
+        "summary": "Фулфилмент заявки",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Партии, назначения, факты и остатки по заявке.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders/{id}": {
+      "get": {
+        "summary": "Получить заявку",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Получить заявку по ID. Проверка доступа (RLS) для водителей и клиентов.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "summary": "Обновить заявку",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Частичное обновление заявки. IDOR-защита: проверка владения.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders/{id}/ttn": {
+      "get": {
+        "summary": "PDF ТТН",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Скачать товарно-транспортную накладную (форма 1-Т) в формате PDF.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders/{id}/status": {
+      "post": {
+        "summary": "Изменить статус заявки",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Переход статуса через state machine. Валидация допустимости перехода.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders/{id}/confirm": {
+      "post": {
+        "summary": "Подтвердить заявку",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Перевод заявки в статус «подтверждена». Валидация state machine.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders/{id}/cancel": {
+      "post": {
+        "summary": "Отменить заявку",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Отмена заявки с указанием причины. IDOR-защита.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders/from-template": {
+      "post": {
+        "summary": "Создать из шаблона",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Создание заявки на основе существующей (копирование с переопределением полей).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/execution-events": {
+      "post": {
+        "summary": "Record trip execution event",
+        "tags": [
+          "Trips"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/execution-events": {
+      "post": {
+        "summary": "Record trip execution event",
+        "tags": [
+          "Trips"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/compatibility": {
+      "get": {
+        "summary": "Trip cargo/vehicle compatibility",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Read-only operational-core checks for assigned lots against trip vehicle capacity, volume, requirements, body type, and temperature markers.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips": {
+      "get": {
+        "summary": "Список рейсов",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Получить все рейсы с фильтрацией по статусу, ТС, водителю, дате. Пагинация. RLS для водителей/клиентов.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать рейс",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Создание нового рейса. Автогенерация номера. Валидация Zod.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/available-vehicles": {
+      "get": {
+        "summary": "Доступные ТС",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Список ТС со статусом available для назначения на рейс.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/available-drivers": {
+      "get": {
+        "summary": "Доступные водители",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Список активных водителей для назначения на рейс.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/lot-assignments": {
+      "post": {
+        "summary": "Назначить партию в рейс",
+        "tags": [
+          "Рейсы"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/shipment-facts": {
+      "post": {
+        "summary": "Зафиксировать факт по партии",
+        "tags": [
+          "Рейсы"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/load-plan": {
+      "get": {
+        "summary": "План загрузки рейса",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Партии/назначения рейса, остатки и capacity summary.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}": {
+      "get": {
+        "summary": "Получить рейс",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Детальная информация о рейсе по ID с привязанными заявками.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "summary": "Обновить рейс",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Частичное обновление рейса (маршрут, плановые данные).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/assign": {
+      "post": {
+        "summary": "Назначить ТС/водителя",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Привязка транспортного средства Рё водителя к рейсу. Проверка доступности.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/status": {
+      "post": {
+        "summary": "Сменить статус",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Переход по state machine рейса (planningв†’assignedв†’inspectionв†’вЂ¦в†’completed). Валидация переходов.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/cancel": {
+      "post": {
+        "summary": "Отменить рейс",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Отмена рейса с указанием причины. Освобождение ТС Рё водителя.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/start": {
+      "post": {
+        "summary": "Начать рейс",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Фиксация выезда: проверка путевого листа, запись стартового одометра, переход trip → in_transit (через loading).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/complete": {
+      "post": {
+        "summary": "Завершить рейс",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Фиксация возврата: проверка маршрутных точек, запись финального одометра, переход trip → completed, путевой лист → closed.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/points": {
+      "get": {
+        "summary": "Точки маршрута",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Список точек маршрута рейса (погрузка/разгрузка) с координатами Рё статусами.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить точку",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Добавление новой точки маршрута к рейсу.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/points/{pointId}": {
+      "put": {
+        "summary": "Обновить точку",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Обновление точки маршрута (координаты, время прибытия, статус).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "pointId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Удалить точку",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Удаление точки маршрута из рейса.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "pointId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/sort-route-points": {
+      "post": {
+        "summary": "Отсортировать точки маршрута",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Сортирует точки маршрута: по windowFrom (если у всех заполнено), иначе loading→unloading с сохранением исходного порядка. Перенумеровывает sequence_number 1..N. Возвращает предупреждения о невыполнимых окнах.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/delivery-confirmation": {
+      "get": {
+        "summary": "Подтверждение доставки",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Получить данные подтверждения доставки от получателя.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Подтвердить доставку",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Водитель или диспетчер фиксирует факт доставки. При confirmationMode=required вЂ” единственный способ завершить рейс. Диспетчер может использовать forcedByDispatcher=true.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/delivery-confirmation/v2": {
+      "post": {
+        "summary": "Подтвердить доставку (упрощённая схема)",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Wave 1: упрощённая схема подтверждения доставки. Принимает signedByName/signatureDataUrl/photoUrls/condition.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents": {
+      "get": {
+        "summary": "Документы перевозки",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Runtime transport document layer: waybill, delivery confirmations, and document returns.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents/{documentId}": {
+      "get": {
+        "summary": "Документ перевозки",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Preview a single runtime transport document by composite id.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents/{documentId}/exchange": {
+      "get": {
+        "summary": "Transport document exchange",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Persisted outbound/inbound exchange state for a transport document.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents/{documentId}/signatures": {
+      "post": {
+        "summary": "Record transport document signature",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Persist a role-based signature fact for ETRN/transport document lifecycle.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents/{documentId}/signature-refusals": {
+      "post": {
+        "summary": "Record transport document signature refusal",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Persist signer refusal with reason/evidence and mark document rejected.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents/{documentId}/retry": {
+      "post": {
+        "summary": "Retry transport document",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Increment retry counter and append a retry history event for the persisted document.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents/{documentId}/exchange/attempts": {
+      "post": {
+        "summary": "Create exchange attempt",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Create an outbound exchange attempt and persist provider metadata for a transport document.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents/{documentId}/exchange/receipts": {
+      "post": {
+        "summary": "Record exchange receipt",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Persist a provider receipt/callback for a transport document exchange.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents/{documentId}/provider-status": {
+      "post": {
+        "summary": "Update provider status",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Manual provider/status update that also persists a callback-style receipt.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents/{documentId}/send": {
+      "post": {
+        "summary": "Send transport document to provider",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Create outbound external compliance exchange attempt for a persisted transport document.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents/{documentId}/status": {
+      "post": {
+        "summary": "Update transport document status",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Manual provider/status update for a persisted transport document.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/transport-documents/{documentId}/provider-callback": {
+      "post": {
+        "summary": "Register provider callback",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Persist an inbound provider event/receipt for a transport document and update external compliance state.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "documentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/etrn-workflow": {
+      "get": {
+        "summary": "ETRN workflow",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Runtime official ETRN title workflow derived from trip, waybill, confirmations, and returns.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/etrn-workflow/{titleType}": {
+      "get": {
+        "summary": "ETRN title",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Runtime official ETRN title detail by title type.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "titleType",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/compliance-panel": {
+      "get": {
+        "summary": "Compliance panel",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Runtime transport compliance bundle for the UI: documents, lifecycle, timeline, problems, and summary.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/dossier/items/{itemId}/exception": {
+      "post": {
+        "summary": "Exception a dossier item",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Mark a required dossier item as exceptioned with a reason. ETRN/provider lifecycle remains in transport_documents.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "itemId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/dossier/close-gate": {
+      "get": {
+        "summary": "Trip dossier close gate",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Read-only document gate for trip close: blocking/warning dossier items and ETRN exception awareness.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/dossier": {
+      "get": {
+        "summary": "Transport dossier",
+        "tags": [
+          "Trips"
+        ],
+        "description": "Read-only dossier for a trip: trip, orders, waybill, vehicle, trailer, and parties.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/eta": {
+      "get": {
+        "summary": "ETA рейса",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Возвращает оценочное время прибытия на следующую точку маршрута (haversine, 50 км/ч). Если нет GPS или нет ожидающих точек — возвращает причину.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/tech/queue": {
+      "get": {
+        "summary": "Очередь техосмотров",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Список рейсов, ожидающих техосмотр (статус inspection).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/tech/checklist": {
+      "get": {
+        "summary": "Чек-лист техосмотра",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Актуальный шаблон чек-листа техосмотра.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/tech": {
+      "get": {
+        "summary": "Все техосмотры",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Список всех проведённых техосмотров с пагинацией.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Провести техосмотр",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Создание акта техосмотра. ПЭП (подпись). Допуск/отказ ТС.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/tech/{id}": {
+      "get": {
+        "summary": "Получить техосмотр",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Детальная информация о техосмотре по ID.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/med/queue": {
+      "get": {
+        "summary": "Очередь медосмотров",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Список водителей, ожидающих медосмотр.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/med/checklist": {
+      "get": {
+        "summary": "Чек-лист медосмотра",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Актуальный шаблон чек-листа медосмотра.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/med/stats": {
+      "get": {
+        "summary": "Статистика медосмотров",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Агрегированная статистика: среднее АД, пульс, температура, % допуска.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/med/expiring-certificates": {
+      "get": {
+        "summary": "Истекающие медсправки",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Водители с истекающими медицинскими справками (< 60 дней).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/med": {
+      "get": {
+        "summary": "Все медосмотры",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Список всех медосмотров. Без чувствительных медданных для нечувсвительных ролей.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Провести медосмотр",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Создание акта медосмотра (152-ФЗ). АД, пульс, температура, алкотест. ПЭП.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/med/{id}": {
+      "get": {
+        "summary": "Получить медосмотр",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Детальная информация. Медики видят все данные, остальные — только решение.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/tech/{id}/pdf": {
+      "get": {
+        "summary": "PDF акта техосмотра",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Скачать акт предрейсового технического осмотра в PDF.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/med/{id}/pdf": {
+      "get": {
+        "summary": "PDF акта медосмотра",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Скачать акт предрейсового медицинского осмотра в PDF (152-ФЗ — доступно только медику).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/tech/post-trip": {
+      "post": {
+        "summary": "Послерейсовый техосмотр",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Техосмотр после возвращения транспортного средства. При отказе статус ТС — maintenance.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/med/post-trip": {
+      "post": {
+        "summary": "Послерейсовый медосмотр",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Медосмотр после рейса (152-ФЗ). АД, пульс, температура, алкотест. ПЭП.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/tech/{id}/decision": {
+      "post": {
+        "summary": "Изменить решение по техосмотру",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Лёгкая смена решения approved/rejected без перезаполнения чек-листа.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/inspections/med/{id}/decision": {
+      "post": {
+        "summary": "Изменить решение по медосмотру",
+        "tags": [
+          "Осмотры"
+        ],
+        "description": "Лёгкая смена решения approved/rejected без перезаполнения показателей. Только для медика (152-ФЗ).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills": {
+      "get": {
+        "summary": "Список путевых листов",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Все путевые листы с пагинацией.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{id}": {
+      "get": {
+        "summary": "Получить путевой лист",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Детальная информация о путевом листе с данными рейса, ТС Рё водителя.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/generate/{tripId}": {
+      "post": {
+        "summary": "Сформировать путевой лист",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Автоматическое формирование путевого листа для рейса. Проверка наличия техосмотра Рё медосмотра.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{id}/close": {
+      "post": {
+        "summary": "Р—акрыть путевой лист",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Р—акрытие путевого листа с финальными данными одометра Рё ГСМ.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{id}/sync-status": {
+      "post": {
+        "summary": "Синхронизировать статус путевого листа",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Пересчитывает статус путевого листа по факту имеющихся осмотров (draft/medical_check/technical_check/issued).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{id}/attachments": {
+      "get": {
+        "summary": "List waybill attachments",
+        "tags": [
+          "Attachments"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Upload waybill attachment",
+        "tags": [
+          "Attachments"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{waybillId}/attachments/{attachmentId}/download": {
+      "get": {
+        "summary": "Download waybill attachment",
+        "tags": [
+          "Attachments"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "waybillId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "attachmentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{waybillId}/attachments/{attachmentId}": {
+      "delete": {
+        "summary": "Delete waybill attachment",
+        "tags": [
+          "Attachments"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "waybillId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "attachmentId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{id}/pdf": {
+      "get": {
+        "summary": "PDF путевого листа",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Скачать путевой лист в формате PDF (форма Ф.4-П).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{id}/etrn": {
+      "get": {
+        "summary": "XML ЭТрН",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Электронная транспортная накладная в формате XML для ГИС ЭПД.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{id}/etrn-title4": {
+      "get": {
+        "summary": "XML ЭТрН Титул 4",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Титул 4 (приёмка груза) ЭТрН в XML.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/vehicles": {
+      "get": {
+        "summary": "Список ТС",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Все транспортные средства с фильтрацией по статусу и поиском.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить ТС",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Регистрация нового транспортного средства. Валидация VIN и госномера.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/vehicles/{id}": {
+      "get": {
+        "summary": "Получить ТС",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Детальная информация о транспортном средстве по ID.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "summary": "Обновить ТС",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Обновление данных ТС (пробег, статус, документы).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/drivers": {
+      "get": {
+        "summary": "Список водителей",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Все водители с поиском по ФИО и номеру ВУ.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить водителя",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Регистрация нового водителя с привязкой к учётной записи.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/drivers/{id}": {
+      "get": {
+        "summary": "Получить водителя",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Детальная информация о водителе по ID.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "summary": "Обновить водителя",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Обновление данных водителя (ВУ, медсправка, категории).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/contractors": {
+      "get": {
+        "summary": "Список контрагентов",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Все контрагенты с поиском.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить контрагента",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Регистрация нового контрагента. Валидация ИНН/КПП.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/contractors/{id}": {
+      "put": {
+        "summary": "Обновить контрагента",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Обновление данных контрагента.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/contractors/{id}/addresses": {
+      "post": {
+        "summary": "Добавить адрес",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Добавление нового адреса контрагента.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/contractors/{id}/addresses/{addressId}": {
+      "put": {
+        "summary": "Обновить адрес",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Обновление адреса контрагента.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "addressId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Удалить адрес",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Удаление адреса контрагента.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "addressId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/contractors/lookup/{inn}": {
+      "get": {
+        "summary": "Поиск по ИНН",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Поиск контрагента по ИНН через DaData.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "inn",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/permits": {
+      "get": {
+        "summary": "Список пропусков",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Все пропуска (МКАД, ТТК) с фильтрацией по ТС.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить пропуск",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Регистрация пропуска на ТС для зоны ограничения.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/permits/{id}": {
+      "put": {
+        "summary": "Обновить пропуск",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Обновление данных пропуска.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/fines": {
+      "get": {
+        "summary": "Список штрафов",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Все штрафы ГИБДД с фильтрацией по статусу и ТС.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить штраф",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Регистрация штрафа ГИБДД.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/fines/{id}": {
+      "put": {
+        "summary": "Обновить штраф",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Обновление штрафа (статус, оплата).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/fines/analytics": {
+      "get": {
+        "summary": "Аналитика штрафов",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Статистика штрафов по ТС и водителям.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/fuel-records": {
+      "get": {
+        "summary": "Список записей топлива",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Заправки ТС с фильтрацией по ТС, водителю, рейсу и датам.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать запись топлива",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Регистрация заправки ТС.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/fuel-records/{id}": {
+      "put": {
+        "summary": "Обновить запись топлива",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Обновление данных заправки.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/odometer-readings": {
+      "get": {
+        "summary": "Показания одометра",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "История показаний одометра по ТС.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить показание одометра",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Фиксация показания одометра.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/downtime-records": {
+      "get": {
+        "summary": "Простои ТС",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "История простоев транспортных средств.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать простой",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Регистрация простоя ТС.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/downtime-records/vehicle/{vehicleId}/active": {
+      "get": {
+        "summary": "Активный простой ТС",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Текущий открытый простой для указанного ТС.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "vehicleId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/downtime-records/{id}": {
+      "put": {
+        "summary": "Закрыть/обновить простой",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Обновление записи простоя (закрытие, смена причины).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/maintenance-schedule": {
+      "get": {
+        "summary": "План ТО",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Расписание технического обслуживания ТС.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать план ТО",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Добавление записи в план технического обслуживания.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/maintenance-schedule/{id}": {
+      "put": {
+        "summary": "Обновить план ТО",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Обновление записи ТО (статус, фактические данные).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/repairs": {
+      "get": {
+        "summary": "List repairs",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "Return repairs with filters and pagination.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create repair",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "Create a new repair request.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/repairs/parts/catalog": {
+      "get": {
+        "summary": "Repair parts catalog",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "Reusable list of common repair parts.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create repair part catalog item",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "Create a persisted repair-part catalog item.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/repairs/parts/catalog/meta": {
+      "get": {
+        "summary": "Repair parts catalog meta",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "Grouped read-only catalog shaping for the repair UI.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/repairs/parts/catalog/{id}": {
+      "put": {
+        "summary": "Update repair part catalog item",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "Update a persisted repair-part catalog item.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Archive repair part catalog item",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "Archive a persisted repair-part catalog item.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/repairs/{id}": {
+      "get": {
+        "summary": "Get repair",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "Detailed repair request information.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update repair",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "Update repair details.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/repairs/{id}/status": {
+      "put": {
+        "summary": "Change repair status",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "created -> waiting_parts -> in_progress -> done",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/repairs/analytics/by-status": {
+      "get": {
+        "summary": "Repairs analytics by status",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "Count repairs by status.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/repairs/analytics/cost/{vehicleId}": {
+      "get": {
+        "summary": "Repair cost by vehicle",
+        "tags": [
+          "Repairs"
+        ],
+        "description": "Sum repair cost by vehicle.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "vehicleId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/trips/{id}/cost": {
+      "get": {
+        "summary": "Стоимость рейса",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Расчёт по тарифу: стоимость и маржа + модификаторы + НДС.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices": {
+      "get": {
+        "summary": "Список счетов",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Все счета/акты. RLS: клиент видит только свои. Опц. фильтр tripId.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Сформировать счёт",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Генерация счёта по завершённым рейсам за период. Валидация Zod.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/bulk-generate": {
+      "post": {
+        "summary": "Пакетная генерация счетов",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Создаёт по одному сводному draft-счёту на каждого контрагента за указанный период. Возвращает списки created/skipped.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{id}/status": {
+      "put": {
+        "summary": "Сменить статус счёта",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "draft→sent→paid/overdue. Валидация переходов.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/fuel-analysis": {
+      "get": {
+        "summary": "План-факт ГСМ",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Анализ расхода топлива: норматив vs факт. Фильтр по дате и ТС.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/kpi": {
+      "get": {
+        "summary": "KPI метрики",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Выручка, маржа, простои, загрузка ТС, производительность водителей за период.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{id}": {
+      "get": {
+        "summary": "Детали счёта/акта",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Счёт/акт по ID с данными контрагента и рейсов. RLS: клиент видит только свои.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{id}/pdf": {
+      "get": {
+        "summary": "PDF счёта/акта",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Скачать счёт на оплату или акт выполненных работ в формате PDF.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{id}/upd": {
+      "get": {
+        "summary": "PDF УПД",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Универсальный передаточный документ в PDF (счёт-фактура + передаточный док.).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/export/1c": {
+      "get": {
+        "summary": "Экспорт в 1С",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Выгрузка данных в CommerceML 2.x XML для 1С. RLS: клиентам недоступно.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{invoiceId}/adjustments": {
+      "post": {
+        "summary": "Создать корректировку счёта",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Добавляет корректировочную запись к счёту и пересчитывает итог.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "get": {
+        "summary": "Список корректировок счёта",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Все корректировки для указанного счёта.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/tariff-rules/evaluate": {
+      "post": {
+        "summary": "Расчёт тарифного правила",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Бесплатный локальный evaluator для простоя, допуслуг и штрафа за срыв подачи.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{invoiceId}/payments": {
+      "post": {
+        "summary": "Зафиксировать частичную оплату",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Append-only фиксация оплаты по счёту с расчётом остатка.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{invoiceId}/additional-services": {
+      "post": {
+        "summary": "Добавить допуслугу",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Добавляет погрузку/разгрузку/пропуск/мойку/простой/экспедирование как корректировку счёта и journal event.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{invoiceId}/1c-reconciliation": {
+      "post": {
+        "summary": "Сверка с 1С",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Фиксирует результат сверки счёта/акта с внешним документом 1С и возвращает расхождения.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "invoiceId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/adjustments/{id}": {
+      "delete": {
+        "summary": "Удалить корректировку",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Удаляет корректировку и пересчитывает итог счёта.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/sync/pull": {
+      "get": {
+        "summary": "Pull обновлений",
+        "tags": [
+          "Синхронизация"
+        ],
+        "description": "Возвращает изменения для WatermelonDB-синхронизации.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/sync/events": {
+      "post": {
+        "summary": "Push событий",
+        "tags": [
+          "Синхронизация"
+        ],
+        "description": "Принимает офлайн-события mobile клиента.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/geo/geocode": {
+      "get": {
+        "summary": "Геокодирование",
+        "tags": [
+          "Геозоны"
+        ],
+        "description": "Преобразование адреса в координаты (lat/lon).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/geo/geocode/batch": {
+      "post": {
+        "summary": "Геокодирование пакетное",
+        "tags": [
+          "Геозоны"
+        ],
+        "description": "До 50 адресов за один запрос.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/geo/reverse": {
+      "get": {
+        "summary": "Обратное геокодирование",
+        "tags": [
+          "Геозоны"
+        ],
+        "description": "Координаты → адрес.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/geo/distance": {
+      "post": {
+        "summary": "Расстояние",
+        "tags": [
+          "Геозоны"
+        ],
+        "description": "Расстояние между двумя точками (Haversine + оценка по дорогам).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/geo/distance-matrix": {
+      "post": {
+        "summary": "Матрица расстояний",
+        "tags": [
+          "Геозоны"
+        ],
+        "description": "NxN матрица расстояний + общая длина маршрута (до 20 точек).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/geo/nearest": {
+      "post": {
+        "summary": "Ближайшая точка",
+        "tags": [
+          "Геозоны"
+        ],
+        "description": "Поиск ближайшей точки из списка к заданной.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/wialon/sync": {
+      "post": {
+        "summary": "Синхронизация Wialon",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Ручной запуск синхронизации GPS-позиций из Wialon/ГЛОНАСС.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/fines/sync": {
+      "post": {
+        "summary": "Синхронизация штрафов",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Ручной запуск проверки штрафов ГИБДД.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/status": {
+      "get": {
+        "summary": "Статус очередей",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Здоровье BullMQ воркеров: ожидание, активные, завершённые, ошибки.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/dadata/lookup/{inn}": {
+      "get": {
+        "summary": "Поиск по ИНН",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Поиск компании в DaData по ИНН (10 или 12 цифр).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "inn",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/dadata/suggest-address": {
+      "get": {
+        "summary": "Подсказки адресов",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Автодополнение адресов через DaData.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/fuel/transactions/{vehicleId}": {
+      "get": {
+        "summary": "Транзакции топливных карт",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Заправки ТС за последние N дней с итогами по расходу.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "vehicleId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/wialon-mock/start": {
+      "post": {
+        "summary": "Старт mock-трека Wialon",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Запускает фоновый симулятор: каждые ~10 с пишет позицию ТС в vehicle_positions.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/wialon-mock/stop": {
+      "post": {
+        "summary": "Остановить mock-трек Wialon",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Останавливает фоновый симулятор для ТС.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/wialon-mock/positions": {
+      "get": {
+        "summary": "История позиций ТС (mock)",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Читает vehicle_positions для ТС, опционально начиная с since (ISO).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/fuel-card-mock/sync": {
+      "post": {
+        "summary": "Mock-синхронизация топливной карты",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Генерирует синтетические транзакции АЗС за период и записывает в fuel_records (source=fuel_card_mock).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/wialon-mock/status": {
+      "get": {
+        "summary": "Активные mock-симуляции",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Возвращает список активных Wialon-mock симуляторов.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/telegram/webhook": {
+      "post": {
+        "summary": "Telegram webhook",
+        "tags": [
+          "Уведомления"
+        ],
+        "description": "Приём входящих сообщений от Telegram Bot API.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Удалить webhook",
+        "tags": [
+          "Уведомления"
+        ],
+        "description": "Удаление webhook из Telegram.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/telegram/setup-webhook": {
+      "post": {
+        "summary": "Настроить webhook",
+        "tags": [
+          "Уведомления"
+        ],
+        "description": "Регистрация webhook URL в Telegram Bot API.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/telegram/bot-info": {
+      "get": {
+        "summary": "Информация о боте",
+        "tags": [
+          "Уведомления"
+        ],
+        "description": "Получить данные Telegram-бота (имя, username).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/telegram/subscriptions": {
+      "get": {
+        "summary": "Подписки",
+        "tags": [
+          "Уведомления"
+        ],
+        "description": "Список привязанных Telegram-аккаунтов.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/telegram/test": {
+      "post": {
+        "summary": "Тест уведомления",
+        "tags": [
+          "Уведомления"
+        ],
+        "description": "Отправка тестового сообщения в Telegram.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/import/vehicles": {
+      "post": {
+        "summary": "Импорт ТС",
+        "tags": [
+          "Импорт"
+        ],
+        "description": "Массовый импорт транспортных средств (до 200 за запрос). Валидация каждой записи.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/import/drivers": {
+      "post": {
+        "summary": "Импорт водителей",
+        "tags": [
+          "Импорт"
+        ],
+        "description": "Массовый импорт водителей. Автосоздание user-аккаунта с ролью driver при необходимости.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/import/templates/{type}": {
+      "get": {
+        "summary": "Скачать XLSX-шаблон",
+        "tags": [
+          "Импорт"
+        ],
+        "description": "Возвращает .xlsx с шапкой колонок, 2 примерами и листом «Инструкция».",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "type",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/import/{type}/preview": {
+      "post": {
+        "summary": "Предпросмотр импорта",
+        "tags": [
+          "Импорт"
+        ],
+        "description": "Принимает .xlsx файл, возвращает разобранные строки с ошибками валидации.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "type",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/import/orders": {
+      "post": {
+        "summary": "Импорт заявок",
+        "tags": [
+          "Импорт"
+        ],
+        "description": "Связывает заявки с контрагентом по ИНН. Контрагент должен существовать.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/import/contractors": {
+      "post": {
+        "summary": "Импорт контрагентов",
+        "tags": [
+          "Импорт"
+        ],
+        "description": "Массовый импорт контрагентов. Валидация ИНН.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/analytics/maintenance-alerts": {
+      "get": {
+        "summary": "ТО-алерты",
+        "tags": [
+          "Аналитика"
+        ],
+        "description": "Предиктивные алерты: ТО, ОСАГО, техосмотр, тахограф (<7д — critical, <30д — warning), пробег (<2000 км).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/analytics/fleet-health": {
+      "get": {
+        "summary": "КТГ парка",
+        "tags": [
+          "Аналитика"
+        ],
+        "description": "Runtime-расчет коэффициента технической готовности: готовые к выпуску ТС / активный парк.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/analytics/profitability": {
+      "get": {
+        "summary": "Маржинальность рейсов",
+        "tags": [
+          "Аналитика"
+        ],
+        "description": "Анализ выручки vs себестоимости по завершённым рейсам через TarificationService.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/analytics/fuel-consumption": {
+      "get": {
+        "summary": "Расход топлива",
+        "tags": [
+          "Аналитика"
+        ],
+        "description": "Анализ расхода топлива по ТС за период: литры, стоимость, норма vs факт.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/analytics/fleet-ktg": {
+      "get": {
+        "summary": "КТГ парка (детальный)",
+        "tags": [
+          "Аналитика"
+        ],
+        "description": "Коэффициент технической готовности по каждому ТС за период на основе записей простоев.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/settings/cost-model": {
+      "get": {
+        "summary": "Настройки cost model",
+        "tags": [
+          "Настройки"
+        ],
+        "description": "Текущие настройки себестоимости для тарификации: топливо, ставка водителя, амортизация.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "summary": "Обновить cost model",
+        "tags": [
+          "Настройки"
+        ],
+        "description": "Сохраняет настройки себестоимости в БД и делает их источником истины для тарификации.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/settings/recent": {
+      "get": {
+        "summary": "Недавние изменения настроек",
+        "tags": [
+          "Настройки"
+        ],
+        "description": "Возвращает последние сохраненные системные настройки.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/route-points/{pointId}/downtime": {
+      "post": {
+        "summary": "Record route point downtime",
+        "tags": [
+          "Operations"
+        ],
+        "description": "Records vehicle arrival/waiting timestamps and an append-only downtime event for loading/unloading points.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "pointId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/cancel-after-arrival": {
+      "post": {
+        "summary": "Cancel trip after vehicle arrival",
+        "tags": [
+          "Operations"
+        ],
+        "description": "Records cancellation after vehicle arrival, optional route-point arrival evidence, financial reserve, and trip cancellation.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/breakdowns": {
+      "post": {
+        "summary": "Record trip breakdown",
+        "tags": [
+          "Operations"
+        ],
+        "description": "Records a blocking in-trip breakdown event and next actions for repair/replacement.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/post-trip-return": {
+      "post": {
+        "summary": "Complete post-trip vehicle return",
+        "tags": [
+          "Operations"
+        ],
+        "description": "Records post-trip vehicle return evidence, odometer/fuel values, original document receipt, and next-trip blocking flags.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/crew-rest-plan": {
+      "post": {
+        "summary": "Record trip crew and rest plan",
+        "tags": [
+          "Operations"
+        ],
+        "description": "Records crew shifts, primary/secondary driver roles, and rest-mode risks before waybill or dispatch.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/route-changes/readdress": {
+      "post": {
+        "summary": "Record trip readdressing",
+        "tags": [
+          "Operations"
+        ],
+        "description": "Updates or adds a route point and records an append-only event mapped to ETRN Title 03.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/resource-replacements": {
+      "post": {
+        "summary": "Replace trip vehicle, driver, or trailer",
+        "tags": [
+          "Operations"
+        ],
+        "description": "Updates assigned trip resources, recalculates compatibility, and records an append-only event mapped to ETRN Title 04.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/operations/exceptions": {
+      "get": {
+        "summary": "Dispatcher exception cockpit",
+        "tags": [
+          "Operations"
+        ],
+        "description": "Aggregates operational blockers and warnings from compatibility checks, document close gate, claims, shipment discrepancies, and execution events.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/document-returns": {
+      "get": {
+        "summary": "Список возвратов оригиналов по рейсу",
+        "tags": [
+          "Документы"
+        ],
+        "description": "Возвращает реестр оригиналов документов рейса.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать запись о возврате документа",
+        "tags": [
+          "Документы"
+        ],
+        "description": "Регистрирует ожидаемый оригинал. Стартовый статус — pending.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/document-returns/{id}": {
+      "put": {
+        "summary": "Обновить статус возврата документа",
+        "tags": [
+          "Документы"
+        ],
+        "description": "Финальный статус: received/lost/damaged. lost/damaged маппятся в overdue в БД, оригинальный статус сохраняется в notes.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/trailers": {
+      "get": {
+        "summary": "Список прицепов",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Список прицепов с поиском Рё фильтрацией.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить прицеп",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Создание нового прицепа.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/fleet/trailers/{id}": {
+      "put": {
+        "summary": "Обновить прицеп",
+        "tags": [
+          "Автопарк"
+        ],
+        "description": "Обновление данных прицепа.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/incidents": {
+      "get": {
+        "summary": "Список инцидентов",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Список инцидентов по мед/техосмотрам, ТС, водителям Рё рейсам.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать инцидент",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Создание инцидента с привязкой к ТС/водителю/рейсу.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/incidents/{id}": {
+      "put": {
+        "summary": "Обновить инцидент",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Обновление статуса, resolution Рё блокировки выпуска.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{id}/drivers": {
+      "get": {
+        "summary": "Водители путевого листа",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Список водителей, привязанных к путевому листу.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить водителя в путевой",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Привязка дополнительного водителя к путевому листу.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{waybillId}/drivers/{driverLinkId}": {
+      "delete": {
+        "summary": "Удалить водителя из путевого",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Удаление связи водитель-путевой лист.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "waybillId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "driverLinkId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{id}/expenses": {
+      "get": {
+        "summary": "Расходы путевого листа",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Список расходов по путевому листу.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Добавить расход",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Добавление расхода к путевому листу.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/waybills/{waybillId}/expenses/{expenseId}": {
+      "put": {
+        "summary": "Обновить расход",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Редактирование расхода путевого листа.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "waybillId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "expenseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Удалить расход",
+        "tags": [
+          "Путевые листы"
+        ],
+        "description": "Удаление расхода путевого листа.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "waybillId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "expenseId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/claims": {
+      "get": {
+        "summary": "Список претензий",
+        "tags": [
+          "Претензии"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Создать претензию",
+        "tags": [
+          "Претензии"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/claims/exposure": {
+      "get": {
+        "summary": "Claim exposure by trip/order",
+        "tags": [
+          "Claims"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/claims/{id}": {
+      "get": {
+        "summary": "Получить претензию",
+        "tags": [
+          "Претензии"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/claims/{id}/status": {
+      "patch": {
+        "summary": "Изменить статус претензии",
+        "tags": [
+          "Претензии"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/claims/{id}/resolve": {
+      "post": {
+        "summary": "Закрыть претензию (resolved/rejected)",
+        "tags": [
+          "Претензии"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/uploads": {
+      "post": {
+        "summary": "Загрузить файл",
+        "tags": [
+          "Файлы"
+        ],
+        "description": "Загрузка фото/документа. Принимает multipart/form-data с полем `file`. Возвращает URL.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{tripId}/temperature-readings": {
+      "post": {
+        "summary": "Записать показание температуры",
+        "tags": [
+          "Холодовая цепь"
+        ],
+        "description": "Регистрирует замер температуры по рейсу. При нарушении SLA создаёт инцидент типа cargo.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "get": {
+        "summary": "Список показаний температуры",
+        "tags": [
+          "Холодовая цепь"
+        ],
+        "description": "Возвращает замеры по рейсу в обратном хронологическом порядке + список нарушений.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{tripId}/temperature-summary": {
+      "get": {
+        "summary": "Сводка по температуре рейса",
+        "tags": [
+          "Холодовая цепь"
+        ],
+        "description": "Min/max/avg, количество замеров и нарушений, границы SLA.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{tripId}/temperature-mock-tick": {
+      "post": {
+        "summary": "Сгенерировать имитационный замер (admin)",
+        "tags": [
+          "Холодовая цепь"
+        ],
+        "description": "Создаёт один синтетический замер для отладки. Доступно только admin.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tripId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/drivers/{id}/hours-summary": {
+      "get": {
+        "summary": "Часы вождения за период (РТО)",
+        "tags": [
+          "Водители"
+        ],
+        "description": "Агрегирует tachograph_records по дням, считает суммарные часы и нарушения дневного лимита (9 ч).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/drivers/{id}/hos-status": {
+      "get": {
+        "summary": "Статус РТО (Hours of Service)",
+        "tags": [
+          "Водители"
+        ],
+        "description": "Текущие часы за сегодня и rolling 7-day с проверкой лимитов (9 ч/день, 56 ч/неделя).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/carriers": {
+      "get": {
+        "summary": "Перевозчики-субподрядчики",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Список контрагентов с is_carrier=true и их активным договором (если есть).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/carriers/{id}/promote": {
+      "post": {
+        "summary": "Назначить контрагента перевозчиком",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Включает is_carrier=true. Доступно только admin.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/carrier-contracts": {
+      "post": {
+        "summary": "Создать договор с перевозчиком",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Создаёт договор с перевозчиком в статусе draft. Контрагент должен иметь is_carrier=true.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/{id}/assign-carrier": {
+      "post": {
+        "summary": "Назначить субподрядчика на рейс",
+        "tags": [
+          "Рейсы"
+        ],
+        "description": "Сохраняет trip.carrier_contractor_id. Допускается только до старта рейса (planning/assigned).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders/{id}/adr-validation": {
+      "get": {
+        "summary": "Проверка ADR-совместимости",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Проверяет, может ли указанное ТС/водитель перевозить опасный груз заявки. Если adr_class пуст — валидация автоматически проходит.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/transport-documents/{id}/edi/send": {
+      "post": {
+        "summary": "Отправить документ в EDI (mock)",
+        "tags": [
+          "ЭДО"
+        ],
+        "description": "Mock-отправка документа в Диадок/СБИС/Контур. Через 5с автоматически подписывается перевозчиком, через 10с — клиентом.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/transport-documents/{id}/edi/history": {
+      "get": {
+        "summary": "История EDI-событий",
+        "tags": [
+          "ЭДО"
+        ],
+        "description": "Журнал событий по документу (sent/signed/rejected) + текущий статус.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/edi/webhook/{provider}": {
+      "post": {
+        "summary": "Webhook от ЭДО-провайдера",
+        "tags": [
+          "ЭДО"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "provider",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/transport-documents/{id}/edi/mock-progress": {
+      "post": {
+        "summary": "Перевести EDI-статус вручную (admin)",
+        "tags": [
+          "ЭДО"
+        ],
+        "description": "Mock-эндпоинт для демонстрации. Доступен только администраторам.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/drivers/{id}/score": {
+      "get": {
+        "summary": "Скоринг водителя",
+        "tags": [
+          "Аналитика"
+        ],
+        "description": "Возвращает композитный балл водителя за период (по умолчанию — последние 30 дней).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/drivers/scoreboard": {
+      "get": {
+        "summary": "Скоринг-доска водителей",
+        "tags": [
+          "Аналитика"
+        ],
+        "description": "Топ/анти-топ водителей по композитному баллу. По умолчанию — top 10 за последние 30 дней.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/copilot/chat": {
+      "post": {
+        "summary": "Stream chat reply (SSE)",
+        "tags": [
+          "AI Co-pilot"
+        ],
+        "description": "Server-Sent Events stream of co-pilot reply (text deltas, tool calls, results).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/copilot/conversations": {
+      "get": {
+        "summary": "List user's conversations",
+        "tags": [
+          "AI Co-pilot"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/copilot/conversations/{id}/messages": {
+      "get": {
+        "summary": "Replay conversation messages",
+        "tags": [
+          "AI Co-pilot"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/credentials": {
+      "get": {
+        "summary": "Список настроенных провайдеров",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Возвращает список провайдеров текущей организации (только метаданные, без расшифровки ключей).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Сохранить ключи провайдера",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Шифрует и сохраняет ключи провайдера. Перезаписывает существующую запись с тем же (providerType, providerName).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/credentials/{id}": {
+      "delete": {
+        "summary": "Удалить ключи провайдера",
+        "tags": [
+          "Интеграции"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/integrations/credentials/{id}/test": {
+      "post": {
+        "summary": "Проверка соединения провайдера",
+        "tags": [
+          "Интеграции"
+        ],
+        "description": "Вызывает healthCheck() адаптера и записывает результат в last_health_check_at / last_error.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/onboarding/status": {
+      "get": {
+        "summary": "Состояние мастера",
+        "tags": [
+          "Онбординг"
+        ],
+        "description": "Текущий шаг, выбранный сценарий и список настроенных интеграций.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/onboarding/inn-lookup": {
+      "post": {
+        "summary": "Поиск компании по ИНН",
+        "tags": [
+          "Онбординг"
+        ],
+        "description": "Использует DaData (mock) для поиска реквизитов.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/onboarding/profile": {
+      "post": {
+        "summary": "Сохранить реквизиты",
+        "tags": [
+          "Онбординг"
+        ],
+        "description": "ИНН, КПП, ОГРН, юр. адрес, банковские реквизиты.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/onboarding/select-scenario": {
+      "post": {
+        "summary": "Выбор сценария",
+        "tags": [
+          "Онбординг"
+        ],
+        "description": "Малый ИП / Средний с Контуром / Средний с СБИС / Крупный.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/onboarding/save-integration-choice": {
+      "post": {
+        "summary": "Сохранить выбор интеграции",
+        "tags": [
+          "Онбординг"
+        ],
+        "description": "Сохраняет выбор провайдера; если есть credentials — шифрует и сохраняет в provider_credentials.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/onboarding/invite-team": {
+      "post": {
+        "summary": "Пригласить сотрудников",
+        "tags": [
+          "Онбординг"
+        ],
+        "description": "Создаёт пользователей с временным паролем и отправляет приглашения по email.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/onboarding/complete": {
+      "post": {
+        "summary": "Завершить онбординг",
+        "tags": [
+          "Онбординг"
+        ],
+        "description": "Помечает организацию как прошедшую онбординг.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/billing/plans": {
+      "get": {
+        "summary": "Список тарифов",
+        "tags": [
+          "Биллинг"
+        ],
+        "description": "Public каталог тарифов с лимитами и фичами.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/billing/subscription": {
+      "get": {
+        "summary": "Подписка организации",
+        "tags": [
+          "Биллинг"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/billing/subscribe": {
+      "post": {
+        "summary": "Перейти на платный тариф",
+        "tags": [
+          "Биллинг"
+        ],
+        "description": "Создаёт платёж, возвращает ссылку на ЮKassa.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/billing/cancel": {
+      "post": {
+        "summary": "Отменить продление",
+        "tags": [
+          "Биллинг"
+        ],
+        "description": "Подписка останется активной до конца оплаченного периода.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/billing/usage": {
+      "get": {
+        "summary": "Использование лимитов в текущем периоде",
+        "tags": [
+          "Биллинг"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/billing/payments": {
+      "get": {
+        "summary": "История платежей",
+        "tags": [
+          "Биллинг"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/billing/webhook/yookassa": {
+      "post": {
+        "summary": "Webhook ЮKassa (HMAC-signed)",
+        "tags": [
+          "Биллинг"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/billing/overview": {
+      "get": {
+        "summary": "Все организации (admin)",
+        "tags": [
+          "Биллинг"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/tachograph/upload": {
+      "post": {
+        "summary": "Загрузить файл тахографа (.DDD / .ESM)",
+        "tags": [
+          "Compliance"
+        ],
+        "description": "Парсит файл лучшим образом, сохраняет посуточные сводки в `tachograph_records` и аудит-запись в `tachograph_uploads`. Привязка к водителю по номеру СКЗИ-карты.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/tachograph/uploads": {
+      "get": {
+        "summary": "Журнал загрузок тахографа",
+        "tags": [
+          "Compliance"
+        ],
+        "description": "Возвращает последние 100 загрузок текущей организации.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/osago/check/{vehicleId}": {
+      "get": {
+        "summary": "Проверка ОСАГО для ТС",
+        "tags": [
+          "Compliance"
+        ],
+        "description": "Запрашивает статус ОСАГО у активного провайдера и сохраняет снимок в osago_checks.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "vehicleId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/osago/sync": {
+      "post": {
+        "summary": "Массовая проверка ОСАГО",
+        "tags": [
+          "Compliance"
+        ],
+        "description": "Проверяет ОСАГО для всех ТС организации. Только для admin.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/osago/status": {
+      "get": {
+        "summary": "Сводка ОСАГО по парку",
+        "tags": [
+          "Compliance"
+        ],
+        "description": "Последняя проверка ОСАГО для каждого ТС текущей организации.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/marking/verify": {
+      "post": {
+        "summary": "Проверить коды маркировки (Честный знак)",
+        "tags": [
+          "Compliance"
+        ],
+        "description": "Bulk-verify через активный провайдер ЦРПТ. Сохраняет результаты в marking_verifications.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/marking/scan-batch": {
+      "post": {
+        "summary": "Привязать партию кодов к отгрузке",
+        "tags": [
+          "Compliance"
+        ],
+        "description": "Bulk-verifies коды и связывает их с указанной shipment_lot.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/marking/by-shipment/{lotId}": {
+      "get": {
+        "summary": "Коды маркировки по отгрузке",
+        "tags": [
+          "Compliance"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "lotId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/marking/recent": {
+      "get": {
+        "summary": "Недавние проверки маркировки",
+        "tags": [
+          "Compliance"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/marking/categories": {
+      "get": {
+        "summary": "Сводка по категориям маркировки",
+        "tags": [
+          "Compliance"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/adr/strict-mode": {
+      "get": {
+        "summary": "Текущий режим строгости ADR",
+        "tags": [
+          "Compliance"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "summary": "Переключить режим строгости ADR (admin)",
+        "tags": [
+          "Compliance"
+        ],
+        "description": "Когда enabled=true, любые ошибки ADR при назначении рейса будут блокировать операцию вместо предупреждения.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/adr/orders": {
+      "get": {
+        "summary": "Список заявок с ADR-классом",
+        "tags": [
+          "Compliance"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/compliance/adr/validate-hard": {
+      "post": {
+        "summary": "Жёсткая валидация ADR (учитывает strict-mode)",
+        "tags": [
+          "Compliance"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/demo/generate": {
+      "post": {
+        "summary": "Создать демо-данные",
+        "tags": [
+          "Импорт"
+        ],
+        "description": "Создаёт минимальный демо-набор: 1 контрагент, 2 ТС, 2 водителя, 1 завершённый рейс, 1 активный рейс, 1 заказ с cold-chain. Идемпотентно. В production требуется ALLOW_DEMO_SEED=true.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/demo/cleanup": {
+      "delete": {
+        "summary": "Удалить демо-данные",
+        "tags": [
+          "Импорт"
+        ],
+        "description": "Удаляет все объекты, помеченные как демо ([ДЕМО] / DEMO-...). В production требуется ALLOW_DEMO_SEED=true.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/audit-log": {
+      "get": {
+        "summary": "Журнал событий",
+        "tags": [
+          "Аудит"
+        ],
+        "description": "Append-only журнал всех действий пользователей. Доступ: admin, manager.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/audit-log/types": {
+      "get": {
+        "summary": "Уникальные значения для фильтров журнала",
+        "tags": [
+          "Аудит"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "summary": "Health check",
+        "tags": [
+          "Здоровье"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/health/ready": {
+      "get": {
+        "summary": "Readiness check",
+        "tags": [
+          "Здоровье"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4000",
+      "description": "Локальная разработка"
+    },
+    {
+      "url": "http://localhost:4000",
+      "description": "Production API"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Авторизация",
+      "description": "Вход, выход, обновление токенов"
+    },
+    {
+      "name": "Заявки",
+      "description": "CRUD заявок на перевозку"
+    },
+    {
+      "name": "Рейсы",
+      "description": "Управление рейсами и маршрутами"
+    },
+    {
+      "name": "Автопарк",
+      "description": "Транспортные средства и водители"
+    },
+    {
+      "name": "Осмотры",
+      "description": "Технические и медицинские осмотры"
+    },
+    {
+      "name": "Путевые листы",
+      "description": "Формирование и учёт путевых листов"
+    },
+    {
+      "name": "Ремонты",
+      "description": "Обслуживание и ремонт ТС"
+    },
+    {
+      "name": "Финансы",
+      "description": "Счета, тарифы, KPI"
+    },
+    {
+      "name": "Аналитика",
+      "description": "Предиктивное ТО и маржинальность"
+    },
+    {
+      "name": "Импорт",
+      "description": "Массовый импорт данных (JSON/CSV)"
+    },
+    {
+      "name": "Геозоны",
+      "description": "Ограничительные зоны (МКАД, ТТК)"
+    },
+    {
+      "name": "Синхронизация",
+      "description": "Офлайн-синхронизация мобильного приложения"
+    },
+    {
+      "name": "Уведомления",
+      "description": "Push-уведомления и WebSocket"
+    },
+    {
+      "name": "Аудит",
+      "description": "Журнал событий append-only"
+    },
+    {
+      "name": "Здоровье",
+      "description": "Health check и readiness"
+    }
+  ]
+}

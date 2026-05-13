@@ -78,6 +78,104 @@
       "when": 1773640828000,
       "tag": "0011_trip_organization_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1773640829000,
+      "tag": "0012_operational_core_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1773640830000,
+      "tag": "0013_transport_documents_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1773640831000,
+      "tag": "0014_cold_chain_v0",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1773640832000,
+      "tag": "0015_rto_windows_positions",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1773640833000,
+      "tag": "0016_carrier_subcontracting",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1773640834000,
+      "tag": "0017_adr_edi_scoring",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1773640835000,
+      "tag": "0018_wave6_fuel_record_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1773640836000,
+      "tag": "0019_copilot",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1773640837000,
+      "tag": "0020_signup_onboarding",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1773640838000,
+      "tag": "0021_provider_framework",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1773640839000,
+      "tag": "0022_compliance",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1773640840000,
+      "tag": "0023_monetization",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1773640841000,
+      "tag": "0024_perf_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1773640842000,
+      "tag": "0025_inspection_decision_trigger",
+      "breakpoints": true
     }
   ]
 }

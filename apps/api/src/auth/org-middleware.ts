@@ -2,13 +2,12 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 /**
  * Organization Middleware — Sprint 14 Multitenancy
- * 
- * Extracts organizationId from authenticated user and attaches to request.
- * When orgId is present, data queries should filter by it.
- * When null (single-tenant deploy), no filtering is applied.
- * 
+ *
+ * The `FastifyRequest.orgId` module augmentation and the `getOrgId(request)`
+ * helper below remain the canonical way to read the current org from a route.
+ *
  * Usage in routes:
- *   const orgId = (request as any).orgId as string | null;
+ *   const orgId = getOrgId(request);
  *   if (orgId) query = query.where(eq(table.organizationId, orgId));
  */
 
@@ -18,6 +17,12 @@ declare module 'fastify' {
     }
 }
 
+/**
+ * @deprecated Superseded by the `authenticate` decorator in `auth.ts`, which
+ * sets `request.orgId` after `jwtVerify` succeeds. This `onRequest` hook fires
+ * before the JWT preHandler runs, so `request.user` is undefined here. Kept
+ * exported for backward compatibility but should not be wired up.
+ */
 export function registerOrgMiddleware(app: FastifyInstance) {
     app.addHook('onRequest', async (request: FastifyRequest) => {
         const user = (request as any).user;

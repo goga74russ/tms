@@ -1,6 +1,17 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../context/AuthContext';
+import { Button, Card } from '../components/ui';
+import { colors, radius, shadow, spacing, typography } from '../theme/tokens';
 
 export default function LoginScreen() {
     const [email, setEmail] = React.useState('');
@@ -15,93 +26,191 @@ export default function LoginScreen() {
             setError('');
             await login(email, password);
         } catch (err: any) {
-            setError(err.message || 'Login failed');
+            setError(err?.message || 'Не удалось войти');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>TMS Driver</Text>
+        <View style={styles.root}>
+            <StatusBar style="light" />
+            {/* Brand "gradient" — stacked overlay layers create depth without a deps lib */}
+            <View style={styles.bgPrimary} />
+            <View style={styles.bgOverlay} />
+            <View style={styles.bgGlow} />
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    style={styles.flex}
+                >
+                    <View style={styles.hero}>
+                        <View style={styles.logoCircle}>
+                            <Text style={styles.logoIcon}>🚛</Text>
+                        </View>
+                        <Text style={styles.brand}>TMS</Text>
+                        <Text style={styles.tagline}>Управление транспортом</Text>
+                    </View>
 
-            <TextInput
-                style={styles.input}
-                placeholder="Email"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                keyboardType="email-address"
-            />
+                    <Card style={styles.formCard} elevation="md">
+                        <Text style={styles.formTitle}>Вход в систему</Text>
 
-            <TextInput
-                style={styles.input}
-                placeholder="Пароль"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-            />
+                        {error ? (
+                            <View style={styles.errorBox}>
+                                <Text style={styles.errorText}>{error}</Text>
+                            </View>
+                        ) : null}
 
-            <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleLogin}
-                disabled={loading}
-            >
-                {loading ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <Text style={styles.buttonText}>Войти</Text>
-                )}
-            </TouchableOpacity>
+                        <Text style={styles.label}>Email</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="driver@tms.local"
+                            placeholderTextColor={colors.neutral[400]}
+                            value={email}
+                            onChangeText={setEmail}
+                            autoCapitalize="none"
+                            keyboardType="email-address"
+                            editable={!loading}
+                        />
+
+                        <Text style={styles.label}>Пароль</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="••••••••"
+                            placeholderTextColor={colors.neutral[400]}
+                            value={password}
+                            onChangeText={setPassword}
+                            secureTextEntry
+                            editable={!loading}
+                        />
+
+                        <Button
+                            title="Войти в систему"
+                            variant="primary"
+                            size="lg"
+                            fullWidth
+                            onPress={handleLogin}
+                            isLoading={loading}
+                            style={{ marginTop: spacing.lg }}
+                        />
+                    </Card>
+
+                    <View style={styles.footer}>
+                        <Text style={styles.footerText}>
+                            Войдите данными, которые выдал диспетчер
+                        </Text>
+                    </View>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        justifyContent: 'center',
-        padding: 24,
-        backgroundColor: '#fff',
+    root: { flex: 1, backgroundColor: colors.brand[700] },
+    flex: { flex: 1 },
+    bgPrimary: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: colors.brand[700],
     },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        marginBottom: 32,
-        textAlign: 'center',
-        color: '#0f172a',
+    bgOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '55%',
+        backgroundColor: colors.brand[600],
+        opacity: 0.85,
+    },
+    bgGlow: {
+        position: 'absolute',
+        top: -120,
+        right: -80,
+        width: 320,
+        height: 320,
+        borderRadius: 160,
+        backgroundColor: colors.brand[500],
+        opacity: 0.35,
+    },
+    safe: { flex: 1, paddingHorizontal: spacing.xl },
+    hero: {
+        alignItems: 'center',
+        paddingTop: spacing.xxxl,
+        paddingBottom: spacing.xxl,
+    },
+    logoCircle: {
+        width: 84,
+        height: 84,
+        borderRadius: 42,
+        backgroundColor: 'rgba(255,255,255,0.18)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.35)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: spacing.lg,
+    },
+    logoIcon: { fontSize: 40 },
+    brand: {
+        ...typography.display,
+        color: colors.white,
+        fontSize: 36,
+        letterSpacing: 4,
+    },
+    tagline: {
+        ...typography.body,
+        color: 'rgba(255,255,255,0.85)',
+        marginTop: spacing.sm,
+    },
+    formCard: {
+        marginTop: spacing.lg,
+        ...shadow.lg,
+    },
+    formTitle: {
+        ...typography.headline,
+        color: colors.neutral[900],
+        marginBottom: spacing.lg,
+    },
+    label: {
+        ...typography.captionBold,
+        color: colors.neutral[700],
+        marginBottom: 6,
+        marginTop: spacing.sm,
     },
     input: {
         borderWidth: 1,
-        borderColor: '#cbd5e1',
-        borderRadius: 8,
-        padding: 16,
-        marginBottom: 16,
+        borderColor: colors.neutral[200],
+        borderRadius: radius.md,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: 14,
         fontSize: 16,
-        minHeight: 56, // Large tap target (>= 48dp)
+        color: colors.neutral[900],
+        backgroundColor: colors.neutral[50],
+        minHeight: 52,
     },
-    button: {
-        backgroundColor: '#2563eb',
-        borderRadius: 8,
-        padding: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 56, // Large tap target (>= 48dp)
-        marginTop: 8,
+    errorBox: {
+        backgroundColor: colors.danger[50],
+        borderWidth: 1,
+        borderColor: '#fecaca',
+        borderRadius: radius.md,
+        padding: spacing.md,
+        marginBottom: spacing.md,
     },
-    buttonDisabled: {
-        backgroundColor: '#93c5fd',
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 18,
+    errorText: {
+        color: colors.danger[700],
+        fontSize: 13,
         fontWeight: '600',
     },
-    error: {
-        color: '#ef4444',
-        marginBottom: 16,
-        textAlign: 'center',
+    footer: {
+        marginTop: spacing.lg,
+        alignItems: 'center',
+    },
+    footerText: {
+        color: 'rgba(255,255,255,0.75)',
+        fontSize: 13,
     },
 });

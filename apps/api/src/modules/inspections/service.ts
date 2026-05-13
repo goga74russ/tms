@@ -484,7 +484,8 @@ export async function getMedInspectionQueue(organizationId?: string | null) {
         .select()
         .from(drivers)
         .where(inArray(drivers.id, needDriverIds));
-    const driverMap = new Map(allDrivers.map((d: any) => [d.id, d]));
+    type DriverRow = typeof drivers.$inferSelect;
+    const driverMap = new Map<string, DriverRow>(allDrivers.map((d) => [d.id, d]));
 
     const allWaybills = tripIds.length > 0
         ? await db
@@ -505,9 +506,9 @@ export async function getMedInspectionQueue(organizationId?: string | null) {
             const waybill = waybillMap.get(trip.tripId);
 
             let medCertStatus: 'green' | 'yellow' | 'red' | 'unknown' = 'unknown';
-            if ((driver as any).medCertificateExpiry) {
-                if ((driver as any).medCertificateExpiry < now) medCertStatus = 'red';
-                else if ((driver as any).medCertificateExpiry < thirtyDays) medCertStatus = 'yellow';
+            if (driver.medCertificateExpiry) {
+                if (driver.medCertificateExpiry < now) medCertStatus = 'red';
+                else if (driver.medCertificateExpiry < thirtyDays) medCertStatus = 'yellow';
                 else medCertStatus = 'green';
             }
 
@@ -520,13 +521,13 @@ export async function getMedInspectionQueue(organizationId?: string | null) {
                     waybillNumber: waybill?.number ?? null,
                 },
                 driver: {
-                    id: (driver as any).id,
-                    fullName: (driver as any).fullName,
-                    birthDate: (driver as any).birthDate,
-                    licenseNumber: (driver as any).licenseNumber,
-                    licenseCategories: (driver as any).licenseCategories,
-                    personalDataConsent: (driver as any).personalDataConsent,
-                    medCertificateExpiry: (driver as any).medCertificateExpiry,
+                    id: driver.id,
+                    fullName: driver.fullName,
+                    birthDate: driver.birthDate,
+                    licenseNumber: driver.licenseNumber,
+                    licenseCategories: driver.licenseCategories,
+                    personalDataConsent: driver.personalDataConsent,
+                    medCertificateExpiry: driver.medCertificateExpiry,
                     medCertStatus,
                 },
             };
@@ -910,6 +911,146 @@ export async function getTodayMedInspectionId(driverId: string): Promise<string 
         .limit(1);
 
     return result ? result.id : null;
+}
+
+// ================================================================
+// LIGHTWEIGHT DECISION UPDATES (D5)
+// ================================================================
+//
+// Decision-only mutators for the mechanic / medic queue UI. They
+// flip the `decision` column on an existing inspection (or create
+// a stub if the inspection row doesn't yet exist for the trip),
+// journal a `inspection.decision_changed` event and re-run the
+// waybill state sync hook.
+// ================================================================
+
+interface DecisionInput {
+    decision: 'approved' | 'rejected';
+    notes?: string;
+}
+
+interface DecisionResult {
+    id: string;
+    decision: 'approved' | 'rejected';
+    tripId: string | null;
+}
+
+export async function updateTechInspectionDecision(
+    inspectionId: string,
+    input: DecisionInput,
+    actor: { userId: string; role: string; organizationId?: string | null },
+): Promise<DecisionResult | null> {
+    // Verify access via org-scoped fetch.
+    const existing = await getTechInspectionById(inspectionId, actor.organizationId);
+    if (!existing) return null;
+
+    const result = await db.transaction(async (tx: any) => {
+        const previous = existing.decision;
+        const merged = mergeDecisionComment(existing.comment, input.notes);
+        const [updated] = await tx
+            .update(techInspections)
+            .set({ decision: input.decision, comment: merged })
+            .where(eq(techInspections.id, inspectionId))
+            .returning();
+
+        await recordEvent({
+            authorId: actor.userId,
+            authorRole: actor.role,
+            eventType: 'inspection.decision_changed',
+            entityType: 'tech_inspection',
+            entityId: inspectionId,
+            data: {
+                vehicleId: updated.vehicleId,
+                tripId: updated.tripId,
+                from: previous,
+                to: input.decision,
+                notes: input.notes ?? null,
+            },
+        }, tx);
+
+        return updated;
+    });
+
+    if (result.tripId && input.decision === 'approved') {
+        await syncWaybillStateForTrip(result.tripId, actor.userId, actor.role);
+    }
+
+    return {
+        id: result.id,
+        decision: result.decision as 'approved' | 'rejected',
+        tripId: result.tripId ?? null,
+    };
+}
+
+export async function updateMedInspectionDecision(
+    inspectionId: string,
+    input: DecisionInput,
+    actor: { userId: string; role: string; organizationId?: string | null },
+): Promise<DecisionResult | null> {
+    const conditions = [eq(medInspections.id, inspectionId)];
+    if (actor.organizationId) {
+        conditions.push(
+            inArray(
+                medInspections.driverId,
+                db.select({ id: drivers.id }).from(drivers).where(eq(drivers.organizationId, actor.organizationId))
+            )
+        );
+    }
+    const [existing] = await db
+        .select()
+        .from(medInspections)
+        .where(and(...conditions))
+        .limit(1);
+    if (!existing) return null;
+
+    const result = await db.transaction(async (tx: any) => {
+        const previous = existing.decision;
+        const merged = mergeDecisionComment(existing.comment, input.notes);
+        const [updated] = await tx
+            .update(medInspections)
+            .set({ decision: input.decision, comment: merged })
+            .where(eq(medInspections.id, inspectionId))
+            .returning();
+
+        await tx.insert(medAccessLog).values({
+            userId: actor.userId,
+            targetDriverId: updated.driverId,
+            action: 'update_decision',
+        });
+
+        await recordEvent({
+            authorId: actor.userId,
+            authorRole: actor.role,
+            eventType: 'inspection.decision_changed',
+            entityType: 'med_inspection',
+            entityId: inspectionId,
+            data: {
+                driverId: updated.driverId,
+                tripId: updated.tripId,
+                from: previous,
+                to: input.decision,
+                notes: input.notes ?? null,
+            },
+        }, tx);
+
+        return updated;
+    });
+
+    if (result.tripId && input.decision === 'approved') {
+        await syncWaybillStateForTrip(result.tripId, actor.userId, actor.role);
+    }
+
+    return {
+        id: result.id,
+        decision: result.decision as 'approved' | 'rejected',
+        tripId: result.tripId ?? null,
+    };
+}
+
+function mergeDecisionComment(existing: string | null | undefined, notes: string | undefined): string | null {
+    if (!notes) return existing ?? null;
+    if (!existing) return notes;
+    return `${existing}\n${notes}`;
 }
 
 // ================================================================

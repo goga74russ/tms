@@ -3,6 +3,7 @@
 // Periodically imports fines from ГИБДД mock API
 // ============================================================
 import { Worker, Job } from 'bullmq';
+import type { FastifyBaseLogger } from 'fastify';
 import { redisConnectionConfig } from '../redis.js';
 import { QUEUE_FINES_SYNC } from '../queues.js';
 import { db } from '../../db/connection.js';
@@ -131,7 +132,7 @@ async function processFinesSync(job: Job): Promise<{
 
 let finesWorker: Worker | null = null;
 
-export function startFinesWorker(): Worker {
+export function startFinesWorker(logger: FastifyBaseLogger): Worker {
     finesWorker = new Worker(QUEUE_FINES_SYNC, processFinesSync, {
         connection: redisConnectionConfig,
         concurrency: 1,
@@ -139,14 +140,14 @@ export function startFinesWorker(): Worker {
     });
 
     finesWorker.on('completed', (job) => {
-        console.info(`✅ Fines sync job ${job.id} completed`);
+        logger.info({ jobId: job.id }, 'Fines sync job completed');
     });
 
     finesWorker.on('failed', (job, err) => {
-        console.error(`❌ Fines sync job ${job?.id} failed:`, err.message);
+        logger.error({ err, jobId: job?.id }, 'Fines sync job failed');
     });
 
-    console.info('🚔 Fines sync worker started');
+    logger.info('Fines sync worker started');
     return finesWorker;
 }
 

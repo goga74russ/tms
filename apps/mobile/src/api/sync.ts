@@ -20,6 +20,15 @@ export async function syncDatabase(token: string) {
                 return { changes, timestamp: Number(timestamp) };
             },
             pushChanges: async ({ changes, lastPulledAt: _lastPulledAt }) => {
+                // NOTE: The server `/sync/events` endpoint is an append-only event
+                // stream (see apps/api/src/modules/sync/routes.ts — it validates a
+                // discriminated union of event types and stores them via
+                // syncService.processSyncEvents). It does NOT accept update/delete
+                // semantics, so we only forward `events.created`. `updated`/`deleted`
+                // partitions from WatermelonDB are intentionally ignored — events
+                // are immutable once recorded locally, and tombstones for trips /
+                // route_points are managed server-side via subsequent /sync/pull
+                // snapshots, not pushed from the client.
                 const localEvents = ((changes as any).events?.created || []).map((event: any) => ({
                     id: event.event_id ?? event.eventId,
                     type: event.type,

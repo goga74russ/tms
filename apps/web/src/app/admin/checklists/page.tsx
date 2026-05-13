@@ -2,9 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ClipboardCheck, Plus, X, Edit2, Trash2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
+import { Stat } from '@/components/ui/stat';
+import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
+import { PageHeader } from '@/components/ui/page-header';
+import { Dialog } from '@/components/ui/dialog';
+import { ClipboardCheck, Plus, Edit2, Trash2 } from 'lucide-react';
 
 // ================================================================
 // Types
@@ -32,15 +39,27 @@ const RESPONSE_LABELS: Record<string, string> = {
     boolean: 'Да / Нет',
 };
 
+const TYPE_LABELS: Record<string, string> = {
+    tech: 'Техосмотр',
+    med: 'Медосмотр',
+};
+
+const TYPE_TONES: Record<string, PillTone> = {
+    tech: 'warning',
+    med: 'danger',
+};
+
 // ================================================================
 // Checklist Form Modal
 // ================================================================
 function ChecklistFormModal({
     template,
+    open,
     onClose,
     onSuccess,
 }: {
     template: ChecklistTemplate | null;
+    open: boolean;
     onClose: () => void;
     onSuccess: () => void;
 }) {
@@ -97,126 +116,120 @@ function ChecklistFormModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <Card className="w-full max-w-2xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <CardTitle>{isEdit ? 'Редактирование шаблона' : 'Новый шаблон чек-листа'}</CardTitle>
-                        <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100">
-                            <X className="w-5 h-5 text-slate-400" />
-                        </button>
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-slate-700">Тип *</label>
-                            <select
-                                value={form.type}
-                                onChange={e => setForm(prev => ({ ...prev, type: e.target.value }))}
-                                className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-                            >
-                                <option value="tech">Техосмотр</option>
-                                <option value="med">Медосмотр</option>
-                            </select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-slate-700">Версия *</label>
-                            <input
-                                type="text"
-                                value={form.version}
-                                onChange={e => setForm(prev => ({ ...prev, version: e.target.value }))}
-                                className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                placeholder="1.0"
-                            />
-                        </div>
-                        <div className="flex items-end pb-1">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" checked={form.isActive}
-                                    onChange={e => setForm(prev => ({ ...prev, isActive: e.target.checked }))}
-                                    className="rounded border-slate-300" />
-                                <span className="text-sm text-slate-700">Активен</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="block text-sm font-medium text-slate-700">Название *</label>
-                        <input
-                            type="text"
-                            value={form.name}
-                            onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
-                            className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                            placeholder="Предрейсовый техосмотр v1.0"
+        <Dialog
+            open={open}
+            onClose={onClose}
+            title={isEdit ? 'Редактирование шаблона' : 'Новый шаблон чек-листа'}
+            size="lg"
+        >
+            <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                            Тип <span className="text-red-500 ml-0.5">*</span>
+                        </label>
+                        <Select
+                            value={form.type}
+                            onChange={e => setForm(prev => ({ ...prev, type: e.target.value }))}
+                            options={[
+                                { value: 'tech', label: 'Техосмотр' },
+                                { value: 'med', label: 'Медосмотр' },
+                            ]}
                         />
                     </div>
-
-                    {/* Items */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <label className="block text-sm font-medium text-slate-700">
-                                Пункты проверки ({items.length})
-                            </label>
-                            <Button variant="outline" size="sm" onClick={addItem}>
-                                <Plus className="w-3 h-3 mr-1" /> Пункт
-                            </Button>
-                        </div>
-
-                        <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
-                            {items.map((item, idx) => (
-                                <div key={idx} className="flex gap-2 items-start p-3 bg-slate-50 rounded-lg">
-                                    <span className="text-xs text-slate-400 mt-2.5 min-w-[20px]">{idx + 1}.</span>
-                                    <div className="flex-1 space-y-2">
-                                        <input
-                                            type="text"
-                                            value={item.name}
-                                            onChange={e => updateItem(idx, 'name', e.target.value)}
-                                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                                            placeholder="Название пункта"
-                                        />
-                                        <div className="flex gap-3 items-center">
-                                            <select
-                                                value={item.responseType}
-                                                onChange={e => updateItem(idx, 'responseType', e.target.value)}
-                                                className="px-2 py-1.5 rounded-lg border border-slate-200 text-xs bg-white"
-                                            >
-                                                {Object.entries(RESPONSE_LABELS).map(([k, v]) => (
-                                                    <option key={k} value={k}>{v}</option>
-                                                ))}
-                                            </select>
-                                            <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-600">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={item.required}
-                                                    onChange={e => updateItem(idx, 'required', e.target.checked)}
-                                                    className="rounded border-slate-300"
-                                                />
-                                                Обязательный
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => removeItem(idx)}
-                                        className="p-1 rounded hover:bg-red-50 text-slate-300 hover:text-red-500 mt-1"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
+                    <Input
+                        type="text"
+                        label="Версия"
+                        required
+                        value={form.version}
+                        onChange={e => setForm(prev => ({ ...prev, version: e.target.value }))}
+                        placeholder="1.0"
+                    />
+                    <div className="flex items-end pb-1">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={form.isActive}
+                                onChange={e => setForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                                className="rounded border-neutral-300"
+                            />
+                            <span className="text-sm text-neutral-700">Активен</span>
+                        </label>
                     </div>
+                </div>
 
-                    {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
+                <Input
+                    type="text"
+                    label="Название"
+                    required
+                    value={form.name}
+                    onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Предрейсовый техосмотр v1.0"
+                />
 
-                    <div className="flex gap-3 pt-2">
-                        <Button variant="outline" className="flex-1" onClick={onClose}>Отмена</Button>
-                        <Button className="flex-1" onClick={handleSubmit} disabled={submitting}>
-                            {submitting ? 'Сохраняю...' : isEdit ? 'Сохранить' : 'Создать'}
+                {/* Items */}
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-neutral-700">
+                            Пункты проверки ({items.length})
+                        </label>
+                        <Button variant="outline" size="sm" onClick={addItem}>
+                            <Plus className="w-3 h-3 mr-1" /> Пункт
                         </Button>
                     </div>
-                </CardContent>
-            </Card>
-        </div>
+
+                    <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+                        {items.map((item, idx) => (
+                            <div key={idx} className="flex gap-2 items-start p-3 bg-neutral-50 rounded-lg">
+                                <span className="text-xs text-neutral-400 mt-2.5 min-w-[20px]">{idx + 1}.</span>
+                                <div className="flex-1 space-y-2">
+                                    <Input
+                                        type="text"
+                                        value={item.name}
+                                        onChange={e => updateItem(idx, 'name', e.target.value)}
+                                        placeholder="Название пункта"
+                                    />
+                                    <div className="flex gap-3 items-center">
+                                        <div className="w-auto">
+                                            <Select
+                                                value={item.responseType}
+                                                onChange={e => updateItem(idx, 'responseType', e.target.value)}
+                                                options={Object.entries(RESPONSE_LABELS).map(([k, v]) => ({ value: k, label: v }))}
+                                            />
+                                        </div>
+                                        <label className="flex items-center gap-1.5 cursor-pointer text-xs text-neutral-600">
+                                            <input
+                                                type="checkbox"
+                                                checked={item.required}
+                                                onChange={e => updateItem(idx, 'required', e.target.checked)}
+                                                className="rounded border-neutral-300"
+                                            />
+                                            Обязательный
+                                        </label>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => removeItem(idx)}
+                                    className="p-1 rounded hover:bg-red-50 text-neutral-300 hover:text-red-500 mt-1"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
+
+                <div className="flex gap-3 pt-2">
+                    <Button variant="outline" className="flex-1" onClick={onClose}>Отмена</Button>
+                    <Button variant="brand" className="flex-1" onClick={handleSubmit} disabled={submitting}>
+                        {submitting ? 'Сохраняю...' : isEdit ? 'Сохранить' : 'Создать'}
+                    </Button>
+                </div>
+            </div>
+        </Dialog>
     );
 }
 
@@ -224,10 +237,15 @@ function ChecklistFormModal({
 // Main Page
 // ================================================================
 export default function AdminChecklistsPage() {
+    const { toast: toastFn } = useToast();
+    const setToast = useCallback((message: string | null) => {
+        if (!message) return;
+        toastFn({ variant: 'success', title: 'Готово', description: message });
+    }, [toastFn]);
     const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
     const [loading, setLoading] = useState(true);
+    const [typeFilter, setTypeFilter] = useState('');
     const [modal, setModal] = useState<{ mode: 'create' | 'edit'; template: ChecklistTemplate | null } | null>(null);
-    const [toast, setToast] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         try {
@@ -239,99 +257,139 @@ export default function AdminChecklistsPage() {
     }, []);
 
     useEffect(() => { load(); }, [load]);
-    useEffect(() => {
-        if (toast) { const t = setTimeout(() => setToast(null), 4000); return () => clearTimeout(t); }
-    }, [toast]);
+
+    const activeCount = templates.filter(t => t.isActive).length;
+    const techCount = templates.filter(t => t.type === 'tech').length;
+    const medCount = templates.filter(t => t.type === 'med').length;
+    const filtered = typeFilter ? templates.filter(t => t.type === typeFilter) : templates;
+
+    const columns: Column<ChecklistTemplate>[] = [
+        {
+            id: 'name',
+            header: 'Название',
+            accessor: (r) => r.name,
+            cell: (r) => <span className="font-medium text-neutral-900">{r.name}</span>,
+            sortable: true,
+            sticky: 'left',
+            minWidth: '260px',
+        },
+        {
+            id: 'type',
+            header: 'Тип',
+            accessor: (r) => TYPE_LABELS[r.type] ?? r.type,
+            cell: (r) => <Pill tone={TYPE_TONES[r.type] ?? 'neutral'}>{TYPE_LABELS[r.type] ?? r.type}</Pill>,
+            width: '140px',
+        },
+        {
+            id: 'version',
+            header: 'Версия',
+            accessor: (r) => r.version,
+            cell: (r) => <span className="font-mono text-xs text-neutral-600">v{r.version}</span>,
+            width: '100px',
+        },
+        {
+            id: 'items',
+            header: 'Пункты',
+            accessor: (r) => r.items.length,
+            cell: (r) => <span className="text-neutral-700">{r.items.length}</span>,
+            sortable: true,
+            align: 'right',
+            width: '100px',
+        },
+        {
+            id: 'isActive',
+            header: 'Статус',
+            accessor: (r) => (r.isActive ? 1 : 0),
+            cell: (r) => (
+                <Pill tone={r.isActive ? 'success' : 'neutral'}>
+                    {r.isActive ? 'Активен' : 'Неактивен'}
+                </Pill>
+            ),
+            width: '120px',
+        },
+        {
+            id: 'createdAt',
+            header: 'Создан',
+            accessor: (r) => r.createdAt,
+            cell: (r) => (
+                <span className="text-xs text-neutral-500">
+                    {r.createdAt ? new Date(r.createdAt).toLocaleDateString('ru-RU') : '—'}
+                </span>
+            ),
+            sortable: true,
+            width: '120px',
+        },
+    ];
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                        <ClipboardCheck className="w-6 h-6 text-indigo-600" />
-                        Шаблоны чек-листов
-                    </h1>
-                    <p className="text-sm text-slate-500 mt-1">{templates.length} шаблонов</p>
-                </div>
-                <Button onClick={() => setModal({ mode: 'create', template: null })}>
-                    <Plus className="w-4 h-4 mr-1.5" />
-                    Добавить
-                </Button>
+        <div className="space-y-6">
+            <PageHeader
+                icon={ClipboardCheck}
+                iconTone="brand"
+                title="Шаблоны чек-листов"
+                description="Шаблоны мед- и техосмотра"
+                actions={
+                    <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', template: null })}>
+                        Добавить
+                    </Button>
+                }
+            />
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Stat label="Всего" value={templates.length} icon={ClipboardCheck} tone="neutral" />
+                <Stat label="Активные" value={activeCount} icon={ClipboardCheck} tone="success" />
+                <Stat label="Техосмотр" value={techCount} icon={ClipboardCheck} tone="warning" />
+                <Stat label="Медосмотр" value={medCount} icon={ClipboardCheck} tone="danger" />
             </div>
 
-            {toast && (
-                <div className="fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg bg-emerald-600 text-white text-sm font-medium">
-                    {toast}
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {loading ? (
-                    <div className="col-span-3 text-center py-16">
-                        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" />
-                    </div>
-                ) : templates.length === 0 ? (
-                    <div className="col-span-3 text-center py-16 text-slate-400">Нет шаблонов</div>
-                ) : (
-                    templates.map(tmpl => (
-                        <Card key={tmpl.id} className="hover:shadow-md transition">
-                            <CardContent className="p-5">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div>
-                                        <h3 className="font-semibold text-slate-900">{tmpl.name}</h3>
-                                        <div className="flex gap-2 mt-1">
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tmpl.type === 'tech'
-                                                    ? 'bg-orange-100 text-orange-700'
-                                                    : 'bg-rose-100 text-rose-700'
-                                                }`}>
-                                                {tmpl.type === 'tech' ? 'Техосмотр' : 'Медосмотр'}
-                                            </span>
-                                            <span className="px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">
-                                                v{tmpl.version}
-                                            </span>
-                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tmpl.isActive
-                                                    ? 'bg-emerald-100 text-emerald-700'
-                                                    : 'bg-slate-100 text-slate-400'
-                                                }`}>
-                                                {tmpl.isActive ? 'Активен' : 'Неактивен'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={() => setModal({ mode: 'edit', template: tmpl })}
-                                        className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600"
-                                    >
-                                        <Edit2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-
-                                <div className="space-y-1 mt-3 pt-3 border-t border-slate-100">
-                                    {tmpl.items.slice(0, 5).map((item, idx) => (
-                                        <div key={idx} className="flex items-center gap-2 text-xs text-slate-600">
-                                            <span className="text-slate-400">{idx + 1}.</span>
-                                            <span className="flex-1 truncate">{item.name}</span>
-                                            <span className="text-slate-400">{RESPONSE_LABELS[item.responseType]}</span>
-                                        </div>
-                                    ))}
-                                    {tmpl.items.length > 5 && (
-                                        <p className="text-xs text-slate-400 mt-1">
-                                            ... и ещё {tmpl.items.length - 5} пунктов
-                                        </p>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))
-                )}
-            </div>
+            <DataTable<ChecklistTemplate>
+                tableId="admin-checklists"
+                data={filtered}
+                columns={columns}
+                keyField="id"
+                loading={loading}
+                searchPlaceholder="Поиск шаблона…"
+                searchKeys={['name', 'version']}
+                filters={[
+                    {
+                        id: 'type',
+                        label: 'Тип',
+                        value: typeFilter,
+                        onChange: setTypeFilter,
+                        options: Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label })),
+                    },
+                ]}
+                onRowClick={(row) => setModal({ mode: 'edit', template: row })}
+                rowActions={(row) => [
+                    {
+                        id: 'edit',
+                        label: 'Редактировать',
+                        icon: <Edit2 className="w-4 h-4" />,
+                        onClick: () => setModal({ mode: 'edit', template: row }),
+                    },
+                ]}
+                emptyState={
+                    <EmptyState
+                        icon={ClipboardCheck}
+                        title="Шаблонов пока нет"
+                        description="Создайте первый шаблон чек-листа."
+                        tone="brand"
+                        action={<Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setModal({ mode: 'create', template: null })}>Добавить</Button>}
+                    />
+                }
+                pageSize={50}
+            />
 
             {modal && (
                 <ChecklistFormModal
+                    key={modal.template?.id ?? 'new'}
                     template={modal.template}
+                    open={true}
                     onClose={() => setModal(null)}
                     onSuccess={() => {
+                        const created = modal.mode === 'create';
+                        setToast(created ? 'Шаблон создан' : 'Шаблон обновлён');
                         setModal(null);
-                        setToast(modal.mode === 'create' ? '✅ Шаблон создан' : '✅ Шаблон обновлён');
                         load();
                     }}
                 />

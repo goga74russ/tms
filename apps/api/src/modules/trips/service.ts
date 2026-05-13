@@ -38,9 +38,9 @@ async function generateTripNumber(tx: { execute: typeof db.execute }): Promise<s
     );
 
     let seq = 1;
-    const rows = result as any[];
+    const rows = result as unknown as Array<{ number: string }>;
     if (rows.length > 0 && rows[0].number) {
-        const parts = (rows[0].number as string).split('-');
+        const parts = rows[0].number.split('-');
         seq = parseInt(parts[2], 10) + 1;
     }
 
@@ -324,7 +324,7 @@ async function syncLinkedOrdersForTripStatus(
                 entityId: order.id,
                 data: { tripId, previousStatus: order.status, newStatus: OrderStatus.ASSIGNED, source: 'waybill_issued' },
             }, tx);
-        } else if (newStatus === TripStatus.IN_TRANSIT && [OrderStatus.ASSIGNED, OrderStatus.CONFIRMED].includes(order.status as any)) {
+        } else if (newStatus === TripStatus.IN_TRANSIT && ([OrderStatus.ASSIGNED, OrderStatus.CONFIRMED] as string[]).includes(order.status)) {
             await tx
                 .update(orders)
                 .set({ status: OrderStatus.IN_TRANSIT, updatedAt: new Date() })
@@ -338,7 +338,7 @@ async function syncLinkedOrdersForTripStatus(
                 entityId: order.id,
                 data: { tripId, previousStatus: order.status, newStatus: OrderStatus.IN_TRANSIT },
             }, tx);
-        } else if (newStatus === TripStatus.COMPLETED && [OrderStatus.ASSIGNED, OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT].includes(order.status as any)) {
+        } else if (newStatus === TripStatus.COMPLETED && ([OrderStatus.ASSIGNED, OrderStatus.CONFIRMED, OrderStatus.IN_TRANSIT] as string[]).includes(order.status)) {
             await tx
                 .update(orders)
                 .set({ status: OrderStatus.DELIVERED, updatedAt: new Date() })
@@ -801,6 +801,43 @@ export async function assignTrip(
         });
     }
 
+    // Wave 5: ADR / hazmat. Default: warn-only.
+    // D19: when org.adr_strict_mode = true, ADR errors escalate from soft
+    // warnings to a 'hard' block so the assignment cannot proceed.
+    {
+        const hazmatOrders = (trip.orders ?? []).filter((o: any) => o.adrClass);
+        if (hazmatOrders.length > 0) {
+            const { validateAdrCompatibility } = await import('../adr/service.js');
+            const { getAdrStrictMode } = await import('../compliance/adr/service.js');
+            const strictMode = author.organizationId
+                ? await getAdrStrictMode(author.organizationId)
+                : false;
+            for (const hazmatOrder of hazmatOrders) {
+                const adrResult = await validateAdrCompatibility(
+                    hazmatOrder.id,
+                    vehicleId,
+                    driverId,
+                    now,
+                );
+                if (!adrResult.ok) {
+                    for (const message of adrResult.errors) {
+                        warnings.push({
+                            type: strictMode ? 'hard' : 'soft',
+                            code: strictMode ? 'ADR_BLOCKED' : 'ADR_INCOMPATIBLE',
+                            message: strictMode
+                                ? `Назначение заблокировано: транспорт не соответствует требованиям ADR (${hazmatOrder.adrClass}${
+                                    hazmatOrder.adrUnNumber ? ` ${hazmatOrder.adrUnNumber}` : ''
+                                }): ${message}`
+                                : `ADR (${hazmatOrder.adrClass}${
+                                    hazmatOrder.adrUnNumber ? ` ${hazmatOrder.adrUnNumber}` : ''
+                                }): ${message}`,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
     const blockingIncidents = await getBlockingIncidents({
         tripId,
         vehicleId,
@@ -864,6 +901,23 @@ export async function assignTrip(
                 warnings: warnings.filter(w => w.type === 'soft'),
             },
         }, tx);
+
+        // Wave 5: отдельно журналируем ADR-предупреждения (WARN-ONLY).
+        const adrWarnings = warnings.filter(w => w.code === 'ADR_INCOMPATIBLE');
+        if (adrWarnings.length > 0) {
+            await recordEvent({
+                authorId: author.userId,
+                authorRole: author.role,
+                eventType: 'trip.adr_warning',
+                entityType: 'trip',
+                entityId: tripId,
+                data: {
+                    vehicleId,
+                    driverId,
+                    warnings: adrWarnings,
+                },
+            }, tx);
+        }
 
         return result;
     });
@@ -1051,6 +1105,22 @@ export async function changeTripStatus(
     });
 
     await refreshTransportDocumentsForTrip(id, author.userId);
+
+    // Wave 4: автогенерация черновика счёта при завершении рейса.
+    // Вынесено за транзакцию, ошибки логируются — не блокируют переход статуса.
+    if (newStatus === TripStatus.COMPLETED) {
+        try {
+            const { financeService } = await import('../finance/finance.service.js');
+            await financeService.tryAutoCreateInvoice(id, {
+                authorId: author.userId,
+                authorRole: author.role,
+            });
+        } catch (err) {
+            // Best-effort: не падаем при сбое автотарификации.
+            console.warn('[trips] tryAutoCreateInvoice failed for', id, (err as Error).message);
+        }
+    }
+
     return updated;
 }
 
@@ -1157,6 +1227,8 @@ export async function addRoutePoint(
         lon?: number;
         windowStart?: string;
         windowEnd?: string;
+        windowFrom?: string;
+        windowTo?: string;
         notes?: string;
         sealNumbers?: string[];
         packagingCondition?: string;
@@ -1193,6 +1265,8 @@ export async function addRoutePoint(
             lon: point.lon,
             windowStart: point.windowStart ? new Date(point.windowStart) : undefined,
             windowEnd: point.windowEnd ? new Date(point.windowEnd) : undefined,
+            windowFrom: point.windowFrom ? new Date(point.windowFrom) : undefined,
+            windowTo: point.windowTo ? new Date(point.windowTo) : undefined,
             notes: point.notes,
             sealNumbers: point.sealNumbers,
             packagingCondition: point.packagingCondition,
@@ -1223,6 +1297,10 @@ export async function updateRoutePoint(
         vehicleArrivedAt: string;
         waitingStartedAt: string;
         waitingEndedAt: string;
+        windowStart: string | null;
+        windowEnd: string | null;
+        windowFrom: string | null;
+        windowTo: string | null;
     }>,
 ) {
     const setFields: Record<string, any> = {};
@@ -1241,6 +1319,10 @@ export async function updateRoutePoint(
     if (updates.vehicleArrivedAt !== undefined) setFields.vehicleArrivedAt = updates.vehicleArrivedAt ? new Date(updates.vehicleArrivedAt) : null;
     if (updates.waitingStartedAt !== undefined) setFields.waitingStartedAt = updates.waitingStartedAt ? new Date(updates.waitingStartedAt) : null;
     if (updates.waitingEndedAt !== undefined) setFields.waitingEndedAt = updates.waitingEndedAt ? new Date(updates.waitingEndedAt) : null;
+    if (updates.windowStart !== undefined) setFields.windowStart = updates.windowStart ? new Date(updates.windowStart) : null;
+    if (updates.windowEnd !== undefined) setFields.windowEnd = updates.windowEnd ? new Date(updates.windowEnd) : null;
+    if (updates.windowFrom !== undefined) setFields.windowFrom = updates.windowFrom ? new Date(updates.windowFrom) : null;
+    if (updates.windowTo !== undefined) setFields.windowTo = updates.windowTo ? new Date(updates.windowTo) : null;
 
     const [updated] = await db
         .update(routePoints)

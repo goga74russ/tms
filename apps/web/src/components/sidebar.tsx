@@ -78,34 +78,40 @@ export function Sidebar() {
     return (
         <aside
             className={`
-        flex flex-col bg-white border-r border-slate-200
-        transition-all duration-300 ease-in-out
-        ${collapsed ? 'w-16' : 'w-64'}
-      `}
+                hidden md:flex flex-col bg-white border-r border-neutral-200 shadow-soft
+                transition-[width] duration-300 ease-in-out shrink-0
+                ${collapsed ? 'w-16' : 'w-64'}
+            `}
+            aria-label="Главное меню"
         >
             {/* Logo */}
-            <div className="flex items-center h-16 px-4 border-b border-slate-200">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+            <div className="flex items-center h-16 px-4 border-b border-neutral-200">
+                <Link href="/" className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-90">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-soft shrink-0">
                         <Truck className="w-5 h-5 text-white" />
                     </div>
                     {!collapsed && (
-                        <span className="font-bold text-lg text-slate-900">TMS</span>
+                        <div className="min-w-0 flex-1">
+                            <div className="font-bold text-lg text-neutral-900 leading-none truncate">TMS</div>
+                            <div className="text-[10px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5 truncate">Управление</div>
+                        </div>
                     )}
-                </div>
+                </Link>
                 <button
+                    type="button"
                     onClick={() => setCollapsed(!collapsed)}
-                    className="ml-auto p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+                    className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600"
+                    aria-label={collapsed ? 'Развернуть меню' : 'Свернуть меню'}
                 >
                     {collapsed ? <Menu className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                 </button>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
+            <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto" aria-label="Навигация">
                 {loading ? (
                     <div className="px-3 py-8 flex justify-center">
-                        <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
+                        <div className="w-5 h-5 border-2 border-neutral-200 border-t-brand-600 rounded-full animate-spin" aria-label="Загрузка..." />
                     </div>
                 ) : (
                     filteredNav.map((item) => {
@@ -118,17 +124,22 @@ export function Sidebar() {
                                 key={item.href}
                                 href={item.href}
                                 className={`
-                flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
-                transition-all duration-150
-                ${isActive
-                                        ? 'bg-indigo-50 text-indigo-700 shadow-sm'
-                                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                    relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                                    transition-all duration-150
+                                    ${isActive
+                                        ? 'bg-brand-50 text-brand-700 shadow-sm'
+                                        : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
                                     }
-              `}
+                                `}
                                 title={collapsed ? item.name : undefined}
+                                aria-label={collapsed ? item.name : undefined}
+                                aria-current={isActive ? 'page' : undefined}
                             >
-                                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-indigo-600' : ''}`} />
-                                {!collapsed && <span>{item.name}</span>}
+                                {isActive && (
+                                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r-full bg-brand-600" aria-hidden="true" />
+                                )}
+                                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-brand-600' : ''}`} />
+                                {!collapsed && <span className="truncate">{item.name}</span>}
                             </Link>
                         );
                     })
@@ -137,20 +148,22 @@ export function Sidebar() {
 
             {/* User section or Login component */}
             {!collapsed && (
-                <div className="p-4 border-t border-slate-200">
+                <div className="p-3 border-t border-neutral-200">
                     {user ? (
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white text-xs font-bold">
-                                {user.fullName.charAt(0)}
+                        <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-neutral-50">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-success-500 to-emerald-700 flex items-center justify-center text-white text-sm font-bold shadow-soft shrink-0">
+                                {user.fullName.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-slate-900 truncate">{user.fullName}</p>
-                                <p className="text-xs text-slate-500">{getRoleName(user.roles)}</p>
+                                <p className="text-sm font-semibold text-neutral-900 truncate">{user.fullName}</p>
+                                <p className="text-xs text-neutral-500 truncate">{getRoleName(user.roles)}</p>
                             </div>
                             <button
+                                type="button"
                                 onClick={logout}
-                                className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition"
+                                className="p-1.5 rounded-lg hover:bg-red-50 text-neutral-400 hover:text-red-600 transition shrink-0"
                                 title="Выйти"
+                                aria-label="Выйти"
                             >
                                 <LogOut className="w-4 h-4" />
                             </button>
@@ -158,7 +171,7 @@ export function Sidebar() {
                     ) : (
                         <Link
                             href="/login"
-                            className="flex items-center justify-center gap-2 w-full py-2 px-4 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800 rounded-xl text-sm font-semibold transition"
+                            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-brand-50 text-brand-700 hover:bg-brand-100 hover:text-brand-800 rounded-xl text-sm font-semibold transition shadow-sm"
                         >
                             <LogIn className="w-4 h-4" />
                             Войти в систему
@@ -169,10 +182,19 @@ export function Sidebar() {
 
             {/* Collapsed user avatar */}
             {collapsed && user && (
-                <div className="p-2 border-t border-slate-200 flex justify-center">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white text-xs font-bold" title={user.fullName}>
-                        {user.fullName.charAt(0)}
+                <div className="p-2 border-t border-neutral-200 flex flex-col items-center gap-2">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-success-500 to-emerald-700 flex items-center justify-center text-white text-sm font-bold shadow-soft" title={user.fullName}>
+                        {user.fullName.charAt(0).toUpperCase()}
                     </div>
+                    <button
+                        type="button"
+                        onClick={logout}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-neutral-400 hover:text-red-600"
+                        title="Выйти"
+                        aria-label="Выйти"
+                    >
+                        <LogOut className="w-4 h-4" />
+                    </button>
                 </div>
             )}
         </aside>

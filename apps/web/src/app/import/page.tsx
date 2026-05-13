@@ -1,353 +1,412 @@
 'use client';
 
+// ============================================================
+// Round 3B — D11: Bulk Excel import with server-side templates
+// 4 cards: Контрагенты / ТС / Водители / Заказы
+// Each card: download template (server) + upload + preview + commit
+// ============================================================
 import { useState, useRef, useCallback } from 'react';
-import * as XLSX from 'xlsx';
 import { api } from '@/lib/api';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/components/ui/toast';
 import {
-    Upload, Truck, Users, Building2, CheckCircle2,
-    AlertCircle, Loader2, FileJson, X, Download, FileSpreadsheet,
+    Upload, Truck, Users, Building2, Package, CheckCircle2,
+    AlertCircle, Loader2, Download, FileSpreadsheet, X,
 } from 'lucide-react';
 
-type EntityType = 'vehicles' | 'drivers' | 'contractors';
+type EntityType = 'contractors' | 'vehicles' | 'drivers' | 'orders';
 
-interface ImportResult {
+interface PreviewRow {
+    index: number;
+    data: Record<string, unknown>;
+    valid: boolean;
+    errors: string[];
+}
+
+interface PreviewResponse {
+    success: boolean;
+    data: {
+        type: EntityType;
+        total: number;
+        validCount: number;
+        errorCount: number;
+        rows: PreviewRow[];
+    };
+}
+
+interface CommitResult {
     created: number;
     usersCreated?: number;
     errors: { index: number; error: string }[];
 }
 
-// ── Column definitions ──────────────────────────────────────────
-const COLUMNS: Record<EntityType, { key: string; header: string; required?: boolean; example: string }[]> = {
-    vehicles: [
-        { key: 'plateNumber',        header: 'Госномер',           required: true,  example: 'А001АА77' },
-        { key: 'vin',                header: 'VIN',                required: true,  example: 'XTA21700080000010' },
-        { key: 'make',               header: 'Марка',              required: true,  example: 'ГАЗ' },
-        { key: 'model',              header: 'Модель',             required: true,  example: 'Газель NEXT' },
-        { key: 'year',               header: 'Год',                              example: '2024' },
-        { key: 'bodyType',           header: 'Тип кузова',                       example: 'фургон' },
-        { key: 'payloadCapacityKg',  header: 'Грузоподъёмность кг',              example: '1500' },
-        { key: 'payloadVolumeM3',    header: 'Объём м3',                         example: '10' },
-        { key: 'fuelNormPer100Km',   header: 'Расход л/100км',                   example: '18' },
-    ],
-    drivers: [
-        { key: 'fullName',           header: 'ФИО',                required: true,  example: 'Петров Иван Сергеевич' },
-        { key: 'licenseNumber',      header: 'Номер ВУ',           required: true,  example: '7700111222' },
-        { key: 'licenseCategories',  header: 'Категории (B,C)',               example: 'B,C' },
-        { key: 'birthDate',          header: 'Дата рождения',                  example: '1990-01-15' },
-        { key: 'licenseExpiry',      header: 'Срок действия ВУ',               example: '2030-01-01' },
-        { key: 'phone',              header: 'Телефон',                        example: '+79991234567' },
-        { key: 'email',              header: 'Email',                          example: 'driver@example.com' },
-    ],
-    contractors: [
-        { key: 'name',         header: 'Название',      required: true,  example: 'ООО "Тест"' },
-        { key: 'inn',          header: 'ИНН',            required: true,  example: '7700000001' },
-        { key: 'kpp',          header: 'КПП',                           example: '770001001' },
-        { key: 'legalAddress', header: 'Юридический адрес',             example: 'г. Москва, ул. Ленина, 1' },
-        { key: 'phone',        header: 'Телефон',                       example: '+74951234567' },
-        { key: 'email',        header: 'Email',                         example: 'info@example.com' },
-    ],
+const ENTITIES: Record<EntityType, { label: string; description: string; icon: React.ElementType; color: string }> = {
+    contractors: {
+        label: 'Контрагенты',
+        description: 'Клиенты, грузоотправители, грузополучатели',
+        icon: Building2,
+        color: 'text-blue-600 bg-blue-50 border-blue-200',
+    },
+    vehicles: {
+        label: 'Транспорт',
+        description: 'Тягачи, фургоны, рефрижераторы, самосвалы',
+        icon: Truck,
+        color: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+    },
+    drivers: {
+        label: 'Водители',
+        description: 'С автосозданием учётной записи',
+        icon: Users,
+        color: 'text-amber-600 bg-amber-50 border-amber-200',
+    },
+    orders: {
+        label: 'Заявки',
+        description: 'Связь с контрагентом по ИНН',
+        icon: Package,
+        color: 'text-indigo-600 bg-indigo-50 border-indigo-200',
+    },
 };
 
-const ENTITY_LABELS: Record<EntityType, { label: string; icon: React.ElementType }> = {
-    vehicles:    { label: 'Транспорт',   icon: Truck },
-    drivers:     { label: 'Водители',    icon: Users },
-    contractors: { label: 'Контрагенты', icon: Building2 },
-};
-
-// ── Excel template generator ────────────────────────────────────
-function downloadTemplate(entity: EntityType) {
-    const cols = COLUMNS[entity];
-    const headers = cols.map(c => c.header);
-    const example = cols.map(c => c.example);
-    const ws = XLSX.utils.aoa_to_sheet([headers, example]);
-    // Column widths
-    ws['!cols'] = cols.map(() => ({ wch: 22 }));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Импорт');
-    XLSX.writeFile(wb, `template_${entity}.xlsx`);
-}
-
-// ── Excel / CSV parser ──────────────────────────────────────────
-function parseExcel(buffer: ArrayBuffer, entity: EntityType): unknown[] {
-    const wb = XLSX.read(buffer, { type: 'array' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows: Record<string, string>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    const cols = COLUMNS[entity];
-
-    // Map localised headers → field keys
-    const headerMap: Record<string, string> = {};
-    cols.forEach(c => { headerMap[c.header] = c.key; });
-
-    return rows.map(row => {
-        const item: Record<string, unknown> = {};
-        for (const [hdr, val] of Object.entries(row)) {
-            const key = headerMap[hdr] ?? hdr;
-            // Parse licenseCategories: "B,C" → ['B','C']
-            if (key === 'licenseCategories' && typeof val === 'string') {
-                item[key] = val.split(',').map(s => s.trim()).filter(Boolean);
-            } else if (['year', 'payloadCapacityKg', 'payloadVolumeM3', 'fuelNormPer100Km'].includes(key)) {
-                item[key] = val !== '' ? Number(val) : undefined;
-            } else {
-                item[key] = val !== '' ? val : undefined;
-            }
-        }
-        return item;
-    });
-}
-
-// ── Component ────────────────────────────────────────────────────
 export default function ImportPage() {
-    const [activeEntity, setActiveEntity] = useState<EntityType>('vehicles');
-    const [items, setItems]     = useState<unknown[]>([]);
-    const [fileName, setFileName] = useState('');
-    const [importing, setImporting] = useState(false);
-    const [result, setResult]   = useState<ImportResult | null>(null);
-    const [error, setError]     = useState('');
-    const [dragging, setDragging] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [openCard, setOpenCard] = useState<EntityType | null>(null);
 
-    const reset = useCallback(() => {
-        setItems([]);
-        setFileName('');
-        setResult(null);
-        setError('');
-    }, []);
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center gap-3">
+                <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                    <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-semibold text-neutral-900">Импорт данных</h1>
+                    <p className="text-sm text-neutral-500 mt-0.5">
+                        Скачайте шаблон Excel, заполните и загрузите обратно. Перед записью покажем предпросмотр с подсветкой ошибок.
+                    </p>
+                </div>
+            </div>
 
-    // Parse any supported file format
-    const parseFile = useCallback(async (file: File, entity: EntityType) => {
-        const name = file.name.toLowerCase();
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {(Object.keys(ENTITIES) as EntityType[]).map((entity) => (
+                    <ImportCard
+                        key={entity}
+                        entity={entity}
+                        active={openCard === entity}
+                        onOpen={() => setOpenCard((cur) => cur === entity ? null : entity)}
+                    />
+                ))}
+            </div>
+
+            {openCard && (
+                <ImportPanel entity={openCard} onClose={() => setOpenCard(null)} />
+            )}
+        </div>
+    );
+}
+
+function ImportCard({
+    entity,
+    active,
+    onOpen,
+}: {
+    entity: EntityType;
+    active: boolean;
+    onOpen: () => void;
+}) {
+    const cfg = ENTITIES[entity];
+    const Icon = cfg.icon;
+
+    async function downloadTemplate(e: React.MouseEvent) {
+        e.stopPropagation();
         try {
-            if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
-                const buf = await file.arrayBuffer();
-                const parsed = parseExcel(buf, entity);
-                setItems(parsed);
-                setFileName(file.name);
-                setResult(null);
-                setError('');
-            } else if (name.endsWith('.csv')) {
-                const text = await file.text();
-                const wb = XLSX.read(text, { type: 'string' });
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                const rows: Record<string, string>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
-                setItems(rows);
-                setFileName(file.name);
-                setResult(null);
-                setError('');
-            } else if (name.endsWith('.json')) {
-                const text = await file.text();
-                const parsed = JSON.parse(text);
-                setItems(Array.isArray(parsed) ? parsed : []);
-                setFileName(file.name);
-                setResult(null);
-                setError('');
-            } else {
-                setError('Поддерживаются форматы: .xlsx, .xls, .csv, .json');
-            }
-        } catch (e: any) {
-            setError(`Ошибка чтения файла: ${e.message}`);
-        }
-    }, []);
-
-    // Drag-n-drop handlers
-    const onDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragging(true); };
-    const onDragLeave = () => setDragging(false);
-    const onDrop = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setDragging(false);
-        const file = e.dataTransfer.files?.[0];
-        if (file) parseFile(file, activeEntity);
-    }, [activeEntity, parseFile]);
-
-    const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) parseFile(file, activeEntity);
-        e.target.value = '';
-    }, [activeEntity, parseFile]);
-
-    async function handleImport() {
-        if (!items.length) return;
-        setImporting(true);
-        setError('');
-        setResult(null);
-        try {
-            if (items.length > 200) throw new Error('Максимум 200 записей за раз');
-            const res = await api.post<ImportResult>(`/import/${activeEntity}`, { items });
-            setResult(res);
+            const res = await fetch(`/api/import/templates/${entity}`, { credentials: 'include' });
+            if (!res.ok) throw new Error('Не удалось скачать шаблон');
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `template_${entity}.xlsx`;
+            a.click();
+            URL.revokeObjectURL(url);
         } catch (err: any) {
-            setError(err.message || 'Ошибка импорта');
-        } finally {
-            setImporting(false);
+            alert(err?.message ?? 'Ошибка');
         }
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-slate-900">Импорт данных</h1>
-                <p className="text-sm text-slate-500 mt-1">
-                    Массовая загрузка ТС, водителей и контрагентов (Excel / CSV / JSON)
-                </p>
+        <button
+            type="button"
+            onClick={onOpen}
+            className={`text-left rounded-xl border-2 p-4 transition-all ${
+                active
+                    ? 'border-indigo-400 bg-indigo-50/40 shadow-sm'
+                    : 'border-neutral-200 bg-white hover:border-neutral-300'
+            }`}
+        >
+            <div className="flex items-start gap-3">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center border ${cfg.color}`}>
+                    <Icon className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                    <div className="font-semibold text-neutral-900">{cfg.label}</div>
+                    <p className="text-xs text-neutral-500 mt-0.5">{cfg.description}</p>
+                </div>
             </div>
+            <div className="mt-3 flex gap-2">
+                <button
+                    onClick={downloadTemplate}
+                    className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-neutral-200 text-neutral-600 hover:bg-neutral-50"
+                >
+                    <Download className="w-3 h-3" />Шаблон
+                </button>
+                <span className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md text-indigo-600 font-medium">
+                    <Upload className="w-3 h-3" />{active ? 'Скрыть' : 'Загрузить'}
+                </span>
+            </div>
+        </button>
+    );
+}
 
-            <Tabs defaultValue="vehicles" className="w-full" onValueChange={(v) => {
-                setActiveEntity(v as EntityType);
-                reset();
-            }}>
-                <TabsList className="mb-4">
-                    {(Object.entries(ENTITY_LABELS) as [EntityType, typeof ENTITY_LABELS[EntityType]][]).map(([key, cfg]) => {
-                        const Icon = cfg.icon;
-                        return (
-                            <TabsTrigger key={key} value={key} className="gap-2">
-                                <Icon className="w-4 h-4" />{cfg.label}
-                            </TabsTrigger>
-                        );
-                    })}
-                </TabsList>
+function ImportPanel({
+    entity,
+    onClose,
+}: {
+    entity: EntityType;
+    onClose: () => void;
+}) {
+    const cfg = ENTITIES[entity];
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-                {(['vehicles', 'drivers', 'contractors'] as EntityType[]).map(entity => (
-                    <TabsContent key={entity} value={entity} className="m-0 space-y-4">
+    const [fileName, setFileName] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [preview, setPreview] = useState<PreviewResponse['data'] | null>(null);
+    const [committing, setCommitting] = useState(false);
+    const [result, setResult] = useState<CommitResult | null>(null);
+    const [error, setError] = useState('');
+    const [dragging, setDragging] = useState(false);
 
-                        {/* Column hints */}
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
-                            <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Колонки</p>
-                            <div className="flex flex-wrap gap-2">
-                                {COLUMNS[entity].map(c => (
-                                    <span key={c.key}
-                                        className={`text-xs px-2 py-0.5 rounded-full border font-mono ${c.required
-                                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
-                                            : 'bg-white border-slate-200 text-slate-500'}`}>
-                                        {c.header}{c.required ? ' *' : ''}
-                                    </span>
-                                ))}
-                            </div>
+    const reset = () => {
+        setFileName(''); setPreview(null); setResult(null); setError('');
+    };
+
+    const onSelectFile = useCallback(async (file: File) => {
+        if (!/\.(xlsx|xls)$/i.test(file.name)) {
+            setError('Поддерживаются только .xlsx файлы');
+            return;
+        }
+        setLoading(true);
+        setError('');
+        setResult(null);
+        setPreview(null);
+        setFileName(file.name);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            const res = await api.post<PreviewResponse>(`/import/${entity}/preview`, fd);
+            setPreview(res.data);
+        } catch (err: any) {
+            setError(err?.message ?? 'Ошибка предпросмотра');
+        } finally {
+            setLoading(false);
+        }
+    }, [entity]);
+
+    const onDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) onSelectFile(file);
+    }, [onSelectFile]);
+
+    const onCommit = useCallback(async () => {
+        if (!preview) return;
+        const validRows = preview.rows.filter((r) => r.valid).map((r) => r.data);
+        if (validRows.length === 0) {
+            setError('Нет валидных строк для импорта');
+            return;
+        }
+        setCommitting(true);
+        setError('');
+        try {
+            const res = await api.post<{ success: boolean; data: CommitResult }>(`/import/${entity}`, { items: validRows });
+            setResult(res.data);
+        } catch (err: any) {
+            setError(err?.message ?? 'Ошибка импорта');
+        } finally {
+            setCommitting(false);
+        }
+    }, [entity, preview]);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-base">
+                        <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
+                        Импорт: {cfg.label}
+                    </div>
+                    <button onClick={onClose} className="text-neutral-400 hover:text-neutral-700">
+                        <X className="w-4 h-4" />
+                    </button>
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {/* Drop zone */}
+                <div
+                    className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
+                        dragging
+                            ? 'border-indigo-400 bg-indigo-50'
+                            : 'border-neutral-300 bg-white hover:border-indigo-300 hover:bg-neutral-50/50'
+                    }`}
+                    onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={onDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                >
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".xlsx,.xls"
+                        className="hidden"
+                        onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) onSelectFile(f);
+                            e.target.value = '';
+                        }}
+                    />
+                    <FileSpreadsheet className={`w-8 h-8 mx-auto mb-2 ${dragging ? 'text-indigo-500' : 'text-neutral-300'}`} />
+                    {fileName ? (
+                        <p className="text-sm font-medium text-neutral-700">{fileName}</p>
+                    ) : (
+                        <>
+                            <p className="text-sm font-medium text-neutral-600">
+                                Перетащите .xlsx или <span className="text-indigo-600 underline">выберите файл</span>
+                            </p>
+                            <p className="text-xs text-neutral-400 mt-1">До 200 строк за импорт</p>
+                        </>
+                    )}
+                </div>
+
+                {loading && (
+                    <div className="flex items-center gap-2 text-sm text-neutral-500">
+                        <Loader2 className="w-4 h-4 animate-spin" />Парсим файл...
+                    </div>
+                )}
+
+                {error && (
+                    <div className="flex items-start gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />{error}
+                    </div>
+                )}
+
+                {/* Preview */}
+                {preview && !result && (
+                    <>
+                        <div className="grid grid-cols-3 gap-3">
+                            <Stat label="Всего строк" value={preview.total} />
+                            <Stat label="Валидных" value={preview.validCount} valueClass="text-emerald-700" />
+                            <Stat label="С ошибками" value={preview.errorCount} valueClass={preview.errorCount > 0 ? 'text-rose-700' : ''} />
                         </div>
 
-                        {/* Drop zone */}
-                        <div
-                            className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer
-                                ${dragging
-                                    ? 'border-indigo-400 bg-indigo-50'
-                                    : 'border-slate-300 bg-white hover:border-indigo-300 hover:bg-slate-50/50'}`}
-                            onDragOver={onDragOver}
-                            onDragLeave={onDragLeave}
-                            onDrop={onDrop}
-                            onClick={() => fileInputRef.current?.click()}
-                        >
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".xlsx,.xls,.csv,.json"
-                                className="hidden"
-                                onChange={onFileChange}
-                            />
-                            <FileSpreadsheet className={`w-10 h-10 mx-auto mb-3 ${dragging ? 'text-indigo-500' : 'text-slate-300'}`} />
-                            {fileName ? (
-                                <p className="text-sm font-medium text-slate-700">{fileName}</p>
-                            ) : (
-                                <>
-                                    <p className="text-sm font-medium text-slate-600">
-                                        Перетащите файл или <span className="text-indigo-600 underline">выберите</span>
-                                    </p>
-                                    <p className="text-xs text-slate-400 mt-1">.xlsx, .xls, .csv, .json · до 200 строк</p>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Action bar */}
-                        <div className="flex flex-wrap gap-3 items-center">
-                            <button
-                                onClick={() => downloadTemplate(entity)}
-                                className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                            >
-                                <Download className="w-4 h-4" />
-                                Скачать шаблон Excel
-                            </button>
-                            {fileName && (
-                                <button onClick={reset}
-                                    className="flex items-center gap-1 px-3 py-2 text-sm text-slate-400 hover:text-slate-600">
-                                    <X className="w-4 h-4" /> Очистить
-                                </button>
-                            )}
-                            <div className="ml-auto flex items-center gap-3">
-                                {items.length > 0 && !result && (
-                                    <span className="text-sm text-slate-500">
-                                        📋 <strong>{items.length}</strong> записей
-                                    </span>
-                                )}
-                                <button
-                                    onClick={handleImport}
-                                    disabled={importing || items.length === 0}
-                                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                                >
-                                    {importing
-                                        ? <Loader2 className="w-4 h-4 animate-spin" />
-                                        : <Upload className="w-4 h-4" />}
-                                    {importing ? 'Импорт...' : 'Импортировать'}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Preview table (first 5 rows) */}
-                        {items.length > 0 && !result && (
-                            <div className="overflow-x-auto rounded-xl border border-slate-200">
-                                <table className="w-full text-xs">
-                                    <thead className="bg-slate-50 border-b border-slate-200">
-                                        <tr>
-                                            {Object.keys(items[0] as object).map(k => (
-                                                <th key={k} className="px-3 py-2 text-left font-semibold text-slate-500 whitespace-nowrap">{k}</th>
-                                            ))}
+                        <div className="overflow-x-auto rounded-xl border border-neutral-200 max-h-96">
+                            <table className="w-full text-xs">
+                                <thead className="bg-neutral-50 border-b border-neutral-200 sticky top-0">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left font-semibold text-neutral-500 w-10">#</th>
+                                        <th className="px-3 py-2 text-left font-semibold text-neutral-500">Данные</th>
+                                        <th className="px-3 py-2 text-left font-semibold text-neutral-500 w-64">Ошибки</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {preview.rows.slice(0, 100).map((row) => (
+                                        <tr
+                                            key={row.index}
+                                            className={`border-b border-neutral-100 ${row.valid ? '' : 'bg-rose-50/30'}`}
+                                        >
+                                            <td className="px-3 py-2 text-neutral-400 font-mono">{row.index + 1}</td>
+                                            <td className="px-3 py-2 text-neutral-700">
+                                                <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                                                    {Object.entries(row.data).slice(0, 4).map(([k, v]) => (
+                                                        <span key={k} className="text-xs">
+                                                            <span className="text-neutral-400">{k}:</span> <span className="font-medium">{Array.isArray(v) ? v.join(', ') : String(v ?? '—')}</span>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                {row.errors.length > 0 ? (
+                                                    <ul className="text-rose-700 space-y-0.5">
+                                                        {/* errors are plain strings; index is the only stable identity within this row */}
+                                                        {row.errors.map((e, i) => <li key={`${i}:${e}`}>• {e}</li>)}
+                                                    </ul>
+                                                ) : (
+                                                    <span className="text-emerald-600">OK</span>
+                                                )}
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        {(items as Record<string, unknown>[]).slice(0, 5).map((row, i) => (
-                                            <tr key={i} className="border-b border-slate-100 last:border-0">
-                                                {Object.values(row).map((v, j) => (
-                                                    <td key={j} className="px-3 py-2 text-slate-600 whitespace-nowrap max-w-[180px] truncate">
-                                                        {Array.isArray(v) ? v.join(', ') : String(v ?? '')}
-                                                    </td>
-                                                ))}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                                {items.length > 5 && (
-                                    <p className="px-3 py-2 text-xs text-slate-400 bg-slate-50">...ещё {items.length - 5} строк</p>
-                                )}
-                            </div>
-                        )}
+                                    ))}
+                                </tbody>
+                            </table>
+                            {preview.rows.length > 100 && (
+                                <p className="px-3 py-2 text-xs text-neutral-400 bg-neutral-50">…и ещё {preview.rows.length - 100} строк</p>
+                            )}
+                        </div>
 
-                        {/* Error */}
-                        {error && (
-                            <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                                <AlertCircle className="w-4 h-4 flex-shrink-0" />{error}
-                            </div>
-                        )}
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={reset}
+                                className="px-4 py-2 text-sm border border-neutral-200 rounded-lg text-neutral-600 hover:bg-neutral-50"
+                            >
+                                Отменить
+                            </button>
+                            <button
+                                onClick={onCommit}
+                                disabled={committing || preview.validCount === 0}
+                                className="ml-auto flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+                            >
+                                {committing
+                                    ? <><Loader2 className="w-4 h-4 animate-spin" />Импорт…</>
+                                    : <><Upload className="w-4 h-4" />Подтвердить импорт ({preview.validCount})</>}
+                            </button>
+                        </div>
+                    </>
+                )}
 
-                        {/* Result */}
-                        {result && (
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
-                                    <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                                    Создано: <strong>{result.created}</strong>
-                                    {result.usersCreated ? <span className="ml-2 text-emerald-600">· аккаунтов: <strong>{result.usersCreated}</strong></span> : null}
-                                </div>
-                                {result.errors?.length > 0 && (
-                                    <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-                                        <p className="font-medium mb-1">Ошибки ({result.errors.length}):</p>
-                                        <ul className="list-disc pl-5 space-y-0.5">
-                                            {result.errors.slice(0, 10).map((e, i) => (
-                                                <li key={i}>Строка {e.index + 1}: {e.error}</li>
-                                            ))}
-                                            {result.errors.length > 10 && <li>...ещё {result.errors.length - 10}</li>}
-                                        </ul>
-                                    </div>
-                                )}
+                {/* Result */}
+                {result && (
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
+                            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                            Создано: <strong>{result.created}</strong>
+                            {result.usersCreated ? <span className="ml-2">· аккаунтов: <strong>{result.usersCreated}</strong></span> : null}
+                        </div>
+                        {result.errors?.length > 0 && (
+                            <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                                <p className="font-medium mb-1">Ошибки ({result.errors.length}):</p>
+                                <ul className="list-disc pl-5 space-y-0.5">
+                                    {result.errors.slice(0, 10).map((e) => (
+                                        <li key={`${e.index}:${e.error}`}>Строка {e.index + 1}: {e.error}</li>
+                                    ))}
+                                    {result.errors.length > 10 && <li>…ещё {result.errors.length - 10}</li>}
+                                </ul>
                             </div>
                         )}
-                    </TabsContent>
-                ))}
-            </Tabs>
+                        <button
+                            onClick={reset}
+                            className="text-sm text-indigo-600 hover:underline"
+                        >
+                            Импортировать ещё файл
+                        </button>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function Stat({ label, value, valueClass }: { label: string; value: number; valueClass?: string }) {
+    return (
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
+            <div className="text-xs text-neutral-500">{label}</div>
+            <div className={`text-lg font-semibold text-neutral-900 ${valueClass ?? ''}`}>{value}</div>
         </div>
     );
 }

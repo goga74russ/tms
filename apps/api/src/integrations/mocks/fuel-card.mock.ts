@@ -106,6 +106,128 @@ export function getTransactions(
     return transactions;
 }
 
+// ============================================================
+// Wave 6: realistic synthetic transactions for /sync endpoint
+// ============================================================
+
+export interface SyntheticFuelTransaction {
+    timestamp: string;          // ISO
+    stationChain: string;       // 'Лукойл' | 'Роснефть' | ...
+    stationName: string;        // pretty label "{chain} АЗС №NN, г. {City}"
+    fuelType: 'ДТ' | 'АИ-92' | 'АИ-95' | 'АИ-100';
+    liters: number;
+    pricePerLiter: number;
+    totalCost: number;
+    locationCity: string;
+    lat: number;
+    lon: number;
+}
+
+const STATION_CHAINS = ['Лукойл', 'Роснефть', 'Газпромнефть', 'Татнефть', 'Shell'];
+
+const CITY_LOCATIONS: { city: string; lat: number; lon: number }[] = [
+    { city: 'Москва', lat: 55.7558, lon: 37.6176 },
+    { city: 'Санкт-Петербург', lat: 59.9343, lon: 30.3351 },
+    { city: 'Нижний Новгород', lat: 56.2965, lon: 43.9361 },
+    { city: 'Казань', lat: 55.7887, lon: 49.1221 },
+    { city: 'Екатеринбург', lat: 56.8389, lon: 60.6057 },
+    { city: 'Воронеж', lat: 51.6720, lon: 39.1843 },
+    { city: 'Ростов-на-Дону', lat: 47.2357, lon: 39.7015 },
+    { city: 'Краснодар', lat: 45.0355, lon: 38.9753 },
+    { city: 'Самара', lat: 53.1959, lon: 50.1002 },
+    { city: 'Тула', lat: 54.1920, lon: 37.6175 },
+    { city: 'Ярославль', lat: 57.6261, lon: 39.8845 },
+    { city: 'Новосибирск', lat: 55.0084, lon: 82.9357 },
+];
+
+interface SyntheticRangeOptions {
+    /** Vehicle tank size — caps single fill if provided. */
+    tankLiters?: number | null;
+    /** Optional deterministic seed (defaults to vehicleId hash + range). */
+    seed?: number;
+    /** Override fuel type (default 'ДТ' — most trucks are diesel). */
+    fuelType?: 'ДТ' | 'АИ-92' | 'АИ-95' | 'АИ-100';
+}
+
+/**
+ * Generate synthetic fuel-card transactions over an arbitrary [from, to]
+ * range with 1–3 fill-ups per week. Deterministic for a given
+ * (vehicleId, fromDate, toDate, seed) tuple so a re-run of the sync is
+ * idempotent if the caller dedupes on timestamp.
+ */
+export function generateTransactionsInRange(
+    vehicleId: string,
+    fromDate: Date,
+    toDate: Date,
+    options: SyntheticRangeOptions = {},
+): SyntheticFuelTransaction[] {
+    if (toDate.getTime() <= fromDate.getTime()) return [];
+
+    const seed = options.seed ?? hashString(`${vehicleId}|${fromDate.toISOString()}|${toDate.toISOString()}`);
+    const fuelType = options.fuelType ?? 'ДТ';
+    const tank = options.tankLiters && options.tankLiters > 0 ? options.tankLiters : null;
+
+    const ms = toDate.getTime() - fromDate.getTime();
+    const weeks = Math.max(1, Math.round(ms / (7 * 86400000)));
+    const out: SyntheticFuelTransaction[] = [];
+
+    for (let w = 0; w < weeks; w++) {
+        const weekSeed = seed + w * 9173;
+        const fillsThisWeek = 1 + (weekSeed % 3); // 1..3
+        for (let f = 0; f < fillsThisWeek; f++) {
+            const fillSeed = weekSeed + f * 1117;
+            // place fill somewhere inside this week
+            const weekStart = fromDate.getTime() + w * 7 * 86400000;
+            const weekEnd = Math.min(toDate.getTime(), weekStart + 7 * 86400000);
+            const span = weekEnd - weekStart;
+            if (span <= 0) continue;
+            const offset = (fillSeed % 1000) / 1000 * span;
+            const ts = new Date(weekStart + offset);
+            if (ts < fromDate || ts > toDate) continue;
+
+            const chain = STATION_CHAINS[fillSeed % STATION_CHAINS.length];
+            const loc = CITY_LOCATIONS[(fillSeed >> 3) % CITY_LOCATIONS.length];
+            const stationNum = 100 + ((fillSeed >> 5) % 900);
+
+            // liters 50..300, capped by tank if known.
+            let liters = 50 + ((fillSeed >> 7) % 251); // 50..300
+            if (tank !== null) {
+                liters = Math.min(liters, Math.floor(tank));
+            }
+            // price 55..75 RUB, with 0.1-step granularity
+            const priceTenths = 550 + ((fillSeed >> 11) % 200); // 550..749
+            const pricePerLiter = priceTenths / 10;
+
+            const latJitter = (((fillSeed >> 13) % 1000) - 500) / 50_000; // ~±0.01
+            const lonJitter = (((fillSeed >> 17) % 1000) - 500) / 50_000;
+
+            out.push({
+                timestamp: ts.toISOString(),
+                stationChain: chain,
+                stationName: `${chain} АЗС №${stationNum}, г. ${loc.city}`,
+                fuelType,
+                liters,
+                pricePerLiter,
+                totalCost: Number((liters * pricePerLiter).toFixed(2)),
+                locationCity: loc.city,
+                lat: Number((loc.lat + latJitter).toFixed(6)),
+                lon: Number((loc.lon + lonJitter).toFixed(6)),
+            });
+        }
+    }
+
+    out.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    return out;
+}
+
+/**
+ * Map ru-locale fuel type label to the fuel_type enum used in fuel_records.
+ */
+export function mapFuelTypeToEnum(label: 'ДТ' | 'АИ-92' | 'АИ-95' | 'АИ-100'):
+    'diesel' | 'petrol' {
+    return label === 'ДТ' ? 'diesel' : 'petrol';
+}
+
 /**
  * Get summary for fuel spend analysis.
  */

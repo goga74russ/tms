@@ -1,13 +1,23 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { ClipboardList, Plus, Filter, RefreshCw, Loader2, AlertCircle, Truck } from 'lucide-react';
-import { KanbanBoard } from './components/KanbanBoard';
+import { ClipboardList, Plus, Filter, RefreshCw, Loader2, AlertCircle, Truck, LayoutGrid, Rows3, Package, MapPin, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { OrderFilters } from './components/OrderFilters';
 import { CreateOrderModal } from './components/CreateOrderModal';
 import { CreateTripModal } from './components/CreateTripModal';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Stat } from '@/components/ui/stat';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
+import {
+    KanbanBoard,
+    KanbanColumn,
+    KanbanCard,
+    ViewTabs,
+    type KanbanTone,
+} from '@/components/ui/kanban';
+import { DataTable, type Column, Pill } from '@/components/ui/data-table';
+import { ORDER_STATE_TRANSITIONS } from '@tms/shared';
 import { api } from '@/lib/api';
 
 export type Order = {
@@ -24,25 +34,67 @@ export type Order = {
     loadingWindowEnd?: string;
     unloadingWindowStart?: string;
     unloadingWindowEnd?: string;
+    adrClass?: string | null;
+    adrUnNumber?: string | null;
     createdAt: string;
 };
 
-const STATUS_COLUMNS = [
-    { key: 'draft', label: 'Черновик', color: '#94a3b8' },
-    { key: 'confirmed', label: 'В работе', color: '#3b82f6' },
-    { key: 'assigned', label: 'Назначена', color: '#8b5cf6' },
-    { key: 'in_transit', label: 'В пути', color: '#f59e0b' },
-    { key: 'delivered', label: 'Доставлена', color: '#22c55e' },
+interface StatusColumn {
+    key: string;
+    label: string;
+    tone: KanbanTone;
+}
+
+const STATUS_COLUMNS: StatusColumn[] = [
+    { key: 'draft', label: 'Черновик', tone: 'neutral' },
+    { key: 'confirmed', label: 'В работе', tone: 'info' },
+    { key: 'assigned', label: 'Назначена', tone: 'brand' },
+    { key: 'in_transit', label: 'В пути', tone: 'warning' },
+    { key: 'delivered', label: 'Доставлена', tone: 'success' },
 ];
 
+const STATUS_LABELS: Record<string, string> = STATUS_COLUMNS.reduce((acc, c) => {
+    acc[c.key] = c.label;
+    return acc;
+}, {} as Record<string, string>);
+
+const STATUS_TONES: Record<string, KanbanTone> = STATUS_COLUMNS.reduce((acc, c) => {
+    acc[c.key] = c.tone;
+    return acc;
+}, {} as Record<string, KanbanTone>);
+
+function formatWeight(kg: number): string {
+    if (kg >= 1000) return `${(kg / 1000).toFixed(1)}т`;
+    return `${kg}кг`;
+}
+
+function shortPlace(addr: string): string {
+    // Extract the city part if the address has commas — assumes "City, ..." form.
+    const first = addr.split(',')[0]?.trim();
+    return first || addr;
+}
+
+type SlaIcon = React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+
+function getSla(order: Order): { tone: 'neutral' | 'success' | 'warning' | 'danger'; label: string; icon: SlaIcon } | null {
+    if (!order.unloadingWindowEnd) return null;
+    const deadline = new Date(order.unloadingWindowEnd);
+    const hours = (deadline.getTime() - Date.now()) / 3_600_000;
+    if (hours < 0) return { tone: 'danger', label: 'Просрочено', icon: AlertCircle };
+    if (hours < 4) return { tone: 'warning', label: `${Math.round(hours)}ч`, icon: AlertTriangle };
+    if (hours < 24) return { tone: 'success', label: `${Math.round(hours)}ч`, icon: Clock };
+    return { tone: 'success', label: `${Math.round(hours / 24)}д`, icon: CheckCircle2 };
+}
+
 export default function LogistPage() {
+    const { toast } = useToast();
     const [ordersList, setOrdersList] = useState<Order[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showTripModal, setShowTripModal] = useState(false);
     const [filtersVisible, setFiltersVisible] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [view, setView] = useState<'board' | 'table'>('board');
     const [activeFilters, setActiveFilters] = useState<{
         contractorId?: string;
         dateFrom?: string;
@@ -50,13 +102,10 @@ export default function LogistPage() {
         search?: string;
     }>({});
 
-    // Show toast notification
     const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-        setToast({ message, type });
-        setTimeout(() => setToast(null), 4000);
-    }, []);
+        toast({ variant: type === 'error' ? 'error' : 'success', title: type === 'error' ? 'Ошибка' : 'Готово', description: message });
+    }, [toast]);
 
-    // Load orders from API — no fallback, show empty state on error
     const loadOrders = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -69,7 +118,6 @@ export default function LogistPage() {
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Не удалось загрузить заявки');
-            // Keep existing data if we already have some
             setOrdersList(prev => prev);
         } finally {
             setLoading(false);
@@ -82,7 +130,6 @@ export default function LogistPage() {
         return () => clearInterval(intervalId);
     }, [loadOrders]);
 
-    // Filter orders
     const filteredOrders = ordersList.filter(order => {
         if (activeFilters.contractorId && order.contractorId !== activeFilters.contractorId) return false;
         if (activeFilters.search) {
@@ -97,29 +144,24 @@ export default function LogistPage() {
         return true;
     });
 
-    // Handle drag-and-drop status change
-    const handleStatusChange = useCallback(async (orderId: string, newStatus: string) => {
+    const isTransitionAllowed = useCallback((fromStatus: string, toStatus: string): boolean => {
+        if (fromStatus === toStatus) return false;
+        const allowed = ORDER_STATE_TRANSITIONS[fromStatus];
+        return allowed ? allowed.includes(toStatus) : false;
+    }, []);
+
+    const handleMove = useCallback(async (orderId: string, _fromCol: string, toCol: string) => {
         const order = ordersList.find(o => o.id === orderId);
         if (!order) return;
 
-        // Optimistic update
-        setOrdersList(prev => prev.map(o =>
-            o.id === orderId ? { ...o, status: newStatus } : o,
-        ));
+        setOrdersList(prev => prev.map(o => (o.id === orderId ? { ...o, status: toCol } : o)));
 
         try {
-            // Use POST /orders/:id/status for all status transitions (state machine validated)
-            const json = await api.post(`/orders/${orderId}/status`, { status: newStatus });
+            const json = await api.post(`/orders/${orderId}/status`, { status: toCol });
             if (!json.success) {
                 throw new Error(json.error || 'API Error');
             }
-            const statusLabel = {
-                confirmed: 'В работе',
-                assigned: 'Назначена',
-                in_transit: 'В пути',
-                delivered: 'Доставлена',
-                cancelled: 'Отменена',
-            }[newStatus] || newStatus;
+            const statusLabel = STATUS_LABELS[toCol] || toCol;
             showToast(`Статус → ${statusLabel}`);
         } catch (err) {
             console.error('Failed to update order status', err);
@@ -128,7 +170,12 @@ export default function LogistPage() {
         }
     }, [ordersList, loadOrders, showToast]);
 
-    // Handle new order creation
+    const handleMoveReject = useCallback((orderId: string, fromCol: string, toCol: string) => {
+        const from = STATUS_LABELS[fromCol] || fromCol;
+        const to = STATUS_LABELS[toCol] || toCol;
+        showToast(`Нельзя: «${from}» → «${to}»`, 'error');
+    }, [showToast]);
+
     const handleCreateOrder = useCallback((order: Order) => {
         setOrdersList(prev => [order, ...prev]);
         setShowCreateModal(false);
@@ -136,48 +183,85 @@ export default function LogistPage() {
         setTimeout(loadOrders, 500);
     }, [loadOrders, showToast]);
 
-    // Handle transition rejection toast from KanbanBoard
-    const handleTransitionReject = useCallback((message: string) => {
-        showToast(message, 'error');
-    }, [showToast]);
-
-    // Summary stats
     const stats = STATUS_COLUMNS.map(col => ({
         ...col,
         count: filteredOrders.filter(o => o.status === col.key).length,
     }));
 
-    // Unique contractors for filter dropdown
     const contractors = Array.from(
         new Map(ordersList.map(o => [o.contractorId, { id: o.contractorId, name: o.contractorName }])).values(),
     );
 
+    // Table columns for "Таблица" view
+    const tableColumns: Column<Order>[] = [
+        {
+            id: 'number',
+            header: 'Номер',
+            accessor: r => r.number,
+            cell: r => <span className="font-mono text-xs font-semibold text-brand-700">{r.number}</span>,
+            sortable: true,
+            width: '120px',
+        },
+        {
+            id: 'status',
+            header: 'Статус',
+            accessor: r => STATUS_LABELS[r.status] || r.status,
+            cell: r => <Pill tone={mapToneToPill(STATUS_TONES[r.status])}>{STATUS_LABELS[r.status] || r.status}</Pill>,
+            sortable: true,
+        },
+        {
+            id: 'contractor',
+            header: 'Контрагент',
+            accessor: r => r.contractorName,
+            sortable: true,
+        },
+        {
+            id: 'route',
+            header: 'Маршрут',
+            cell: r => <span className="text-xs text-neutral-600">{shortPlace(r.loadingAddress)} → {shortPlace(r.unloadingAddress)}</span>,
+        },
+        {
+            id: 'cargo',
+            header: 'Груз',
+            accessor: r => r.cargoDescription,
+        },
+        {
+            id: 'weight',
+            header: 'Вес',
+            align: 'right',
+            accessor: r => r.cargoWeightKg,
+            cell: r => <span className="text-xs font-semibold tabular-nums">{formatWeight(r.cargoWeightKg)}</span>,
+            sortable: true,
+            width: '90px',
+        },
+        {
+            id: 'sla',
+            header: 'SLA',
+            cell: r => {
+                const sla = getSla(r);
+                if (!sla) return <span className="text-xs text-neutral-400">—</span>;
+                return <Pill tone={sla.tone} icon={sla.icon}>{sla.label}</Pill>;
+            },
+            width: '100px',
+        },
+    ];
+
     return (
         <div className="space-y-6">
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-sm font-medium animate-in slide-in-from-top-2 duration-300 ${toast.type === 'error'
-                    ? 'bg-red-50 text-red-700 border border-red-200'
-                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    }`}>
-                    {toast.message}
-                </div>
-            )}
-
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
                         <ClipboardList className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Заявки</h1>
-                        <p className="text-sm text-slate-500">Управление заявками на перевозку</p>
+                        <h1 className="text-2xl font-bold text-neutral-900">Заявки</h1>
+                        <p className="text-sm text-neutral-500">Управление заявками на перевозку</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     {loading && (
-                        <div className="flex items-center gap-2 text-slate-400 text-sm mr-2">
+                        <div className="flex items-center gap-2 text-neutral-400 text-sm mr-2">
                             <Loader2 className="w-4 h-4 animate-spin" />
                             <span>Обновление...</span>
                         </div>
@@ -202,43 +286,63 @@ export default function LogistPage() {
                         Новый рейс
                     </Button>
                     <Button
+                        variant="brand"
+                        leftIcon={<Plus className="w-4 h-4" />}
                         onClick={() => setShowCreateModal(true)}
-                        className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 gap-2"
                     >
-                        <Plus className="w-4 h-4" />
                         Новая заявка
                     </Button>
                 </div>
             </div>
 
             {/* Stats bar */}
-            <div className="grid grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                 {stats.map(s => (
-                    <Card key={s.key} className="hover:border-slate-300 transition-colors">
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-2 mb-1">
-                                <div
-                                    className="w-2.5 h-2.5 rounded-full"
-                                    style={{ backgroundColor: s.color }}
-                                />
-                                <span className="text-xs font-medium text-slate-500">{s.label}</span>
-                            </div>
-                            <span className="text-2xl font-bold text-slate-900">{s.count}</span>
-                        </CardContent>
-                    </Card>
+                    <Stat key={s.key} label={s.label} value={s.count} tone={mapToneToStat(s.tone)} />
                 ))}
             </div>
 
             {/* Error state */}
             {error && ordersList.length === 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
-                    <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-red-700 mb-1">{error}</p>
-                    <p className="text-xs text-red-500 mb-4">Проверьте подключение к серверу</p>
-                    <Button variant="outline" onClick={loadOrders} className="gap-2">
-                        <RefreshCw className="w-4 h-4" />
-                        Повторить
-                    </Button>
+                <EmptyState
+                    icon={AlertCircle}
+                    title={error}
+                    description="Проверьте подключение к серверу"
+                    tone="danger"
+                    action={
+                        <Button variant="outline" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={loadOrders}>
+                            Повторить
+                        </Button>
+                    }
+                />
+            )}
+
+            {/* Empty (loaded, no orders) */}
+            {!error && !loading && ordersList.length === 0 && (
+                <EmptyState
+                    icon={ClipboardList}
+                    title="Пока нет заявок"
+                    description="Создайте первую заявку, чтобы начать работу."
+                    tone="brand"
+                    action={
+                        <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
+                            Новая заявка
+                        </Button>
+                    }
+                />
+            )}
+
+            {/* View tabs + filters */}
+            {(ordersList.length > 0 || !error) && (
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                    <ViewTabs<'board' | 'table'>
+                        value={view}
+                        onChange={setView}
+                        options={[
+                            { value: 'board', label: 'Канбан', icon: LayoutGrid },
+                            { value: 'table', label: 'Таблица', icon: Rows3 },
+                        ]}
+                    />
                 </div>
             )}
 
@@ -251,13 +355,82 @@ export default function LogistPage() {
                 />
             )}
 
-            {/* Kanban Board */}
-            {(ordersList.length > 0 || !error) && (
+            {/* Board */}
+            {(ordersList.length > 0 || !error) && view === 'board' && (
                 <KanbanBoard
-                    orders={filteredOrders}
-                    columns={STATUS_COLUMNS}
-                    onStatusChange={handleStatusChange}
-                    onTransitionReject={handleTransitionReject}
+                    onMove={handleMove}
+                    canMove={(_id, from, to) => isTransitionAllowed(from, to)}
+                    onMoveReject={handleMoveReject}
+                >
+                    {STATUS_COLUMNS.map(col => {
+                        const items = filteredOrders.filter(o => o.status === col.key);
+                        return (
+                            <KanbanColumn
+                                key={col.key}
+                                id={col.key}
+                                title={col.label}
+                                tone={col.tone}
+                                count={items.length}
+                                onQuickAdd={col.key === 'draft' ? () => setShowCreateModal(true) : undefined}
+                            >
+                                {items.map(order => {
+                                    const sla = getSla(order);
+                                    return (
+                                        <KanbanCard key={order.id} id={order.id} fromCol={col.key}>
+                                            <div className="p-3 space-y-2">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm font-semibold text-neutral-900 leading-tight truncate">
+                                                            {shortPlace(order.loadingAddress)} → {shortPlace(order.unloadingAddress)}
+                                                        </p>
+                                                        <p className="text-xs text-neutral-500 mt-0.5 truncate flex items-center gap-1">
+                                                            <Package className="w-3 h-3 text-neutral-400" />
+                                                            <span className="truncate">{order.cargoDescription}</span>
+                                                            <span className="text-neutral-400">·</span>
+                                                            <span className="font-medium text-neutral-600 whitespace-nowrap">{formatWeight(order.cargoWeightKg)}</span>
+                                                        </p>
+                                                    </div>
+                                                    {sla && (
+                                                        <span className={
+                                                            sla.tone === 'danger' ? 'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700'
+                                                                : sla.tone === 'warning' ? 'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700'
+                                                                : 'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700'
+                                                        }>
+                                                            {sla.label}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-neutral-100">
+                                                    <span className="text-xs text-neutral-600 truncate flex items-center gap-1">
+                                                        <MapPin className="w-3 h-3 text-neutral-400 shrink-0" />
+                                                        <span className="truncate">{order.contractorName}</span>
+                                                    </span>
+                                                    <span className="text-[10px] font-mono font-semibold text-brand-600 shrink-0">
+                                                        {order.number}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </KanbanCard>
+                                    );
+                                })}
+                            </KanbanColumn>
+                        );
+                    })}
+                </KanbanBoard>
+            )}
+
+            {/* Table view */}
+            {(ordersList.length > 0 || !error) && view === 'table' && (
+                <DataTable<Order>
+                    tableId="logist-orders"
+                    data={filteredOrders}
+                    columns={tableColumns}
+                    keyField="id"
+                    loading={loading}
+                    searchPlaceholder="Поиск..."
+                    searchKeys={['number', 'contractor', 'cargo']}
+                    pageSize={50}
                 />
             )}
 
@@ -282,4 +455,12 @@ export default function LogistPage() {
             )}
         </div>
     );
+}
+
+function mapToneToPill(tone: KanbanTone): 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 'info' {
+    return tone;
+}
+
+function mapToneToStat(tone: KanbanTone): 'neutral' | 'brand' | 'success' | 'warning' | 'info' | 'danger' {
+    return tone;
 }

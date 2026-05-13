@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Package, Truck, ArrowRight, Check, MapPin, User, Weight, X } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { Package, Truck, ArrowRight, Check, MapPin, User, Weight, X, AlertTriangle } from 'lucide-react';
 import { Combobox } from '@/components/ui/Combobox';
 import { api } from '@/lib/api';
 import type { Vehicle, UnassignedOrder } from '../page';
@@ -22,10 +22,24 @@ interface AddressSuggestion {
     fiasId: string;
 }
 
+export interface AssignmentWindows {
+    loadingFrom?: string | null;
+    loadingTo?: string | null;
+    unloadingFrom?: string | null;
+    unloadingTo?: string | null;
+}
+
 interface AssignmentPanelProps {
     orders: UnassignedOrder[];
     vehicles: Vehicle[];
-    onAssign?: (orderId: string, vehicleId: string) => Promise<void>;
+    onAssign?: (orderId: string, vehicleId: string, windows?: AssignmentWindows) => Promise<void>;
+}
+
+function localToIso(value: string): string | null {
+    if (!value) return null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString();
 }
 
 export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelProps) {
@@ -35,6 +49,41 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
     const [isAssigning, setIsAssigning] = useState(false);
     const [cityFilter, setCityFilter] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [loadingFrom, setLoadingFrom] = useState('');
+    const [loadingTo, setLoadingTo] = useState('');
+    const [unloadingFrom, setUnloadingFrom] = useState('');
+    const [unloadingTo, setUnloadingTo] = useState('');
+    const [adrWarnings, setAdrWarnings] = useState<string[]>([]);
+
+    // ADR validation: when both order and vehicle/driver picked, fetch warnings
+    useEffect(() => {
+        if (!selectedOrder || !selectedVehicle) {
+            setAdrWarnings([]);
+            return;
+        }
+        const params = new URLSearchParams();
+        if (selectedVehicle.id) params.set('vehicleId', selectedVehicle.id);
+        // driverId — best-effort: we don't have it directly here, but vehicles often carry one
+        const orderObj: any = orders.find(o => o.id === selectedOrder);
+        if (!orderObj?.adrClass) {
+            setAdrWarnings([]);
+            return;
+        }
+        let cancelled = false;
+        api.get<{ success: boolean; data: { ok: boolean; errors: string[] } }>(
+            `/orders/${selectedOrder}/adr-validation?${params.toString()}`,
+        )
+            .then(res => {
+                if (cancelled) return;
+                if (res?.data && Array.isArray(res.data.errors)) {
+                    setAdrWarnings(res.data.errors);
+                } else {
+                    setAdrWarnings([]);
+                }
+            })
+            .catch(() => { if (!cancelled) setAdrWarnings([]); });
+        return () => { cancelled = true; };
+    }, [selectedOrder, selectedVehicle, orders]);
 
     // Search vehicles via API
     const searchVehicles = useCallback(async (query: string): Promise<VehicleSearchResult[]> => {
@@ -78,11 +127,20 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
         setIsAssigning(true);
         try {
             if (onAssign) {
-                await onAssign(selectedOrder, selectedVehicle.id);
+                await onAssign(selectedOrder, selectedVehicle.id, {
+                    loadingFrom: localToIso(loadingFrom),
+                    loadingTo: localToIso(loadingTo),
+                    unloadingFrom: localToIso(unloadingFrom),
+                    unloadingTo: localToIso(unloadingTo),
+                });
             }
             setAssignSuccess(`${order?.number} → ${selectedVehicle.plateNumber}`);
             setSelectedOrder(null);
             setSelectedVehicle(null);
+            setLoadingFrom('');
+            setLoadingTo('');
+            setUnloadingFrom('');
+            setUnloadingTo('');
             setTimeout(() => setAssignSuccess(null), 3000);
         } catch (error: any) {
             setToast({ message: `Ошибка назначения: ${error.message || 'Неизвестная ошибка'}`, type: 'error' });
@@ -93,7 +151,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
     };
 
     return (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col" style={{ minHeight: '500px' }}>
+        <div className="bg-white rounded-xl border border-neutral-200 shadow-sm flex flex-col" style={{ minHeight: '500px' }}>
             {/* Toast */}
             {toast && (
                 <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
@@ -102,8 +160,8 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
             )}
 
             {/* Header */}
-            <div className="px-4 py-3 border-b border-slate-100">
-                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <div className="px-4 py-3 border-b border-neutral-100">
+                <h3 className="text-sm font-bold text-neutral-800 flex items-center gap-2">
                     <ArrowRight className="w-4 h-4 text-emerald-500" />
                     Назначение
                 </h3>
@@ -117,9 +175,28 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
             )}
 
             <div className="flex-1 overflow-y-auto p-3 space-y-4">
+                {/* ============= ADR validation warnings ============= */}
+                {adrWarnings.length > 0 && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                        <div className="flex items-start gap-2">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">ADR — внимание</p>
+                                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-amber-800">
+                                    {adrWarnings.map((err, i) => (
+                                        // adrWarnings is a list of plain strings; combine index + content for stability
+                                        <li key={`${i}:${err}`}>{err}</li>
+                                    ))}
+                                </ul>
+                                <p className="mt-1.5 text-[10px] text-amber-600">Назначение не блокируется — проверьте перед подтверждением.</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* ============= Vehicle Search ============= */}
                 <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                         <Truck className="w-3.5 h-3.5" />
                         Поиск ТС
                     </p>
@@ -135,15 +212,15 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                         renderOption={(v) => (
                             <div>
                                 <div className="flex justify-between items-center mb-0.5">
-                                    <span className="font-bold text-slate-800">{v.plateNumber}</span>
+                                    <span className="font-bold text-neutral-800">{v.plateNumber}</span>
                                     <span className="text-xs font-medium text-emerald-600">
                                         {(v.payloadCapacityKg / 1000).toFixed(0)}т
                                     </span>
                                 </div>
-                                <div className="text-xs text-slate-500">
+                                <div className="text-xs text-neutral-500">
                                     {v.make} {v.model}
                                     {v.driverName && (
-                                        <span className="ml-1.5 text-slate-400">• {v.driverName}</span>
+                                        <span className="ml-1.5 text-neutral-400">• {v.driverName}</span>
                                     )}
                                 </div>
                             </div>
@@ -154,24 +231,24 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                     {selectedVehicle && (
                         <div className="mt-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
                             <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-sm font-bold text-slate-800">{selectedVehicle.plateNumber}</span>
+                                <span className="text-sm font-bold text-neutral-800">{selectedVehicle.plateNumber}</span>
                                 <div className="flex items-center gap-1">
                                     <div className="w-2 h-2 rounded-full bg-emerald-500" />
                                     <span className="text-xs text-emerald-600 font-medium">Свободен</span>
                                 </div>
                             </div>
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-600">
                                 <span className="flex items-center gap-1">
-                                    <Truck className="w-3 h-3 text-slate-400" />
+                                    <Truck className="w-3 h-3 text-neutral-400" />
                                     {selectedVehicle.make} {selectedVehicle.model}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                    <Weight className="w-3 h-3 text-slate-400" />
+                                    <Weight className="w-3 h-3 text-neutral-400" />
                                     {(selectedVehicle.payloadCapacityKg / 1000).toFixed(0)}т
                                 </span>
                                 {selectedVehicle.driverName && (
                                     <span className="flex items-center gap-1">
-                                        <User className="w-3 h-3 text-slate-400" />
+                                        <User className="w-3 h-3 text-neutral-400" />
                                         {selectedVehicle.driverName}
                                     </span>
                                 )}
@@ -182,7 +259,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
 
                 {/* ============= City Filter ============= */}
                 <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5" />
                         Фильтр по городу
                     </p>
@@ -197,7 +274,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                         minChars={3}
                         renderOption={(s) => (
                             <div className="flex items-center gap-2">
-                                <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                                <MapPin className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
                                 <span>{s.value}</span>
                             </div>
                         )}
@@ -218,9 +295,55 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                     )}
                 </div>
 
+                {/* ============= Time Windows ============= */}
+                <div>
+                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5" />
+                        Окна доставки
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div>
+                            <label className="text-[10px] font-medium text-neutral-500 mb-1 block">Погрузка с</label>
+                            <input
+                                type="datetime-local"
+                                value={loadingFrom}
+                                onChange={e => setLoadingFrom(e.target.value)}
+                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-medium text-neutral-500 mb-1 block">Погрузка до</label>
+                            <input
+                                type="datetime-local"
+                                value={loadingTo}
+                                onChange={e => setLoadingTo(e.target.value)}
+                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-medium text-neutral-500 mb-1 block">Выгрузка с</label>
+                            <input
+                                type="datetime-local"
+                                value={unloadingFrom}
+                                onChange={e => setUnloadingFrom(e.target.value)}
+                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-medium text-neutral-500 mb-1 block">Выгрузка до</label>
+                            <input
+                                type="datetime-local"
+                                value={unloadingTo}
+                                onChange={e => setUnloadingTo(e.target.value)}
+                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                            />
+                        </div>
+                    </div>
+                </div>
+
                 {/* ============= Orders ============= */}
                 <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                         <Package className="w-3.5 h-3.5" />
                         Заявки ({filteredOrders.length}
                         {cityFilter && orders.length !== filteredOrders.length
@@ -230,7 +353,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                     </p>
                     <div className="space-y-1.5">
                         {filteredOrders.length === 0 ? (
-                            <div className="text-center py-6 text-xs text-slate-400">
+                            <div className="text-center py-6 text-xs text-neutral-400">
                                 {cityFilter
                                     ? `Нет заявок для «${cityFilter}»`
                                     : 'Нет подтверждённых заявок'
@@ -245,21 +368,30 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                                     )}
                                     className={`w-full text-left px-3 py-2.5 rounded-lg text-xs transition-all ${selectedOrder === order.id
                                         ? 'bg-indigo-50 border border-indigo-200 ring-1 ring-indigo-300'
-                                        : 'bg-slate-50 border border-transparent hover:bg-slate-100'
+                                        : 'bg-neutral-50 border border-transparent hover:bg-neutral-100'
                                         }`}
                                 >
                                     <div className="flex justify-between items-center mb-0.5">
-                                        <span className="font-bold text-indigo-600 font-mono">
+                                        <span className="font-bold text-indigo-600 font-mono inline-flex items-center gap-1.5">
                                             {order.number}
+                                            {order.adrClass && (
+                                                <span
+                                                    className="inline-flex items-center gap-0.5 rounded border border-red-200 bg-red-100 px-1 py-0 text-[9px] font-bold text-red-700"
+                                                    title={`ADR класс ${order.adrClass}${order.adrUnNumber ? ` · ${order.adrUnNumber}` : ''}`}
+                                                >
+                                                    <AlertTriangle className="w-2 h-2" />
+                                                    ADR-{order.adrClass}
+                                                </span>
+                                            )}
                                         </span>
-                                        <span className="font-semibold text-slate-600">
+                                        <span className="font-semibold text-neutral-600">
                                             {order.cargoWeightKg >= 1000
                                                 ? `${(order.cargoWeightKg / 1000).toFixed(1)}т`
                                                 : `${order.cargoWeightKg}кг`}
                                         </span>
                                     </div>
-                                    <div className="text-slate-500 truncate">{order.contractorName}</div>
-                                    <div className="text-slate-400 truncate mt-0.5">
+                                    <div className="text-neutral-500 truncate">{order.contractorName}</div>
+                                    <div className="text-neutral-400 truncate mt-0.5">
                                         {order.loadingAddress} → {order.unloadingAddress}
                                     </div>
                                 </button>
@@ -270,13 +402,13 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
             </div>
 
             {/* Assign button */}
-            <div className="p-3 border-t border-slate-100">
+            <div className="p-3 border-t border-neutral-100">
                 <button
                     onClick={handleAssign}
                     disabled={!selectedOrder || !selectedVehicle || isAssigning}
                     className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${selectedOrder && selectedVehicle
                         ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl'
-                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
                         }`}
                 >
                     <ArrowRight className="w-4 h-4" />

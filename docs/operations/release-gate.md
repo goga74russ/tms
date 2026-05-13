@@ -2,6 +2,8 @@
 
 Updated: 2026-04-29
 
+> **NOTE:** Snapshot from 2026-04-29. Test count, gate jobs and smoke scripts have since changed — see current numbers in [`docs/operations/wave-summary.md`](wave-summary.md) and `.github/workflows/p0-gate.yml`.
+
 ## Required Before A v2 Release Candidate
 
 - API build passes.

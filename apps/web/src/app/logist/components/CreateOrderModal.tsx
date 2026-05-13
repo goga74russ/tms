@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck } from 'lucide-react';
+import { Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
+import { Dialog } from '@/components/ui/dialog';
 import type { Order } from '../page';
 
 interface CreateOrderModalProps {
@@ -22,6 +23,9 @@ interface ContractorAddress {
 
 type AddressKind = 'loading' | 'unloading';
 type ConfirmationMode = 'none' | 'optional' | 'required';
+
+const ADR_CLASSES = ['1', '2', '3', '4.1', '4.2', '4.3', '5.1', '5.2', '6.1', '6.2', '7', '8', '9'];
+const ADR_UN_REGEX = /^UN\d{4}$/;
 
 function sortContractorAddresses(addresses: ContractorAddress[]) {
     return [...addresses].sort((left, right) => {
@@ -46,6 +50,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         cargoPlaces: '',
         multiTierAllowed: false,
         maxTiers: '1',
+        coldChainRequired: false,
         temperatureMin: '',
         temperatureMax: '',
         loadingType: '',
@@ -61,6 +66,9 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         vehicleRequirements: '',
         notes: '',
         confirmationMode: 'none' as ConfirmationMode,
+        adrEnabled: false,
+        adrClass: '',
+        adrUnNumber: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -151,8 +159,40 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         if (!form.cargoWeightKg || parseFloat(form.cargoWeightKg) <= 0) nextErrors.cargoWeightKg = 'Укажите вес';
         if (!form.loadingAddress) nextErrors.loadingAddress = 'Укажите адрес погрузки';
         if (!form.unloadingAddress) nextErrors.unloadingAddress = 'Укажите адрес выгрузки';
-        if (form.temperatureMin && form.temperatureMax && parseFloat(form.temperatureMin) > parseFloat(form.temperatureMax)) {
+        if (form.coldChainRequired) {
+            const min = parseFloat(form.temperatureMin);
+            const max = parseFloat(form.temperatureMax);
+            if (!form.temperatureMin || !Number.isFinite(min)) {
+                nextErrors.temperatureMin = 'Укажите мин. температуру';
+            } else if (min < -50 || min > 50) {
+                nextErrors.temperatureMin = 'Допустимо от -50 до 50';
+            }
+            if (!form.temperatureMax || !Number.isFinite(max)) {
+                nextErrors.temperatureMax = 'Укажите макс. температуру';
+            } else if (max < -50 || max > 50) {
+                nextErrors.temperatureMax = 'Допустимо от -50 до 50';
+            }
+            if (
+                Number.isFinite(min) &&
+                Number.isFinite(max) &&
+                min > max
+            ) {
+                nextErrors.temperatureMin = 'Мин. > макс.';
+            }
+        } else if (
+            form.temperatureMin &&
+            form.temperatureMax &&
+            parseFloat(form.temperatureMin) > parseFloat(form.temperatureMax)
+        ) {
             nextErrors.temperatureMin = 'Мин. > макс.';
+        }
+        if (form.adrEnabled) {
+            if (!form.adrClass) nextErrors.adrClass = 'Выберите класс ADR';
+            if (!form.adrUnNumber) {
+                nextErrors.adrUnNumber = 'Укажите UN-номер';
+            } else if (!ADR_UN_REGEX.test(form.adrUnNumber)) {
+                nextErrors.adrUnNumber = 'Формат: UN1234';
+            }
         }
         setErrors(nextErrors);
         return Object.keys(nextErrors).length === 0;
@@ -171,8 +211,12 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                 cargoPlaces: form.cargoPlaces ? parseInt(form.cargoPlaces, 10) : undefined,
                 multiTierAllowed: form.multiTierAllowed,
                 maxTiers: form.multiTierAllowed ? parseInt(form.maxTiers, 10) : 1,
-                temperatureMin: form.temperatureMin ? parseFloat(form.temperatureMin) : undefined,
-                temperatureMax: form.temperatureMax ? parseFloat(form.temperatureMax) : undefined,
+                coldChainRequired: form.coldChainRequired,
+                temperatureMinC: form.coldChainRequired && form.temperatureMin ? parseFloat(form.temperatureMin) : undefined,
+                temperatureMaxC: form.coldChainRequired && form.temperatureMax ? parseFloat(form.temperatureMax) : undefined,
+                // legacy field names — kept for backwards compatibility
+                temperatureMin: form.coldChainRequired && form.temperatureMin ? parseFloat(form.temperatureMin) : undefined,
+                temperatureMax: form.coldChainRequired && form.temperatureMax ? parseFloat(form.temperatureMax) : undefined,
                 loadingType: form.loadingType || undefined,
                 hydraulicLiftRequired: form.hydraulicLiftRequired,
                 loadingAddress: form.loadingAddress,
@@ -186,6 +230,8 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                 vehicleRequirements: form.vehicleRequirements || undefined,
                 notes: form.notes || undefined,
                 confirmationMode: form.confirmationMode,
+                adrClass: form.adrEnabled ? form.adrClass : undefined,
+                adrUnNumber: form.adrEnabled ? form.adrUnNumber : undefined,
             };
 
             const result = await api.post<any>('/orders', payload);
@@ -207,28 +253,16 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-colors ${
             field && errors[field]
                 ? 'border-red-300 focus:ring-red-500'
-                : 'border-slate-200 focus:ring-indigo-500'
+                : 'border-neutral-200 focus:ring-indigo-500'
         }`;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-4">
-                <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 flex items-center justify-between rounded-t-2xl">
-                    <h2 className="text-lg font-bold text-slate-900">Новая заявка</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="px-6 py-5 space-y-5">
+        <Dialog open={true} onClose={onClose} title="Новая заявка" size="lg">
+            <div>
+                <div className="space-y-5">
                     <div>
-                        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
-                            <User className="w-4 h-4 text-slate-400" />
+                        <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
+                            <User className="w-4 h-4 text-neutral-400" />
                             Контрагент
                         </label>
                         <select
@@ -263,8 +297,8 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
 
                     <div className="grid grid-cols-3 gap-3">
                         <div className="col-span-2">
-                            <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
-                                <Package className="w-4 h-4 text-slate-400" />
+                            <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
+                                <Package className="w-4 h-4 text-neutral-400" />
                                 Груз
                             </label>
                             <input
@@ -277,7 +311,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             {errors.cargoDescription && <p className="text-xs text-red-500 mt-1">{errors.cargoDescription}</p>}
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Вес (кг)</label>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Вес (кг)</label>
                             <input
                                 type="number"
                                 value={form.cargoWeightKg}
@@ -292,7 +326,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Объем (м3)</label>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Объем (м3)</label>
                             <input
                                 type="number"
                                 value={form.cargoVolumeM3}
@@ -304,7 +338,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             />
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-slate-700 mb-1.5 block">Кол-во мест</label>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Кол-во мест</label>
                             <input
                                 type="number"
                                 value={form.cargoPlaces}
@@ -317,21 +351,21 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
                             <input
                                 type="checkbox"
                                 checked={form.multiTierAllowed}
                                 onChange={(e) => setForm((current) => ({ ...current, multiTierAllowed: e.target.checked }))}
-                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
                             />
-                            <Layers className="w-4 h-4 text-slate-400" />
+                            <Layers className="w-4 h-4 text-neutral-400" />
                             Разрешить негабаритную загрузку
                         </label>
                         {form.multiTierAllowed && (
                             <select
                                 value={form.maxTiers}
                                 onChange={(e) => setForm((current) => ({ ...current, maxTiers: e.target.value }))}
-                                className="px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             >
                                 <option value="2">2 яруса</option>
                                 <option value="3">3 яруса</option>
@@ -339,34 +373,110 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         )}
                     </div>
 
-                    <div>
-                        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                    <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={form.coldChainRequired}
+                                onChange={(e) => setForm((current) => ({
+                                    ...current,
+                                    coldChainRequired: e.target.checked,
+                                    temperatureMin: e.target.checked ? current.temperatureMin : '',
+                                    temperatureMax: e.target.checked ? current.temperatureMax : '',
+                                }))}
+                                className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                            />
                             <Thermometer className="w-4 h-4 text-blue-500" />
-                            Температурный режим
+                            Требуется температурный контроль
                         </label>
-                        <div className="grid grid-cols-2 gap-3">
+                        {form.coldChainRequired && (
+                            <div className="mt-3">
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs text-neutral-500 mb-1 block">Мин. °C <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="number"
+                                            min={-50}
+                                            max={50}
+                                            step="0.1"
+                                            value={form.temperatureMin}
+                                            onChange={(e) => setForm((current) => ({ ...current, temperatureMin: e.target.value }))}
+                                            className={fieldClass('temperatureMin')}
+                                            placeholder="например, 2"
+                                        />
+                                        {errors.temperatureMin && <p className="text-xs text-red-500 mt-1">{errors.temperatureMin}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-neutral-500 mb-1 block">Макс. °C <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="number"
+                                            min={-50}
+                                            max={50}
+                                            step="0.1"
+                                            value={form.temperatureMax}
+                                            onChange={(e) => setForm((current) => ({ ...current, temperatureMax: e.target.value }))}
+                                            className={fieldClass('temperatureMax')}
+                                            placeholder="например, 8"
+                                        />
+                                        {errors.temperatureMax && <p className="text-xs text-red-500 mt-1">{errors.temperatureMax}</p>}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="rounded-xl border border-neutral-200 bg-neutral-50/50 p-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-neutral-700 cursor-pointer">
                             <input
-                                type="number"
-                                value={form.temperatureMin}
-                                onChange={(e) => setForm((current) => ({ ...current, temperatureMin: e.target.value }))}
-                                className={fieldClass('temperatureMin')}
-                                placeholder="Мин. температура"
+                                type="checkbox"
+                                checked={form.adrEnabled}
+                                onChange={(e) => setForm((current) => ({
+                                    ...current,
+                                    adrEnabled: e.target.checked,
+                                    adrClass: e.target.checked ? current.adrClass : '',
+                                    adrUnNumber: e.target.checked ? current.adrUnNumber : '',
+                                }))}
+                                className="w-4 h-4 rounded border-neutral-300 text-red-600 focus:ring-red-500"
                             />
-                            <input
-                                type="number"
-                                value={form.temperatureMax}
-                                onChange={(e) => setForm((current) => ({ ...current, temperatureMax: e.target.value }))}
-                                className={fieldClass()}
-                                placeholder="Макс. температура"
-                            />
-                        </div>
-                        {errors.temperatureMin && <p className="text-xs text-red-500 mt-1">{errors.temperatureMin}</p>}
+                            <AlertTriangle className="w-4 h-4 text-red-500" />
+                            Опасный груз (ADR)
+                        </label>
+                        {form.adrEnabled && (
+                            <div className="mt-3 grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs text-neutral-500 mb-1 block">Класс ADR <span className="text-red-500">*</span></label>
+                                    <select
+                                        value={form.adrClass}
+                                        onChange={(e) => setForm((current) => ({ ...current, adrClass: e.target.value }))}
+                                        className={fieldClass('adrClass')}
+                                    >
+                                        <option value="">Выберите класс</option>
+                                        {ADR_CLASSES.map((cls) => (
+                                            <option key={cls} value={cls}>Класс {cls}</option>
+                                        ))}
+                                    </select>
+                                    {errors.adrClass && <p className="text-xs text-red-500 mt-1">{errors.adrClass}</p>}
+                                </div>
+                                <div>
+                                    <label className="text-xs text-neutral-500 mb-1 block">UN-номер <span className="text-red-500">*</span></label>
+                                    <input
+                                        type="text"
+                                        value={form.adrUnNumber}
+                                        onChange={(e) => setForm((current) => ({ ...current, adrUnNumber: e.target.value.toUpperCase() }))}
+                                        className={fieldClass('adrUnNumber')}
+                                        placeholder="UN1234"
+                                        maxLength={6}
+                                    />
+                                    {errors.adrUnNumber && <p className="text-xs text-red-500 mt-1">{errors.adrUnNumber}</p>}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
-                                <Truck className="w-4 h-4 text-slate-400" />
+                            <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
+                                <Truck className="w-4 h-4 text-neutral-400" />
                                 Тип загрузки
                             </label>
                             <select
@@ -381,12 +491,12 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             </select>
                         </div>
                         <div className="flex items-end pb-1">
-                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={form.hydraulicLiftRequired}
                                     onChange={(e) => setForm((current) => ({ ...current, hydraulicLiftRequired: e.target.checked }))}
-                                    className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                    className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
                                 />
                                 Нужен гидроборт
                             </label>
@@ -394,12 +504,12 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     </div>
 
                     <div>
-                        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                        <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
                             <MapPin className="w-4 h-4 text-green-500" />
                             Погрузка
                         </label>
-                        <div className="mb-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2 block">
+                        <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-2 block">
                                 Частые адреса погрузки
                             </label>
                             <select
@@ -419,7 +529,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                     ))
                                 )}
                             </select>
-                            <p className="mt-2 text-xs text-slate-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
+                            <p className="mt-2 text-xs text-neutral-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
                         </div>
                         <input
                             type="text"
@@ -433,7 +543,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         />
                         {errors.loadingAddress && <p className="text-xs text-red-500 mt-1">{errors.loadingAddress}</p>}
                         <div className="mt-2">
-                            <label className="text-xs text-slate-500 mb-1 block">
+                            <label className="text-xs text-neutral-500 mb-1 block">
                                 <Clock className="w-3 h-3 inline mr-1" />
                                 Дата погрузки
                             </label>
@@ -441,18 +551,18 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 type="date"
                                 value={form.loadingDate}
                                 onChange={(e) => setForm((current) => ({ ...current, loadingDate: e.target.value }))}
-                                className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
+                        <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
                             <MapPin className="w-4 h-4 text-red-500" />
                             Выгрузка
                         </label>
-                        <div className="mb-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-                            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2 block">
+                        <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-2 block">
                                 Частые адреса выгрузки
                             </label>
                             <select
@@ -472,7 +582,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                     ))
                                 )}
                             </select>
-                            <p className="mt-2 text-xs text-slate-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
+                            <p className="mt-2 text-xs text-neutral-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
                         </div>
                         <input
                             type="text"
@@ -486,7 +596,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         />
                         {errors.unloadingAddress && <p className="text-xs text-red-500 mt-1">{errors.unloadingAddress}</p>}
                         <div className="mt-2">
-                            <label className="text-xs text-slate-500 mb-1 block">
+                            <label className="text-xs text-neutral-500 mb-1 block">
                                 <Clock className="w-3 h-3 inline mr-1" />
                                 Дата выгрузки
                             </label>
@@ -494,24 +604,24 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 type="date"
                                 value={form.unloadingDate}
                                 onChange={(e) => setForm((current) => ({ ...current, unloadingDate: e.target.value }))}
-                                className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">Требования к транспорту</label>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Требования к транспорту</label>
                         <textarea
                             value={form.vehicleRequirements}
                             onChange={(e) => setForm((current) => ({ ...current, vehicleRequirements: e.target.value }))}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                             rows={2}
                             placeholder="Например: рефрижератор, гидроборт, грузоподъемность..."
                         />
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">Подтверждение доставки</label>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Подтверждение доставки</label>
                         <select
                             value={form.confirmationMode}
                             onChange={(e) => setForm((current) => ({ ...current, confirmationMode: e.target.value as ConfirmationMode }))}
@@ -524,11 +634,11 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium text-slate-700 mb-1.5 block">Примечание</label>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Примечание</label>
                         <textarea
                             value={form.notes}
                             onChange={(e) => setForm((current) => ({ ...current, notes: e.target.value }))}
-                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                             rows={3}
                             placeholder="Дополнительная информация..."
                         />
@@ -536,16 +646,16 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                 </div>
 
                 {errors._general && (
-                    <div className="mx-6 mb-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                         {errors._general}
                     </div>
                 )}
 
-                <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-slate-100 flex gap-3 justify-end rounded-b-2xl">
+                <div className="mt-4 pt-4 border-t border-neutral-100 flex gap-3 justify-end">
                     <button
                         onClick={onClose}
                         disabled={submitting}
-                        className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                        className="px-4 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors disabled:opacity-50"
                     >
                         Отмена
                     </button>
@@ -559,6 +669,6 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     </button>
                 </div>
             </div>
-        </div>
+        </Dialog>
     );
 }

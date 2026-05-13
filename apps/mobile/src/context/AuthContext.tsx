@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { getToken, login as apiLogin, logout as apiLogout, getMe } from '../api/auth';
+import { getToken, login as apiLogin, logout as apiLogout, getMe, AuthError } from '../api/auth';
 import { syncDatabase } from '../api/sync';
+import { database } from '../database';
 
 type User = {
     id: string;
@@ -42,16 +43,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         async function initAuth() {
+            const storedToken = await getToken();
+            if (!storedToken) {
+                setIsLoading(false);
+                return;
+            }
             try {
-                const storedToken = await getToken();
-                if (storedToken) {
-                    const hydratedUser = await hydrateUser(storedToken);
-                    setUser(hydratedUser);
+                const hydratedUser = await hydrateUser(storedToken);
+                setUser(hydratedUser);
+                setToken(storedToken);
+                void syncDatabase(storedToken);
+            } catch (err) {
+                // Only treat real auth failures (401/403) as a reason to wipe the
+                // session. Network blips, 5xx, timeouts etc. must NOT log the
+                // driver out — they need to keep working offline against cached
+                // data. In those cases we keep the token; the next API call will
+                // retry naturally.
+                const isAuthFailure =
+                    err instanceof AuthError && (err.status === 401 || err.status === 403);
+                if (isAuthFailure) {
+                    await apiLogout();
+                } else {
+                    // Surface the cached token so the rest of the app can still
+                    // make authenticated requests once connectivity returns.
                     setToken(storedToken);
-                    void syncDatabase(storedToken);
                 }
-            } catch {
-                await apiLogout();
             } finally {
                 setIsLoading(false);
             }
@@ -69,6 +85,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const logout = async () => {
         await apiLogout();
+        try {
+            await database.write(async () => {
+                await database.unsafeResetDatabase();
+            });
+        } catch {
+            // Reset failure shouldn't block sign-out — the next session will sync fresh data.
+        }
         setUser(null);
         setToken(null);
     };

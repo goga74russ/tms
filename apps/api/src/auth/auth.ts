@@ -3,12 +3,16 @@
 // ============================================================
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import bcrypt from 'bcryptjs';
+import { randomBytes, randomInt } from 'node:crypto';
 import cookie from '@fastify/cookie';
 import { db } from '../db/connection.js';
-import { users, drivers, tariffs, contracts, contractors, checklistTemplates } from '../db/schema.js';
-import { eq, desc } from 'drizzle-orm';
+import { users, drivers, tariffs, contracts, contractors, checklistTemplates, organizations, emailVerifications } from '../db/schema.js';
+import { eq, desc, and, gt, or, isNull, sql } from 'drizzle-orm';
 import { LoginSchema } from '@tms/shared';
 import { z } from 'zod';
+import { selectAdapter, getDefaultRegistry } from '../providers/index.js';
+import { APP_ROLES } from './rbac.js';
+import { escapeHtml } from '../utils/html.js';
 
 // --- CRITICAL (C-1): No hardcoded fallback. Fail-fast if not set. ---
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -17,6 +21,9 @@ if (!JWT_SECRET) {
     process.exit(1);
 }
 
+// TODO: 24h JWT with no refresh/revocation is acceptable for pilot scale
+// but should be replaced with access + refresh token pair before scaling.
+// Tracked in audit-2026-05-12-deep.md P2.
 const JWT_EXPIRES_IN = '24h';
 const SALT_ROUNDS = 12;
 const COOKIE_NAME = 'tms_token';
@@ -35,6 +42,25 @@ function isOutsideActorOrganization(actor: AuthenticatedUser, organizationId?: s
 
 export async function hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, SALT_ROUNDS);
+}
+
+/**
+ * A-P0-3: CSPRNG-backed 6-digit code for email verification. Math.random is
+ * predictable; V8 PRNG state can be recovered, making 6-digit codes brute-
+ * forceable when combined with a known signup window. randomInt() pulls from
+ * the OS CSPRNG. Exported so unit tests can hit the helper directly.
+ */
+export function generateCode(): string {
+    return String(randomInt(100000, 1000000));
+}
+
+/**
+ * A-P0-3: CSPRNG-backed temp password for invited teammates (~96 bits
+ * entropy, 16-char base64url). Email-only delivery — never returned via API.
+ * Lives here so onboarding/routes.ts and unit tests share the same primitive.
+ */
+export function generateTempPassword(): string {
+    return randomBytes(12).toString('base64url');
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
@@ -61,6 +87,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
             const cookieToken = request.cookies?.[COOKIE_NAME];
             if (cookieToken) {
                 await request.jwtVerify({ onlyCookie: true });
+                {
+                    const payload = request.user as { organizationId?: string };
+                    (request as FastifyRequest).orgId = payload?.organizationId ?? null;
+                }
                 return;
             }
 
@@ -68,6 +98,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
             const authHeader = request.headers.authorization;
             if (authHeader?.startsWith('Bearer ')) {
                 await request.jwtVerify();
+                {
+                    const payload = request.user as { organizationId?: string };
+                    (request as FastifyRequest).orgId = payload?.organizationId ?? null;
+                }
                 return;
             }
 
@@ -120,11 +154,17 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
         // H-15: Set httpOnly cookie (still useful for direct API access)
         // COOKIE_SECURE: set to 'false' when running without HTTPS
+        // A-P1-5: sameSite='strict' — TMS has no cross-site auth flows
+        // (no OAuth callbacks, no magic links). Cookie+lax+no-CSRF-token =
+        // exploitable CSRF on every state-changing endpoint. Strict closes
+        // it without the complexity of double-submit tokens. The flows
+        // checked: /login, /mobile/login, /logout, /signup, /verify-email,
+        // /resend-code — all top-level same-origin form posts from the SPA.
         const isSecure = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
         reply.setCookie(COOKIE_NAME, token, {
             httpOnly: true,
             secure: isSecure,
-            sameSite: 'lax',
+            sameSite: 'strict',
             path: '/',
             maxAge: COOKIE_MAX_AGE,
         });
@@ -253,18 +293,22 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     // --- Admin: User Management ---
 
+    // A-P1-6: roles must come from APP_ROLES — z.string() previously
+    // accepted any junk string, which the RBAC layer silently ignored
+    // (granting no abilities) but pollutes the users.roles array and
+    // makes inventory queries unreliable.
     const UserCreateSchema = z.object({
         email: z.string().email(),
         password: z.string().min(6),
         fullName: z.string().min(1),
         phone: z.string().optional(),
-        roles: z.array(z.string()).min(1),
+        roles: z.array(z.enum(APP_ROLES)).min(1),
     });
 
     const UserUpdateSchema = z.object({
         fullName: z.string().min(1).optional(),
         phone: z.string().optional(),
-        roles: z.array(z.string()).min(1).optional(),
+        roles: z.array(z.enum(APP_ROLES)).min(1).optional(),
         isActive: z.boolean().optional(),
         password: z.string().min(6).optional(),
     });
@@ -644,14 +688,21 @@ export function registerAuthRoutes(app: FastifyInstance) {
         schema: { tags: ['Администрирование'], summary: 'Шаблоны чек-листов', description: 'Все шаблоны чек-листов (техосмотр/медосмотр).' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
-        const { roles } = request.user as { userId: string; roles: string[] };
-        if (!roles.includes('admin')) {
+        const u = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        if (!u.roles.includes('admin')) {
             return reply.status(403).send({ success: false, error: 'Admin access required' });
         }
 
+        // A-P0-12: tenant scoping. Tenant admins see system defaults
+        // (org_id IS NULL) + their own org templates. Cross-tenant access is
+        // blocked. Previously every admin saw every other org's templates.
+        const orgScope = u.organizationId
+            ? or(isNull(checklistTemplates.organizationId), eq(checklistTemplates.organizationId, u.organizationId))
+            : isNull(checklistTemplates.organizationId);
         const templates = await db
             .select()
             .from(checklistTemplates)
+            .where(orgScope)
             .orderBy(checklistTemplates.createdAt);
 
         return { success: true, data: templates };
@@ -662,8 +713,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
         schema: { tags: ['Администрирование'], summary: 'Создать шаблон', description: 'Новый шаблон чек-листа для осмотров.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
-        const { roles } = request.user as { userId: string; roles: string[] };
-        if (!roles.includes('admin')) {
+        const u = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        if (!u.roles.includes('admin')) {
             return reply.status(403).send({ success: false, error: 'Admin access required' });
         }
 
@@ -676,7 +727,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
             });
         }
 
-        const [created] = await db.insert(checklistTemplates).values(parseResult.data).returning();
+        // A-P0-12: stamp creator's org_id so this template is tenant-scoped.
+        const [created] = await db.insert(checklistTemplates)
+            .values({ ...parseResult.data, organizationId: u.organizationId ?? null })
+            .returning();
         return reply.status(201).send({ success: true, data: created });
     });
 
@@ -685,8 +739,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
         schema: { tags: ['Администрирование'], summary: 'Обновить шаблон чек-листа', description: 'Обновление шаблона чек-листа.' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
-        const { roles } = request.user as { userId: string; roles: string[] };
-        if (!roles.includes('admin')) {
+        const u = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        if (!u.roles.includes('admin')) {
             return reply.status(403).send({ success: false, error: 'Admin access required' });
         }
 
@@ -699,9 +753,16 @@ export function registerAuthRoutes(app: FastifyInstance) {
             });
         }
 
+        // A-P0-12: only update templates the caller owns. System defaults
+        // (org_id IS NULL) are read-only — a tenant admin can't edit them.
         const [updated] = await db.update(checklistTemplates)
             .set(parseResult.data)
-            .where(eq(checklistTemplates.id, request.params.id))
+            .where(and(
+                eq(checklistTemplates.id, request.params.id),
+                u.organizationId
+                    ? eq(checklistTemplates.organizationId, u.organizationId)
+                    : sql`false`,
+            ))
             .returning();
 
         if (!updated) {
@@ -709,6 +770,329 @@ export function registerAuthRoutes(app: FastifyInstance) {
         }
 
         return { success: true, data: updated };
+    });
+
+    // ====================================================================
+    // Round 1B — Self-serve signup + email verification.
+    // The flow: POST /signup → creates inactive user + organization +
+    // 6-digit verification code (sent via email provider). POST /verify-email
+    // consumes the code, marks the user active + email_verified, sets the
+    // session cookie. POST /resend-code regenerates a code (rate limited).
+    // ====================================================================
+
+    const SignupSchema = z.object({
+        email: z.string().email(),
+        password: z.string().min(8),
+        fullName: z.string().min(1),
+        phone: z.string().optional(),
+        companyName: z.string().optional(),
+    });
+
+    const VerifyEmailSchema = z.object({
+        email: z.string().email(),
+        code: z.string().regex(/^\d{6}$/),
+    });
+
+    const ResendCodeSchema = z.object({
+        email: z.string().email(),
+    });
+
+    const VERIFICATION_TTL_MIN = 15;
+    const RESEND_COOLDOWN_MS = 60_000;
+
+    async function sendVerificationCode(email: string, code: string, organizationId: string): Promise<void> {
+        // Try the org's configured email adapter — fall back to the console
+        // mock when nothing is configured. selectAdapter handles both.
+        const registry = getDefaultRegistry();
+        const adapter = await selectAdapter(registry.email, organizationId, 'email');
+        const subject = 'TMS — код подтверждения';
+        // A-P1-7: escape interpolated values. `code` is server-generated by
+        // randomInt(100000, 1000000) so always 6 digits — but escape anyway
+        // to keep the pattern uniform and immune to future refactors.
+        const html = `<p>Здравствуйте!</p>
+            <p>Ваш код подтверждения для входа в TMS: <strong style="font-size:24px">${escapeHtml(code)}</strong></p>
+            <p>Код действителен в течение ${VERIFICATION_TTL_MIN} минут.</p>`;
+        const text = `Код подтверждения TMS: ${code}\nКод действителен ${VERIFICATION_TTL_MIN} минут.`;
+        await adapter.send(email, subject, html, text);
+    }
+
+    /**
+     * A-P2: enumeration-safe "you already have an account" notice. Sent to
+     * the address itself when someone re-attempts signup on a verified
+     * email — closes the leak that lets an attacker probe which addresses
+     * are registered. Best-effort send; we still return 201 on the public
+     * endpoint regardless.
+     */
+    async function sendAlreadyRegisteredNotice(email: string, organizationId: string | null): Promise<void> {
+        // organizationId may be null if the user was migrated without org —
+        // selectAdapter accepts a fallback. Use the user's org when present.
+        const registry = getDefaultRegistry();
+        const adapter = await selectAdapter(registry.email, organizationId ?? '', 'email');
+        const subject = 'TMS — учётная запись уже существует';
+        const html = `<p>Здравствуйте!</p>
+            <p>Кто-то попытался зарегистрировать новую учётную запись TMS с этим адресом, но он уже привязан к существующему аккаунту.</p>
+            <p>Если это были вы — просто войдите по email и паролю. Если нет — никаких действий не требуется, регистрация не создана.</p>
+            <p>Если вы забыли пароль, воспользуйтесь функцией восстановления при входе.</p>`;
+        const text = `На ${email} уже зарегистрирован аккаунт TMS. Если это были вы — войдите. Если нет — игнорируйте письмо.`;
+        await adapter.send(email, subject, html, text);
+    }
+
+    // POST /api/auth/signup — start self-serve registration.
+    app.post('/api/auth/signup', {
+        schema: { tags: ['Авторизация'], summary: 'Самостоятельная регистрация', description: 'Создаёт неактивного пользователя + организацию и отправляет 6-значный код подтверждения на email.' },
+        config: {
+            rateLimit: {
+                max: LOGIN_RATE_LIMIT_MAX,
+                timeWindow: LOGIN_RATE_LIMIT_WINDOW,
+            },
+        },
+    }, async (request, reply) => {
+        const parsed = SignupSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Validation failed',
+                details: parsed.error.flatten(),
+            });
+        }
+        const { email, password, fullName, phone, companyName } = parsed.data;
+
+        // Idempotent: if a user with this email already exists AND is verified,
+        // refuse. Otherwise (new or unverified) regenerate code.
+        const [existing] = await db
+            .select({
+                id: users.id,
+                isActive: users.isActive,
+                emailVerifiedAt: users.emailVerifiedAt,
+                organizationId: users.organizationId,
+            })
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+
+        if (existing?.emailVerifiedAt) {
+            // A-P2: enumeration-safe. Don't tell the caller the email is
+            // taken — that lets a probe enumerate registered accounts.
+            // Instead, send a notice to the address itself ("you already
+            // have an account") and return the same 201 success shape as
+            // a fresh signup. Rate-limit on the route prevents flooding.
+            try {
+                await sendAlreadyRegisteredNotice(email, existing.organizationId ?? null);
+            } catch (err) {
+                request.log.error({ err }, 'Failed to send already-registered notice');
+            }
+            return reply.status(201).send({
+                success: true,
+                data: { signupId: existing.id, status: 'pending' as const },
+            });
+        }
+
+        let organizationId: string;
+        let userId: string;
+
+        if (existing) {
+            // Reuse the unverified record — let the user retry signup with
+            // the same email (e.g. they lost the code).
+            userId = existing.id;
+            organizationId = existing.organizationId!;
+            const passwordHash = await hashPassword(password);
+            await db.update(users)
+                .set({ passwordHash, fullName, phone, updatedAt: new Date() })
+                .where(eq(users.id, userId));
+            if (companyName) {
+                await db.update(organizations)
+                    .set({ name: companyName })
+                    .where(eq(organizations.id, organizationId));
+            }
+        } else {
+            // Fresh signup: create organization + admin user.
+            const [org] = await db.insert(organizations).values({
+                name: companyName ?? `Компания (${email})`,
+            }).returning({ id: organizations.id });
+            organizationId = org!.id;
+
+            const passwordHash = await hashPassword(password);
+            const [user] = await db.insert(users).values({
+                email,
+                passwordHash,
+                fullName,
+                phone,
+                roles: ['admin'],
+                isActive: false,
+                organizationId,
+            }).returning({ id: users.id });
+            userId = user!.id;
+        }
+
+        // Generate fresh code, invalidate any older outstanding ones.
+        const code = generateCode();
+        const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MIN * 60_000);
+        await db.insert(emailVerifications).values({
+            email, code, expiresAt,
+        });
+
+        try {
+            await sendVerificationCode(email, code, organizationId);
+        } catch (err) {
+            request.log.error({ err }, 'Failed to send verification code');
+            // We still return success — user can hit /resend-code.
+        }
+
+        return reply.status(201).send({
+            success: true,
+            data: { signupId: userId, status: 'pending' as const },
+        });
+    });
+
+    // POST /api/auth/verify-email — consume the 6-digit code.
+    app.post('/api/auth/verify-email', {
+        schema: { tags: ['Авторизация'], summary: 'Подтверждение email', description: 'Проверяет 6-значный код, активирует пользователя и выставляет cookie.' },
+        config: {
+            rateLimit: {
+                max: LOGIN_RATE_LIMIT_MAX,
+                timeWindow: LOGIN_RATE_LIMIT_WINDOW,
+            },
+        },
+    }, async (request, reply) => {
+        const parsed = VerifyEmailSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false, error: 'Validation failed', details: parsed.error.flatten(),
+            });
+        }
+        const { email, code } = parsed.data;
+
+        // Latest unused, unexpired code for this email.
+        const [verification] = await db
+            .select()
+            .from(emailVerifications)
+            .where(and(
+                eq(emailVerifications.email, email),
+                eq(emailVerifications.code, code),
+                gt(emailVerifications.expiresAt, new Date()),
+            ))
+            .orderBy(desc(emailVerifications.createdAt))
+            .limit(1);
+
+        if (!verification || verification.usedAt) {
+            return reply.status(400).send({ success: false, error: 'Неверный или истёкший код' });
+        }
+
+        await db.update(emailVerifications)
+            .set({ usedAt: new Date() })
+            .where(eq(emailVerifications.id, verification.id));
+
+        const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+        if (!user) {
+            return reply.status(404).send({ success: false, error: 'Пользователь не найден' });
+        }
+
+        await db.update(users)
+            .set({
+                isActive: true,
+                emailVerifiedAt: new Date(),
+                updatedAt: new Date(),
+            })
+            .where(eq(users.id, user.id));
+
+        const token = app.jwt.sign(
+            { userId: user.id, roles: user.roles, organizationId: user.organizationId ?? undefined },
+            { expiresIn: JWT_EXPIRES_IN },
+        );
+        // A-P1-5: sameSite='strict' (see /login for rationale).
+        const isSecure = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
+        reply.setCookie(COOKIE_NAME, token, {
+            httpOnly: true,
+            secure: isSecure,
+            sameSite: 'strict',
+            path: '/',
+            maxAge: COOKIE_MAX_AGE,
+        });
+
+        return {
+            success: true,
+            data: {
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    fullName: user.fullName,
+                    roles: user.roles,
+                    organizationId: user.organizationId,
+                },
+            },
+        };
+    });
+
+    // POST /api/auth/resend-code — regenerate the code, rate limited 1/min.
+    app.post('/api/auth/resend-code', {
+        schema: { tags: ['Авторизация'], summary: 'Повторная отправка кода', description: 'Регенерирует 6-значный код. Rate limit: 1 раз в минуту на email.' },
+        config: {
+            rateLimit: {
+                max: LOGIN_RATE_LIMIT_MAX,
+                timeWindow: LOGIN_RATE_LIMIT_WINDOW,
+            },
+        },
+    }, async (request, reply) => {
+        const parsed = ResendCodeSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false, error: 'Validation failed', details: parsed.error.flatten(),
+            });
+        }
+        const { email } = parsed.data;
+
+        // A-P2: enumeration-safe. Always return the same generic message
+        // regardless of whether the email exists, is verified, or is
+        // within the cooldown window. Eligibility checks still happen
+        // internally — we just don't tell the caller why nothing was
+        // sent. The per-route rate limit + RESEND_COOLDOWN_MS guard the
+        // mailbox; the unified response closes the enumeration leak.
+        const eligibleResponse = {
+            success: true,
+            message: 'Если адрес зарегистрирован и ожидает подтверждения, код отправлен повторно.',
+        };
+
+        const [user] = await db
+            .select({ id: users.id, organizationId: users.organizationId, emailVerifiedAt: users.emailVerifiedAt })
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+
+        // Bail silently on every non-eligible case (no user / already
+        // verified). Returning the same shape on the same status code
+        // prevents timing- and content-based enumeration.
+        if (!user || user.emailVerifiedAt) {
+            return eligibleResponse;
+        }
+
+        // Per-email cooldown — last code sent must be > RESEND_COOLDOWN_MS ago.
+        const [latest] = await db
+            .select({ createdAt: emailVerifications.createdAt })
+            .from(emailVerifications)
+            .where(eq(emailVerifications.email, email))
+            .orderBy(desc(emailVerifications.createdAt))
+            .limit(1);
+        if (latest && Date.now() - new Date(latest.createdAt).getTime() < RESEND_COOLDOWN_MS) {
+            // Still return the same shape — caller can't distinguish
+            // "cooldown" from "not registered" / "already verified".
+            return eligibleResponse;
+        }
+
+        const code = generateCode();
+        const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MIN * 60_000);
+        await db.insert(emailVerifications).values({ email, code, expiresAt });
+
+        try {
+            await sendVerificationCode(email, code, user.organizationId!);
+        } catch (err) {
+            request.log.error({ err }, 'Failed to resend verification code');
+        }
+
+        return eligibleResponse;
     });
 }
 

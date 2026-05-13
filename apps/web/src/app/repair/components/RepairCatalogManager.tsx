@@ -198,7 +198,7 @@ export function RepairCatalogManager({
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative min-w-[260px] flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -206,7 +206,7 @@ export function RepairCatalogManager({
                   className="pl-9"
                 />
               </div>
-              <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+              <label className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700">
                 <input
                   type="checkbox"
                   checked={includeArchived}
@@ -221,18 +221,18 @@ export function RepairCatalogManager({
             </div>
 
             <div className="flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">Всего: {items.length}</span>
+              <span className="rounded-full bg-neutral-100 px-2 py-1 text-neutral-600">Всего: {items.length}</span>
               <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Активные: {activeCount}</span>
               <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700">Архив: {archivedCount}</span>
             </div>
 
-            <div className="max-h-[560px] space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2">
+            <div className="max-h-[560px] space-y-2 overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-2">
               {loading ? (
-                <div className="flex items-center justify-center py-12 text-slate-500">
+                <div className="flex items-center justify-center py-12 text-neutral-500">
                   <Loader2 className="h-5 w-5 animate-spin" />
                 </div>
               ) : items.length === 0 ? (
-                <div className="py-12 text-center text-sm text-slate-500">Ничего не найдено</div>
+                <div className="py-12 text-center text-sm text-neutral-500">Ничего не найдено</div>
               ) : (
                 items.map((item) => (
                   <button
@@ -242,22 +242,22 @@ export function RepairCatalogManager({
                     className={`w-full rounded-lg border px-3 py-3 text-left transition ${
                       selectedId === item.id
                         ? 'border-indigo-300 bg-indigo-50'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                        : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
                     } ${item.isArchived ? 'opacity-70' : ''}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-medium text-slate-900">{item.name}</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="font-medium text-neutral-900">{item.name}</p>
+                        <p className="text-xs text-neutral-500">
                           {item.code ? `${item.code} · ` : ''}
                           {item.category} · {item.unit}
                         </p>
                         {item.aliases?.length ? (
-                          <p className="mt-1 text-[11px] text-slate-400">Alias: {item.aliases.slice(0, 3).join(', ')}</p>
+                          <p className="mt-1 text-[11px] text-neutral-400">Alias: {item.aliases.slice(0, 3).join(', ')}</p>
                         ) : null}
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold text-slate-900">{formatMoney(item.suggestedUnitCost)} ₽</p>
+                        <p className="text-sm font-semibold text-neutral-900">{formatMoney(item.suggestedUnitCost)} ₽</p>
                         <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${item.isArchived ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                           {item.isArchived ? 'Архив' : 'Активно'}
                         </span>
@@ -269,20 +269,20 @@ export function RepairCatalogManager({
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-xl border border-neutral-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">
+                <p className="text-xs uppercase tracking-wide text-neutral-500">
                   {selectedItem ? 'Редактирование' : 'Создание'}
                 </p>
-                <h3 className="text-base font-semibold text-slate-900">{selectedItem ? selectedItem.name : 'Новая позиция каталога'}</h3>
+                <h3 className="text-base font-semibold text-neutral-900">{selectedItem ? selectedItem.name : 'Новая позиция каталога'}</h3>
               </div>
               {selectedItem ? (
                 <button
                   type="button"
                   onClick={handleArchiveToggle}
                   disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
                 >
                   {selectedItem.isArchived ? <RotateCcw className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
                   {selectedItem.isArchived ? 'Восстановить' : 'Архивировать'}
@@ -293,11 +293,11 @@ export function RepairCatalogManager({
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Код</label>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Код</label>
                   <Input value={form.code} onChange={(e) => setForm((prev) => ({ ...prev, code: e.target.value }))} placeholder="oil-filter" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Стоимость</label>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Стоимость</label>
                   <Input
                     type="number"
                     min="0"
@@ -310,40 +310,40 @@ export function RepairCatalogManager({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Название</label>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Название</label>
                 <Input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Масляный фильтр" />
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Категория</label>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Категория</label>
                   <Input value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} placeholder="Фильтры" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Единица</label>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Единица</label>
                   <Input value={form.unit} onChange={(e) => setForm((prev) => ({ ...prev, unit: e.target.value }))} placeholder="шт" />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">Alias / синонимы</label>
+                <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Alias / синонимы</label>
                 <textarea
                   value={form.aliasesText}
                   onChange={(e) => setForm((prev) => ({ ...prev, aliasesText: e.target.value }))}
                   rows={4}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                   placeholder="filter oil, масляный фильтр"
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              <div className="flex items-center justify-between gap-3 rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
                 <span>Можно быстро отредактировать и сразу использовать в планировании ремонта.</span>
                 <span>{selectedItem?.isArchived ? 'Архивная позиция' : 'Активная позиция'}</span>
               </div>
 
               {error && <p className="text-sm text-red-600">{error}</p>}
 
-              <div className="flex justify-end gap-3 border-t border-slate-100 pt-3">
+              <div className="flex justify-end gap-3 border-t border-neutral-100 pt-3">
                 <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
                   Отмена
                 </Button>

@@ -29,8 +29,9 @@ import {
     updatePersistedTransportDocumentStatus,
 } from './transport-documents-store.js';
 import { db } from '../../db/connection.js';
-import { drivers, orders, documentReturns, documentDossierItems } from '../../db/schema.js';
+import { drivers, orders, documentDossierItems, trips, waybills, odometerReadings, routePoints } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
+import { recordEvent } from '../../events/journal.js';
 import { z } from 'zod';
 import { getTripLoadPlan } from '../operational-core/service.js';
 import { registerTripCompatibilityRoutes } from '../operational-core/compatibility-routes.js';
@@ -370,6 +371,142 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         }
     });
 
+    // ================================================================
+    // Wave 1 — Trip start/complete with odometer readings
+    // ================================================================
+
+    const TripStartSchema = z.object({
+        odometerStart: z.number().positive(),
+    });
+
+    const TripCompleteSchema = z.object({
+        odometerEnd: z.number().positive(),
+        notes: z.string().max(2000).optional(),
+    });
+
+    // POST /api/trips/:id/start — выезд из гаража: фиксация одометра, перевод в in_transit
+    app.post('/trips/:id/start', {
+        schema: { tags: ['Рейсы'], summary: 'Начать рейс', description: 'Фиксация выезда: проверка путевого листа, запись стартового одометра, переход trip → in_transit (через loading).' },
+        preHandler: [app.authenticate, requireAbility('manage', 'Trip')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            await assertTripAccess(id, user);
+
+            const parsed = TripStartSchema.safeParse(request.body);
+            if (!parsed.success) {
+                return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            }
+
+            const [trip] = await db.select().from(trips).where(eq(trips.id, id)).limit(1);
+            if (!trip) return reply.status(404).send({ success: false, error: 'Рейс не найден' });
+            if (trip.status !== 'waybill_issued') {
+                return reply.status(409).send({ success: false, error: `Рейс должен быть в статусе waybill_issued (текущий: ${trip.status})` });
+            }
+
+            const [waybill] = await db.select().from(waybills).where(eq(waybills.tripId, id)).limit(1);
+            if (!waybill || waybill.status !== 'issued') {
+                return reply.status(409).send({ success: false, error: 'Путевой лист должен быть в статусе issued' });
+            }
+
+            const ctx = { userId: user.userId, role: user.roles[0], organizationId: user.organizationId };
+            // waybill_issued → loading → in_transit (state machine forbids direct waybill_issued → in_transit)
+            await changeTripStatus(id, 'loading', ctx);
+            const updatedTrip = await changeTripStatus(id, 'in_transit', ctx, { odometerStart: parsed.data.odometerStart });
+
+            // Update waybill.odometerOut to reflect odometerStart if not already set
+            if (waybill.odometerOut == null || waybill.odometerOut === 0) {
+                await db.update(waybills)
+                    .set({ odometerOut: parsed.data.odometerStart })
+                    .where(eq(waybills.id, waybill.id));
+            }
+
+            // Record odometer reading (best-effort)
+            if (trip.vehicleId) {
+                await db.insert(odometerReadings).values({
+                    vehicleId: trip.vehicleId,
+                    recordedAt: new Date(),
+                    valueKm: parsed.data.odometerStart,
+                    source: 'waybill',
+                    tripId: id,
+                    driverId: trip.driverId,
+                    organizationId: user.organizationId ?? null,
+                    createdBy: user.userId,
+                });
+            }
+
+            await recordEvent({
+                authorId: user.userId,
+                authorRole: user.roles[0] ?? 'driver',
+                eventType: 'trip.started',
+                entityType: 'trip',
+                entityId: id,
+                data: { odometerStart: parsed.data.odometerStart },
+            });
+
+            return { success: true, data: updatedTrip };
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
+    // POST /api/trips/:id/complete — финальный одометр, перевод в completed (waybill → closed)
+    app.post('/trips/:id/complete', {
+        schema: { tags: ['Рейсы'], summary: 'Завершить рейс', description: 'Фиксация возврата: проверка маршрутных точек, запись финального одометра, переход trip → completed, путевой лист → closed.' },
+        preHandler: [app.authenticate, requireAbility('manage', 'Trip')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            await assertTripAccess(id, user);
+
+            const parsed = TripCompleteSchema.safeParse(request.body);
+            if (!parsed.success) {
+                return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            }
+
+            const [trip] = await db.select().from(trips).where(eq(trips.id, id)).limit(1);
+            if (!trip) return reply.status(404).send({ success: false, error: 'Рейс не найден' });
+            if (trip.status !== 'in_transit') {
+                return reply.status(409).send({ success: false, error: `Рейс должен быть в статусе in_transit (текущий: ${trip.status})` });
+            }
+
+            const ctx = { userId: user.userId, role: user.roles[0], organizationId: user.organizationId };
+            // changeTripStatus enforces all route points are completed/skipped
+            const updatedTrip = await changeTripStatus(id, 'completed', ctx, {
+                odometerEnd: parsed.data.odometerEnd,
+                forcedByDispatcher: false,
+            });
+
+            if (trip.vehicleId) {
+                await db.insert(odometerReadings).values({
+                    vehicleId: trip.vehicleId,
+                    recordedAt: new Date(),
+                    valueKm: parsed.data.odometerEnd,
+                    source: 'waybill',
+                    tripId: id,
+                    driverId: trip.driverId,
+                    organizationId: user.organizationId ?? null,
+                    createdBy: user.userId,
+                });
+            }
+
+            await recordEvent({
+                authorId: user.userId,
+                authorRole: user.roles[0] ?? 'driver',
+                eventType: 'trip.finished',
+                entityType: 'trip',
+                entityId: id,
+                data: { odometerEnd: parsed.data.odometerEnd, notes: parsed.data.notes ?? null },
+            });
+
+            return { success: true, data: updatedTrip };
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
     // === Route Points sub-routes ===
 
     // --- GET /trips/:id/points ---
@@ -385,24 +522,36 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
     });
 
     // --- POST /trips/:id/points ---
+    const RoutePointCreateSchema = z.object({
+        orderId: z.string().uuid().optional(),
+        type: z.enum(['loading', 'unloading']),
+        address: z.string().min(1),
+        lat: z.number().optional(),
+        lon: z.number().optional(),
+        windowStart: z.string().datetime().optional(),
+        windowEnd: z.string().datetime().optional(),
+        windowFrom: z.string().datetime().optional(),
+        windowTo: z.string().datetime().optional(),
+        notes: z.string().optional(),
+        sealNumbers: z.array(z.string()).optional(),
+        packagingCondition: z.string().optional(),
+    });
+
     app.post('/trips/:id/points', {
         schema: { tags: ['Рейсы'], summary: 'Добавить точку', description: 'Добавление новой точки маршрута к рейсу.' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
         await assertTripAccess(id, request.user as { userId: string; roles: string[]; organizationId?: string | null });
-        const body = request.body as {
-            orderId?: string;
-            type: 'loading' | 'unloading';
-            address: string;
-            lat?: number;
-            lon?: number;
-            windowStart?: string;
-            windowEnd?: string;
-            notes?: string;
-        };
-
-        const point = await addRoutePoint(id, body);
+        const parsed = RoutePointCreateSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Validation failed',
+                details: parsed.error.flatten(),
+            });
+        }
+        const point = await addRoutePoint(id, parsed.data);
         return reply.status(201).send({ success: true, data: point });
     });
 
@@ -429,6 +578,103 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         }
 
         return { success: true, data: point };
+    });
+
+    // --- POST /trips/:id/sort-route-points — сортировка с учётом окон доставки ---
+    app.post('/trips/:id/sort-route-points', {
+        schema: {
+            tags: ['Рейсы'],
+            summary: 'Отсортировать точки маршрута',
+            description: 'Сортирует точки маршрута: по windowFrom (если у всех заполнено), иначе loading→unloading с сохранением исходного порядка. Перенумеровывает sequence_number 1..N. Возвращает предупреждения о невыполнимых окнах.',
+        },
+        preHandler: [app.authenticate, requireAbility('manage', 'Trip')],
+    }, async (request, reply) => {
+        try {
+            const { id } = request.params as { id: string };
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            await assertTripAccess(id, user);
+
+            const points = await getRoutePoints(id);
+            if (points.length === 0) {
+                return { success: true, data: { sortedPoints: [], warnings: [] } };
+            }
+
+            const allHaveWindowFrom = points.every((p: any) => p.windowFrom != null);
+            const original = [...points];
+            let sorted: any[];
+
+            if (allHaveWindowFrom) {
+                sorted = [...points].sort((a: any, b: any) => {
+                    const av = new Date(a.windowFrom as Date).getTime();
+                    const bv = new Date(b.windowFrom as Date).getTime();
+                    return av - bv;
+                });
+            } else {
+                const indexOf = new Map<string, number>();
+                original.forEach((p: any, idx: number) => indexOf.set(p.id, idx));
+                sorted = [...points].sort((a: any, b: any) => {
+                    const groupA = a.type === 'loading' ? 0 : 1;
+                    const groupB = b.type === 'loading' ? 0 : 1;
+                    if (groupA !== groupB) return groupA - groupB;
+                    return (indexOf.get(a.id) ?? 0) - (indexOf.get(b.id) ?? 0);
+                });
+            }
+
+            // Warn-only: windowFrom > следующего windowTo
+            const warnings: Array<{ pointId: string; nextPointId: string; message: string }> = [];
+            for (let i = 0; i < sorted.length - 1; i++) {
+                const cur = sorted[i] as any;
+                const next = sorted[i + 1] as any;
+                if (cur.windowFrom && next.windowTo) {
+                    const curStart = new Date(cur.windowFrom).getTime();
+                    const nextEnd = new Date(next.windowTo).getTime();
+                    if (curStart > nextEnd) {
+                        warnings.push({
+                            pointId: cur.id,
+                            nextPointId: next.id,
+                            message: `windowFrom точки ${cur.sequenceNumber} позже windowTo следующей (${next.sequenceNumber})`,
+                        });
+                    }
+                }
+            }
+
+            // Перенумеровываем 1..N в одной транзакции
+            const updated = await db.transaction(async (tx: any) => {
+                const result: any[] = [];
+                for (let i = 0; i < sorted.length; i++) {
+                    const point = sorted[i] as any;
+                    const newSeq = i + 1;
+                    if (point.sequenceNumber !== newSeq) {
+                        const [row] = await tx
+                            .update(routePoints)
+                            .set({ sequenceNumber: newSeq })
+                            .where(eq(routePoints.id, point.id))
+                            .returning();
+                        result.push(row ?? { ...point, sequenceNumber: newSeq });
+                    } else {
+                        result.push(point);
+                    }
+                }
+                return result;
+            });
+
+            await recordEvent({
+                authorId: user.userId,
+                authorRole: user.roles[0] ?? 'system',
+                eventType: 'trip.route_points_sorted',
+                entityType: 'trip',
+                entityId: id,
+                data: {
+                    strategy: allHaveWindowFrom ? 'window_from' : 'type_then_sequence',
+                    pointsCount: updated.length,
+                    warnings,
+                },
+            });
+
+            return { success: true, data: { sortedPoints: updated, warnings } };
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
     });
 
     // --- DELETE /trips/:id/points/:pointId ---
@@ -465,6 +711,62 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         return { success: true, data: confirmation };
     });
 
+    // POST /trips/:id/delivery-confirmation/v2 — упрощённая схема (signedByName/signatureDataUrl/photoUrls/condition)
+    const DeliveryConfirmationV2Schema = z.object({
+        signedByName: z.string().min(1),
+        signatureDataUrl: z.string().regex(/^data:image\/[a-zA-Z+.-]+;base64,/, 'signatureDataUrl must be data:image/<type>;base64,...'),
+        photoUrls: z.array(z.string()).max(10).optional(),
+        condition: z.enum(['ok', 'damaged', 'short']),
+        notes: z.string().max(2000).optional(),
+    });
+
+    const conditionMapV2: Record<'ok' | 'damaged' | 'short', 'intact' | 'damaged' | 'partial'> = {
+        ok: 'intact',
+        damaged: 'damaged',
+        short: 'partial',
+    };
+
+    app.post('/trips/:id/delivery-confirmation/v2', {
+        schema: { tags: ['Рейсы'], summary: 'Подтвердить доставку (упрощённая схема)', description: 'Wave 1: упрощённая схема подтверждения доставки. Принимает signedByName/signatureDataUrl/photoUrls/condition.' },
+        preHandler: [app.authenticate, requireAbility('create', 'DeliveryConfirmation')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const parsed = DeliveryConfirmationV2Schema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+
+        try {
+            const confirmation = await createDeliveryConfirmation(id, {
+                recipientName: parsed.data.signedByName,
+                recipientSignaturePath: parsed.data.signatureDataUrl,
+                photos: parsed.data.photoUrls ?? [],
+                cargoCondition: conditionMapV2[parsed.data.condition],
+                notes: parsed.data.notes,
+            }, {
+                userId: user.userId,
+                role: user.roles[0] ?? 'driver',
+            });
+            return reply.status(201).send({
+                success: true,
+                data: {
+                    id: confirmation.id,
+                    tripId: confirmation.tripId,
+                    signedAt: confirmation.confirmedAt,
+                    signedByName: confirmation.recipientName,
+                    condition: parsed.data.condition,
+                    photoUrls: confirmation.photos,
+                    notes: confirmation.notes,
+                },
+            });
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
     // POST /trips/:id/delivery-confirmation вЂ” создать подтверждение Рё завершить рейс
     app.post('/trips/:id/delivery-confirmation', {
         schema: { tags: ['Рейсы'], summary: 'Подтвердить доставку', description: 'Водитель или диспетчер фиксирует факт доставки. При confirmationMode=required вЂ” единственный способ завершить рейс. Диспетчер может использовать forcedByDispatcher=true.' },
@@ -495,67 +797,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         }
     });
 
-    // ================================================================
-    // Sprint 11: Document Returns (реестр оригиналов)
-    // ================================================================
-
-    const DocumentReturnUpsertSchema = z.object({
-        docType: z.enum(['ttn', 'upd', 'act', 'other']),
-        status: z.enum(['pending', 'received', 'overdue']),
-        receivedAt: z.string().datetime().optional().nullable(),
-        notes: z.string().max(500).optional().nullable(),
-    });
-
-    // GET /trips/:id/document-returns вЂ” список статусов документов по рейсу
-    app.get('/trips/:id/document-returns', {
-        schema: { tags: ['Рейсы'], summary: 'Реестр оригиналов документов', description: 'Список статусов возврата оригиналов (ТТН, УПД, Акт) по рейсу.' },
-        preHandler: [app.authenticate, requireAbility('read', 'DocumentReturn')],
-    }, async (request, reply) => {
-        const { id } = request.params as { id: string };
-        await assertTripAccess(id, request.user as { userId: string; roles: string[] });
-        const rows = await db.select().from(documentReturns).where(eq(documentReturns.tripId, id));
-        return { success: true, data: rows };
-    });
-
-    // POST /trips/:id/document-returns вЂ” создать/обновить запись по (tripId, docType)
-    app.post('/trips/:id/document-returns', {
-        schema: { tags: ['Рейсы'], summary: 'Уточнить статус документа', description: 'Upsert по (tripId, docType). Диспетчер/бухгалтер фиксируют получение оригиналов.' },
-        preHandler: [app.authenticate, requireAbility('manage', 'DocumentReturn')],
-    }, async (request, reply) => {
-        const { id } = request.params as { id: string };
-        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
-        await assertTripAccess(id, user);
-        const parsed = DocumentReturnUpsertSchema.safeParse(request.body);
-        if (!parsed.success) {
-            return reply.status(422).send({ success: false, error: parsed.error.flatten() });
-        }
-
-        const { docType, status, receivedAt, notes } = parsed.data;
-
-        const [row] = await db
-            .insert(documentReturns)
-            .values({
-                tripId: id,
-                docType,
-                status,
-                receivedAt: receivedAt ? new Date(receivedAt) : null,
-                notes: notes ?? null,
-            })
-            .onConflictDoUpdate({
-                target: [documentReturns.tripId, documentReturns.docType],
-                set: {
-                    status,
-                    receivedAt: receivedAt ? new Date(receivedAt) : null,
-                    notes: notes ?? null,
-                    updatedAt: new Date(),
-                },
-            })
-            .returning();
-
-        await syncTransportDocumentsForTrip(id, user.userId);
-
-        return reply.status(201).send({ success: true, data: row });
-    });
+    // Document returns CRUD lives in `apps/api/src/modules/documents/routes.ts` (Wave 1).
 
     app.get('/trips/:id/transport-documents', {
         schema: { tags: ['Рейсы'], summary: 'Документы перевозки', description: 'Runtime transport document layer: waybill, delivery confirmations, and document returns.' },
@@ -1060,6 +1302,51 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         const closeGate = evaluateDossierCloseGate({ tripId: id, dossierItems });
 
         return { success: true, data: { ...dossier, transportDocuments, dossierItems, closeGate } };
+    });
+
+    // --- GET /trips/:id/eta — Wave 4: расчёт ETA по последней позиции ТС ---
+    app.get('/trips/:id/eta', {
+        schema: {
+            tags: ['Рейсы'],
+            summary: 'ETA рейса',
+            description: 'Возвращает оценочное время прибытия на следующую точку маршрута (haversine, 50 км/ч). Если нет GPS или нет ожидающих точек — возвращает причину.',
+        },
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertTripAccess(id, user);
+
+        const { computeTripEta } = await import('./eta.service.js');
+        const eta = await computeTripEta(id);
+        if (!eta) {
+            // Различить «нет GPS» и «нет ожидающих точек», подсмотрев в БД.
+            const { db } = await import('../../db/connection.js');
+            const { vehiclePositions, routePoints, trips } = await import('../../db/schema.js');
+            const { eq, and: andOp, desc: descOp } = await import('drizzle-orm');
+            const [tripRow] = await db
+                .select({ vehicleId: trips.vehicleId })
+                .from(trips).where(eq(trips.id, id)).limit(1);
+            let reason: 'no_gps' | 'no_pending_points' = 'no_gps';
+            if (tripRow?.vehicleId) {
+                const [pos] = await db
+                    .select({ id: vehiclePositions.id })
+                    .from(vehiclePositions)
+                    .where(eq(vehiclePositions.vehicleId, tripRow.vehicleId))
+                    .orderBy(descOp(vehiclePositions.recordedAt))
+                    .limit(1);
+                if (pos) {
+                    const [pending] = await db
+                        .select({ id: routePoints.id })
+                        .from(routePoints)
+                        .where(andOp(eq(routePoints.tripId, id), eq(routePoints.status, 'pending')))
+                        .limit(1);
+                    reason = pending ? 'no_gps' : 'no_pending_points';
+                }
+            }
+            return reply.send({ success: true, data: null, reason });
+        }
+        return { success: true, data: eta };
     });
 };
 

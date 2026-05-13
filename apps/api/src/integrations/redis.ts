@@ -1,6 +1,7 @@
 // ============================================================
 // Redis Connection Config — For BullMQ queues and workers
 // ============================================================
+import type { FastifyBaseLogger } from 'fastify';
 
 /**
  * Redis connection options for BullMQ.
@@ -18,8 +19,14 @@ export const redisConnectionConfig = {
 
 /**
  * Test Redis connectivity by attempting a simple ping.
+ *
+ * @param logger Optional pino logger (FastifyBaseLogger). When provided, all
+ *               connectivity messages are routed through it. When omitted (e.g.
+ *               during very early bootstrap before `app.log` exists) we fall
+ *               back to `console` — this is the only acceptable use of console
+ *               in this file.
  */
-export async function testRedisConnection(): Promise<boolean> {
+export async function testRedisConnection(logger?: FastifyBaseLogger): Promise<boolean> {
     try {
         const { Redis } = await import('ioredis');
         const client = new Redis({
@@ -32,10 +39,20 @@ export async function testRedisConnection(): Promise<boolean> {
         await client.connect();
         await client.ping();
         await client.quit();
-        console.info('✅ Redis connected');
+        if (logger) {
+            logger.info('Redis connected');
+        } else {
+            // Bootstrap-only fallback (pre-logger).
+            console.info('✅ Redis connected');
+        }
         return true;
     } catch (err: any) {
-        console.warn('⚠️ Redis connection failed (workers disabled):', err.message);
+        if (logger) {
+            logger.warn({ err }, 'Redis connection failed (workers disabled)');
+        } else {
+            // Bootstrap-only fallback (pre-logger).
+            console.warn('⚠️ Redis connection failed (workers disabled):', err.message);
+        }
         return false;
     }
 }

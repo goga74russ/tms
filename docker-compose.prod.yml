@@ -1,12 +1,27 @@
 ﻿# ============================================================
 # TMS - Production Docker Compose
 # PostgreSQL + Redis + MinIO + API + Web + Nginx
+#
+# Production hardening:
+#   - Resource limits on every service (mem_limit / cpus).
+#   - JSON log rotation (max 10MB × 3 files per container).
+#   - Required env vars validated via ${VAR:?Set VAR}.
+#   - All services depend on dependencies being healthy first.
 # ============================================================
+
+# Shared logging config — rotate JSON logs at 10MB × 3 files to
+# prevent unbounded disk growth on long-running production hosts.
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
@@ -18,10 +33,17 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 512m
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *default-logging
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
     volumes:
       - redisdata:/data
@@ -30,10 +52,17 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 384m
+        reservations:
+          memory: 128m
 
   minio:
     image: ${MINIO_IMAGE:-minio/minio:RELEASE.2025-04-22T22-12-26Z}
     restart: unless-stopped
+    logging: *default-logging
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER}
@@ -48,12 +77,19 @@ services:
       interval: 15s
       timeout: 10s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 128m
 
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,6 +124,12 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 256m
 
   web:
     build:
@@ -97,12 +139,16 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://localhost/api}
         INTERNAL_API_URL: ${INTERNAL_API_URL:-http://api:4000/api}
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       - api
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://localhost/api}
       INTERNAL_API_URL: ${INTERNAL_API_URL:-http://api:4000/api}
+      # Round 1D: Next.js middleware verifies JWT in edge runtime via jose.
+      # Must share the same secret as the API to validate tokens.
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
     expose:
       - "3000"
     healthcheck:
@@ -110,10 +156,17 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 256m
 
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       - api
       - web
@@ -130,6 +183,12 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 32m
 
   certbot:
     image: certbot/certbot

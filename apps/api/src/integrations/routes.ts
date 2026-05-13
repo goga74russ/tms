@@ -5,10 +5,13 @@ import { FastifyInstance } from 'fastify';
 import { triggerWialonSync, triggerFinesSync, wialonSyncQueue, finesSyncQueue } from './queues.js';
 import * as DaDataMock from './mocks/dadata.mock.js';
 import * as FuelCardMock from './mocks/fuel-card.mock.js';
+import * as WialonMockRunner from './mocks/wialon-mock-runner.js';
 import { db } from '../db/connection.js';
-import { vehicles } from '../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { vehicles, vehiclePositions, fuelRecords } from '../db/schema.js';
+import { and, desc, eq, gte } from 'drizzle-orm';
 import { requireAbility } from '../auth/rbac.js';
+import { recordEvent } from '../events/journal.js';
+import { z } from 'zod';
 
 export default async function integrationRoutes(app: FastifyInstance) {
 
@@ -162,6 +165,192 @@ export default async function integrationRoutes(app: FastifyInstance) {
             success: true,
             data: { transactions, summary },
         };
+    });
+
+    // ──────────────────────────────────────────────
+    // Wave 3: Wialon-mock реалистичный трек-симулятор
+    // ──────────────────────────────────────────────
+    const StartSchema = z.object({
+        vehicleId: z.string().uuid(),
+        tripId: z.string().uuid().optional(),
+        intervalMs: z.number().int().min(1000).max(60_000).optional(),
+        seed: z.number().int().optional(),
+    });
+
+    app.post('/integrations/wialon-mock/start', {
+        schema: { tags: ['Интеграции'], summary: 'Старт mock-трека Wialon', description: 'Запускает фоновый симулятор: каждые ~10 с пишет позицию ТС в vehicle_positions.' },
+        preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
+    }, async (request, reply) => {
+        const user = request.user as { userId: string; roles: string[] };
+        const parsed = StartSchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+        try {
+            const status = await WialonMockRunner.startSimulation(parsed.data.vehicleId, parsed.data.tripId, {
+                intervalMs: parsed.data.intervalMs,
+                seed: parsed.data.seed,
+            });
+            await recordEvent({
+                authorId: user.userId,
+                authorRole: user.roles[0] ?? 'admin',
+                eventType: 'wialon-mock.start',
+                entityType: 'vehicle',
+                entityId: parsed.data.vehicleId,
+                data: { tripId: status.tripId, samplesPlanned: status.samplesPlanned },
+            });
+            return { success: true, data: status };
+        } catch (err: any) {
+            return reply.status(400).send({ success: false, error: err.message });
+        }
+    });
+
+    const StopSchema = z.object({ vehicleId: z.string().uuid() });
+
+    app.post('/integrations/wialon-mock/stop', {
+        schema: { tags: ['Интеграции'], summary: 'Остановить mock-трек Wialon', description: 'Останавливает фоновый симулятор для ТС.' },
+        preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
+    }, async (request, reply) => {
+        const user = request.user as { userId: string; roles: string[] };
+        const parsed = StopSchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+        const stopped = await WialonMockRunner.stopSimulation(parsed.data.vehicleId);
+        await recordEvent({
+            authorId: user.userId,
+            authorRole: user.roles[0] ?? 'admin',
+            eventType: 'wialon-mock.stop',
+            entityType: 'vehicle',
+            entityId: parsed.data.vehicleId,
+            data: { stopped },
+        });
+        return { success: true, data: { vehicleId: parsed.data.vehicleId, stopped } };
+    });
+
+    const PositionsQuerySchema = z.object({
+        vehicleId: z.string().uuid(),
+        since: z.string().datetime().optional(),
+        limit: z.coerce.number().int().min(1).max(1000).optional(),
+    });
+
+    app.get('/integrations/wialon-mock/positions', {
+        schema: { tags: ['Интеграции'], summary: 'История позиций ТС (mock)', description: 'Читает vehicle_positions для ТС, опционально начиная с since (ISO).' },
+        preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
+    }, async (request, reply) => {
+        const parsed = PositionsQuerySchema.safeParse(request.query ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+        const where = parsed.data.since
+            ? and(eq(vehiclePositions.vehicleId, parsed.data.vehicleId), gte(vehiclePositions.recordedAt, new Date(parsed.data.since)))
+            : eq(vehiclePositions.vehicleId, parsed.data.vehicleId);
+        const rows = await db
+            .select()
+            .from(vehiclePositions)
+            .where(where)
+            .orderBy(desc(vehiclePositions.recordedAt))
+            .limit(parsed.data.limit ?? 200);
+        return {
+            success: true,
+            data: {
+                vehicleId: parsed.data.vehicleId,
+                positions: rows,
+                isSimulating: WialonMockRunner.isSimulationActive(parsed.data.vehicleId),
+            },
+        };
+    });
+
+    // ──────────────────────────────────────────────
+    // Wave 6: POST /integrations/fuel-card-mock/sync
+    // Generates synthetic fuel-card transactions for [fromDate, toDate]
+    // and inserts them into fuel_records with source='fuel_card_mock'.
+    // Admin-only.
+    // ──────────────────────────────────────────────
+    const FuelCardSyncSchema = z.object({
+        vehicleId: z.string().uuid(),
+        fromDate: z.string().datetime(),
+        toDate: z.string().datetime(),
+    });
+
+    app.post('/integrations/fuel-card-mock/sync', {
+        schema: {
+            tags: ['Интеграции'],
+            summary: 'Mock-синхронизация топливной карты',
+            description: 'Генерирует синтетические транзакции АЗС за период и записывает в fuel_records (source=fuel_card_mock).',
+        },
+        preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
+    }, async (request, reply) => {
+        const user = request.user as { userId: string; roles: string[] };
+        const parsed = FuelCardSyncSchema.safeParse(request.body ?? {});
+        if (!parsed.success) {
+            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        }
+        const { vehicleId, fromDate, toDate } = parsed.data;
+        const from = new Date(fromDate);
+        const to = new Date(toDate);
+        if (to.getTime() <= from.getTime()) {
+            return reply.status(400).send({ success: false, error: 'toDate must be after fromDate' });
+        }
+
+        const [vehicle] = await db
+            .select({
+                id: vehicles.id,
+                fuelTankLiters: vehicles.fuelTankLiters,
+                organizationId: vehicles.organizationId,
+                currentOdometerKm: vehicles.currentOdometerKm,
+            })
+            .from(vehicles)
+            .where(eq(vehicles.id, vehicleId))
+            .limit(1);
+
+        if (!vehicle) {
+            return reply.status(404).send({ success: false, error: 'ТС не найдено' });
+        }
+
+        const txns = FuelCardMock.generateTransactionsInRange(vehicleId, from, to, {
+            tankLiters: vehicle.fuelTankLiters,
+        });
+
+        if (txns.length === 0) {
+            return { success: true, data: { inserted: 0 } };
+        }
+
+        const rows = txns.map((t) => ({
+            vehicleId,
+            recordedAt: new Date(t.timestamp),
+            liters: t.liters,
+            costPerLiter: t.pricePerLiter,
+            totalCost: t.totalCost,
+            fuelType: FuelCardMock.mapFuelTypeToEnum(t.fuelType),
+            station: t.stationName,
+            odometerAtFill: vehicle.currentOdometerKm,
+            tripId: null,
+            driverId: null,
+            organizationId: vehicle.organizationId,
+            source: 'fuel_card_mock',
+            createdBy: user.userId,
+        }));
+
+        await db.insert(fuelRecords).values(rows);
+
+        await recordEvent({
+            authorId: user.userId,
+            authorRole: user.roles[0] ?? 'admin',
+            eventType: 'fuel-card-mock.sync',
+            entityType: 'vehicle',
+            entityId: vehicleId,
+            data: { inserted: rows.length, fromDate, toDate },
+        });
+
+        return { success: true, data: { inserted: rows.length } };
+    });
+
+    app.get('/integrations/wialon-mock/status', {
+        schema: { tags: ['Интеграции'], summary: 'Активные mock-симуляции', description: 'Возвращает список активных Wialon-mock симуляторов.' },
+        preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
+    }, async () => {
+        return { success: true, data: { simulations: WialonMockRunner.listSimulations() } };
     });
 }
 

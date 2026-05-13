@@ -60,11 +60,11 @@ export function DowntimeRecordsTable() {
         <div className="space-y-4 p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="grid gap-3 md:grid-cols-3">
-                    <select value={filters.vehicleId} onChange={(e) => setFilters((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                    <select value={filters.vehicleId} onChange={(e) => setFilters((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                         <option value="">Все ТС</option>
                         {vehicles.map((vehicle: any) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plateNumber}</option>)}
                     </select>
-                    <select value={filters.reasonCode} onChange={(e) => setFilters((prev) => ({ ...prev, reasonCode: e.target.value }))} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+                    <select value={filters.reasonCode} onChange={(e) => setFilters((prev) => ({ ...prev, reasonCode: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
                         <option value="">Все причины</option>
                         <option value="repair">Ремонт</option>
                         <option value="waiting_load">Ожидание загрузки</option>
@@ -73,13 +73,13 @@ export function DowntimeRecordsTable() {
                         <option value="weather">Погода</option>
                         <option value="other">Прочее</option>
                     </select>
-                    <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600">
+                    <label className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-600">
                         <input type="checkbox" checked={filters.openOnly} onChange={(e) => setFilters((prev) => ({ ...prev, openOnly: e.target.checked }))} />
                         Только открытые
                     </label>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button onClick={() => loadData()} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                    <button onClick={() => loadData()} className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50">
                         <RefreshCw className="h-4 w-4" />
                         Обновить
                     </button>
@@ -90,15 +90,15 @@ export function DowntimeRecordsTable() {
                 </div>
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Суммарная длительность</p>
-                <p className="mt-1 text-2xl font-bold text-slate-900">{totalHours.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} ч</p>
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-neutral-500">Суммарная длительность</p>
+                <p className="mt-1 text-2xl font-bold text-neutral-900">{totalHours.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} ч</p>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
+            <div className="overflow-x-auto rounded-xl border border-neutral-200">
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="bg-slate-50 text-left text-slate-500">
+                        <tr className="bg-neutral-50 text-left text-neutral-500">
                             <th className="px-4 py-3 font-medium">ТС</th>
                             <th className="px-4 py-3 font-medium">Начало</th>
                             <th className="px-4 py-3 font-medium">Конец</th>
@@ -108,28 +108,28 @@ export function DowntimeRecordsTable() {
                             <th className="px-4 py-3 font-medium">Действия</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-neutral-100">
                         {loading ? (
-                            <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400">Загружаем простои...</td></tr>
+                            <tr><td colSpan={7} className="px-4 py-10 text-center text-neutral-400">Загружаем простои...</td></tr>
                         ) : rows.length === 0 ? (
-                            <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-400">Простои не зарегистрированы.</td></tr>
+                            <tr><td colSpan={7} className="px-4 py-10 text-center text-neutral-400">Простои не зарегистрированы.</td></tr>
                         ) : rows.map((row: any) => {
                             const record = getRowRecord<DowntimeRow>(row, 'downtime_records');
                             const vehicle = row.vehicles;
                             const isActive = !record.endAt;
                             return (
                                 <tr key={record.id}>
-                                    <td className="px-4 py-3 font-medium text-slate-800">{vehicle?.plateNumber || record.vehicleId}</td>
-                                    <td className="px-4 py-3 text-slate-600">{formatDateTime(record.startAt)}</td>
-                                    <td className="px-4 py-3 text-slate-600">
+                                    <td className="px-4 py-3 font-medium text-neutral-800">{vehicle?.plateNumber || record.vehicleId}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{formatDateTime(record.startAt)}</td>
+                                    <td className="px-4 py-3 text-neutral-600">
                                         {isActive ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Активен</span> : formatDateTime(record.endAt)}
                                     </td>
-                                    <td className="px-4 py-3 text-slate-600">{durationHours(record.startAt, record.endAt).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} ч</td>
-                                    <td className="px-4 py-3 text-slate-600">{record.reasonCode}</td>
-                                    <td className="px-4 py-3 text-slate-600">{record.description || '—'}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{durationHours(record.startAt, record.endAt).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} ч</td>
+                                    <td className="px-4 py-3 text-neutral-600">{record.reasonCode}</td>
+                                    <td className="px-4 py-3 text-neutral-600">{record.description || '—'}</td>
                                     <td className="px-4 py-3">
                                         {isActive ? (
-                                            <button onClick={() => closeDowntime(record.id)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                                            <button onClick={() => closeDowntime(record.id)} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50">
                                                 Закрыть
                                             </button>
                                         ) : '—'}

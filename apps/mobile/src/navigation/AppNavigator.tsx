@@ -10,6 +10,10 @@ import CheckpointScreen from '../screens/CheckpointScreen';
 import TripCompletionScreen from '../screens/TripCompletionScreen';
 import DeliveryConfirmationScreen from '../screens/DeliveryConfirmationScreen';
 import MechanicInspectionScreen from '../screens/MechanicInspectionScreen';
+import MyWaybillScreen from '../screens/MyWaybillScreen';
+import TemperatureLogScreen from '../screens/TemperatureLogScreen';
+import MyHoursScreen from '../screens/MyHoursScreen';
+import { pickPrimaryRole } from './rolePriority';
 
 export type RootStackParamList = {
     Login: undefined;
@@ -19,6 +23,9 @@ export type RootStackParamList = {
     TripCompletion: { tripId: string; correctionReason?: string };
     DeliveryConfirmation: { tripId: string };
     MechanicInspection: undefined;
+    MyWaybill: { tripId: string };
+    TemperatureLog: { tripId: string };
+    MyHours: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -34,7 +41,8 @@ export default function AppNavigator() {
         );
     }
 
-    const isMechanic = user?.role === 'mechanic';
+    const primaryRole = pickPrimaryRole(user?.roles);
+    const isMechanic = primaryRole === 'mechanic';
 
     return (
         <Stack.Navigator>
@@ -75,6 +83,21 @@ export default function AppNavigator() {
                         name="DeliveryConfirmation"
                         component={DeliveryConfirmationScreen}
                         options={{ title: 'Подтверждение доставки' }}
+                    />
+                    <Stack.Screen
+                        name="MyWaybill"
+                        component={MyWaybillScreen}
+                        options={{ title: 'Путевой лист' }}
+                    />
+                    <Stack.Screen
+                        name="TemperatureLog"
+                        component={TemperatureLogScreen}
+                        options={{ title: 'Температура (холодовая цепь)' }}
+                    />
+                    <Stack.Screen
+                        name="MyHours"
+                        component={MyHoursScreen}
+                        options={{ title: 'Мои часы (РТО)' }}
                     />
                 </>
             ) : (

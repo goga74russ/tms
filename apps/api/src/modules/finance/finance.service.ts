@@ -1,6 +1,6 @@
 import { db } from '../../db/connection.js';
-import { trips, invoices, invoiceTrips, invoiceAdjustments, vehicles, fines, repairRequests, tachographRecords, orders, users, drivers, tripOrders, contractors, events } from '../../db/schema.js';
-import { eq, and, gt, gte, lte, inArray, sql, desc } from 'drizzle-orm';
+import { trips, invoices, invoiceTrips, invoiceAdjustments, vehicles, fines, repairRequests, tachographRecords, orders, users, drivers, tripOrders, contractors, contracts, tariffs, events } from '../../db/schema.js';
+import { eq, and, gt, gte, lte, inArray, sql, desc, isNull } from 'drizzle-orm';
 import { tarificationService } from './tarification.service.js';
 import { InvoiceCreate } from './schemas.js';
 import { recordEvent } from '../../events/journal.js';
@@ -39,8 +39,25 @@ function num(value: unknown): number {
     return toFiniteNumber(value);
 }
 
+/**
+ * A-P2: month-in-timezone helper. `new Date().getMonth()` returns the
+ * server's local month — on a UTC host in early November (winter for
+ * the operational window of Russian fleets) you'd get "summer" until
+ * 03:00 Moscow time. Driving fuel coefficients off of server wall
+ * clock is incorrect; everything in this app is Moscow-anchored.
+ */
+function getMonthInTimezone(date: Date, tz: string): number {
+    // Intl returns the 2-digit month string in the requested zone.
+    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, month: '2-digit' });
+    const parsed = Number.parseInt(fmt.format(date), 10);
+    // Intl months are 1-12; getMonth() is 0-11. Keep the original
+    // 0-11 contract so callers don't shift their boundary checks.
+    return Number.isFinite(parsed) ? parsed - 1 : date.getUTCMonth();
+}
+
 function getCurrentSeason(): 'winter' | 'summer' {
-    const month = new Date().getMonth(); // 0-11
+    const tz = process.env.APP_TIMEZONE || 'Europe/Moscow';
+    const month = getMonthInTimezone(new Date(), tz); // 0-11
     return (month >= 10 || month <= 2) ? 'winter' : 'summer';
 }
 
@@ -405,25 +422,36 @@ export class FinanceService {
 
     // === 1C EXPORT (JSON — legacy) ===
     async get1CExportData(startDate: Date, endDate: Date, organizationId?: string | null) {
-        const recentInvoices = await db.query.invoices.findMany({
-            where: and(
+        // Plain leftJoin instead of `db.query.invoices.findMany` — drizzle
+        // relations() blocks aren't wired in this codebase, so the rqb API
+        // would throw "Cannot read properties of undefined (reading 'tableConfig')".
+        const recentInvoices = await db
+            .select({
+                id: invoices.id,
+                number: invoices.number,
+                createdAt: invoices.createdAt,
+                total: invoices.total,
+                vatAmount: invoices.vatAmount,
+                subtotal: invoices.subtotal,
+                contractorInn: contractors.inn,
+                contractorName: contractors.name,
+            })
+            .from(invoices)
+            .leftJoin(contractors, eq(invoices.contractorId, contractors.id))
+            .where(and(
                 gte(invoices.createdAt, startDate),
                 lte(invoices.createdAt, endDate),
                 organizationId
-                    ? inArray(invoices.contractorId, db.select({ id: contractors.id }).from(contractors).where(eq(contractors.organizationId, organizationId)))
+                    ? eq(contractors.organizationId, organizationId)
                     : undefined,
-            ),
-            with: {
-                contractor: true
-            }
-        });
+            ));
 
         const documents = recentInvoices.map((inv: any) => ({
             Type: 'РеализацияУслуг',
             Number: inv.number,
-            Date: inv.createdAt.toISOString(),
-            ContractorINN: inv.contractor?.inn,
-            ContractorName: inv.contractor?.name,
+            Date: inv.createdAt instanceof Date ? inv.createdAt.toISOString() : new Date(inv.createdAt).toISOString(),
+            ContractorINN: inv.contractorInn ?? null,
+            ContractorName: inv.contractorName ?? null,
             Total: num(inv.total),
             VAT: num(inv.vatAmount),
             Subtotal: num(inv.subtotal),
@@ -679,21 +707,37 @@ export class FinanceService {
     }
 
     async export1CXml(startDate: Date, endDate: Date, organizationId?: string | null): Promise<string> {
-        const recentInvoices = await db.query.invoices.findMany({
-            where: and(
+        // Plain leftJoin — see note in `get1CExportData`. Empty result must
+        // produce a valid `КоммерческаяИнформация` envelope, not throw.
+        const recentInvoices = await db
+            .select({
+                id: invoices.id,
+                number: invoices.number,
+                type: invoices.type,
+                status: invoices.status,
+                subtotal: invoices.subtotal,
+                vatAmount: invoices.vatAmount,
+                total: invoices.total,
+                periodStart: invoices.periodStart,
+                periodEnd: invoices.periodEnd,
+                createdAt: invoices.createdAt,
+                contractorInn: contractors.inn,
+                contractorName: contractors.name,
+                contractorKpp: contractors.kpp,
+                contractorAddress: contractors.legalAddress,
+            })
+            .from(invoices)
+            .leftJoin(contractors, eq(invoices.contractorId, contractors.id))
+            .where(and(
                 gte(invoices.createdAt, startDate),
                 lte(invoices.createdAt, endDate),
                 organizationId
-                    ? inArray(invoices.contractorId, db.select({ id: contractors.id }).from(contractors).where(eq(contractors.organizationId, organizationId)))
+                    ? eq(contractors.organizationId, organizationId)
                     : undefined,
-            ),
-            with: {
-                contractor: true
-            }
-        });
+            ));
 
         // C-2 FIX: Batch query all invoice-trip links instead of N+1 loop
-        const invoiceIds = (recentInvoices as any[]).map((inv: any) => inv.id);
+        const invoiceIds = recentInvoices.map((inv) => inv.id);
         const allLinkedTrips = invoiceIds.length > 0
             ? await db.select({ invoiceId: invoiceTrips.invoiceId, tripId: invoiceTrips.tripId })
                 .from(invoiceTrips)
@@ -706,30 +750,320 @@ export class FinanceService {
             tripsByInvoice.get(link.invoiceId)!.push(link.tripId);
         }
 
-        const rows: InvoiceExportRow[] = [];
-        for (const inv of recentInvoices as any[]) {
-            rows.push({
-                id: inv.id,
-                number: inv.number,
-                type: inv.type,
-                status: inv.status,
-                subtotal: num(inv.subtotal),
-                vatAmount: num(inv.vatAmount),
-                total: num(inv.total),
-                periodStart: inv.periodStart,
-                periodEnd: inv.periodEnd,
-                createdAt: inv.createdAt,
-                contractor: inv.contractor ? {
-                    name: inv.contractor.name,
-                    inn: inv.contractor.inn,
-                    kpp: inv.contractor.kpp ?? null,
-                    legalAddress: inv.contractor.legalAddress ?? '',
-                } : null,
-                tripIds: tripsByInvoice.get(inv.id) ?? [],
-            });
-        }
+        const rows: InvoiceExportRow[] = recentInvoices.map((inv) => ({
+            id: inv.id,
+            number: inv.number,
+            type: String(inv.type),
+            status: String(inv.status),
+            subtotal: num(inv.subtotal),
+            vatAmount: num(inv.vatAmount),
+            total: num(inv.total),
+            periodStart: inv.periodStart as Date,
+            periodEnd: inv.periodEnd as Date,
+            createdAt: inv.createdAt as Date,
+            contractor: inv.contractorName
+                ? {
+                    name: inv.contractorName,
+                    inn: inv.contractorInn ?? '',
+                    kpp: inv.contractorKpp ?? null,
+                    legalAddress: inv.contractorAddress ?? '',
+                }
+                : null,
+            tripIds: tripsByInvoice.get(inv.id) ?? [],
+        }));
 
         return buildCommerceMLXml(rows);
+    }
+
+    // ================================================================
+    // Wave 4: Auto-billing on trip completion
+    // ================================================================
+    /**
+     * Создать draft-счёт по одному рейсу, если у заявки рейса есть
+     * активный договор с тарифом и счёт ещё не создан.
+     * Идемпотентно: повторный вызов на том же рейсе вернёт `skipped`.
+     */
+    async tryAutoCreateInvoice(
+        tripId: string,
+        author?: { authorId?: string; authorRole?: string },
+    ): Promise<{ created: boolean; invoiceId?: string; reason?: string }> {
+        // 1. Проверка: рейс уже привязан к счёту?
+        const [existingLink] = await db
+            .select({ invoiceId: invoiceTrips.invoiceId })
+            .from(invoiceTrips)
+            .where(eq(invoiceTrips.tripId, tripId))
+            .limit(1);
+        if (existingLink) {
+            return { created: false, reason: 'already_invoiced', invoiceId: existingLink.invoiceId };
+        }
+
+        // 2. Найти заявки рейса и контракт.
+        const linkedOrders = await db
+            .select({
+                orderId: orders.id,
+                contractorId: orders.contractorId,
+                contractId: orders.contractId,
+            })
+            .from(tripOrders)
+            .innerJoin(orders, eq(tripOrders.orderId, orders.id))
+            .where(eq(tripOrders.tripId, tripId));
+
+        if (linkedOrders.length === 0) {
+            return { created: false, reason: 'no_orders' };
+        }
+
+        const contractId = linkedOrders[0].contractId;
+        const contractorId = linkedOrders[0].contractorId;
+        if (!contractId) {
+            return { created: false, reason: 'no_contract' };
+        }
+        // Все заявки рейса должны принадлежать одному контракту
+        const sameContract = linkedOrders.every((o) => o.contractId === contractId);
+        if (!sameContract) {
+            return { created: false, reason: 'multi_contract' };
+        }
+
+        // 3. Контракт активен и содержит тариф.
+        const [contract] = await db
+            .select({ id: contracts.id, isActive: contracts.isActive })
+            .from(contracts)
+            .where(eq(contracts.id, contractId))
+            .limit(1);
+        if (!contract || !contract.isActive) {
+            return { created: false, reason: 'contract_inactive' };
+        }
+        const [tariff] = await db
+            .select({ id: tariffs.id })
+            .from(tariffs)
+            .where(eq(tariffs.contractId, contractId))
+            .limit(1);
+        if (!tariff) {
+            return { created: false, reason: 'no_tariff' };
+        }
+
+        // 4. Расчёт стоимости рейса.
+        let cost;
+        try {
+            cost = await tarificationService.calculateTripCost(tripId);
+        } catch (err: any) {
+            return { created: false, reason: `calc_failed:${err.message ?? 'unknown'}` };
+        }
+
+        // 5. Создать draft-счёт + invoice_trips + journal в одной транзакции.
+        const authorId = author?.authorId ?? '00000000-0000-0000-0000-000000000000';
+        const authorRole = author?.authorRole ?? 'system';
+
+        const created = await db.transaction(async (tx) => {
+            // Двойная защита от гонок: проверить связь ещё раз внутри tx.
+            const [doubleCheck] = await tx
+                .select({ invoiceId: invoiceTrips.invoiceId })
+                .from(invoiceTrips)
+                .where(eq(invoiceTrips.tripId, tripId))
+                .limit(1);
+            if (doubleCheck) {
+                return { skipped: true, invoiceId: doubleCheck.invoiceId };
+            }
+
+            const [tripRow] = await tx
+                .select({
+                    actualCompletionAt: trips.actualCompletionAt,
+                    createdAt: trips.createdAt,
+                })
+                .from(trips)
+                .where(eq(trips.id, tripId))
+                .limit(1);
+            const periodAnchor = tripRow?.actualCompletionAt ?? tripRow?.createdAt ?? new Date();
+
+            const number = await this.getNextInvoiceNumber('invoice', tx);
+
+            const [invoice] = await tx
+                .insert(invoices)
+                .values({
+                    number,
+                    contractorId,
+                    contractId,
+                    type: 'invoice',
+                    status: 'draft',
+                    subtotal: cost.subtotal,
+                    vatAmount: cost.vatAmount,
+                    total: cost.total,
+                    periodStart: periodAnchor,
+                    periodEnd: periodAnchor,
+                })
+                .returning();
+
+            await tx.insert(invoiceTrips).values({
+                invoiceId: invoice.id,
+                tripId,
+            });
+
+            await recordEvent({
+                authorId,
+                authorRole,
+                eventType: 'invoice.auto_created',
+                entityType: 'invoice',
+                entityId: invoice.id,
+                data: {
+                    tripId,
+                    contractorId,
+                    contractId,
+                    number: invoice.number,
+                    total: invoice.total,
+                    source: 'trip.completed',
+                },
+            }, tx);
+
+            return { skipped: false, invoiceId: invoice.id };
+        });
+
+        if (created.skipped) {
+            return { created: false, reason: 'already_invoiced', invoiceId: created.invoiceId };
+        }
+        return { created: true, invoiceId: created.invoiceId };
+    }
+
+    /**
+     * Сформировать сводные счета за период по всем завершённым рейсам без счетов.
+     * Группирует рейсы по контрагенту → один консолидированный счёт на каждого.
+     * Возвращает списки `created` и `skipped` для аудита.
+     */
+    async bulkGenerateInvoices(
+        params: { from: string; to: string; contractorId?: string },
+        author: { authorId: string; authorRole: string; organizationId?: string | null },
+    ): Promise<{
+        created: Array<{ invoiceId: string; contractorId: string; tripIds: string[]; total: number }>;
+        skipped: Array<{ tripId: string; reason: string }>;
+    }> {
+        const fromDate = new Date(params.from);
+        const toDate = new Date(params.to);
+
+        const conditions = [
+            eq(trips.status, 'completed'),
+            gte(trips.actualCompletionAt, fromDate),
+            lte(trips.actualCompletionAt, toDate),
+        ];
+        if (author.organizationId) {
+            conditions.push(eq(trips.organizationId, author.organizationId));
+        }
+
+        // Найти все completed рейсы, у которых ещё нет связанного счёта.
+        const completedRows = await db
+            .selectDistinct({
+                tripId: trips.id,
+                contractorId: orders.contractorId,
+                contractId: orders.contractId,
+            })
+            .from(trips)
+            .innerJoin(tripOrders, eq(trips.id, tripOrders.tripId))
+            .innerJoin(orders, eq(tripOrders.orderId, orders.id))
+            .leftJoin(invoiceTrips, eq(invoiceTrips.tripId, trips.id))
+            .where(and(
+                ...conditions,
+                isNull(invoiceTrips.invoiceId),
+                params.contractorId ? eq(orders.contractorId, params.contractorId) : undefined,
+            ));
+
+        const created: Array<{ invoiceId: string; contractorId: string; tripIds: string[]; total: number }> = [];
+        const skipped: Array<{ tripId: string; reason: string }> = [];
+
+        // Сгруппировать по contractor + contract.
+        const byContractor = new Map<string, { contractorId: string; contractId: string; tripIds: string[] }>();
+        for (const row of completedRows) {
+            if (!row.contractorId || !row.contractId) {
+                skipped.push({ tripId: row.tripId, reason: 'no_contract' });
+                continue;
+            }
+            const key = `${row.contractorId}::${row.contractId}`;
+            const bucket = byContractor.get(key) ?? { contractorId: row.contractorId, contractId: row.contractId, tripIds: [] };
+            bucket.tripIds.push(row.tripId);
+            byContractor.set(key, bucket);
+        }
+
+        for (const bucket of byContractor.values()) {
+            // Проверить тариф.
+            const [tariff] = await db
+                .select({ id: tariffs.id })
+                .from(tariffs)
+                .where(eq(tariffs.contractId, bucket.contractId))
+                .limit(1);
+            if (!tariff) {
+                for (const tid of bucket.tripIds) skipped.push({ tripId: tid, reason: 'no_tariff' });
+                continue;
+            }
+
+            // Расчёт стоимости батчем.
+            const costMap = await tarificationService.calculateBatchTripCosts(bucket.tripIds);
+            let subtotal = 0;
+            let vat = 0;
+            let total = 0;
+            const billable: string[] = [];
+            for (const tid of bucket.tripIds) {
+                const c = costMap.get(tid);
+                if (!c) {
+                    skipped.push({ tripId: tid, reason: 'calc_failed' });
+                    continue;
+                }
+                subtotal += c.subtotal;
+                vat += c.vatAmount;
+                total += c.total;
+                billable.push(tid);
+            }
+            if (billable.length === 0) continue;
+
+            try {
+                const invoiceId = await db.transaction(async (tx) => {
+                    const number = await this.getNextInvoiceNumber('invoice', tx);
+                    const [invoice] = await tx
+                        .insert(invoices)
+                        .values({
+                            number,
+                            contractorId: bucket.contractorId,
+                            contractId: bucket.contractId,
+                            type: 'invoice',
+                            status: 'draft',
+                            subtotal,
+                            vatAmount: vat,
+                            total,
+                            periodStart: fromDate,
+                            periodEnd: toDate,
+                        })
+                        .returning();
+
+                    await tx.insert(invoiceTrips).values(
+                        billable.map((tid) => ({ invoiceId: invoice.id, tripId: tid }))
+                    );
+
+                    await recordEvent({
+                        authorId: author.authorId,
+                        authorRole: author.authorRole,
+                        eventType: 'invoice.auto_created',
+                        entityType: 'invoice',
+                        entityId: invoice.id,
+                        data: {
+                            number: invoice.number,
+                            contractorId: bucket.contractorId,
+                            contractId: bucket.contractId,
+                            tripIds: billable,
+                            total: invoice.total,
+                            source: 'finance.bulk_generate',
+                        },
+                    }, tx);
+
+                    return invoice.id;
+                });
+
+                created.push({
+                    invoiceId,
+                    contractorId: bucket.contractorId,
+                    tripIds: billable,
+                    total,
+                });
+            } catch (err: any) {
+                for (const tid of billable) skipped.push({ tripId: tid, reason: `tx_failed:${err?.message ?? 'unknown'}` });
+            }
+        }
+
+        return { created, skipped };
     }
 }
 

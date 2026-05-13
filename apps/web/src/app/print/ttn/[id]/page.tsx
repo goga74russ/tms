@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 
 const API_BASE = '/api';
@@ -22,6 +22,7 @@ export default function TtnPrintPage() {
     const id = params?.id as string;
     const [data, setData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
+    const printedRef = useRef(false);
 
     useEffect(() => {
         if (!id) return;
@@ -37,7 +38,8 @@ export default function TtnPrintPage() {
     }, [id]);
 
     useEffect(() => {
-        if (data) {
+        if (data && !printedRef.current) {
+            printedRef.current = true;
             const timer = setTimeout(() => window.print(), 400);
             return () => clearTimeout(timer);
         }

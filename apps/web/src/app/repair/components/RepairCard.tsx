@@ -43,7 +43,7 @@ type RepairPartsSummary = {
 };
 
 const priorityConfig: Record<string, { label: string; color: string; dot: string }> = {
-  low: { label: 'Низкий', color: 'bg-slate-100 text-slate-600', dot: 'bg-slate-400' },
+  low: { label: 'Низкий', color: 'bg-neutral-100 text-neutral-600', dot: 'bg-neutral-400' },
   medium: { label: 'Средний', color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
   high: { label: 'Высокий', color: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500' },
   critical: { label: 'Критический', color: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
@@ -125,18 +125,18 @@ export function RepairCard({ repair }: { repair: Repair }) {
   const summary = buildPartsSummary(repair);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-shadow duration-200 hover:shadow-md">
+    <div className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm transition-shadow duration-200 hover:shadow-md">
       <div className="mb-2 flex items-center justify-between">
         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${pr.color}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${pr.dot}`} />
           {pr.label}
         </span>
-        <span className="text-xs text-slate-400">{sourceLabels[repair.source] || repair.source}</span>
+        <span className="text-xs text-neutral-400">{sourceLabels[repair.source] || repair.source}</span>
       </div>
 
-      <p className="mb-2 line-clamp-2 text-sm font-medium text-slate-800">{repair.description}</p>
+      <p className="mb-2 line-clamp-2 text-sm font-medium text-neutral-800">{repair.description}</p>
 
-      <div className="flex items-center justify-between text-xs text-slate-500">
+      <div className="flex items-center justify-between text-xs text-neutral-500">
         <div className="flex items-center gap-2">
           {repair.assignedTo && (
             <span className="flex items-center gap-1">
@@ -157,9 +157,9 @@ export function RepairCard({ repair }: { repair: Repair }) {
       {parts.length > 0 && (
         <div className="mt-2 space-y-1.5">
           <div className="grid grid-cols-3 gap-1.5">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
-              <p className="text-[10px] uppercase tracking-wide text-slate-500">План</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-slate-900">{formatMoney(summary.plannedCost)}</p>
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1.5">
+              <p className="text-[10px] uppercase tracking-wide text-neutral-500">План</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-neutral-900">{formatMoney(summary.plannedCost)}</p>
             </div>
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5">
               <p className="text-[10px] uppercase tracking-wide text-emerald-700">Факт</p>
@@ -177,7 +177,7 @@ export function RepairCard({ repair }: { repair: Repair }) {
             </div>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+            <span className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-600">
               З/ч: {parts.length}
             </span>
             {parts.slice(0, 3).map((part, index) => (
@@ -189,7 +189,7 @@ export function RepairCard({ repair }: { repair: Repair }) {
               </span>
             ))}
             {parts.length > 3 && (
-              <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+              <span className="inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-500">
                 +{parts.length - 3}
               </span>
             )}
@@ -198,18 +198,18 @@ export function RepairCard({ repair }: { repair: Repair }) {
             {parts.slice(0, 2).map((part, index) => (
               <span
                 key={`qty-${part.catalogName || part.name || 'part'}-${index}`}
-                className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600"
+                className="inline-flex items-center rounded-full border border-neutral-200 bg-white px-2 py-0.5 text-[11px] font-medium text-neutral-600"
               >
                 {formatPartSummary(part)}
                 {part.catalogCategory ? ` · ${part.catalogCategory}` : ''}
               </span>
             ))}
           </div>
-          <div className="flex flex-wrap gap-1.5 text-[11px] text-slate-500">
-            <span className="rounded-full bg-slate-50 px-2 py-0.5">План: {summary.plannedQuantity}</span>
+          <div className="flex flex-wrap gap-1.5 text-[11px] text-neutral-500">
+            <span className="rounded-full bg-neutral-50 px-2 py-0.5">План: {summary.plannedQuantity}</span>
             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">Получено: {summary.receivedQuantity}</span>
             <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-700">Использовано: {summary.usedQuantity}</span>
-            <span className="rounded-full bg-slate-50 px-2 py-0.5">
+            <span className="rounded-full bg-neutral-50 px-2 py-0.5">
               Выполнено: {summary.plannedQuantity > 0 ? `${(summary.usedRate * 100).toFixed(0)}%` : '0%'}
             </span>
           </div>
@@ -217,12 +217,12 @@ export function RepairCard({ repair }: { repair: Repair }) {
       )}
 
       {Number(repair.totalCost) > 0 && (
-        <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
-          <span className="flex items-center gap-1 text-xs text-slate-500">
+        <div className="mt-2 flex items-center justify-between border-t border-neutral-100 pt-2">
+          <span className="flex items-center gap-1 text-xs text-neutral-500">
             <Wrench className="h-3 w-3" />
             Затраты
           </span>
-          <span className="text-xs font-semibold text-slate-700">{formatMoney(repair.totalCost)}</span>
+          <span className="text-xs font-semibold text-neutral-700">{formatMoney(repair.totalCost)}</span>
         </div>
       )}
     </div>

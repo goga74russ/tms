@@ -30,6 +30,12 @@ async function authFetch(path: string, options: RequestInit = {}) {
 
 // --- Trips ---
 
+export interface TripOrderSummary {
+    id: string;
+    number?: string;
+    coldChainRequired?: boolean;
+}
+
 export interface TripSummary {
     id: string;
     number: string;
@@ -46,7 +52,11 @@ export interface TripSummary {
         lon: number | null;
         sequence: number;
         status: string;
+        windowFrom?: string | null;
+        windowTo?: string | null;
     }>;
+    orders?: TripOrderSummary[];
+    coldChainRequired?: boolean;
 }
 
 export interface OperationExceptionSummary {
@@ -110,6 +120,60 @@ export async function updateTripStatus(tripId: string, newStatus: string): Promi
 }
 
 /**
+ * Start a trip (driver presses "Начать рейс"). Records starting odometer and
+ * issues the waybill on the server. Returns { trip, waybill }.
+ */
+export async function startTrip(
+    tripId: string,
+    payload: { odometerStart: number }
+): Promise<{ trip: any; waybill: any }> {
+    const data = await authFetch(`/trips/${tripId}/start`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    return data.data || data;
+}
+
+/**
+ * Complete a trip (driver presses "Завершить рейс"). Records final odometer
+ * and optional notes. Returns { trip, waybill }.
+ */
+export async function completeTrip(
+    tripId: string,
+    payload: { odometerEnd: number; notes?: string }
+): Promise<{ trip: any; waybill: any }> {
+    const data = await authFetch(`/trips/${tripId}/complete`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    return data.data || data;
+}
+
+export type DeliveryCondition = 'ok' | 'damaged' | 'short';
+
+export interface DeliveryConfirmationV2Body {
+    signedByName: string;
+    signatureDataUrl: string;
+    photoUrls?: string[];
+    condition: DeliveryCondition;
+    notes?: string;
+}
+
+/**
+ * Submit the v2 delivery confirmation. Photos must already be uploaded —
+ * pass server URLs in `photoUrls`.
+ */
+export async function submitDeliveryConfirmationV2(
+    tripId: string,
+    body: DeliveryConfirmationV2Body
+): Promise<any> {
+    return authFetch(`/trips/${tripId}/delivery-confirmation/v2`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+}
+
+/**
  * Confirm a route point (checkpoint arrival).
  */
 export async function confirmRoutePoint(
@@ -142,6 +206,31 @@ export async function confirmRoutePoint(
             }],
         }),
     });
+}
+
+export interface TripEtaData {
+    etaIso: string;
+    distanceKm: number;
+    currentLatLng: { lat: number; lon: number } | [number, number];
+    nextPointId: string;
+}
+
+export interface TripEtaResponse {
+    data: TripEtaData | null;
+    reason?: string;
+}
+
+/**
+ * Get the driver's ETA to the next route point. Returns `data: null` when GPS
+ * is unavailable; `reason` may explain why.
+ */
+export async function getTripEta(tripId: string): Promise<TripEtaResponse> {
+    try {
+        const res = await authFetch(`/trips/${tripId}/eta`);
+        return { data: res.data ?? null, reason: res.reason };
+    } catch {
+        return { data: null, reason: 'request_failed' };
+    }
 }
 
 // --- Inspections ---

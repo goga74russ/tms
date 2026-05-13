@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '../../lib/api';
 import {
     Wrench, CheckCircle2, XCircle, AlertTriangle, Clock,
-    ChevronRight, Shield, Fuel, FileCheck, Calendar,
-    Thermometer, Eye, ClipboardCheck, RotateCcw, Truck,
+    Shield, FileCheck, ClipboardCheck, RotateCcw, Truck, FileText,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Stat } from '@/components/ui/stat';
+import { SkeletonTable } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SideDrawer } from '@/components/ui/side-drawer';
+import { useToast } from '@/components/ui/toast';
 import { getVehicleProfile } from '../fleet/components/vehicleProfile';
 
 // ================================================================
@@ -66,6 +69,8 @@ interface TripReference {
     waybillNumber: string | null;
 }
 
+type DateFilter = 'all' | 'today' | 'week';
+
 // ================================================================
 // Document Expiry Traffic Light
 // ================================================================
@@ -74,7 +79,7 @@ function ExpiryBadge({ status, label, date }: { status: string; label: string; d
         green: 'bg-emerald-100 text-emerald-700 border-emerald-200',
         yellow: 'bg-amber-100 text-amber-700 border-amber-200',
         red: 'bg-red-100 text-red-700 border-red-200',
-        unknown: 'bg-slate-100 text-slate-500 border-slate-200',
+        unknown: 'bg-neutral-100 text-neutral-500 border-neutral-200',
     };
 
     const icons: Record<string, React.ReactNode> = {
@@ -94,6 +99,32 @@ function ExpiryBadge({ status, label, date }: { status: string; label: string; d
                 </span>
             )}
         </div>
+    );
+}
+
+// ================================================================
+// Status pill — for top-right of list row
+// ================================================================
+function VehicleStatusPill({ item }: { item: VehicleQueueItem }) {
+    // Aggregate worst document status
+    const docs = [
+        item.documentExpiry.techInspection.status,
+        item.documentExpiry.osago.status,
+        item.documentExpiry.maintenance.status,
+        item.documentExpiry.tachograph.status,
+    ];
+    const worst = docs.includes('red') ? 'red' : docs.includes('yellow') ? 'yellow' : docs.includes('unknown') ? 'unknown' : 'green';
+    const cfg: Record<string, { color: string; label: string }> = {
+        green: { color: 'bg-emerald-100 text-emerald-700', label: 'Документы OK' },
+        yellow: { color: 'bg-amber-100 text-amber-700', label: 'Истекают' },
+        red: { color: 'bg-red-100 text-red-700', label: 'Просрочены' },
+        unknown: { color: 'bg-neutral-100 text-neutral-500', label: 'Нет данных' },
+    };
+    const c = cfg[worst];
+    return (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${c.color}`}>
+            {c.label}
+        </span>
     );
 }
 
@@ -144,7 +175,18 @@ export default function MechanicPage() {
     const [tripReferences, setTripReferences] = useState<Record<string, TripReference>>({});
     const [activeTab, setActiveTab] = useState<'queue' | 'journal'>('queue');
     const [inspectionType, setInspectionType] = useState<'pre_trip' | 'periodic'>('pre_trip');
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const { toast: toastFn } = useToast();
+    const setToast = useCallback((value: { message: string; type: 'success' | 'error' } | null) => {
+        if (!value) return;
+        toastFn({
+            variant: value.type === 'error' ? 'error' : 'success',
+            title: value.type === 'error' ? 'Ошибка' : 'Готово',
+            description: value.message,
+        });
+    }, [toastFn]);
 
     // Load queue
     const loadQueue = useCallback(async () => {
@@ -233,6 +275,32 @@ export default function MechanicPage() {
         };
     }, [queue, journal]);
 
+    // Filtered queue
+    const filteredQueue = useMemo(() => {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const endOfToday = startOfToday + 24 * 60 * 60 * 1000;
+        const startOfWeek = startOfToday - 6 * 24 * 60 * 60 * 1000;
+        const q = searchQuery.trim().toLowerCase();
+
+        return queue.filter(item => {
+            // Date filter — based on plannedDepartureAt
+            if (dateFilter !== 'all' && item.trip.plannedDepartureAt) {
+                const t = new Date(item.trip.plannedDepartureAt).getTime();
+                if (dateFilter === 'today' && (t < startOfToday || t >= endOfToday)) return false;
+                if (dateFilter === 'week' && (t < startOfWeek || t >= endOfToday)) return false;
+            } else if (dateFilter !== 'all' && !item.trip.plannedDepartureAt) {
+                return false;
+            }
+            // Search
+            if (q) {
+                const hay = `${item.vehicle.plateNumber} ${item.vehicle.make} ${item.vehicle.model} ${item.trip.number}`.toLowerCase();
+                if (!hay.includes(q)) return false;
+            }
+            return true;
+        });
+    }, [queue, dateFilter, searchQuery]);
+
     // Select vehicle and init checklist
     const selectVehicle = (item: VehicleQueueItem) => {
         setSelectedVehicle(item);
@@ -246,6 +314,13 @@ export default function MechanicPage() {
         );
         setSignature('');
         setInspectionType('pre_trip');
+        // Open drawer on smaller screens; on xl+ inline pane is visible regardless.
+        setDrawerOpen(true);
+    };
+
+    const closeDetail = () => {
+        setSelectedVehicle(null);
+        setDrawerOpen(false);
     };
 
     // Update checklist item
@@ -295,7 +370,7 @@ export default function MechanicPage() {
                 type: decision === 'approved' ? 'success' : 'error',
             });
 
-            setSelectedVehicle(null);
+            closeDetail();
             await loadQueue();
             await loadJournal();
         } catch (err: any) {
@@ -305,42 +380,213 @@ export default function MechanicPage() {
         }
     };
 
-    // Auto-dismiss toast
-    useEffect(() => {
-        if (toast) {
-            const timer = setTimeout(() => setToast(null), 4000);
-            return () => clearTimeout(timer);
+    // D5: Quick override of a journal entry's decision (no full checklist re-entry).
+    const overrideDecision = async (record: InspectionRecord, decision: 'approved' | 'rejected') => {
+        if (record.decision === decision) return;
+        try {
+            await api.post(`/inspections/tech/${record.id}/decision`, { decision });
+            setToast({
+                message: decision === 'approved' ? 'Решение изменено: Допущен' : 'Решение изменено: Не допущен',
+                type: decision === 'approved' ? 'success' : 'error',
+            });
+            await loadJournal();
+            await loadQueue();
+        } catch (err: any) {
+            setToast({ message: err.message || 'Ошибка', type: 'error' });
         }
-    }, [toast]);
+    };
+
+    // ================================================================
+    // Inspection form (re-usable: inline pane + SideDrawer)
+    // ================================================================
+    const renderInspectionForm = (compact: boolean) => {
+        if (!selectedVehicle) return null;
+        return (
+            <div className="bg-white">
+                {/* Vehicle header */}
+                {!compact && (
+                    <div className="bg-gradient-to-r from-neutral-800 to-neutral-700 px-5 py-4 text-white rounded-t-2xl">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                                    <Truck className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0">
+                                    <h2 className="text-base font-bold truncate">{selectedVehicle.vehicle.plateNumber}</h2>
+                                    {selectedVehicle.vehicle.bodyType && (
+                                        <p className="text-[11px] text-indigo-300 truncate">
+                                            {getVehicleProfile(selectedVehicle.vehicle.bodyType).displayLabel}
+                                        </p>
+                                    )}
+                                    <p className="text-neutral-300 text-xs truncate">
+                                        {selectedVehicle.vehicle.make} {selectedVehicle.vehicle.model} ({selectedVehicle.vehicle.year})
+                                        · {Math.round(selectedVehicle.vehicle.currentOdometerKm).toLocaleString()} км
+                                        · {tripReferences[selectedVehicle.trip.id]?.waybillNumber
+                                            ? `ПЛ: ${tripReferences[selectedVehicle.trip.id]!.waybillNumber}`
+                                            : 'ПЛ: не оформлен'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Document expiry */}
+                        <div className="flex gap-1.5 mt-3 flex-wrap">
+                            <ExpiryBadge status={selectedVehicle.documentExpiry.techInspection.status} label="ТО" date={selectedVehicle.documentExpiry.techInspection.expiry} />
+                            <ExpiryBadge status={selectedVehicle.documentExpiry.osago.status} label="ОСАГО" date={selectedVehicle.documentExpiry.osago.expiry} />
+                            <ExpiryBadge status={selectedVehicle.documentExpiry.maintenance.status} label="ТО План." date={selectedVehicle.documentExpiry.maintenance.expiry} />
+                            <ExpiryBadge status={selectedVehicle.documentExpiry.tachograph.status} label="Тахограф" date={selectedVehicle.documentExpiry.tachograph.expiry} />
+                        </div>
+                    </div>
+                )}
+
+                {/* Checklist */}
+                <div className="p-5">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Тип осмотра</h3>
+                        <div className="flex bg-neutral-100 rounded-lg p-0.5">
+                            <button
+                                onClick={() => setInspectionType('pre_trip')}
+                                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${inspectionType === 'pre_trip' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}
+                            >
+                                Предрейсовый
+                            </button>
+                            <button
+                                onClick={() => setInspectionType('periodic')}
+                                className={`px-2.5 py-1 rounded-md text-xs font-medium transition ${inspectionType === 'periodic' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500'}`}
+                            >
+                                Периодический
+                            </button>
+                        </div>
+                    </div>
+
+                    <p className="text-[11px] text-neutral-500 mb-4">
+                        {inspectionType === 'pre_trip'
+                            ? 'Осмотр привязан к путевому листу выбранного рейса и может продвинуть статус выпуска.'
+                            : 'Периодический осмотр фиксируется без влияния на рейс или путевой лист.'
+                        }
+                    </p>
+
+                    <h3 className="sr-only">
+                        <ClipboardCheck className="w-4 h-4 inline mr-1.5" />
+                        Чек-лист осмотра
+                    </h3>
+
+                    <div className="space-y-1.5">
+                        {checklistItems.map((item, idx) => (
+                            <div
+                                key={idx}
+                                className={`flex flex-wrap items-center gap-2 px-2.5 py-2 rounded-lg border transition ${item.result === 'ok'
+                                    ? 'border-emerald-200 bg-emerald-50'
+                                    : item.result === 'fault'
+                                        ? 'border-red-200 bg-red-50'
+                                        : 'border-neutral-200 bg-white'
+                                    }`}
+                            >
+                                <span className="flex-1 text-xs font-medium text-neutral-800 min-w-[140px]">
+                                    {item.name}
+                                </span>
+
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => updateItem(idx, 'result', 'ok')}
+                                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${item.result === 'ok'
+                                            ? 'bg-emerald-600 text-white shadow-sm'
+                                            : 'bg-neutral-100 text-neutral-500 hover:bg-emerald-100 hover:text-emerald-700'
+                                            }`}
+                                    >
+                                        ОК
+                                    </button>
+                                    <button
+                                        onClick={() => updateItem(idx, 'result', 'fault')}
+                                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${item.result === 'fault'
+                                            ? 'bg-red-600 text-white shadow-sm'
+                                            : 'bg-neutral-100 text-neutral-500 hover:bg-red-100 hover:text-red-700'
+                                            }`}
+                                    >
+                                        Неиспр.
+                                    </button>
+                                </div>
+
+                                {item.result === 'fault' && (
+                                    <input
+                                        type="text"
+                                        placeholder="Комментарий..."
+                                        value={item.comment}
+                                        onChange={e => updateItem(idx, 'comment', e.target.value)}
+                                        className="w-full mt-1 px-2.5 py-1.5 text-xs border border-red-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-300"
+                                    />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Signature (PEP) */}
+                    <div className="mt-4 p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                            <Shield className="w-3.5 h-3.5 inline mr-1" />
+                            Подтверждение (ПЭП) — введите пароль
+                        </label>
+                        <input
+                            type="password"
+                            placeholder="Пароль для электронной подписи"
+                            value={signature}
+                            onChange={e => setSignature(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400"
+                        />
+                    </div>
+
+                    {/* Decision buttons */}
+                    <div className="flex gap-2 mt-4">
+                        <button
+                            onClick={() => submitInspection('approved')}
+                            disabled={submitting}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-200 hover:shadow-emerald-300 hover:from-emerald-700 hover:to-emerald-600 transition disabled:opacity-50"
+                        >
+                            <CheckCircle2 className="w-5 h-5" />
+                            Допустить
+                        </button>
+                        <button
+                            onClick={() => submitInspection('rejected')}
+                            disabled={submitting}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-xl text-sm font-bold shadow-md shadow-red-200 hover:shadow-red-300 hover:from-red-700 hover:to-red-600 transition disabled:opacity-50"
+                        >
+                            <XCircle className="w-5 h-5" />
+                            Не допустить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-neutral-50">
             {/* Header */}
-            <header className="bg-white border-b border-slate-200 px-6 py-4">
+            <header className="bg-white border-b border-neutral-200 px-6 py-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center">
                             <Wrench className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900">Техосмотр</h1>
-                            <p className="text-sm text-slate-500">Предрейсовый осмотр ТС</p>
+                            <h1 className="text-xl font-bold text-neutral-900">Техосмотр</h1>
+                            <p className="text-sm text-neutral-500">Предрейсовый осмотр ТС</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={loadQueue}
-                            className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
+                            className="p-2.5 rounded-xl hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition"
                             title="Обновить"
                         >
                             <RotateCcw className="w-5 h-5" />
                         </button>
-                        <div className="flex bg-slate-100 rounded-xl p-1">
+                        <div className="flex bg-neutral-100 rounded-xl p-1">
                             <button
                                 onClick={() => setActiveTab('queue')}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'queue'
-                                    ? 'bg-white text-slate-900 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                    ? 'bg-white text-neutral-900 shadow-sm'
+                                    : 'text-neutral-500 hover:text-neutral-700'
                                     }`}
                             >
                                 Очередь ({queue.length})
@@ -348,8 +594,8 @@ export default function MechanicPage() {
                             <button
                                 onClick={() => setActiveTab('journal')}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition ${activeTab === 'journal'
-                                    ? 'bg-white text-slate-900 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                    ? 'bg-white text-neutral-900 shadow-sm'
+                                    : 'text-neutral-500 hover:text-neutral-700'
                                     }`}
                             >
                                 Журнал
@@ -359,263 +605,143 @@ export default function MechanicPage() {
                 </div>
             </header>
 
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm animate-in slide-in-from-top ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'
-                    }`}>
-                    {toast.message}
+            <div className="p-6 space-y-6">
+                {/* Stat cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Stat label="В очереди" value={queue.length} icon={Truck} tone="warning" />
+                    <Stat
+                        label="Записей в журнале"
+                        value={journal.length}
+                        icon={FileCheck}
+                        tone="info"
+                    />
+                    <Stat
+                        label="Допущено сегодня"
+                        value={journal.filter(r => r.decision === 'approved' && r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()).length}
+                        icon={CheckCircle2}
+                        tone="success"
+                    />
+                    <Stat
+                        label="Не допущено сегодня"
+                        value={journal.filter(r => r.decision === 'rejected' && r.createdAt && new Date(r.createdAt).toDateString() === new Date().toDateString()).length}
+                        icon={XCircle}
+                        tone="danger"
+                    />
                 </div>
-            )}
 
-            <div className="p-6">
-                {/* Inspection Form (selected vehicle) */}
-                {selectedVehicle && activeTab === 'queue' && (
-                    <div className="mb-6 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        {/* Vehicle header */}
-                        <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-6 py-4 text-white">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
-                                        <Truck className="w-7 h-7" />
-                                    </div>
-                                    <div>
-                                        <h2 className="text-lg font-bold">{selectedVehicle.vehicle.plateNumber}</h2>
-                                        {selectedVehicle.vehicle.bodyType && (
-                                            <p className="text-xs text-indigo-300">
-                                                Вид ТС: {getVehicleProfile(selectedVehicle.vehicle.bodyType).displayLabel}
-                                            </p>
-                                        )}
-                                        <p className="text-slate-300 text-sm">
-                                            {selectedVehicle.vehicle.make} {selectedVehicle.vehicle.model} ({selectedVehicle.vehicle.year})
-                                            • {Math.round(selectedVehicle.vehicle.currentOdometerKm).toLocaleString()} км
-                                            {tripReferences[selectedVehicle.trip.id]?.waybillNumber
-                                                ? ` • ПЛ: ${tripReferences[selectedVehicle.trip.id]!.waybillNumber}`
-                                                : ' • ПЛ: не оформлен'}
-                                        </p>
-                                    </div>
+                {/* Queue Tab — two-pane layout */}
+                {activeTab === 'queue' && (
+                    <div className={`grid gap-4 ${selectedVehicle ? 'xl:grid-cols-[minmax(360px,1fr)_minmax(0,420px)]' : 'grid-cols-1'}`}>
+                        {/* LEFT: List + filters */}
+                        <div className="min-w-0">
+                            {/* Sticky filter chips */}
+                            <div className="sticky top-0 z-10 -mx-1 px-1 py-2 bg-neutral-50/95 backdrop-blur-sm flex flex-wrap items-center gap-2 mb-2">
+                                <div className="flex bg-white border border-neutral-200 rounded-lg p-0.5 shadow-sm">
+                                    {(['all', 'today', 'week'] as DateFilter[]).map(f => (
+                                        <button
+                                            key={f}
+                                            onClick={() => setDateFilter(f)}
+                                            className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${dateFilter === f
+                                                ? 'bg-orange-100 text-orange-700'
+                                                : 'text-neutral-500 hover:text-neutral-700'
+                                                }`}
+                                        >
+                                            {f === 'all' ? 'Все' : f === 'today' ? 'Сегодня' : 'Эта неделя'}
+                                        </button>
+                                    ))}
                                 </div>
-                                <button
-                                    onClick={() => setSelectedVehicle(null)}
-                                    className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm transition"
-                                >
-                                    ← Назад
-                                </button>
-                            </div>
-
-                            {/* Document expiry */}
-                            <div className="flex gap-2 mt-3 flex-wrap">
-                                <ExpiryBadge
-                                    status={selectedVehicle.documentExpiry.techInspection.status}
-                                    label="Техосмотр"
-                                    date={selectedVehicle.documentExpiry.techInspection.expiry}
-                                />
-                                <ExpiryBadge
-                                    status={selectedVehicle.documentExpiry.osago.status}
-                                    label="ОСАГО"
-                                    date={selectedVehicle.documentExpiry.osago.expiry}
-                                />
-                                <ExpiryBadge
-                                    status={selectedVehicle.documentExpiry.maintenance.status}
-                                    label="ТО"
-                                    date={selectedVehicle.documentExpiry.maintenance.expiry}
-                                />
-                                <ExpiryBadge
-                                    status={selectedVehicle.documentExpiry.tachograph.status}
-                                    label="Тахограф"
-                                    date={selectedVehicle.documentExpiry.tachograph.expiry}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Checklist */}
-                        <div className="p-6">
-                            <div className="flex items-center justify-between gap-3 mb-4">
-                                <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Тип осмотра</h3>
-                                
-                                <div className="flex bg-slate-100 rounded-xl p-1">
-                                    <button
-                                        onClick={() => setInspectionType('pre_trip')}
-                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${inspectionType === 'pre_trip' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                                    >
-                                        Предрейсовый
-                                    </button>
-                                    <button
-                                        onClick={() => setInspectionType('periodic')}
-                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${inspectionType === 'periodic' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                                    >
-                                        Периодический
-                                    </button>
-                                </div>
-                            </div>
-
-                            <p className="text-xs text-slate-500 mb-4">
-                                {inspectionType === 'pre_trip'
-                                    ? 'Осмотр привязан к путевому листу выбранного рейса и может продвинуть статус выпуска.'
-                                    : 'Периодический осмотр фиксируется без влияния на рейс или путевой лист.'
-                                }
-                            </p>
-
-                            <h3 className="sr-only">
-                                <ClipboardCheck className="w-4 h-4 inline mr-1.5" />
-                                Чек-лист осмотра
-                            </h3>
-
-                            <div className="space-y-2">
-                                {checklistItems.map((item, idx) => (
-                                    <div
-                                        key={idx}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border transition ${item.result === 'ok'
-                                            ? 'border-emerald-200 bg-emerald-50'
-                                            : item.result === 'fault'
-                                                ? 'border-red-200 bg-red-50'
-                                                : 'border-slate-200 bg-white'
-                                            }`}
-                                    >
-                                        <span className="flex-1 text-sm font-medium text-slate-800 min-w-[180px]">
-                                            {item.name}
-                                        </span>
-
-                                        <div className="flex items-center gap-1.5">
-                                            <button
-                                                onClick={() => updateItem(idx, 'result', 'ok')}
-                                                className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${item.result === 'ok'
-                                                    ? 'bg-emerald-600 text-white shadow-sm'
-                                                    : 'bg-slate-100 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700'
-                                                    }`}
-                                            >
-                                                ОК
-                                            </button>
-                                            <button
-                                                onClick={() => updateItem(idx, 'result', 'fault')}
-                                                className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${item.result === 'fault'
-                                                    ? 'bg-red-600 text-white shadow-sm'
-                                                    : 'bg-slate-100 text-slate-500 hover:bg-red-100 hover:text-red-700'
-                                                    }`}
-                                            >
-                                                Неиспр.
-                                            </button>
-                                        </div>
-
-                                        {item.result === 'fault' && (
-                                            <input
-                                                type="text"
-                                                placeholder="Комментарий..."
-                                                value={item.comment}
-                                                onChange={e => updateItem(idx, 'comment', e.target.value)}
-                                                className="flex-1 max-w-[250px] px-3 py-2 text-sm border border-red-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-red-300"
-                                            />
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Signature (PEP) */}
-                            <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                    <Shield className="w-4 h-4 inline mr-1.5" />
-                                    Подтверждение (ПЭП) — введите пароль
-                                </label>
                                 <input
-                                    type="password"
-                                    placeholder="Пароль для электронной подписи"
-                                    value={signature}
-                                    onChange={e => setSignature(e.target.value)}
-                                    className="w-full max-w-md px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400"
+                                    type="text"
+                                    placeholder="Поиск по ТС / рейсу..."
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    className="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
                                 />
+                                <span className="text-[11px] text-neutral-400 ml-auto">
+                                    {filteredQueue.length} из {queue.length}
+                                </span>
                             </div>
 
-                            {/* Decision buttons */}
-                            <div className="flex gap-4 mt-6">
-                                <button
-                                    onClick={() => submitInspection('approved')}
-                                    disabled={submitting}
-                                    className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl text-lg font-bold shadow-lg shadow-emerald-200 hover:shadow-emerald-300 hover:from-emerald-700 hover:to-emerald-600 transition disabled:opacity-50"
-                                >
-                                    <CheckCircle2 className="w-6 h-6" />
-                                    Допустить
-                                </button>
-                                <button
-                                    onClick={() => submitInspection('rejected')}
-                                    disabled={submitting}
-                                    className="flex-1 flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-xl text-lg font-bold shadow-lg shadow-red-200 hover:shadow-red-300 hover:from-red-700 hover:to-red-600 transition disabled:opacity-50"
-                                >
-                                    <XCircle className="w-6 h-6" />
-                                    Не допустить
-                                </button>
-                            </div>
+                            {loading ? (
+                                <div className="rounded-2xl border border-neutral-200 bg-white p-5">
+                                    <SkeletonTable rows={6} columns={2} />
+                                </div>
+                            ) : filteredQueue.length === 0 ? (
+                                <EmptyState
+                                    icon={CheckCircle2}
+                                    title="Очередь пуста — все осмотрены сегодня"
+                                    description="Новые ТС появятся после назначения рейсов."
+                                    tone="success"
+                                />
+                            ) : (
+                                <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden divide-y divide-neutral-100">
+                                    {filteredQueue.map((item) => {
+                                        const isSelected = selectedVehicle?.vehicle.id === item.vehicle.id;
+                                        return (
+                                            <div
+                                                key={item.vehicle.id}
+                                                onClick={() => selectVehicle(item)}
+                                                className={`group flex items-center gap-3 px-4 py-3 cursor-pointer transition relative ${isSelected
+                                                    ? 'bg-orange-50 ring-1 ring-inset ring-orange-200'
+                                                    : 'hover:bg-neutral-50'
+                                                    }`}
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm font-bold text-neutral-900 truncate">
+                                                            {item.vehicle.plateNumber}
+                                                        </span>
+                                                        <VehicleStatusPill item={item} />
+                                                    </div>
+                                                    <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                                                        {item.vehicle.make} {item.vehicle.model}
+                                                        {' · ПЛ: '}{tripReferences[item.trip.id]?.waybillNumber || 'еще не создан'}
+                                                        {' · Рейс: '}{item.trip.number}
+                                                    </p>
+                                                </div>
+                                                {/* Hover quick actions */}
+                                                <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); selectVehicle(item); }}
+                                                        className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
+                                                        title="Открыть осмотр для допуска"
+                                                    >
+                                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                                        Допустить
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); selectVehicle(item); }}
+                                                        className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
+                                                        title="Открыть осмотр для отказа"
+                                                    >
+                                                        <XCircle className="w-3.5 h-3.5" />
+                                                        Не пропускать
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
-                    </div>
-                )}
 
-                {/* Queue Tab */}
-                {activeTab === 'queue' && !selectedVehicle && (
-                    <div>
-                        <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <Truck className="w-5 h-5 text-orange-500" />
-                            Очередь на техосмотр
-                        </h2>
-
-                        {loading ? (
-                            <div className="flex items-center justify-center py-20">
-                                <div className="w-10 h-10 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin" />
-                            </div>
-                        ) : queue.length === 0 ? (
-                            <div className="text-center py-20 bg-white rounded-2xl border border-slate-200">
-                                <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
-                                <p className="text-lg font-semibold text-slate-600">Все ТС осмотрены</p>
-                                <p className="text-sm text-slate-400 mt-1">Новые ТС появятся после назначения рейсов</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                {queue.map((item) => (
-                                    <Card
-                                        key={item.vehicle.id}
-                                        onClick={() => selectVehicle(item)}
-                                        className="cursor-pointer hover:border-orange-300 hover:shadow-lg hover:shadow-orange-50 transition-all text-left group"
-                                    >
-                                        <CardContent className="p-5">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <span className="text-xl font-bold text-slate-900">
-                                                    {item.vehicle.plateNumber}
-                                                </span>
-                                                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-500 transition" />
-                                            </div>
-                                            {item.vehicle.bodyType && (
-                                                <p className="text-xs text-indigo-600 mb-1">
-                                                    Вид ТС: {getVehicleProfile(item.vehicle.bodyType).displayLabel}
-                                                </p>
-                                            )}
-
-                                            <p className="text-sm text-slate-500 mb-1">
-                                                {item.vehicle.make} {item.vehicle.model} ({item.vehicle.year})
-                                            </p>
-                                            <p className="text-xs text-slate-400 mb-3">
-                                                Пробег: {Math.round(item.vehicle.currentOdometerKm).toLocaleString()} км
-                                                • ПЛ: {tripReferences[item.trip.id]?.waybillNumber || 'еще не создан'}
-                                                • Рейс: {item.trip.number}
-                                            </p>
-
-                                            {/* Document expiry mini */}
-                                            <div className="flex flex-wrap gap-1.5">
-                                                <ExpiryBadge
-                                                    status={item.documentExpiry.techInspection.status}
-                                                    label="ТО"
-                                                    date={null}
-                                                />
-                                                <ExpiryBadge
-                                                    status={item.documentExpiry.osago.status}
-                                                    label="ОСАГО"
-                                                    date={null}
-                                                />
-                                                <ExpiryBadge
-                                                    status={item.documentExpiry.tachograph.status}
-                                                    label="Тахограф"
-                                                    date={null}
-                                                />
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))}
+                        {/* RIGHT: Detail pane (xl+ only) */}
+                        {selectedVehicle && (
+                            <div className="hidden xl:block min-w-0">
+                                <div className="sticky top-2 rounded-2xl border border-neutral-200 shadow-sm overflow-hidden bg-white max-h-[calc(100vh-7rem)] overflow-y-auto">
+                                    <div className="flex items-center justify-between px-4 py-2.5 bg-neutral-100 border-b border-neutral-200">
+                                        <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wide">
+                                            Карточка осмотра
+                                        </span>
+                                        <button
+                                            onClick={closeDetail}
+                                            className="text-xs text-neutral-500 hover:text-neutral-700"
+                                        >
+                                            Закрыть ✕
+                                        </button>
+                                    </div>
+                                    {renderInspectionForm(false)}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -624,33 +750,40 @@ export default function MechanicPage() {
                 {/* Journal Tab */}
                 {activeTab === 'journal' && (
                     <div>
-                        <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <h2 className="text-lg font-bold text-neutral-800 mb-4 flex items-center gap-2">
                             <FileCheck className="w-5 h-5 text-blue-500" />
                             Журнал техосмотров
                         </h2>
 
-                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                        <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="border-b border-slate-100 bg-slate-50">
-                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">Дата</th>
-                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">ТС</th>
-                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">ПЛ</th>
-                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">Решение</th>
-                                        <th className="text-left px-4 py-3 font-semibold text-slate-600">Неисправности</th>
+                                    <tr className="border-b border-neutral-100 bg-neutral-50">
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">Дата</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">ТС</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">ПЛ</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">Решение</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">Неисправности</th>
+                                        <th className="text-left px-4 py-3 font-semibold text-neutral-600">Акт</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {journal.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="text-center py-10 text-slate-400">
-                                                Нет записей
+                                            <td colSpan={6}>
+                                                <div className="p-6">
+                                                    <EmptyState
+                                                        icon={FileCheck}
+                                                        title="Журнал пуст"
+                                                        description="Здесь появятся записи о техосмотрах."
+                                                    />
+                                                </div>
                                             </td>
                                         </tr>
                                     ) : (
                                         journal.map((record) => (
-                                            <tr key={record.id} className="border-b border-slate-50 hover:bg-slate-50">
-                                                <td className="px-4 py-3 text-slate-600">
+                                            <tr key={record.id} className="border-b border-neutral-50 hover:bg-neutral-50">
+                                                <td className="px-4 py-3 text-neutral-600">
                                                     {new Date(record.createdAt).toLocaleString('ru-RU', {
                                                         day: '2-digit',
                                                         month: '2-digit',
@@ -659,26 +792,26 @@ export default function MechanicPage() {
                                                         minute: '2-digit',
                                                     })}
                                                 </td>
-                                                <td className="px-4 py-3 font-medium text-slate-900">
+                                                <td className="px-4 py-3 font-medium text-neutral-900">
                                                     {vehicleMap[record.vehicleId] || record.vehicleId.substring(0, 8) + '...'}
                                                 </td>
-                                                <td className="px-4 py-3 text-slate-500 text-xs">
+                                                <td className="px-4 py-3 text-neutral-500 text-xs">
                                                     {record.tripId ? (
                                                         tripReferences[record.tripId]?.waybillNumber ? (
                                                             <div className="space-y-0.5">
-                                                                <div className="font-semibold text-slate-800">
+                                                                <div className="font-semibold text-neutral-800">
                                                                     ПЛ № {tripReferences[record.tripId]!.waybillNumber}
                                                                 </div>
-                                                                <div className="text-slate-400">
+                                                                <div className="text-neutral-400">
                                                                     Рейс {tripReferences[record.tripId]?.tripNumber ?? '—'}
                                                                 </div>
                                                             </div>
                                                         ) : (
                                                             <div className="space-y-0.5">
-                                                                <div className="font-semibold text-slate-500">
+                                                                <div className="font-semibold text-neutral-500">
                                                                     ПЛ не оформлен
                                                                 </div>
-                                                                <div className="text-slate-400">
+                                                                <div className="text-neutral-400">
                                                                     Рейс {tripReferences[record.tripId]?.tripNumber ?? '—'}
                                                                 </div>
                                                             </div>
@@ -697,11 +830,46 @@ export default function MechanicPage() {
                                                         )}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3 text-slate-500 text-xs">
+                                                <td className="px-4 py-3 text-neutral-500 text-xs">
                                                     {record.items
                                                         ?.filter(i => i.result === 'fault')
                                                         .map(i => i.name)
                                                         .join(', ') || '—'}
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <a
+                                                            href={`/api/inspections/tech/${record.id}/pdf`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition"
+                                                            title="Скачать акт PDF"
+                                                        >
+                                                            <FileText className="w-3.5 h-3.5" />
+                                                            PDF акт
+                                                        </a>
+                                                        {/* D5: per-row decision override (calls POST /inspections/tech/:id/decision). */}
+                                                        {record.decision !== 'approved' && (
+                                                            <button
+                                                                onClick={() => overrideDecision(record, 'approved')}
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+                                                                title="Допустить"
+                                                            >
+                                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                                                Допустить
+                                                            </button>
+                                                        )}
+                                                        {record.decision !== 'rejected' && (
+                                                            <button
+                                                                onClick={() => overrideDecision(record, 'rejected')}
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 transition"
+                                                                title="Не допускать"
+                                                            >
+                                                                <XCircle className="w-3.5 h-3.5" />
+                                                                Не допускать
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
@@ -712,6 +880,20 @@ export default function MechanicPage() {
                     </div>
                 )}
             </div>
+
+            {/* SideDrawer — used on screens < xl (selectedVehicle but inline pane is hidden) */}
+            <div className="xl:hidden">
+                <SideDrawer
+                    open={drawerOpen && !!selectedVehicle && activeTab === 'queue'}
+                    onClose={closeDetail}
+                    title={selectedVehicle ? `Осмотр: ${selectedVehicle.vehicle.plateNumber}` : ''}
+                    subtitle={selectedVehicle ? `${selectedVehicle.vehicle.make} ${selectedVehicle.vehicle.model} · Рейс ${selectedVehicle.trip.number}` : ''}
+                    width="lg"
+                >
+                    {renderInspectionForm(true)}
+                </SideDrawer>
+            </div>
+
         </div>
     );
 }

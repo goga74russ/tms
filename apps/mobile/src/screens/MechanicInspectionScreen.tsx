@@ -1,20 +1,34 @@
 // ============================================================
 // MechanicInspectionScreen — Tech inspection flow for mechanics
 // Steps: Queue → Checklist → Sign → Submit
+// Visual refresh: card-based queue, toggle buttons, signature canvas
 // ============================================================
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    View, Text, StyleSheet, TouchableOpacity, ScrollView,
-    TextInput, Alert, ActivityIndicator, FlatList,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import SignatureScreen, { SignatureViewRef } from 'react-native-signature-canvas';
 import { uploadPhoto } from '../api/upload';
 import {
-    getTechQueue, getTechChecklist,
+    ChecklistTemplate,
+    QueueItem,
+    TechInspectionItem,
+    getTechChecklist,
+    getTechQueue,
     submitTechInspection,
-    QueueItem, ChecklistTemplate, TechInspectionItem,
 } from '../api/inspections';
+import { Button, Card, EmptyState, Pill, ProgressSteps } from '../components/ui';
+import { colors, radius, spacing, typography } from '../theme/tokens';
 
 type Step = 'queue' | 'checklist' | 'camera' | 'decision' | 'signature';
 
@@ -49,10 +63,7 @@ export default function MechanicInspectionScreen() {
     async function loadQueue() {
         setLoading(true);
         try {
-            const [queueData, templateData] = await Promise.all([
-                getTechQueue(),
-                getTechChecklist(),
-            ]);
+            const [queueData, templateData] = await Promise.all([getTechQueue(), getTechChecklist()]);
             setQueue(queueData);
             setTemplate(templateData);
         } catch (e: any) {
@@ -83,11 +94,11 @@ export default function MechanicInspectionScreen() {
     }
 
     function setItemResult(index: number, result: 'ok' | 'fault') {
-        setChecklist(prev => prev.map((item, i) => i === index ? { ...item, result } : item));
+        setChecklist((prev) => prev.map((item, i) => (i === index ? { ...item, result } : item)));
     }
 
     function setItemComment(index: number, comment: string) {
-        setChecklist(prev => prev.map((item, i) => i === index ? { ...item, comment } : item));
+        setChecklist((prev) => prev.map((item, i) => (i === index ? { ...item, comment } : item)));
     }
 
     function openCamera(index: number) {
@@ -103,16 +114,16 @@ export default function MechanicInspectionScreen() {
         if (!cameraRef.current || currentPhotoIndex === null) return;
         const photo = await cameraRef.current.takePictureAsync();
         if (photo?.uri) {
-            setChecklist(prev => prev.map((item, i) =>
-                i === currentPhotoIndex ? { ...item, photoUri: photo.uri } : item
-            ));
+            setChecklist((prev) =>
+                prev.map((item, i) => (i === currentPhotoIndex ? { ...item, photoUri: photo.uri } : item))
+            );
         }
         setStep('checklist');
         setCurrentPhotoIndex(null);
     }
 
     function allItemsAnswered() {
-        return checklist.every(item => item.result !== null);
+        return checklist.every((item) => item.result !== null);
     }
 
     function proceedToDecision() {
@@ -120,7 +131,7 @@ export default function MechanicInspectionScreen() {
             Alert.alert('Внимание', 'Оцените все пункты чек-листа');
             return;
         }
-        const hasFaults = checklist.some(item => item.result === 'fault');
+        const hasFaults = checklist.some((item) => item.result === 'fault');
         setDecision(hasFaults ? 'rejected' : 'approved');
         setStep('decision');
     }
@@ -136,9 +147,7 @@ export default function MechanicInspectionScreen() {
     async function handleSignature(sig: string) {
         if (!selectedItem || !template) return;
         setSubmitting(true);
-
         try {
-            // Upload any fault photos
             const resolvedItems: TechInspectionItem[] = await Promise.all(
                 checklist.map(async (item) => {
                     let photoUrl = item.photoUrl;
@@ -146,7 +155,7 @@ export default function MechanicInspectionScreen() {
                         try {
                             photoUrl = await uploadPhoto(item.photoUri);
                         } catch {
-                            photoUrl = item.photoUri; // fallback
+                            photoUrl = item.photoUri;
                         }
                     }
                     return {
@@ -174,7 +183,15 @@ export default function MechanicInspectionScreen() {
                 decision === 'approved'
                     ? `${selectedItem.vehicle.plateNumber} — осмотр пройден`
                     : `${selectedItem.vehicle.plateNumber} — выявлены неисправности`,
-                [{ text: 'OK', onPress: () => { setStep('queue'); loadQueue(); } }]
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            setStep('queue');
+                            loadQueue();
+                        },
+                    },
+                ]
             );
         } catch (e: any) {
             Alert.alert('Ошибка', e.message || 'Не удалось отправить результаты');
@@ -184,145 +201,191 @@ export default function MechanicInspectionScreen() {
         }
     }
 
-    // ── Queue screen ────────────────────────────────────────────
+    // ── Queue ────────────────────────────────────────────
     if (step === 'queue') {
         return (
-            <View style={styles.container}>
-                <Text style={styles.title}>Очередь техосмотра</Text>
+            <View style={styles.root}>
+                <View style={styles.headerWrap}>
+                    <Text style={styles.title}>Очередь техосмотра</Text>
+                    <Pill
+                        label={template ? `Чек-лист v${template.version}` : 'Загрузка...'}
+                        tone="brand"
+                        style={{ marginTop: spacing.sm }}
+                    />
+                </View>
                 {loading ? (
-                    <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 40 }} />
+                    <ActivityIndicator size="large" color={colors.brand[600]} style={{ marginTop: spacing.xxxl }} />
                 ) : queue.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <Text style={styles.emptyText}>Нет ТС, ожидающих осмотра</Text>
-                        <TouchableOpacity style={styles.refreshButton} onPress={loadQueue}>
-                            <Text style={styles.refreshText}>Обновить</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <EmptyState
+                        icon="🔧"
+                        title="Нет ТС, ожидающих осмотра"
+                        description="Когда диспетчер назначит рейс с предрейсовым техосмотром, он появится здесь."
+                        actionLabel="Обновить"
+                        onAction={loadQueue}
+                    />
                 ) : (
-                    <>
-                        <FlatList
-                            data={queue}
-                            keyExtractor={item => item.trip.id}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={styles.queueCard}
-                                    onPress={() => startInspection(item)}
-                                    disabled={!template}
-                                >
-                                    <View style={styles.queueCardRow}>
+                    <FlatList
+                        data={queue}
+                        keyExtractor={(item) => item.trip.id}
+                        contentContainerStyle={{ padding: spacing.lg, paddingTop: 0 }}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                activeOpacity={0.85}
+                                onPress={() => startInspection(item)}
+                                disabled={!template}
+                            >
+                                <Card style={{ marginBottom: spacing.md }}>
+                                    <View style={styles.queueCardHeader}>
                                         <Text style={styles.licensePlate}>{item.vehicle.plateNumber}</Text>
-                                        <Text style={styles.tripNumber}>Рейс {item.trip.number}</Text>
+                                        <Pill label={`Рейс ${item.trip.number}`} tone="neutral" />
                                     </View>
                                     <Text style={styles.vehicleName}>
                                         {item.vehicle.make} {item.vehicle.model}
                                     </Text>
                                     {item.trip.plannedDepartureAt && (
                                         <Text style={styles.departureTime}>
-                                            Отправление: {new Date(item.trip.plannedDepartureAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                                            ⏱ Отправление:{' '}
+                                            {new Date(item.trip.plannedDepartureAt).toLocaleTimeString('ru-RU', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            })}
                                         </Text>
                                     )}
                                     <Text style={styles.startInspection}>Начать осмотр →</Text>
-                                </TouchableOpacity>
-                            )}
-                            contentContainerStyle={{ paddingBottom: 24 }}
-                        />
-                        <TouchableOpacity style={styles.refreshButton} onPress={loadQueue}>
-                            <Text style={styles.refreshText}>Обновить список</Text>
-                        </TouchableOpacity>
-                    </>
+                                </Card>
+                            </TouchableOpacity>
+                        )}
+                        ListFooterComponent={
+                            <Button
+                                title="Обновить список"
+                                variant="ghost"
+                                size="md"
+                                fullWidth
+                                onPress={loadQueue}
+                                style={{ marginTop: spacing.md }}
+                            />
+                        }
+                    />
                 )}
             </View>
         );
     }
 
-    // ── Camera screen ───────────────────────────────────────────
+    // ── Camera ───────────────────────────────────────────
     if (step === 'camera') {
         return (
             <View style={styles.cameraContainer}>
                 <CameraView style={styles.camera} facing="back" ref={cameraRef}>
-                    <View style={styles.cameraButtons}>
-                        <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
-                            <View style={styles.captureInner} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.cancelCameraButton}
-                            onPress={() => { setStep('checklist'); setCurrentPhotoIndex(null); }}
-                        >
-                            <Text style={styles.cancelCameraText}>Отмена</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <SafeAreaView style={styles.cameraOverlay} edges={['top', 'bottom']}>
+                        <View style={styles.cameraBottom}>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setStep('checklist');
+                                    setCurrentPhotoIndex(null);
+                                }}
+                            >
+                                <Text style={styles.cameraCancel}>Отмена</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+                                <View style={styles.captureInner} />
+                            </TouchableOpacity>
+                            <View style={{ width: 70 }} />
+                        </View>
+                    </SafeAreaView>
                 </CameraView>
             </View>
         );
     }
 
-    // ── Signature screen ────────────────────────────────────────
+    // ── Signature ────────────────────────────────────────
     if (step === 'signature') {
         return (
-            <View style={styles.signatureContainer}>
+            <View style={styles.root}>
+                <View style={styles.headerWrap}>
+                    <Text style={styles.title}>Подпись механика</Text>
+                    <Text style={styles.subtitle}>ПЭП — простая электронная подпись</Text>
+                    <ProgressSteps total={3} activeIndex={2} labels={['Чек-лист', 'Решение', 'Подпись']} style={{ marginTop: spacing.md }} />
+                </View>
                 {submitting ? (
                     <View style={styles.loadingOverlay}>
-                        <ActivityIndicator size="large" color="#2563eb" />
+                        <ActivityIndicator size="large" color={colors.brand[600]} />
                         <Text style={styles.loadingText}>Отправка результатов...</Text>
                     </View>
                 ) : (
                     <>
-                        <Text style={styles.instructions}>Подпись механика (ПЭП)</Text>
-                        <SignatureScreen
-                            ref={signatureRef}
-                            onOK={handleSignature}
-                            onEmpty={() => Alert.alert('Пожалуйста, распишитесь')}
-                            descriptionText="Подпись механика"
-                            clearText="Очистить"
-                            confirmText="Подписать и сохранить"
-                            webStyle={`.m-signature-pad {box-shadow: none; border: none; margin: 0px;}`}
-                        />
-                        <TouchableOpacity
-                            style={styles.backButton}
-                            onPress={() => setStep('decision')}
-                        >
-                            <Text style={styles.backButtonText}>← Назад</Text>
-                        </TouchableOpacity>
+                        <View style={styles.signCanvas}>
+                            <SignatureScreen
+                                ref={signatureRef}
+                                onOK={handleSignature}
+                                onEmpty={() => Alert.alert('Пожалуйста, распишитесь')}
+                                descriptionText="Подпись механика"
+                                clearText="Очистить"
+                                confirmText="Подписать и сохранить"
+                                webStyle={`.m-signature-pad {box-shadow: none; border: none; margin: 0px;}`}
+                            />
+                        </View>
+                        <View style={{ padding: spacing.lg }}>
+                            <Button title="← Назад" variant="ghost" size="md" onPress={() => setStep('decision')} />
+                        </View>
                     </>
                 )}
             </View>
         );
     }
 
-    // ── Decision screen ─────────────────────────────────────────
+    // ── Decision ─────────────────────────────────────────
     if (step === 'decision') {
+        const faults = checklist.filter((i) => i.result === 'fault');
         return (
-            <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+            <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
                 <Text style={styles.title}>Решение</Text>
                 <Text style={styles.subtitle}>
                     {selectedItem?.vehicle.plateNumber} — {selectedItem?.vehicle.make} {selectedItem?.vehicle.model}
                 </Text>
+                <ProgressSteps total={3} activeIndex={1} labels={['Чек-лист', 'Решение', 'Подпись']} style={{ marginTop: spacing.md }} />
 
-                {checklist.filter(i => i.result === 'fault').length > 0 && (
-                    <View style={styles.faultsBox}>
+                {faults.length > 0 && (
+                    <Card style={{ marginTop: spacing.lg, backgroundColor: colors.danger[50], borderColor: '#fecaca' }} elevation="none">
                         <Text style={styles.faultsTitle}>Выявленные неисправности:</Text>
-                        {checklist.filter(i => i.result === 'fault').map((item, idx) => (
-                            <Text key={idx} style={styles.faultItem}>• {item.name}{item.comment ? `: ${item.comment}` : ''}</Text>
+                        {faults.map((item, idx) => (
+                            <Text key={idx} style={styles.faultItem}>
+                                • {item.name}
+                                {item.comment ? `: ${item.comment}` : ''}
+                            </Text>
                         ))}
-                    </View>
+                    </Card>
                 )}
 
                 <Text style={styles.label}>Решение</Text>
                 <View style={styles.decisionRow}>
                     <TouchableOpacity
-                        style={[styles.decisionButton, decision === 'approved' && styles.decisionApproved]}
+                        style={[
+                            styles.decisionButton,
+                            decision === 'approved' && {
+                                backgroundColor: colors.success[50],
+                                borderColor: colors.success[500],
+                            },
+                        ]}
                         onPress={() => setDecision('approved')}
+                        activeOpacity={0.85}
                     >
-                        <Text style={[styles.decisionText, decision === 'approved' && styles.decisionTextActive]}>
+                        <Text style={[styles.decisionText, decision === 'approved' && { color: colors.success[700] }]}>
                             ✓ Допустить
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        style={[styles.decisionButton, decision === 'rejected' && styles.decisionRejected]}
+                        style={[
+                            styles.decisionButton,
+                            decision === 'rejected' && {
+                                backgroundColor: colors.danger[50],
+                                borderColor: colors.danger[500],
+                            },
+                        ]}
                         onPress={() => setDecision('rejected')}
+                        activeOpacity={0.85}
                     >
-                        <Text style={[styles.decisionText, decision === 'rejected' && styles.decisionTextActive]}>
-                            ✕ Отказать
+                        <Text style={[styles.decisionText, decision === 'rejected' && { color: colors.danger[700] }]}>
+                            ✕ Не допускать
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -333,417 +396,263 @@ export default function MechanicInspectionScreen() {
                     multiline
                     numberOfLines={3}
                     placeholder="Дополнительные замечания..."
+                    placeholderTextColor={colors.neutral[400]}
                     value={decisionComment}
                     onChangeText={setDecisionComment}
                 />
 
-                <TouchableOpacity
-                    style={[styles.primaryButton, !decision && styles.primaryButtonDisabled]}
+                <Button
+                    title="Перейти к подписи →"
+                    variant="primary"
+                    size="lg"
+                    fullWidth
                     onPress={proceedToSignature}
                     disabled={!decision}
-                >
-                    <Text style={styles.buttonText}>Перейти к подписи →</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.backButton} onPress={() => setStep('checklist')}>
-                    <Text style={styles.backButtonText}>← Назад к чек-листу</Text>
-                </TouchableOpacity>
+                    style={{ marginTop: spacing.lg }}
+                />
+                <Button
+                    title="← Назад к чек-листу"
+                    variant="ghost"
+                    size="md"
+                    fullWidth
+                    onPress={() => setStep('checklist')}
+                    style={{ marginTop: spacing.sm }}
+                />
             </ScrollView>
         );
     }
 
-    // ── Checklist screen ────────────────────────────────────────
+    // ── Checklist ────────────────────────────────────────
+    const progress = checklist.filter((i) => i.result !== null).length;
     return (
-        <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+        <ScrollView style={styles.root} contentContainerStyle={{ padding: spacing.lg }} keyboardShouldPersistTaps="handled">
             <Text style={styles.title}>Техосмотр</Text>
             <Text style={styles.subtitle}>
                 {selectedItem?.vehicle.plateNumber} — {selectedItem?.vehicle.make} {selectedItem?.vehicle.model}
             </Text>
             <Text style={styles.tripLabel}>Рейс {selectedItem?.trip.number}</Text>
+            <ProgressSteps total={3} activeIndex={0} labels={['Чек-лист', 'Решение', 'Подпись']} style={{ marginTop: spacing.md }} />
 
-            {checklist.map((item, index) => (
-                <View key={index} style={styles.checklistItem}>
-                    <Text style={styles.checklistName}>{index + 1}. {item.name}</Text>
-                    <View style={styles.resultRow}>
-                        <TouchableOpacity
-                            style={[styles.resultButton, item.result === 'ok' && styles.resultOk]}
-                            onPress={() => setItemResult(index, 'ok')}
-                        >
-                            <Text style={[styles.resultText, item.result === 'ok' && styles.resultTextActive]}>
-                                ✓ OK
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.resultButton, item.result === 'fault' && styles.resultFault]}
-                            onPress={() => setItemResult(index, 'fault')}
-                        >
-                            <Text style={[styles.resultText, item.result === 'fault' && styles.resultTextActive]}>
-                                ✕ Неисправность
-                            </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.photoButton, item.photoUri && styles.photoButtonDone]}
-                            onPress={() => openCamera(index)}
-                        >
-                            <Text style={styles.photoButtonText}>{item.photoUri ? '📷✓' : '📷'}</Text>
-                        </TouchableOpacity>
-                    </View>
-                    {item.result === 'fault' && (
-                        <TextInput
-                            style={styles.commentInput}
-                            placeholder="Описание неисправности..."
-                            value={item.comment}
-                            onChangeText={text => setItemComment(index, text)}
-                        />
-                    )}
-                </View>
-            ))}
+            {checklist.map((item, index) => {
+                const isFault = item.result === 'fault';
+                const isOk = item.result === 'ok';
+                return (
+                    <Card key={index} style={{ marginTop: spacing.md }} elevation="none">
+                        <Text style={styles.checklistName}>
+                            {index + 1}. {item.name}
+                        </Text>
+                        <View style={styles.resultRow}>
+                            <TouchableOpacity
+                                style={[styles.resultButton, isOk && styles.resultOk]}
+                                onPress={() => setItemResult(index, 'ok')}
+                                activeOpacity={0.85}
+                            >
+                                <Text style={[styles.resultText, isOk && { color: colors.success[700], fontWeight: '700' }]}>
+                                    ✓ OK
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.resultButton, isFault && styles.resultFault]}
+                                onPress={() => setItemResult(index, 'fault')}
+                                activeOpacity={0.85}
+                            >
+                                <Text style={[styles.resultText, isFault && { color: colors.danger[700], fontWeight: '700' }]}>
+                                    ✕ Не ОК
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.photoButton, item.photoUri && styles.photoButtonDone]}
+                                onPress={() => openCamera(index)}
+                                activeOpacity={0.85}
+                            >
+                                <Text style={styles.photoButtonText}>{item.photoUri ? '📷✓' : '📷'}</Text>
+                            </TouchableOpacity>
+                        </View>
+                        {isFault && (
+                            <TextInput
+                                style={styles.commentInput}
+                                placeholder="Описание неисправности..."
+                                placeholderTextColor={colors.neutral[400]}
+                                value={item.comment}
+                                onChangeText={(text) => setItemComment(index, text)}
+                            />
+                        )}
+                    </Card>
+                );
+            })}
 
             <View style={styles.progressBar}>
-                <View style={[
-                    styles.progressFill,
-                    { width: `${(checklist.filter(i => i.result !== null).length / checklist.length) * 100}%` }
-                ]} />
+                <View style={[styles.progressFill, { width: `${(progress / checklist.length) * 100}%` }]} />
             </View>
             <Text style={styles.progressText}>
-                {checklist.filter(i => i.result !== null).length} / {checklist.length} пунктов
+                {progress} / {checklist.length} пунктов
             </Text>
 
-            <TouchableOpacity
-                style={[styles.primaryButton, !allItemsAnswered() && styles.primaryButtonDisabled]}
+            <Button
+                title="Перейти к решению →"
+                variant="primary"
+                size="lg"
+                fullWidth
                 onPress={proceedToDecision}
                 disabled={!allItemsAnswered()}
-            >
-                <Text style={styles.buttonText}>Перейти к решению →</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.backButton} onPress={() => setStep('queue')}>
-                <Text style={styles.backButtonText}>← Отмена</Text>
-            </TouchableOpacity>
+                style={{ marginTop: spacing.md }}
+            />
+            <Button
+                title="← Отмена"
+                variant="ghost"
+                size="md"
+                fullWidth
+                onPress={() => setStep('queue')}
+                style={{ marginTop: spacing.sm }}
+            />
         </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        padding: 16,
-        backgroundColor: '#fff',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 4,
-        color: '#0f172a',
-    },
-    subtitle: {
-        fontSize: 16,
-        color: '#475569',
-        marginBottom: 4,
-    },
-    tripLabel: {
-        fontSize: 14,
-        color: '#94a3b8',
-        marginBottom: 24,
-    },
+    root: { flex: 1, backgroundColor: colors.neutral[50] },
+    headerWrap: { padding: spacing.lg },
+    title: { ...typography.title, color: colors.neutral[900] },
+    subtitle: { ...typography.body, color: colors.neutral[600], marginTop: 4 },
+    tripLabel: { fontSize: 13, color: colors.neutral[400], marginTop: 2 },
     label: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 8,
-        marginTop: 16,
-        color: '#334155',
+        ...typography.captionBold,
+        color: colors.neutral[700],
+        marginTop: spacing.lg,
+        marginBottom: spacing.sm,
     },
-    emptyState: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingTop: 60,
-    },
-    emptyText: {
-        fontSize: 16,
-        color: '#64748b',
-        marginBottom: 24,
-    },
-    queueCard: {
-        backgroundColor: '#f8fafc',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-    },
-    queueCardRow: {
+
+    queueCardHeader: {
         flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: 4,
     },
-    licensePlate: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#0f172a',
-    },
-    tripNumber: {
-        fontSize: 14,
-        color: '#64748b',
-        alignSelf: 'center',
-    },
-    vehicleName: {
-        fontSize: 14,
-        color: '#475569',
-        marginBottom: 4,
-    },
-    departureTime: {
-        fontSize: 13,
-        color: '#94a3b8',
-        marginBottom: 8,
-    },
-    startInspection: {
-        fontSize: 14,
-        color: '#2563eb',
-        fontWeight: '600',
-    },
-    refreshButton: {
-        alignItems: 'center',
-        padding: 12,
-        marginVertical: 8,
-    },
-    refreshText: {
-        color: '#2563eb',
-        fontSize: 15,
-    },
-    checklistItem: {
-        backgroundColor: '#f8fafc',
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-    },
-    checklistName: {
-        fontSize: 15,
-        color: '#0f172a',
-        marginBottom: 10,
-        fontWeight: '500',
-    },
-    resultRow: {
-        flexDirection: 'row',
-        gap: 8,
-    },
+    licensePlate: { fontSize: 20, fontWeight: '700', color: colors.neutral[900], letterSpacing: 1 },
+    vehicleName: { fontSize: 14, color: colors.neutral[600], marginTop: 4 },
+    departureTime: { fontSize: 13, color: colors.neutral[500], marginTop: 6 },
+    startInspection: { fontSize: 14, color: colors.brand[600], fontWeight: '700', marginTop: spacing.sm },
+
+    checklistName: { ...typography.bodyBold, color: colors.neutral[900], marginBottom: spacing.sm },
+    resultRow: { flexDirection: 'row', gap: spacing.sm },
     resultButton: {
         flex: 1,
-        paddingVertical: 10,
-        borderRadius: 6,
+        paddingVertical: 12,
+        borderRadius: radius.md,
         borderWidth: 1.5,
-        borderColor: '#cbd5e1',
+        borderColor: colors.neutral[200],
         alignItems: 'center',
+        backgroundColor: colors.white,
     },
-    resultOk: {
-        backgroundColor: '#dcfce7',
-        borderColor: '#16a34a',
-    },
-    resultFault: {
-        backgroundColor: '#fee2e2',
-        borderColor: '#dc2626',
-    },
-    resultText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#64748b',
-    },
-    resultTextActive: {
-        color: '#0f172a',
-    },
+    resultOk: { backgroundColor: colors.success[50], borderColor: colors.success[500] },
+    resultFault: { backgroundColor: colors.danger[50], borderColor: colors.danger[500] },
+    resultText: { fontSize: 14, fontWeight: '600', color: colors.neutral[600] },
+
     photoButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 6,
+        width: 48,
+        height: 48,
+        borderRadius: radius.md,
         borderWidth: 1.5,
-        borderColor: '#cbd5e1',
+        borderColor: colors.neutral[200],
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: colors.white,
     },
-    photoButtonDone: {
-        borderColor: '#2563eb',
-        backgroundColor: '#eff6ff',
-    },
-    photoButtonText: {
-        fontSize: 18,
-    },
+    photoButtonDone: { borderColor: colors.brand[500], backgroundColor: colors.brand[50] },
+    photoButtonText: { fontSize: 18 },
+
     commentInput: {
-        marginTop: 8,
+        marginTop: spacing.sm,
         borderWidth: 1,
         borderColor: '#fca5a5',
-        borderRadius: 6,
-        padding: 8,
+        borderRadius: radius.md,
+        padding: spacing.sm,
         fontSize: 14,
-        backgroundColor: '#fff',
-        color: '#0f172a',
+        backgroundColor: colors.white,
+        color: colors.neutral[900],
     },
+
     progressBar: {
-        height: 6,
-        backgroundColor: '#e2e8f0',
-        borderRadius: 3,
-        marginTop: 16,
-        marginBottom: 4,
+        height: 8,
+        backgroundColor: colors.neutral[200],
+        borderRadius: radius.pill,
+        marginTop: spacing.lg,
+        marginBottom: spacing.xs,
         overflow: 'hidden',
     },
-    progressFill: {
-        height: '100%',
-        backgroundColor: '#2563eb',
-        borderRadius: 3,
-    },
+    progressFill: { height: '100%', backgroundColor: colors.brand[600], borderRadius: radius.pill },
     progressText: {
-        fontSize: 13,
-        color: '#94a3b8',
+        fontSize: 12,
+        color: colors.neutral[500],
         textAlign: 'center',
-        marginBottom: 24,
+        marginBottom: spacing.md,
     },
-    primaryButton: {
-        backgroundColor: '#2563eb',
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-        minHeight: 56,
-        justifyContent: 'center',
-        marginBottom: 12,
-    },
-    primaryButtonDisabled: {
-        backgroundColor: '#93c5fd',
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 17,
-        fontWeight: '600',
-    },
-    backButton: {
-        alignItems: 'center',
-        padding: 12,
-        marginBottom: 24,
-    },
-    backButtonText: {
-        color: '#64748b',
-        fontSize: 15,
-    },
-    faultsBox: {
-        backgroundColor: '#fef2f2',
-        borderRadius: 8,
-        padding: 12,
-        borderWidth: 1,
-        borderColor: '#fecaca',
-        marginBottom: 8,
-    },
-    faultsTitle: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#991b1b',
-        marginBottom: 6,
-    },
-    faultItem: {
-        fontSize: 13,
-        color: '#7f1d1d',
-        marginBottom: 2,
-    },
-    decisionRow: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 8,
-    },
+
+    faultsTitle: { fontSize: 14, fontWeight: '700', color: colors.danger[700], marginBottom: 6 },
+    faultItem: { fontSize: 13, color: colors.danger[700], marginBottom: 2 },
+
+    decisionRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm },
     decisionButton: {
         flex: 1,
-        paddingVertical: 16,
-        borderRadius: 8,
+        paddingVertical: 18,
+        borderRadius: radius.lg,
         borderWidth: 2,
-        borderColor: '#cbd5e1',
+        borderColor: colors.neutral[200],
+        backgroundColor: colors.white,
         alignItems: 'center',
     },
-    decisionApproved: {
-        backgroundColor: '#dcfce7',
-        borderColor: '#16a34a',
-    },
-    decisionRejected: {
-        backgroundColor: '#fee2e2',
-        borderColor: '#dc2626',
-    },
-    decisionText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#64748b',
-    },
-    decisionTextActive: {
-        color: '#0f172a',
-    },
+    decisionText: { fontSize: 16, fontWeight: '700', color: colors.neutral[600] },
+
     input: {
         borderWidth: 1,
-        borderColor: '#cbd5e1',
-        borderRadius: 8,
-        padding: 12,
+        borderColor: colors.neutral[200],
+        borderRadius: radius.md,
+        padding: spacing.md,
         fontSize: 15,
         textAlignVertical: 'top',
-        marginBottom: 8,
         minHeight: 80,
-        backgroundColor: '#f8fafc',
+        backgroundColor: colors.white,
+        color: colors.neutral[900],
     },
-    cameraContainer: {
+
+    signCanvas: {
         flex: 1,
+        marginHorizontal: spacing.lg,
+        backgroundColor: colors.white,
+        borderRadius: radius.lg,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: colors.neutral[200],
     },
-    camera: {
+
+    loadingOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.md },
+    loadingText: { fontSize: 16, color: colors.neutral[600] },
+
+    cameraContainer: { flex: 1, backgroundColor: colors.black },
+    camera: { flex: 1 },
+    cameraOverlay: {
         flex: 1,
-    },
-    cameraButtons: {
-        flex: 1,
-        flexDirection: 'column',
-        backgroundColor: 'transparent',
         justifyContent: 'flex-end',
         alignItems: 'center',
-        paddingBottom: 40,
-        gap: 16,
+        paddingBottom: spacing.xxl,
     },
+    cameraBottom: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+        paddingHorizontal: spacing.xxl,
+    },
+    cameraCancel: { color: colors.white, fontSize: 15, fontWeight: '600' },
     captureButton: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        backgroundColor: 'rgba(255, 255, 255, 0.3)',
-        justifyContent: 'center',
+        width: 78,
+        height: 78,
+        borderRadius: 39,
+        backgroundColor: 'rgba(255,255,255,0.25)',
         alignItems: 'center',
-    },
-    captureInner: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#fff',
-    },
-    cancelCameraButton: {
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        paddingHorizontal: 24,
-        paddingVertical: 10,
-        borderRadius: 20,
-    },
-    cancelCameraText: {
-        color: '#fff',
-        fontSize: 15,
-    },
-    signatureContainer: {
-        flex: 1,
-        backgroundColor: '#f8fafc',
-        padding: 16,
-    },
-    instructions: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginBottom: 16,
-        textAlign: 'center',
-        color: '#0f172a',
-    },
-    loadingOverlay: {
-        flex: 1,
         justifyContent: 'center',
-        alignItems: 'center',
-        gap: 16,
+        borderWidth: 4,
+        borderColor: colors.white,
     },
-    loadingText: {
-        fontSize: 16,
-        color: '#475569',
-    },
+    captureInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.white },
 });
-
-

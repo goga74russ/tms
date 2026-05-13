@@ -4,7 +4,7 @@
 import 'dotenv/config';
 import { db, sql } from './connection.js';
 import {
-    users, contractors, contracts, vehicles, drivers,
+    users, contractors, contracts, vehicles, drivers, tariffs,
     checklistTemplates, restrictionZones,
 } from './schema.js';
 import { hashPassword } from '../auth/auth.js';
@@ -129,7 +129,7 @@ async function seed() {
 
     // --- Contracts ---
     console.log('  → Creating contracts...');
-    await db.insert(contracts).values([
+    const contractRows = await db.insert(contracts).values([
         {
             contractorId: client1.id,
             number: 'ДГ-2026/001',
@@ -141,6 +141,31 @@ async function seed() {
             number: 'ДГ-2026/002',
             startDate: new Date('2026-02-01'),
             endDate: new Date('2026-12-31'),
+        },
+        // D8 fix — Nikitin must have a contract + tariff so the cold-chain
+        // demo chain produces an auto-invoice via tryAutoCreateInvoice.
+        {
+            contractorId: client3.id,
+            number: 'ДГ-2026/003',
+            startDate: new Date('2026-01-01'),
+            endDate: new Date('2026-12-31'),
+        },
+    ]).returning();
+
+    // --- Tariffs ---
+    console.log('  → Creating tariffs...');
+    await db.insert(tariffs).values([
+        {
+            contractId: contractRows[0].id, type: 'per_km', ratePerKm: 45,
+            idleRatePerHour: 500, minTripCost: 5000,
+        },
+        {
+            contractId: contractRows[1].id, type: 'fixed_route', fixedRate: 25000,
+            idleRatePerHour: 600,
+        },
+        {
+            contractId: contractRows[2].id, type: 'per_km', ratePerKm: 25,
+            vatIncluded: false, vatRate: 20, minTripCost: 5000,
         },
     ]);
 

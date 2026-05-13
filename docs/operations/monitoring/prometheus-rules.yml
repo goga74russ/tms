@@ -1,0 +1,150 @@
+# ----------------------------------------------------------------------------
+# prometheus-rules.yml — alerting rules for TMS v2 production
+# ----------------------------------------------------------------------------
+# STATUS: TEMPLATE. Most expressions assume metrics that are NOT YET WIRED.
+#   - HTTP metrics (http_requests_total, http_request_duration_seconds) require
+#     fastify-metrics or pino-prometheus on apps/api.
+#   - container_memory_rss / container_fs_usage_bytes come from cAdvisor.
+#   - node_filesystem_avail_bytes / node_filesystem_size_bytes — node_exporter.
+#   - pg_up — postgres_exporter (alternatively probe with blackbox_exporter).
+#   - redis_up — redis_exporter.
+#   - bullmq_* — custom exporter (apps/api/src/admin/metrics.ts, to be added).
+#   - probe_ssl_earliest_cert_expiry — blackbox_exporter ssl probe.
+#
+# Mark each rule as [WIRED] or [TODO] in the annotations.summary so the on-call
+# engineer instantly knows whether to trust the signal.
+# ----------------------------------------------------------------------------
+
+groups:
+  - name: tms-availability
+    interval: 30s
+    rules:
+
+      - alert: HighRequestErrorRate
+        expr: |
+          (
+            sum by (service) (rate(http_requests_total{status=~"5..", service=~"api|web"}[5m]))
+            /
+            sum by (service) (rate(http_requests_total{service=~"api|web"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: sev2
+          team: tms
+        annotations:
+          summary: "[TODO] {{ $labels.service }}: >5% 5xx for 5 min"
+          description: |
+            Error rate on {{ $labels.service }} is {{ $value | humanizePercentage }} over the last 5 minutes.
+            Investigate: docker compose logs --tail 200 {{ $labels.service }}
+          runbook: "docs/operations/runbook.md#severity-ladder"
+
+      - alert: HighRequestLatency
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (service, le) (rate(http_request_duration_seconds_bucket{service="api"}[5m]))
+          ) > 2
+        for: 5m
+        labels:
+          severity: sev2
+          team: tms
+        annotations:
+          summary: "[TODO] api p99 latency > 2s for 5 min"
+          description: "p99 = {{ $value }}s. Check slow queries (pg_stat_statements) and BullMQ stalled jobs."
+
+      - alert: DatabaseDown
+        expr: pg_up{instance="postgres:5432"} == 0
+        for: 1m
+        labels:
+          severity: sev1
+          team: tms
+        annotations:
+          summary: "[TODO] Postgres unreachable from API for 1 min"
+          description: "pg_exporter reports the instance down. See runbook INC-1."
+          runbook: "docs/operations/runbook.md#inc-1-postgres-oom-kill--restart-loop"
+
+      - alert: RedisDown
+        expr: redis_up{instance="redis:6379"} == 0
+        for: 1m
+        labels:
+          severity: sev1
+          team: tms
+        annotations:
+          summary: "[TODO] Redis ping failing for 1 min"
+          description: "BullMQ workers will accumulate retries. See runbook INC-2."
+          runbook: "docs/operations/runbook.md#inc-2-redis-stuck--queue-not-draining"
+
+  - name: tms-queues
+    interval: 1m
+    rules:
+
+      - alert: QueueBacklog
+        expr: |
+          sum by (queue) (bullmq_jobs_waiting{queue=~"wialon|fines|notification|billing|edi"}) > 100
+        for: 10m
+        labels:
+          severity: sev2
+          team: tms
+        annotations:
+          summary: "[TODO] BullMQ {{ $labels.queue }} waiting > 100 for 10 min"
+          description: |
+            Backlog: {{ $value }} jobs. Likely cause: worker crashed silently or stalled job blocking concurrency.
+            Mitigation: docker compose restart api
+
+  - name: tms-resources
+    interval: 1m
+    rules:
+
+      - alert: DiskFull
+        expr: |
+          (
+            1 - (
+              node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"}
+              /
+              node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"}
+            )
+          ) > 0.85
+        for: 5m
+        labels:
+          severity: sev2
+          team: tms
+        annotations:
+          summary: "[TODO] {{ $labels.instance }} disk usage > 85%"
+          description: "Free space: {{ $value | humanizePercentage }} used. See runbook INC-5."
+          runbook: "docs/operations/runbook.md#inc-5-disk-full-from-logs--wal"
+
+      - alert: HighMemoryUsage
+        # Compare cAdvisor RSS to compose mem_limit. Limits used as labels via
+        # relabeling rules — see prometheus.yml example in alert-rules.md.
+        expr: |
+          (
+            container_memory_rss{name=~"tms-(postgres|redis|api|web|minio|nginx).*"}
+            /
+            container_spec_memory_limit_bytes{name=~"tms-(postgres|redis|api|web|minio|nginx).*"}
+          ) > 0.80
+        for: 5m
+        labels:
+          severity: sev2
+          team: tms
+        annotations:
+          summary: "[TODO] {{ $labels.name }} RSS > 80% of mem_limit"
+          description: "{{ $labels.name }} memory: {{ $value | humanizePercentage }} of compose limit."
+
+  - name: tms-certificates
+    interval: 1h
+    rules:
+
+      - alert: CertExpiringSoon
+        expr: |
+          (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
+        for: 1h
+        labels:
+          severity: sev3
+          team: tms
+        annotations:
+          summary: "[TODO] TLS cert for {{ $labels.instance }} expires in < 14 days"
+          description: |
+            Days remaining: {{ $value | humanize }}.
+            Run: docker compose run --rm certbot renew --dry-run
+            See runbook INC-3.
+          runbook: "docs/operations/runbook.md#inc-3-certbot-renewal-failure"

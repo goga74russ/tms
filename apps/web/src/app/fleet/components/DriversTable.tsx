@@ -59,15 +59,15 @@ export function DriversTable() {
 
     return (
         <div>
-            <div className="p-4 border-b border-slate-200 flex items-center gap-4">
+            <div className="p-4 border-b border-neutral-200 flex items-center gap-4">
                 <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                     <input
                         type="text"
                         placeholder="Поиск по ФИО, номеру ВУ..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm
+                        className="w-full pl-10 pr-4 py-2 rounded-lg border border-neutral-200 text-sm
                             focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                     />
                 </div>
@@ -83,7 +83,7 @@ export function DriversTable() {
                     <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
                 </div>
             ) : drivers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
                     <Users className="w-12 h-12 mb-3" />
                     <p className="text-sm">Водители не найдены</p>
                 </div>
@@ -91,7 +91,7 @@ export function DriversTable() {
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="bg-slate-50 text-slate-500 text-left">
+                            <tr className="bg-neutral-50 text-neutral-500 text-left">
                                 <th className="px-4 py-3 font-medium">ФИО</th>
                                 <th className="px-4 py-3 font-medium">Номер ВУ</th>
                                 <th className="px-4 py-3 font-medium">Категории</th>
@@ -100,15 +100,15 @@ export function DriversTable() {
                                 <th className="px-4 py-3 font-medium">Статус</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-neutral-100">
                             {drivers.map(d => (
-                                <tr key={d.id} className="hover:bg-slate-50">
-                                    <td className="px-4 py-3 font-medium text-slate-900">{d.fullName}</td>
-                                    <td className="px-4 py-3 font-mono text-slate-600">{d.licenseNumber}</td>
+                                <tr key={d.id} className="hover:bg-neutral-50">
+                                    <td className="px-4 py-3 font-medium text-neutral-900">{d.fullName}</td>
+                                    <td className="px-4 py-3 font-mono text-neutral-600">{d.licenseNumber}</td>
                                     <td className="px-4 py-3">
                                         <div className="flex gap-1">
                                             {d.licenseCategories.map(c => (
-                                                <span key={c} className="px-1.5 py-0.5 bg-slate-100 rounded text-xs font-medium text-slate-600">
+                                                <span key={c} className="px-1.5 py-0.5 bg-neutral-100 rounded text-xs font-medium text-neutral-600">
                                                     {c}
                                                 </span>
                                             ))}
@@ -122,7 +122,7 @@ export function DriversTable() {
                                     </td>
                                     <td className="px-4 py-3">
                                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium
-                                            ${d.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                            ${d.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-500'}`}>
                                             {d.isActive ? 'Активен' : 'Неактивен'}
                                         </span>
                                     </td>

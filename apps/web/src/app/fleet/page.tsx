@@ -39,12 +39,17 @@ const tabs = [
 export default function FleetPage() {
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Автопарк</h1>
-                    <p className="mt-1 text-sm text-slate-500">
-                        Управление транспортом, водителями, документами, топливом и эксплуатацией парка
-                    </p>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <Truck className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold text-neutral-900">Автопарк</h1>
+                        <p className="mt-0.5 text-sm text-neutral-500">
+                            Управление транспортом, водителями, документами, топливом и эксплуатацией
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -61,7 +66,7 @@ export default function FleetPage() {
                     })}
                 </TabsList>
 
-                <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
                     <TabsContent value="vehicles" className="m-0"><VehiclesTable /></TabsContent>
                     <TabsContent value="drivers" className="m-0"><DriversTable /></TabsContent>
                     <TabsContent value="permits" className="m-0"><PermitsTable /></TabsContent>

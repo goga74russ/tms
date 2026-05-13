@@ -1,3 +1,6 @@
+// TODO(deprecate): replaced by ui/kanban-board.tsx — the page now uses the
+// generic <KanbanBoard> primitive from @/components/ui/kanban. This module
+// is kept temporarily for reference and will be removed next round.
 'use client';
 
 import { useState, DragEvent, useCallback } from 'react';
@@ -105,7 +108,10 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
     };
 
     return (
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        // B-8: explicit overflow-x scroll + min-w-max on inner row so wider screens
+        // still hard-wrap to a scrolling track instead of clipping the last column.
+        <div className="overflow-x-auto pb-4 -mx-2 px-2">
+            <div className="flex gap-4 min-w-max">
             {columns.map((col) => {
                 const columnOrders = orders.filter(o => o.status === col.key);
                 const isDragOver = dragOverColumn === col.key;
@@ -115,15 +121,15 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
                 return (
                     <div
                         key={col.key}
-                        className={`flex-shrink-0 w-72 rounded-xl transition-all duration-200 ${isRejecting
+                        className={`flex-shrink-0 min-w-[280px] w-72 rounded-xl transition-all duration-200 ${isRejecting
                             ? 'bg-red-50 ring-2 ring-red-300 ring-offset-2 animate-shake'
                             : isDragOver
                                 ? 'bg-indigo-50 ring-2 ring-indigo-300 ring-offset-2'
                                 : highlight === 'valid'
                                     ? 'bg-emerald-50/50 border border-dashed border-emerald-300'
                                     : highlight === 'invalid'
-                                        ? 'bg-slate-100/50 opacity-50'
-                                        : 'bg-slate-100/70'
+                                        ? 'bg-neutral-100/50 opacity-50'
+                                        : 'bg-neutral-100/70'
                             }`}
                         onDragOver={(e: any) => handleDragOver(e, col.key)}
                         onDragLeave={handleDragLeave}
@@ -136,11 +142,11 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
                                     className="w-3 h-3 rounded-full shadow-sm"
                                     style={{ backgroundColor: col.color }}
                                 />
-                                <span className="text-sm font-semibold text-slate-700">
+                                <span className="text-sm font-semibold text-neutral-700">
                                     {col.label}
                                 </span>
                             </div>
-                            <span className="text-xs font-bold text-slate-400 bg-white rounded-full w-6 h-6 flex items-center justify-center">
+                            <span className="text-xs font-bold text-neutral-400 bg-white rounded-full w-6 h-6 flex items-center justify-center">
                                 {columnOrders.length}
                             </span>
                         </div>
@@ -156,7 +162,7 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
                                 />
                             ))}
                             {columnOrders.length === 0 && (
-                                <div className="text-center py-8 text-xs text-slate-400">
+                                <div className="text-center py-8 text-xs text-neutral-400">
                                     Перетащите заявку сюда
                                 </div>
                             )}
@@ -164,6 +170,7 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
                     </div>
                 );
             })}
+            </div>
         </div>
     );
 }

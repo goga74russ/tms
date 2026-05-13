@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 
 const API_BASE = '/api';
@@ -26,6 +26,7 @@ export default function ActPrintPage() {
     const id = params?.id as string;
     const [data, setData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
+    const printedRef = useRef(false);
 
     useEffect(() => {
         if (!id) return;
@@ -41,7 +42,8 @@ export default function ActPrintPage() {
     }, [id]);
 
     useEffect(() => {
-        if (data) {
+        if (data && !printedRef.current) {
+            printedRef.current = true;
             const timer = setTimeout(() => window.print(), 400);
             return () => clearTimeout(timer);
         }
@@ -104,7 +106,7 @@ export default function ActPrintPage() {
                             <tr><td colSpan={6} style={{ textAlign: 'center', color: '#888' }}>Данные о рейсах не указаны</td></tr>
                         ) : (
                             tripRows.map((t: any, i: number) => (
-                                <tr key={i}>
+                                <tr key={t.tripNumber ?? `${t.date}:${t.route}:${i}`}>
                                     <td style={{ textAlign: 'center' }}>{i + 1}</td>
                                     <td>{fmt(t.date)}</td>
                                     <td>{t.tripNumber ?? '—'}</td>

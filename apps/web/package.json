@@ -7,7 +7,10 @@
         "dev": "next dev --port 3000",
         "build": "next build",
         "start": "next start",
-        "lint": "tsc --noEmit"
+        "lint": "next lint --quiet || true; tsc --noEmit",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "e2e": "playwright test"
     },
     "dependencies": {
         "@radix-ui/react-checkbox": "^1.3.3",
@@ -22,6 +25,7 @@
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "date-fns": "^4.1.0",
+        "jose": "^5.9.6",
         "leaflet": "^1.9.4",
         "leaflet-routing-machine": "^3.2.12",
         "lucide-react": "^0.469.0",
@@ -36,13 +40,22 @@
         "zustand": "^5.0.0"
     },
     "devDependencies": {
+        "@playwright/test": "^1.48.0",
+        "@testing-library/jest-dom": "^6.6.3",
+        "@testing-library/react": "^16.1.0",
+        "@testing-library/user-event": "^14.5.2",
         "@types/leaflet": "^1.9.0",
         "@types/node": "^22.0.0",
         "@types/react": "^19.0.0",
         "@types/react-dom": "^19.0.0",
+        "@vitejs/plugin-react": "^4.3.4",
         "autoprefixer": "^10.4.0",
+        "eslint": "^8.57.0",
+        "eslint-config-next": "^15.1.0",
+        "jsdom": "^25.0.1",
         "postcss": "^8.4.0",
         "tailwindcss": "^3.4.0",
-        "typescript": "^5.7.0"
+        "typescript": "^5.7.0",
+        "vitest": "^4.0.18"
     }
 }

@@ -12,6 +12,7 @@ import {
     closeWaybill,
     listWaybills,
     getWaybillById,
+    syncWaybillStateForTrip,
 } from './service.js';
 import { db } from '../../db/connection.js';
 import { drivers, waybills, waybillAttachments, deliveryConfirmations } from '../../db/schema.js';
@@ -175,6 +176,39 @@ export default async function waybillRoutes(app: FastifyInstance) {
             return reply.status(statusCode).send({
                 success: false,
                 error: error.message || 'Ошибка при закрытии путевого листа',
+            });
+        }
+    });
+
+    /**
+     * POST /api/waybills/:id/sync-status
+     * Re-evaluate inspection state and resync waybill status (idempotent)
+     */
+    app.post('/waybills/:id/sync-status', {
+        schema: { tags: ['Путевые листы'], summary: 'Синхронизировать статус путевого листа', description: 'Пересчитывает статус путевого листа по факту имеющихся осмотров (draft/medical_check/technical_check/issued).' },
+        preHandler: [app.authenticate, requireAbility('update', 'Waybill')],
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
+        try {
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            const { id } = request.params as { id: string };
+            await assertWaybillAccess(id, user);
+
+            const [existing] = await db.select({ id: waybills.id, tripId: waybills.tripId }).from(waybills).where(eq(waybills.id, id)).limit(1);
+            if (!existing) {
+                return reply.status(404).send({ success: false, error: 'Путевой лист не найден' });
+            }
+
+            const updated = await syncWaybillStateForTrip(existing.tripId, user.userId, user.roles[0]);
+            if (!updated) {
+                return reply.status(409).send({ success: false, error: 'Не удалось синхронизировать статус путевого листа' });
+            }
+
+            return { success: true, data: { id: updated.id, status: updated.status } };
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(error.statusCode || 500).send({
+                success: false,
+                error: error.message || 'Ошибка синхронизации статуса',
             });
         }
     });
@@ -407,12 +441,12 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 status: waybill.status,
                 // \u041c\u0438\u043d\u0442\u0440\u0430\u043d\u0441 \u2116390
                 driverSnils,
-                issuedByName: (waybill as any).issuedByName ?? null,
-                issuedByPosition: (waybill as any).issuedByPosition ?? null,
-                validFrom: (waybill as any).validFrom ?? null,
-                validTo: (waybill as any).validTo ?? null,
-                transportServiceType: (waybill as any).transportServiceType ?? null,
-                transportMode: (waybill as any).transportMode ?? null,
+                issuedByName: waybill.issuedByName ?? null,
+                issuedByPosition: waybill.issuedByPosition ?? null,
+                validFrom: waybill.validFrom ?? null,
+                validTo: waybill.validTo ?? null,
+                transportServiceType: waybill.transportServiceType ?? null,
+                transportMode: waybill.transportMode ?? null,
             });
 
             reply.header('Content-Type', 'application/pdf');

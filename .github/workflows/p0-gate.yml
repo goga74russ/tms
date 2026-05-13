@@ -1,4 +1,4 @@
-﻿name: P0 Gate
+name: P0 Gate
 
 on:
   push:
@@ -6,22 +6,41 @@ on:
   pull_request:
     branches: [main]
 
+# ----------------------------------------------------------------
+# Shared CI test secrets. These are NOT real credentials — they are
+# deterministic test values so every job in this workflow boots an
+# API/DB stack with the same expectations.
+# ----------------------------------------------------------------
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9.15.2'
+  CI_JWT_SECRET: 'ci-test-jwt-secret-32-bytes-long-hex'
+  CI_CREDENTIALS_KEY: 'ci-test-credentials-key-32-bytes-hex'
+  CI_SEED_PASSWORD: 'ci-test-seed-password-1234'
+  CI_DATABASE_URL: 'postgres://tms:ci_test_password@localhost:5432/tms_test'
+  CI_REDIS_URL: 'redis://localhost:6379'
+
 jobs:
+  # ----------------------------------------------------------------
+  # Static gates: build everything, lint, unit tests, compose check.
+  # Does NOT need a DB — API unit tests stub DATABASE_URL.
+  # ----------------------------------------------------------------
   build-and-static-gates:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       - name: Enable pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@9.15.2 --activate
+          corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -38,5 +57,248 @@ jobs:
       - name: Mobile typecheck
         run: pnpm --filter @tms/mobile typecheck
 
+      - name: Lint
+        run: pnpm -r --if-present lint
+
+      - name: API unit tests
+        run: pnpm --filter @tms/api test
+
+      - name: Web component tests
+        run: pnpm --filter @tms/web test
+
+      # Mobile unit tests — pure-logic suites (offline queue, fetch retry, sync wrapper,
+      # role priority). Run with continue-on-error initially because:
+      #   1. The mobile stack mocks native modules manually (no jest-expo, see
+      #      apps/mobile/jest.config.js) which is more brittle than the web/api setups.
+      #   2. We do NOT want a transient mock regression to block API/web work while the
+      #      mobile test harness is still bedding in.
+      # Flip continue-on-error to false once the suite is stable for a few weeks.
+      - name: Mobile unit tests
+        run: pnpm --filter @tms/mobile test
+        continue-on-error: true
+
+      - name: Security audit (advisory)
+        run: pnpm audit --prod --audit-level high || true
+
+      - name: Drizzle migration drift check (advisory)
+        run: pnpm --filter @tms/api exec drizzle-kit check || true
+
       - name: Validate compose config
         run: docker compose --env-file .env.example -f docker-compose.prod.yml config --quiet
+
+  # ----------------------------------------------------------------
+  # Playwright happy-path E2E.
+  #
+  # Boots a real Postgres + Redis, applies migrations, loads the
+  # demo seed, starts the API on :4000, then lets Playwright spin
+  # up the web dev server (see apps/web/playwright.config.ts).
+  #
+  # NO `continue-on-error` — this gates merges. If the happy-path
+  # breaks, the PR is blocked.
+  # ----------------------------------------------------------------
+  playwright:
+    runs-on: ubuntu-latest
+    needs: build-and-static-gates
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tms
+          POSTGRES_PASSWORD: ci_test_password
+          POSTGRES_DB: tms_test
+        options: >-
+          --health-cmd "pg_isready -U tms"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgres://tms:ci_test_password@localhost:5432/tms_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-test-jwt-secret-32-bytes-long-hex
+      CREDENTIALS_KEY: ci-test-credentials-key-32-bytes-hex
+      SEED_PASSWORD: ci-test-seed-password-1234
+      NODE_ENV: test
+      PORT: '4000'
+      E2E_SUPER_PASSWORD: ci-test-seed-password-1234
+      E2E_DISPATCHER_PASSWORD: ci-test-seed-password-1234
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared
+        run: pnpm --filter @tms/shared build
+
+      - name: Install Playwright browsers
+        run: pnpm --filter @tms/web exec playwright install --with-deps chromium
+
+      - name: Setup test database (migrate + seed-demo)
+        run: |
+          pnpm --filter @tms/api exec drizzle-kit migrate
+          pnpm --filter @tms/api exec tsx src/db/seed-demo.ts
+
+      - name: Start API
+        run: |
+          pnpm --filter @tms/api exec tsx src/server.ts > api.log 2>&1 &
+          echo $! > api.pid
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4000/api/health > /dev/null 2>&1; then
+              echo "API is up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start within 60s"
+          cat api.log
+          exit 1
+
+      - name: Run Playwright tests
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+        run: pnpm --filter @tms/web exec playwright test
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f api.pid ]; then kill "$(cat api.pid)" || true; fi
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 7
+
+      - name: Upload API log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-log-playwright
+          path: api.log
+          retention-days: 7
+
+  # ----------------------------------------------------------------
+  # Smoke chain — end-to-end API walk via scripts/smoke-chain.mjs.
+  #
+  # Covers the full operational chain (login → order → trip →
+  # inspections → start → temperature → finish → auto-invoice).
+  # Catches plan-guard, billing, RBAC, and orchestration regressions
+  # that pure unit tests miss.
+  # ----------------------------------------------------------------
+  smoke-chain:
+    runs-on: ubuntu-latest
+    needs: build-and-static-gates
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tms
+          POSTGRES_PASSWORD: ci_test_password
+          POSTGRES_DB: tms_test
+        options: >-
+          --health-cmd "pg_isready -U tms"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgres://tms:ci_test_password@localhost:5432/tms_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-test-jwt-secret-32-bytes-long-hex
+      CREDENTIALS_KEY: ci-test-credentials-key-32-bytes-hex
+      SEED_PASSWORD: ci-test-seed-password-1234
+      NODE_ENV: test
+      PORT: '4000'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared
+        run: pnpm --filter @tms/shared build
+
+      - name: Setup test database (migrate + seed-demo)
+        run: |
+          pnpm --filter @tms/api exec drizzle-kit migrate
+          pnpm --filter @tms/api exec tsx src/db/seed-demo.ts
+
+      - name: Start API
+        run: |
+          pnpm --filter @tms/api exec tsx src/server.ts > api.log 2>&1 &
+          echo $! > api.pid
+          for i in {1..60}; do
+            if curl -fsS http://localhost:4000/api/health > /dev/null 2>&1; then
+              echo "API is up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start within 60s"
+          cat api.log
+          exit 1
+
+      - name: Run smoke chain
+        env:
+          API_URL: http://localhost:4000
+        run: node scripts/smoke-chain.mjs
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f api.pid ]; then kill "$(cat api.pid)" || true; fi
+
+      - name: Upload API log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-log-smoke-chain
+          path: api.log
+          retention-days: 7

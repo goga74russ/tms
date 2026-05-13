@@ -7,8 +7,14 @@ import { api } from '@/lib/api';
 import {
     Package, MapPin, FileText, DollarSign,
     Clock, CheckCircle2, Truck, AlertCircle,
-    RefreshCw, ChevronRight, Search,
+    Search, Briefcase, ChevronRight,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { MetricCard } from '@/components/ui/metric-card';
+import { DashboardHeader } from '@/components/ui/dashboard-header';
+import { computeRange, type PeriodRange } from '@/components/ui/period-selector';
+import { SkeletonTable } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Order {
     id: string;
@@ -48,7 +54,7 @@ function formatMoney(value: number | string) {
 }
 
 const ORDER_STATUS_LABELS: Record<string, { label: string; color: string; icon: any }> = {
-    draft: { label: 'Черновик', color: 'bg-slate-100 text-slate-600', icon: Clock },
+    draft: { label: 'Черновик', color: 'bg-neutral-100 text-neutral-600', icon: Clock },
     confirmed: { label: 'В работе', color: 'bg-blue-100 text-blue-700', icon: CheckCircle2 },
     assigned: { label: 'Назначена', color: 'bg-indigo-100 text-indigo-700', icon: Truck },
     in_transit: { label: 'В пути', color: 'bg-amber-100 text-amber-700', icon: MapPin },
@@ -58,11 +64,11 @@ const ORDER_STATUS_LABELS: Record<string, { label: string; color: string; icon: 
 };
 
 const INVOICE_STATUS_LABELS: Record<string, { label: string; color: string }> = {
-    draft: { label: 'Черновик', color: 'bg-slate-100 text-slate-600' },
+    draft: { label: 'Черновик', color: 'bg-neutral-100 text-neutral-600' },
     sent: { label: 'Отправлен', color: 'bg-blue-100 text-blue-700' },
     paid: { label: 'Оплачен', color: 'bg-green-100 text-green-700' },
     overdue: { label: 'Просрочен', color: 'bg-red-100 text-red-700' },
-    cancelled: { label: 'Отменён', color: 'bg-slate-100 text-slate-500' },
+    cancelled: { label: 'Отменён', color: 'bg-neutral-100 text-neutral-500' },
 };
 
 const ALLOWED_ROLES = ['client', 'admin'];
@@ -82,6 +88,7 @@ export default function ClientPortalPage() {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'orders' | 'invoices'>('orders');
     const [search, setSearch] = useState('');
+    const [period, setPeriod] = useState<PeriodRange>(() => computeRange('mtd'));
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -111,89 +118,107 @@ export default function ClientPortalPage() {
         i.number.toLowerCase().includes(search.toLowerCase())
     );
 
+    // Period-scoped data
+    const periodOrders = orders.filter((o) => {
+        if (!o.createdAt) return true;
+        const t = new Date(o.createdAt).getTime();
+        return Number.isFinite(t) && t >= period.from.getTime() && t <= period.to.getTime();
+    });
+    const periodInvoices = invoices.filter((i) => {
+        if (!i.createdAt) return true;
+        const t = new Date(i.createdAt).getTime();
+        return Number.isFinite(t) && t >= period.from.getTime() && t <= period.to.getTime();
+    });
+
     // Stats
-    const activeOrders = orders.filter(o => ['confirmed', 'assigned', 'in_transit'].includes(o.status)).length;
-    const completedOrders = orders.filter(o => o.status === 'completed').length;
-    const unpaidInvoices = invoices.filter(i => ['sent', 'overdue'].includes(i.status));
+    const activeOrders = periodOrders.filter(o => ['confirmed', 'assigned', 'in_transit'].includes(o.status)).length;
+    const completedOrders = periodOrders.filter(o => o.status === 'completed' || o.status === 'delivered').length;
+    const unpaidInvoices = periodInvoices.filter(i => ['sent', 'overdue'].includes(i.status));
     const unpaidTotal = unpaidInvoices.reduce((sum, invoice) => {
         return sum + Number(invoice.totalAmount ?? invoice.total ?? 0);
     }, 0);
 
+    // Funnel counts across full order set (lifecycle is independent of created-period filter)
+    const funnel = [
+        { key: 'draft', label: 'Создана', count: orders.filter(o => o.status === 'draft').length },
+        { key: 'confirmed', label: 'В работе', count: orders.filter(o => o.status === 'confirmed').length },
+        { key: 'assigned', label: 'Назначена', count: orders.filter(o => o.status === 'assigned').length },
+        { key: 'in_transit', label: 'В пути', count: orders.filter(o => o.status === 'in_transit').length },
+        { key: 'delivered', label: 'Доставлена', count: orders.filter(o => o.status === 'delivered' || o.status === 'completed').length },
+    ];
+
+    // 14-day sparkline of unpaid invoice volume
+    const unpaidSparkline = (() => {
+        const days = 14;
+        const buckets = new Array<number>(days).fill(0);
+        const todayMs = Date.now();
+        invoices.forEach((inv) => {
+            if (!['sent', 'overdue'].includes(inv.status)) return;
+            if (!inv.createdAt) return;
+            const t = new Date(inv.createdAt).getTime();
+            if (!Number.isFinite(t)) return;
+            const age = Math.floor((todayMs - t) / 86_400_000);
+            if (age < 0 || age >= days) return;
+            buckets[days - 1 - age] += Number(inv.totalAmount ?? inv.total ?? 0);
+        });
+        return buckets;
+    })();
+
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Портал клиента</h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Отслеживание заявок, рейсов и счетов
-                    </p>
-                </div>
-                <button
-                    onClick={loadData}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600
-                        hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                    <RefreshCw className="w-4 h-4" />
-                    Обновить
-                </button>
+            <DashboardHeader
+                title="Портал клиента"
+                subtitle="Отслеживание заявок, рейсов и счетов"
+                icon={Briefcase}
+                iconTone="brand"
+                period={period}
+                onPeriodChange={setPeriod}
+                onRefresh={loadData}
+                refreshing={loading}
+            />
+
+            {/* Metric Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <MetricCard label="Активных заявок" value={activeOrders} hint="за период" icon={Package} tone="info" />
+                <MetricCard label="Завершённых" value={completedOrders} hint="доставлено" icon={CheckCircle2} tone="success" />
+                <MetricCard label="Неоплаченных счетов" value={unpaidInvoices.length} hint={unpaidInvoices.length > 0 ? 'требует оплаты' : 'нет неоплаченных'} icon={FileText} tone={unpaidInvoices.length > 0 ? 'warning' : 'neutral'} changeGood={false} />
+                <MetricCard
+                    label="К оплате"
+                    value={formatMoney(unpaidTotal)}
+                    hint="сумма неоплаченных"
+                    sparkline={unpaidSparkline}
+                    sparklineTone={unpaidTotal > 0 ? 'danger' : 'success'}
+                    icon={DollarSign}
+                    tone={unpaidTotal > 0 ? 'danger' : 'success'}
+                    changeGood={false}
+                />
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                            <Package className="w-5 h-5 text-blue-600" />
+            {/* Order Funnel */}
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-500">Жизненный цикл заявок</p>
+                <div className="flex flex-wrap items-stretch gap-2">
+                    {funnel.map((step, i) => (
+                        <div key={step.key} className="flex items-center gap-2 flex-1 min-w-[120px]">
+                            <div className="flex-1 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2.5">
+                                <div className="text-2xl font-bold tabular-nums text-brand-700 leading-none">{step.count}</div>
+                                <div className="mt-1 text-xs font-medium text-neutral-600">{step.label}</div>
+                            </div>
+                            {i < funnel.length - 1 && (
+                                <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300" aria-hidden="true" />
+                            )}
                         </div>
-                        <div>
-                            <p className="text-2xl font-bold text-slate-900">{activeOrders}</p>
-                            <p className="text-xs text-slate-500">Активных заявок</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-100 rounded-lg">
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-slate-900">{completedOrders}</p>
-                            <p className="text-xs text-slate-500">Завершённых</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-amber-100 rounded-lg">
-                            <FileText className="w-5 h-5 text-amber-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-slate-900">{unpaidInvoices.length}</p>
-                            <p className="text-xs text-slate-500">Неоплаченных счетов</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-red-100 rounded-lg">
-                            <DollarSign className="w-5 h-5 text-red-600" />
-                        </div>
-                        <div>
-                            <p className="text-2xl font-bold text-slate-900">{formatMoney(unpaidTotal)}</p>
-                            <p className="text-xs text-slate-500">К оплате</p>
-                        </div>
-                    </div>
+                    ))}
                 </div>
             </div>
 
             {/* Tabs + Search */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-                <div className="p-4 border-b border-slate-200 flex items-center gap-4">
-                    <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+            <div className="bg-white rounded-xl border border-neutral-200 shadow-sm">
+                <div className="p-4 border-b border-neutral-200 flex items-center gap-4">
+                    <div className="flex gap-1 bg-neutral-100 rounded-lg p-1">
                         <button
                             onClick={() => setActiveTab('orders')}
-                            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'orders' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'orders' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
                                 }`}
                         >
                             <Package className="w-4 h-4 inline mr-1.5" />
@@ -201,36 +226,32 @@ export default function ClientPortalPage() {
                         </button>
                         <button
                             onClick={() => setActiveTab('invoices')}
-                            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'invoices' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${activeTab === 'invoices' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
                                 }`}
                         >
                             <FileText className="w-4 h-4 inline mr-1.5" />
                             Счета ({invoices.length})
                         </button>
                     </div>
-                    <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
+                    <div className="flex-1 max-w-sm">
+                        <Input
                             type="text"
                             placeholder="Поиск..."
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm
-                                focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            leftAddon={<Search className="w-4 h-4" />}
                         />
                     </div>
                 </div>
 
                 {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                    </div>
+                    <div className="p-4"><SkeletonTable rows={6} columns={6} /></div>
                 ) : activeTab === 'orders' ? (
                     /* Orders Table */
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-slate-50 text-slate-500 text-left">
+                                <tr className="bg-neutral-50 text-neutral-500 text-left">
                                     <th className="px-4 py-3 font-medium">Номер</th>
                                     <th className="px-4 py-3 font-medium">Статус</th>
                                     <th className="px-4 py-3 font-medium">Груз</th>
@@ -239,15 +260,21 @@ export default function ClientPortalPage() {
                                     <th className="px-4 py-3 font-medium">Дата</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-neutral-100">
                                 {filteredOrders.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
-                                            Заявки не найдены
+                                        <td colSpan={6}>
+                                            <div className="p-6">
+                                                <EmptyState
+                                                    icon={Package}
+                                                    title="Заявок пока нет"
+                                                    description="Заявки появятся здесь после оформления."
+                                                />
+                                            </div>
                                         </td>
                                     </tr>
                                 ) : filteredOrders.map(order => {
-                                    const st = ORDER_STATUS_LABELS[order.status] || { label: order.status, color: 'bg-slate-100 text-slate-600' };
+                                    const st = ORDER_STATUS_LABELS[order.status] || { label: order.status, color: 'bg-neutral-100 text-neutral-600' };
                                     return (
                                         <tr key={order.id} className="hover:bg-blue-50/50 transition-colors">
                                             <td className="px-4 py-3">
@@ -258,10 +285,10 @@ export default function ClientPortalPage() {
                                                     {st.label}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-slate-700 max-w-48 truncate">{order.cargoDescription || '—'}</td>
-                                            <td className="px-4 py-3 text-slate-600 text-xs max-w-40 truncate">{order.loadingAddress || '—'}</td>
-                                            <td className="px-4 py-3 text-slate-600 text-xs max-w-40 truncate">{order.unloadingAddress || '—'}</td>
-                                            <td className="px-4 py-3 text-slate-500 text-xs">
+                                            <td className="px-4 py-3 text-neutral-700 max-w-48 truncate">{order.cargoDescription || '—'}</td>
+                                            <td className="px-4 py-3 text-neutral-600 text-xs max-w-40 truncate">{order.loadingAddress || '—'}</td>
+                                            <td className="px-4 py-3 text-neutral-600 text-xs max-w-40 truncate">{order.unloadingAddress || '—'}</td>
+                                            <td className="px-4 py-3 text-neutral-500 text-xs">
                                                 {new Date(order.createdAt).toLocaleDateString('ru-RU')}
                                             </td>
                                         </tr>
@@ -275,7 +302,7 @@ export default function ClientPortalPage() {
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-slate-50 text-slate-500 text-left">
+                                <tr className="bg-neutral-50 text-neutral-500 text-left">
                                     <th className="px-4 py-3 font-medium">Номер</th>
                                     <th className="px-4 py-3 font-medium">Статус</th>
                                     <th className="px-4 py-3 font-medium">Сумма</th>
@@ -283,34 +310,40 @@ export default function ClientPortalPage() {
                                     <th className="px-4 py-3 font-medium">Дата</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-neutral-100">
                                 {filteredInvoices.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-12 text-center text-slate-400">
-                                            Счета не найдены
+                                        <td colSpan={5}>
+                                            <div className="p-6">
+                                                <EmptyState
+                                                    icon={FileText}
+                                                    title="Счетов пока нет"
+                                                    description="Здесь появятся счета по выполненным заявкам."
+                                                />
+                                            </div>
                                         </td>
                                     </tr>
                                 ) : filteredInvoices.map(inv => {
-                                    const st = INVOICE_STATUS_LABELS[inv.status] || { label: inv.status, color: 'bg-slate-100 text-slate-600' };
+                                    const st = INVOICE_STATUS_LABELS[inv.status] || { label: inv.status, color: 'bg-neutral-100 text-neutral-600' };
                                     return (
                                         <tr key={inv.id} className="hover:bg-blue-50/50 transition-colors">
                                             <td className="px-4 py-3">
-                                                <span className="font-mono font-semibold text-slate-700">{inv.number}</span>
+                                                <span className="font-mono font-semibold text-neutral-700">{inv.number}</span>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
                                                     {st.label}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 font-semibold text-slate-900">
+                                            <td className="px-4 py-3 font-semibold text-neutral-900">
                                                 {formatMoney(inv.totalAmount ?? inv.total ?? 0)}
                                             </td>
-                                            <td className="px-4 py-3 text-slate-600 text-xs">
+                                            <td className="px-4 py-3 text-neutral-600 text-xs">
                                                 {inv.periodStart ? new Date(inv.periodStart).toLocaleDateString('ru-RU') : '—'}
                                                 {' — '}
                                                 {inv.periodEnd ? new Date(inv.periodEnd).toLocaleDateString('ru-RU') : '—'}
                                             </td>
-                                            <td className="px-4 py-3 text-slate-500 text-xs">
+                                            <td className="px-4 py-3 text-neutral-500 text-xs">
                                                 {new Date(inv.createdAt).toLocaleDateString('ru-RU')}
                                             </td>
                                         </tr>

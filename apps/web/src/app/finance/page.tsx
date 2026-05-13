@@ -7,14 +7,20 @@ import type { Invoice as SharedInvoice } from '@tms/shared';
 import { api } from "@/lib/api";
 import { downloadFromApi } from '@/lib/download';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
-import { FileDown, Printer } from "lucide-react";
+import { MetricCard } from "@/components/ui/metric-card";
+import { DashboardHeader } from "@/components/ui/dashboard-header";
+import { computeRange, type PeriodRange } from "@/components/ui/period-selector";
+import { SkeletonTable } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/components/ui/toast";
+import { FileDown, Printer, Wallet, Receipt, AlertCircle, CheckCircle2, Banknote, FileSpreadsheet, Plus } from "lucide-react";
 
 async function downloadPdfAuth(apiPath: string, filename: string) {
     const res = await fetch(apiPath, {
@@ -65,7 +71,7 @@ const getStatusColor = (status: string) => {
         case 'paid': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
         case 'sent': return 'bg-blue-50 text-blue-700 border-blue-200';
         case 'overdue': return 'bg-red-50 text-red-700 border-red-200';
-        case 'cancelled': return 'bg-slate-100 text-slate-500 border-slate-200';
+        case 'cancelled': return 'bg-neutral-100 text-neutral-500 border-neutral-200';
         default: return 'bg-amber-50 text-amber-700 border-amber-200';
     }
 };
@@ -81,6 +87,16 @@ const getStatusText = (status: string) => {
 };
 
 const fmtMoney = (n: number | string) => Number(n).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
+
+/**
+ * B-10: Сокращаем длинные номера счетов с timestamp-суффиксом для читаемости.
+ * Полный номер остаётся в title= для подсказки при наведении.
+ * Пример: "СЧ-2504-20260429205232193" → "СЧ-2504-20260429…2193"
+ */
+function shortInvoiceNo(num: string): string {
+    if (!num) return num;
+    return num.length > 20 ? num.slice(0, 16) + '…' + num.slice(-4) : num;
+}
 
 const invoiceTypeLabels: Record<Invoice['type'], string> = {
     invoice: 'Счет',
@@ -117,6 +133,7 @@ const SERVICE_UNIT_LABELS: Record<string, string> = {
 
 // ================================================================
 export default function FinanceDashboard() {
+    const { toast } = useToast();
     // State
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [loading, setLoading] = useState(true);
@@ -125,6 +142,7 @@ export default function FinanceDashboard() {
     // Filters
     const [filterStatus, setFilterStatus] = useState('');
     const [filterSearch, setFilterSearch] = useState('');
+    const [period, setPeriod] = useState<PeriodRange>(() => computeRange('mtd'));
 
     // Invoice modal
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -158,6 +176,14 @@ export default function FinanceDashboard() {
     const [contractors, setContractors] = useState<ContractorOption[]>([]);
     const [selectedContractorId, setSelectedContractorId] = useState('');
 
+    // Bulk generate dialog
+    const [bulkOpen, setBulkOpen] = useState(false);
+    const [bulkFrom, setBulkFrom] = useState(() => format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'));
+    const [bulkTo, setBulkTo] = useState(() => format(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0), 'yyyy-MM-dd'));
+    const [bulkContractorId, setBulkContractorId] = useState('');
+    const [bulkSubmitting, setBulkSubmitting] = useState(false);
+    const [bulkResult, setBulkResult] = useState<string | null>(null);
+
     // ——— Load invoices ———
     const fetchInvoices = useCallback(async () => {
         setLoading(true);
@@ -166,11 +192,11 @@ export default function FinanceDashboard() {
             const res = await api.get<ApiResponse<Invoice[]>>('/finance/invoices');
             setInvoices(res.data || []);
         } catch (err: any) {
-            setError(err.message || 'Не удалось загрузить счета');
+            toast({ variant: 'error', title: 'Не удалось загрузить счета', description: err?.message });
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [toast]);
 
     const fetchContractors = useCallback(async () => {
         try {
@@ -227,30 +253,60 @@ export default function FinanceDashboard() {
         });
     }, [selectedInvoice]);
 
+    // ——— Period-scoped list ———
+    const periodInvoices = useMemo(() => {
+        const fromMs = period.from.getTime();
+        const toMs = period.to.getTime();
+        return invoices.filter(inv => {
+            if (!inv.createdAt) return true;
+            const t = new Date(inv.createdAt).getTime();
+            if (!Number.isFinite(t)) return true;
+            return t >= fromMs && t <= toMs;
+        });
+    }, [invoices, period.from, period.to]);
+
     // ——— Derived summary ———
     const summary = useMemo(() => {
-        const pending = invoices.filter(i => i.status === 'sent' || i.status === 'draft')
+        const pending = periodInvoices.filter(i => i.status === 'sent' || i.status === 'draft')
             .reduce((sum, i) => sum + Number(i.total), 0);
-        const overdue = invoices.filter(i => i.status === 'overdue')
+        const overdue = periodInvoices.filter(i => i.status === 'overdue')
             .reduce((sum, i) => sum + Number(i.total), 0);
-        const totalPaid = invoices.filter(i => i.status === 'paid')
+        const totalPaid = periodInvoices.filter(i => i.status === 'paid')
             .reduce((sum, i) => sum + Number(i.total), 0);
         return { pending, overdue, totalPaid };
+    }, [periodInvoices]);
+
+    // 30-day sparkline of "К оплате" amounts grouped by day.
+    const pendingSparkline = useMemo(() => {
+        const days = 30;
+        const buckets = new Array<number>(days).fill(0);
+        const todayMs = Date.now();
+        invoices.forEach((inv) => {
+            if (inv.status !== 'sent' && inv.status !== 'draft') return;
+            if (!inv.createdAt) return;
+            const t = new Date(inv.createdAt).getTime();
+            if (!Number.isFinite(t)) return;
+            const ageDays = Math.floor((todayMs - t) / 86_400_000);
+            if (ageDays < 0 || ageDays >= days) return;
+            const idx = days - 1 - ageDays;
+            buckets[idx] += Number(inv.total) || 0;
+        });
+        return buckets;
     }, [invoices]);
 
     // ——— Filtered list ———
     const filteredInvoices = useMemo(() => {
-        return invoices.filter(inv => {
+        return periodInvoices.filter(inv => {
             if (filterStatus && inv.status !== filterStatus) return false;
             if (filterSearch && !inv.number.toLowerCase().includes(filterSearch.toLowerCase())) return false;
             return true;
         });
-    }, [invoices, filterStatus, filterSearch]);
+    }, [periodInvoices, filterStatus, filterSearch]);
 
     // ——— Actions ———
     const handleGenerateInvoice = async () => {
         if (!selectedContractorId) {
-            setError('Выберите контрагента для генерации счета.');
+            toast({ variant: 'warning', title: 'Контрагент не выбран', description: 'Выберите контрагента для генерации счёта.' });
             return;
         }
 
@@ -264,10 +320,41 @@ export default function FinanceDashboard() {
                 type: 'invoice',
             });
             await fetchInvoices();
+            toast({ variant: 'success', title: 'Готово', description: 'Счёт создан по рейсам контрагента' });
         } catch (err: any) {
-            setError(err.message);
+            toast({ variant: 'error', title: 'Ошибка', description: err.message });
         } finally {
             setGenerating(false);
+        }
+    };
+
+    const handleBulkGenerate = async () => {
+        if (!bulkFrom || !bulkTo) {
+            toast({ variant: 'warning', title: 'Период не задан', description: 'Укажите даты «с» и «по».' });
+            return;
+        }
+        setBulkSubmitting(true);
+        setBulkResult(null);
+        try {
+            setError(null);
+            const body: Record<string, any> = {
+                from: new Date(bulkFrom + 'T00:00:00').toISOString(),
+                to: new Date(bulkTo + 'T23:59:59').toISOString(),
+            };
+            if (bulkContractorId) body.contractorId = bulkContractorId;
+            const res = await api.post<{ success: boolean; data?: { created?: any[]; skipped?: any[] } }>(
+                '/finance/invoices/bulk-generate',
+                body,
+            );
+            const created = res.data?.created?.length ?? 0;
+            const skipped = res.data?.skipped?.length ?? 0;
+            setBulkResult(`Создано ${created}, пропущено ${skipped}`);
+            toast({ variant: 'success', title: 'Счета сформированы', description: `Создано ${created}, пропущено ${skipped}` });
+            await fetchInvoices();
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Ошибка', description: err.message || 'Не удалось сформировать счета пакетом' });
+        } finally {
+            setBulkSubmitting(false);
         }
     };
 
@@ -275,8 +362,9 @@ export default function FinanceDashboard() {
         try {
             // M-2 FIX: Use credentials:'include' instead of broken api.getToken()
             await downloadFromApi('/api/finance/export/1c', `1c_export_${format(new Date(), 'yyyy-MM-dd')}.xml`);
+            toast({ variant: 'success', title: 'Экспорт', description: 'XML для 1С скачан' });
         } catch (err: any) {
-            setError('Ошибка экспорта: ' + err.message);
+            toast({ variant: 'error', title: 'Ошибка экспорта', description: err.message });
         }
     };
 
@@ -301,8 +389,9 @@ export default function FinanceDashboard() {
                 )
             );
             setDocReturns(results.flat());
+            toast({ variant: 'success', title: 'Документ зафиксирован', description: `${docType.toUpperCase()} помечен как полученный` });
         } catch (err: any) {
-            setError(err.message);
+            toast({ variant: 'error', title: 'Ошибка', description: err.message });
         } finally {
             setMarkingReceived(null);
         }
@@ -314,8 +403,9 @@ export default function FinanceDashboard() {
             await api.put(`/finance/invoices/${invoiceId}/status`, { status: newStatus });
             await fetchInvoices();
             setSelectedInvoice(null);
+            toast({ variant: 'success', title: 'Статус изменён', description: getStatusText(newStatus) });
         } catch (err: any) {
-            setError(err.message);
+            toast({ variant: 'error', title: 'Ошибка', description: err.message });
         } finally {
             setStatusChanging(false);
         }
@@ -361,7 +451,7 @@ export default function FinanceDashboard() {
         if (!selectedInvoice) return;
         const amount = parseMoneyInput(paymentForm.amount);
         if (!amount || amount <= 0) {
-            setError('Укажите корректную сумму оплаты');
+            toast({ variant: 'warning', title: 'Сумма оплаты', description: 'Укажите корректную сумму' });
             return;
         }
 
@@ -377,9 +467,11 @@ export default function FinanceDashboard() {
             });
             await fetchInvoices();
             const remaining = result?.data?.remainingAmount;
-            setFinanceActionResult(`Оплата зафиксирована${remaining !== undefined ? `. Остаток: ${fmtMoney(remaining)}` : ''}`);
+            const message = `Оплата зафиксирована${remaining !== undefined ? `. Остаток: ${fmtMoney(remaining)}` : ''}`;
+            setFinanceActionResult(message);
+            toast({ variant: 'success', title: 'Оплата', description: message });
         } catch (err: any) {
-            setError(err.message || 'Не удалось зафиксировать оплату');
+            toast({ variant: 'error', title: 'Ошибка', description: err.message || 'Не удалось зафиксировать оплату' });
         } finally {
             setFinanceActionLoading(null);
         }
@@ -390,11 +482,11 @@ export default function FinanceDashboard() {
         const calculatedAmount = calculateServiceAmount();
         const amount = Number.isFinite(calculatedAmount) ? calculatedAmount : parseMoneyInput(serviceForm.amount);
         if (!serviceForm.description.trim()) {
-            setError('Опишите допуслугу');
+            toast({ variant: 'warning', title: 'Описание', description: 'Опишите допуслугу' });
             return;
         }
         if (!Number.isFinite(amount)) {
-            setError('Укажите корректную сумму допуслуги');
+            toast({ variant: 'warning', title: 'Сумма', description: 'Укажите корректную сумму допуслуги' });
             return;
         }
 
@@ -410,8 +502,9 @@ export default function FinanceDashboard() {
             });
             await fetchInvoices();
             setFinanceActionResult('Допуслуга добавлена как финансовая корректировка');
+            toast({ variant: 'success', title: 'Готово', description: 'Допуслуга добавлена' });
         } catch (err: any) {
-            setError(err.message || 'Не удалось добавить допуслугу');
+            toast({ variant: 'error', title: 'Ошибка', description: err.message || 'Не удалось добавить допуслугу' });
         } finally {
             setFinanceActionLoading(null);
         }
@@ -420,7 +513,7 @@ export default function FinanceDashboard() {
     const handleReconcile1C = async () => {
         if (!selectedInvoice) return;
         if (!reconciliationForm.externalDocumentId.trim()) {
-            setError('Укажите внешний документ 1С');
+            toast({ variant: 'warning', title: 'Документ 1С', description: 'Укажите внешний документ' });
             return;
         }
 
@@ -436,84 +529,94 @@ export default function FinanceDashboard() {
                 notes: reconciliationForm.notes || null,
             });
             const mismatchCount = Array.isArray(result?.data?.mismatches) ? result.data.mismatches.length : 0;
-            setFinanceActionResult(mismatchCount > 0 ? `Сверка записана, расхождений: ${mismatchCount}` : 'Сверка записана, расхождений нет');
+            const message = mismatchCount > 0 ? `Сверка записана, расхождений: ${mismatchCount}` : 'Сверка записана, расхождений нет';
+            setFinanceActionResult(message);
+            toast({ variant: mismatchCount > 0 ? 'warning' : 'success', title: 'Сверка 1С', description: message });
         } catch (err: any) {
-            setError(err.message || 'Не удалось записать сверку с 1С');
+            toast({ variant: 'error', title: 'Ошибка', description: err.message || 'Не удалось записать сверку с 1С' });
         } finally {
             setFinanceActionLoading(null);
         }
     };
 
     // ================================================================
+    const pendingCount = periodInvoices.filter(i => i.status === 'sent' || i.status === 'draft').length;
+    const paidCount = periodInvoices.filter(i => i.status === 'paid').length;
+    const overdueCount = periodInvoices.filter(i => i.status === 'overdue').length;
+
     return (
-        <div className="p-8 space-y-8 bg-slate-50 min-h-screen text-slate-900">
-            {/* Header */}
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Финансы и Бухгалтерия</h1>
-                    <p className="text-slate-500">Управление счетами, актами и тарификацией рейсов.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Select
-                        value={selectedContractorId}
-                        onChange={(e) => setSelectedContractorId(e.target.value)}
-                        options={contractors.map((contractor) => ({
-                            value: contractor.id,
-                            label: contractor.name + ' (' + contractor.inn + ')',
-                        }))}
-                        placeholder="Выберите контрагента"
-                        className="w-72"
-                    />
-                    <Button onClick={handleGenerateInvoice} disabled={generating || !selectedContractorId} className="bg-blue-600 hover:bg-blue-700 text-white">
-                        {generating ? 'Генерация...' : '+ Создать счет по рейсам'}
-                    </Button>
-                </div>
-            </div>
+        <div className="p-8 space-y-6 bg-neutral-50 min-h-screen text-neutral-900">
+            <DashboardHeader
+                title="Финансы и Бухгалтерия"
+                subtitle="Управление счетами, актами и тарификацией рейсов"
+                icon={Wallet}
+                iconTone="brand"
+                period={period}
+                onPeriodChange={setPeriod}
+                onRefresh={() => void fetchInvoices()}
+                refreshing={loading}
+                actions={
+                    <>
+                        <Select
+                            value={selectedContractorId}
+                            onChange={(e) => setSelectedContractorId(e.target.value)}
+                            options={contractors.map((contractor) => ({
+                                value: contractor.id,
+                                label: contractor.name + ' (' + contractor.inn + ')',
+                            }))}
+                            placeholder="Выберите контрагента"
+                            className="w-72"
+                        />
+                        <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} isLoading={generating} onClick={handleGenerateInvoice} disabled={!selectedContractorId}>
+                            Счёт по рейсам
+                        </Button>
+                        <Button variant="outline" leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => { setBulkResult(null); setBulkOpen(true); }}>
+                            Пакетом
+                        </Button>
+                    </>
+                }
+            />
 
-            {/* Error */}
-            {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex justify-between items-center">
-                    <span>{error}</span>
-                    <button onClick={() => setError(null)} className="text-red-400 hover:text-red-700">&times;</button>
-                </div>
-            )}
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500">Ожидают оплаты</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold text-slate-900">{fmtMoney(summary.pending)}</p>
-                        <p className="text-xs text-blue-600 mt-2">{invoices.filter(i => i.status === 'sent' || i.status === 'draft').length} счетов</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500">Просрочено (Дебиторка)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className={`text-3xl font-bold ${summary.overdue > 0 ? 'text-red-600' : 'text-slate-900'}`}>{fmtMoney(summary.overdue)}</p>
-                        <p className="text-xs text-red-500 mt-2">{summary.overdue > 0 ? 'Требует внимания' : 'Нет просроченных'}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500">Оплачено</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold text-emerald-600">{fmtMoney(summary.totalPaid)}</p>
-                        <p className="text-xs text-emerald-500 mt-2">{invoices.filter(i => i.status === 'paid').length} счетов</p>
-                    </CardContent>
-                </Card>
+            {/* Summary Metric Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <MetricCard
+                    label="К оплате"
+                    value={fmtMoney(summary.pending)}
+                    hint={`${pendingCount} счетов`}
+                    sparkline={pendingSparkline}
+                    sparklineTone="brand"
+                    icon={Receipt}
+                    tone="info"
+                />
+                <MetricCard
+                    label="Просрочено"
+                    value={fmtMoney(summary.overdue)}
+                    hint={overdueCount > 0 ? `${overdueCount} счетов` : 'нет просроченных'}
+                    icon={AlertCircle}
+                    tone={summary.overdue > 0 ? 'danger' : 'neutral'}
+                    changeGood={false}
+                />
+                <MetricCard
+                    label="Оплачено"
+                    value={fmtMoney(summary.totalPaid)}
+                    hint={`${paidCount} счетов`}
+                    icon={CheckCircle2}
+                    tone="success"
+                />
+                <MetricCard
+                    label="Всего счетов"
+                    value={periodInvoices.length}
+                    hint="за период"
+                    icon={Banknote}
+                    tone="neutral"
+                />
             </div>
 
             {/* Filters + Table */}
             <Card>
                 <div className="p-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                        <h2 className="text-xl font-semibold text-slate-900">Реестр счетов</h2>
+                        <h2 className="text-xl font-semibold text-neutral-900">Реестр счетов</h2>
                         <div className="flex flex-wrap gap-3 items-center">
                             <Input
                                 placeholder="Поиск по номеру..."
@@ -532,9 +635,14 @@ export default function FinanceDashboard() {
                     </div>
 
                     {loading ? (
-                        <div className="text-center py-12 text-slate-400">Загрузка счетов...</div>
+                        <SkeletonTable rows={6} columns={8} />
                     ) : filteredInvoices.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400">Нет счетов{filterStatus || filterSearch ? ' по выбранным фильтрам' : ''}.</div>
+                        <EmptyState
+                            icon={Receipt}
+                            title={filterStatus || filterSearch ? 'Нет счетов по фильтру' : 'Пока нет счетов'}
+                            description={filterStatus || filterSearch ? 'Попробуйте сбросить фильтры.' : 'Создайте счёт по рейсам или сформируйте пакет.'}
+                            tone="brand"
+                        />
                     ) : (
                         <div className="overflow-x-auto">
                             <Table>
@@ -553,15 +661,15 @@ export default function FinanceDashboard() {
                                 <TableBody>
                                     {filteredInvoices.map(inv => (
                                         <TableRow key={inv.id} className="cursor-pointer" onClick={() => setSelectedInvoice(inv)}>
-                                            <TableCell className="font-medium text-blue-600">{inv.number}</TableCell>
-                                            <TableCell className="text-slate-500">{invoiceTypeLabels[inv.type] || inv.type}</TableCell>
-                                            <TableCell className="text-slate-500">
+                                            <TableCell className="font-medium text-blue-600" title={inv.number}>{shortInvoiceNo(inv.number)}</TableCell>
+                                            <TableCell className="text-neutral-500">{invoiceTypeLabels[inv.type] || inv.type}</TableCell>
+                                            <TableCell className="text-neutral-500">
                                                 {inv.periodStart && format(new Date(inv.periodStart), 'dd.MM', { locale: ru })}
                                                 {' — '}
                                                 {inv.periodEnd && format(new Date(inv.periodEnd), 'dd.MM.yy', { locale: ru })}
                                             </TableCell>
                                             <TableCell>{fmtMoney(inv.subtotal)}</TableCell>
-                                            <TableCell className="text-slate-400">{fmtMoney(inv.vatAmount)}</TableCell>
+                                            <TableCell className="text-neutral-400">{fmtMoney(inv.vatAmount)}</TableCell>
                                             <TableCell className="font-semibold">{fmtMoney(inv.total)}</TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className={getStatusColor(inv.status)}>
@@ -600,20 +708,20 @@ export default function FinanceDashboard() {
             <Dialog
                 open={!!selectedInvoice}
                 onClose={() => setSelectedInvoice(null)}
-                title={selectedInvoice ? `Счёт ${selectedInvoice.number}` : ''}
+                title={selectedInvoice ? `Счёт ${shortInvoiceNo(selectedInvoice.number)}` : ''}
             >
                 {selectedInvoice && (
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div><span className="text-slate-500">Тип:</span> <span className="font-medium">{invoiceTypeLabels[selectedInvoice.type] || selectedInvoice.type}</span></div>
-                            <div><span className="text-slate-500">Статус:</span> <Badge variant="outline" className={getStatusColor(selectedInvoice.status)}>{getStatusText(selectedInvoice.status)}</Badge></div>
-                            <div><span className="text-slate-500">Подитог:</span> <span className="font-medium">{fmtMoney(selectedInvoice.subtotal)}</span></div>
-                            <div><span className="text-slate-500">НДС:</span> <span className="font-medium">{fmtMoney(selectedInvoice.vatAmount)}</span></div>
-                            <div className="col-span-2"><span className="text-slate-500">Итого:</span> <span className="text-2xl font-bold">{fmtMoney(selectedInvoice.total)}</span></div>
-                            <div><span className="text-slate-500">Период:</span> {selectedInvoice.periodStart && format(new Date(selectedInvoice.periodStart), 'dd.MM.yyyy')} — {selectedInvoice.periodEnd && format(new Date(selectedInvoice.periodEnd), 'dd.MM.yyyy')}</div>
-                            <div><span className="text-slate-500">Создан:</span> {selectedInvoice.createdAt && format(new Date(selectedInvoice.createdAt), 'd MMM yyyy, HH:mm', { locale: ru })}</div>
+                            <div><span className="text-neutral-500">Тип:</span> <span className="font-medium">{invoiceTypeLabels[selectedInvoice.type] || selectedInvoice.type}</span></div>
+                            <div><span className="text-neutral-500">Статус:</span> <Badge variant="outline" className={getStatusColor(selectedInvoice.status)}>{getStatusText(selectedInvoice.status)}</Badge></div>
+                            <div><span className="text-neutral-500">Подитог:</span> <span className="font-medium">{fmtMoney(selectedInvoice.subtotal)}</span></div>
+                            <div><span className="text-neutral-500">НДС:</span> <span className="font-medium">{fmtMoney(selectedInvoice.vatAmount)}</span></div>
+                            <div className="col-span-2"><span className="text-neutral-500">Итого:</span> <span className="text-2xl font-bold">{fmtMoney(selectedInvoice.total)}</span></div>
+                            <div><span className="text-neutral-500">Период:</span> {selectedInvoice.periodStart && format(new Date(selectedInvoice.periodStart), 'dd.MM.yyyy')} — {selectedInvoice.periodEnd && format(new Date(selectedInvoice.periodEnd), 'dd.MM.yyyy')}</div>
+                            <div><span className="text-neutral-500">Создан:</span> {selectedInvoice.createdAt && format(new Date(selectedInvoice.createdAt), 'd MMM yyyy, HH:mm', { locale: ru })}</div>
                             {selectedInvoice.tripIds && selectedInvoice.tripIds.length > 0 && (
-                                <div className="col-span-2"><span className="text-slate-500">Рейсов:</span> <span className="font-medium">{selectedInvoice.tripIds.length}</span></div>
+                                <div className="col-span-2"><span className="text-neutral-500">Рейсов:</span> <span className="font-medium">{selectedInvoice.tripIds.length}</span></div>
                             )}
                         </div>
 
@@ -625,10 +733,10 @@ export default function FinanceDashboard() {
 
                         {/* Document returns section */}
                         {selectedInvoice.tripIds && selectedInvoice.tripIds.length > 0 && (
-                            <div className="border-t border-slate-200 pt-4">
-                                <p className="text-sm font-medium text-slate-700 mb-3">Оригиналы документов:</p>
+                            <div className="border-t border-neutral-200 pt-4">
+                                <p className="text-sm font-medium text-neutral-700 mb-3">Оригиналы документов:</p>
                                 {docReturnsLoading ? (
-                                    <p className="text-xs text-slate-400">Загрузка...</p>
+                                    <p className="text-xs text-neutral-400">Загрузка...</p>
                                 ) : (
                                     <div className="flex flex-wrap gap-3">
                                         {(['ttn', 'upd', 'act'] as const).map(dt => {
@@ -640,7 +748,7 @@ export default function FinanceDashboard() {
                                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                 : anyOverdue
                                                     ? 'bg-red-50 text-red-700 border-red-200'
-                                                    : 'bg-slate-100 text-slate-500 border-slate-200';
+                                                    : 'bg-neutral-100 text-neutral-500 border-neutral-200';
                                             return (
                                                 <div key={dt} className="flex items-center gap-2">
                                                     <Badge variant="outline" className={color + ' px-3 py-1'}>
@@ -663,11 +771,11 @@ export default function FinanceDashboard() {
                             </div>
                         )}
 
-                        <div className="border-t border-slate-200 pt-4">
-                            <p className="text-sm font-medium text-slate-700 mb-3">Оплата, допуслуги и сверка:</p>
+                        <div className="border-t border-neutral-200 pt-4">
+                            <p className="text-sm font-medium text-neutral-700 mb-3">Оплата, допуслуги и сверка:</p>
                             <div className="grid gap-3 lg:grid-cols-3">
-                                <div className="rounded-lg border border-slate-200 p-3 space-y-2">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Оплата</p>
+                                <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Оплата</p>
                                     <Input type="number" step="0.01" placeholder="Сумма" value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
                                     <Input placeholder="Платежное поручение" value={paymentForm.paymentRef} onChange={(e) => setPaymentForm({ ...paymentForm, paymentRef: e.target.value })} />
                                     <Input placeholder="Плательщик" value={paymentForm.payerName} onChange={(e) => setPaymentForm({ ...paymentForm, payerName: e.target.value })} />
@@ -676,11 +784,11 @@ export default function FinanceDashboard() {
                                     </Button>
                                 </div>
 
-                                <div className="rounded-lg border border-slate-200 p-3 space-y-2">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Допуслуга</p>
+                                <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Допуслуга</p>
                                     <Select value={serviceForm.serviceType} onChange={(e) => handleServiceTypeChange(e.target.value)} options={ADDITIONAL_SERVICE_OPTIONS} />
                                     <Input placeholder="Описание" value={serviceForm.description} onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })} />
-                                    <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-slate-700">
+                                    <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-neutral-700">
                                         <div className="flex items-center justify-between gap-2">
                                             <span>Расчет: {SERVICE_UNIT_LABELS[SERVICE_RULES[serviceForm.serviceType]?.unit || 'service']}</span>
                                             <span className="font-semibold">{fmtMoney(calculateServiceAmount() || 0)}</span>
@@ -701,8 +809,8 @@ export default function FinanceDashboard() {
                                     </Button>
                                 </div>
 
-                                <div className="rounded-lg border border-slate-200 p-3 space-y-2">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Сверка 1С</p>
+                                <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Сверка 1С</p>
                                     <Input placeholder="Документ 1С" value={reconciliationForm.externalDocumentId} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalDocumentId: e.target.value })} />
                                     <Input placeholder="Статус 1С" value={reconciliationForm.externalStatus} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalStatus: e.target.value })} />
                                     <div className="grid grid-cols-2 gap-2">
@@ -716,8 +824,8 @@ export default function FinanceDashboard() {
                             </div>
                         </div>
 
-                        <div className="border-t border-slate-200 pt-4">
-                            <p className="text-sm font-medium text-slate-700 mb-3">Сменить статус:</p>
+                        <div className="border-t border-neutral-200 pt-4">
+                            <p className="text-sm font-medium text-neutral-700 mb-3">Сменить статус:</p>
                             <div className="flex flex-wrap gap-2">
                                 {['draft', 'sent', 'paid', 'overdue', 'cancelled'].filter(s => s !== selectedInvoice.status).map(s => (
                                     <Button
@@ -735,6 +843,53 @@ export default function FinanceDashboard() {
                         </div>
                     </div>
                 )}
+            </Dialog>
+
+            {/* Bulk generate dialog */}
+            <Dialog
+                open={bulkOpen}
+                onClose={() => { setBulkOpen(false); setBulkResult(null); }}
+                title="Сформировать счета пакетом"
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-neutral-500">
+                        Создаст счета по завершённым рейсам за период. Можно ограничить одним контрагентом.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-neutral-600 mb-1">С</label>
+                            <Input type="date" value={bulkFrom} onChange={(e) => setBulkFrom(e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-neutral-600 mb-1">По</label>
+                            <Input type="date" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-neutral-600 mb-1">Контрагент (необязательно)</label>
+                        <Select
+                            value={bulkContractorId}
+                            onChange={(e) => setBulkContractorId(e.target.value)}
+                            placeholder="Все контрагенты"
+                            options={contractors.map((c) => ({ value: c.id, label: `${c.name} (${c.inn})` }))}
+                        />
+                    </div>
+
+                    {bulkResult && (
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                            {bulkResult}
+                        </div>
+                    )}
+
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" onClick={() => { setBulkOpen(false); setBulkResult(null); }}>
+                            Закрыть
+                        </Button>
+                        <Button disabled={bulkSubmitting} onClick={handleBulkGenerate}>
+                            {bulkSubmitting ? 'Формирование...' : 'Сформировать'}
+                        </Button>
+                    </div>
+                </div>
             </Dialog>
         </div>
     );

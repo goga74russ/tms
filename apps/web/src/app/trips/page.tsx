@@ -4,8 +4,26 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '@/lib/api';
-import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2, Play, Flag, FolderOpen, Thermometer } from 'lucide-react';
+import { Dialog } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Stat } from '@/components/ui/stat';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SkeletonRow } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/toast';
+import { DataTable, type Column } from '@/components/ui/data-table';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from '../fleet/components/vehicleProfile';
+import { TemperaturePanel } from '@/components/TemperaturePanel';
+
+interface ColdChainSummaryRow {
+    coldChainRequired: boolean;
+    breachCount: number;
+    minC: number | null;
+    maxC: number | null;
+    slaMinC: number | null;
+    slaMaxC: number | null;
+}
 
 interface Trip {
     id: string;
@@ -20,6 +38,8 @@ interface Trip {
     actualCompletionAt?: string;
     notes?: string;
     createdAt: string;
+    carrierContractorId?: string | null;
+    carrierName?: string | null;
 }
 
 interface VehicleInfo {
@@ -96,6 +116,10 @@ type RoutePoint = {
     status?: string | null;
     plannedArrivalAt?: string | null;
     actualArrivalAt?: string | null;
+    windowFrom?: string | null;
+    windowTo?: string | null;
+    lat?: number | null;
+    lon?: number | null;
 };
 
 type TripLoadPlan = {
@@ -164,7 +188,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-    planning: 'bg-slate-100 text-slate-700',
+    planning: 'bg-neutral-100 text-neutral-700',
     assigned: 'bg-blue-100 text-blue-700',
     waybill_draft: 'bg-indigo-100 text-indigo-700',
     inspection: 'bg-cyan-100 text-cyan-700',
@@ -176,8 +200,21 @@ const STATUS_COLORS: Record<string, string> = {
     cancelled: 'bg-red-100 text-red-700',
 };
 
+function formatEtaBadge(etaIso?: string | null, reason?: string): string {
+    if (!etaIso) {
+        if (reason && reason !== 'ok') return 'ETA: нет данных GPS';
+        return 'ETA: нет данных GPS';
+    }
+    const eta = new Date(etaIso);
+    if (Number.isNaN(eta.getTime())) return 'ETA: нет данных GPS';
+    const hh = String(eta.getHours()).padStart(2, '0');
+    const mm = String(eta.getMinutes()).padStart(2, '0');
+    const diffMin = Math.max(0, Math.round((eta.getTime() - Date.now()) / 60000));
+    return `ETA: ${hh}:${mm} (через ~${diffMin}мин)`;
+}
+
 function formatDate(d?: string) {
-    if (!d) return 'вЂ”';
+    if (!d) return '—';
     return new Date(d).toLocaleDateString('ru-RU', {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
@@ -185,7 +222,7 @@ function formatDate(d?: string) {
 }
 
 function formatTimelineDate(value?: string | null) {
-    if (!value) return 'вЂ”';
+    if (!value) return '—';
     return new Date(value).toLocaleString('ru-RU', {
         day: '2-digit',
         month: '2-digit',
@@ -197,16 +234,16 @@ function formatTimelineDate(value?: string | null) {
 
 function formatWeightKg(value?: number | string | null) {
     const parsed = Number(value ?? 0);
-    if (!Number.isFinite(parsed) || parsed <= 0) return '-';
+    if (!Number.isFinite(parsed) || parsed <= 0) return '—';
     return parsed >= 1000
-        ? `${(parsed / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} t`
-        : `${parsed.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} kg`;
+        ? `${(parsed / 1000).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} т`
+        : `${parsed.toLocaleString('ru-RU', { maximumFractionDigits: 0 })} кг`;
 }
 
 function formatVolumeM3(value?: number | string | null) {
     const parsed = Number(value ?? 0);
-    if (!Number.isFinite(parsed) || parsed <= 0) return '-';
-    return `${parsed.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} m3`;
+    if (!Number.isFinite(parsed) || parsed <= 0) return '—';
+    return `${parsed.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} м³`;
 }
 
 function routePointOrder(point: RoutePoint, index = 0) {
@@ -214,9 +251,9 @@ function routePointOrder(point: RoutePoint, index = 0) {
 }
 
 function routePointTypeLabel(type?: string | null) {
-    if (type === 'loading') return 'Loading';
-    if (type === 'unloading') return 'Unloading';
-    return type || 'Stop';
+    if (type === 'loading') return 'Погрузка';
+    if (type === 'unloading') return 'Разгрузка';
+    return type || 'Точка';
 }
 
 function transportDocumentLabel(type: string) {
@@ -345,6 +382,36 @@ function RetryHint({ label = 'Требует проверки' }: { label?: stri
     );
 }
 
+function bucketLabel(bucket?: string | null) {
+    const labels: Record<string, string> = {
+        missing: 'нет',
+        overdue: 'просрочен',
+        exceptioned: 'исключение',
+        ready: 'готов',
+        pending: 'ожидает',
+    };
+    return bucket ? (labels[bucket] || bucket) : '';
+}
+
+function eventSeverityLabel(severity?: string | null) {
+    if (severity === 'critical') return 'критично';
+    if (severity === 'warning') return 'риск';
+    if (severity === 'info') return 'инфо';
+    return severity || 'инфо';
+}
+
+function readinessLabel(value?: string | null) {
+    const labels: Record<string, string> = {
+        ready: 'Готов',
+        check: 'Проверить',
+        block: 'Заблок.',
+        ok: 'OK',
+        optional: 'Опц.',
+        required: 'Обязат.',
+    };
+    return value ? (labels[value] || value) : '';
+}
+
 function humanizeNextAction(action?: string | null) {
     const labels: Record<string, string> = {
         issue_waybill: 'выпустить ПЛ',
@@ -372,40 +439,40 @@ function TimelineCard({
     const items = (events || []).slice().reverse().slice(0, 6);
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
             <div className="flex items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-                    {subtitle && <p className="mt-1 text-sm font-semibold text-slate-900">{subtitle}</p>}
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{title}</p>
+                    {subtitle && <p className="mt-1 text-sm font-semibold text-neutral-900">{subtitle}</p>}
                 </div>
-                <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                     {items.length}
                 </span>
             </div>
             <div className="mt-3 space-y-2">
                 {items.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                    <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500">
                         {emptyLabel}
                     </div>
                 ) : items.map((event) => (
-                    <div key={event.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <div key={event.id} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2">
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(event.severity, 'bg')}`}>
                                         {docEventIcon(event.isProblem, event.severity)}
                                     </span>
-                                    <p className="text-sm font-semibold text-slate-900">{event.title}</p>
+                                    <p className="text-sm font-semibold text-neutral-900">{event.title}</p>
                                 </div>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-neutral-500">
                                     {(event.documentType ? transportDocumentLabel(event.documentType) : etrnTitleTypeLabel(event.titleType))} · {complianceStatusLabel(event.status)}
                                 </p>
                             </div>
                             <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(event.severity, 'bg')}`}>
-                                {event.isProblem ? 'problem' : event.severity}
+                                {event.isProblem ? 'проблема' : eventSeverityLabel(event.severity)}
                             </span>
                         </div>
-                        <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                        <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-neutral-500">
                             <span>{event.message || 'Готово к следующему шагу'}</span>
                             <span>{formatTimelineDate(event.at)}</span>
                         </div>
@@ -431,35 +498,35 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
         exceptioned: 'bg-amber-100 text-amber-700',
     };
     const roleLabel: Record<string, string> = {
-        dispatcher: 'dispatcher',
-        driver: 'driver',
-        accounting: 'accounting',
+        dispatcher: 'диспетчер',
+        driver: 'водитель',
+        accounting: 'бухгалтерия',
     };
 
     const renderItem = (item: CloseGateItem) => (
         <div key={item.id} className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">{transportDocumentLabel(item.documentType)}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-600">{item.reason || item.blockedReason || 'Требуется проверка документа'}</p>
+                    <p className="text-sm font-semibold text-neutral-900">{transportDocumentLabel(item.documentType)}</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">{item.reason || item.blockedReason || 'Требуется проверка документа'}</p>
                 </div>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                     item.severity === 'blocking' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
                 }`}>
-                    {item.severity === 'blocking' ? 'block' : 'warning'}
+                    {item.severity === 'blocking' ? 'блокер' : 'риск'}
                 </span>
             </div>
-            <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
-                <span className="rounded-full bg-slate-50 px-2 py-0.5">{dossierItemStatusLabel(item.status)}</span>
-                <span className="rounded-full bg-slate-50 px-2 py-0.5">{item.required ? 'обязательный' : 'необязательный'}</span>
+            <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-neutral-500">
+                <span className="rounded-full bg-neutral-50 px-2 py-0.5">{dossierItemStatusLabel(item.status)}</span>
+                <span className="rounded-full bg-neutral-50 px-2 py-0.5">{item.required ? 'обязательный' : 'необязательный'}</span>
                 {item.sourceDocumentKind && (
-                    <span className="rounded-full bg-slate-50 px-2 py-0.5">{item.sourceDocumentKind}</span>
+                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">{item.sourceDocumentKind}</span>
                 )}
                 {item.dueAt && (
-                    <span className="rounded-full bg-slate-50 px-2 py-0.5">срок: {formatTimelineDate(item.dueAt)}</span>
+                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">срок: {formatTimelineDate(item.dueAt)}</span>
                 )}
                 {item.completedAt && (
-                    <span className="rounded-full bg-slate-50 px-2 py-0.5">закрыт: {formatTimelineDate(item.completedAt)}</span>
+                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">закрыт: {formatTimelineDate(item.completedAt)}</span>
                 )}
             </div>
         </div>
@@ -472,12 +539,12 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <p className={`text-xs font-semibold uppercase tracking-wide ${canClose ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        Close gate
+                        Закрытие рейса
                     </p>
-                    <p className="mt-1 text-base font-semibold text-slate-900">
+                    <p className="mt-1 text-base font-semibold text-neutral-900">
                         {canClose ? 'Рейс можно закрывать по досье' : 'Что мешает закрыть рейс'}
                     </p>
-                    <p className="mt-1 text-xs text-slate-600">
+                    <p className="mt-1 text-xs text-neutral-600">
                         Проверка документов: {closeGate.summary?.completedItems ?? 0}/{closeGate.summary?.totalItems ?? 0} готово · обновлено {formatTimelineDate(closeGate.generatedAt)}
                     </p>
                 </div>
@@ -485,28 +552,28 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                         canClose ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
                     }`}>
-                        canClose: {canClose ? 'true' : 'false'}
+                        {canClose ? 'Можно закрыть' : 'Закрытие заблокировано'}
                     </span>
                     <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-sm">
-                        blockers: {blockingItems.length}
+                        Блокеров: {blockingItems.length}
                     </span>
                     <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 shadow-sm">
-                        warnings: {warningItems.length}
+                        Рисков: {warningItems.length}
                     </span>
                 </div>
             </div>
 
             <div className="mt-3 grid gap-3 md:grid-cols-4">
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Обязательных: {closeGate.summary?.requiredItems ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Исключений: {closeGate.summary?.exceptionedItems ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     ЭТРН: {closeGate.etrn?.present ? 'есть' : closeGate.etrn?.missing ? 'нет' : 'проверить'}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Бумажное исключение: {closeGate.etrn?.paperException ? 'да' : 'нет'}
                 </div>
             </div>
@@ -528,31 +595,31 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                 <div id="document-queue" className="mt-4 rounded-2xl border border-white bg-white p-4 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Document queue</p>
-                            <p className="mt-1 text-sm font-semibold text-slate-900">Missing, overdue and exceptioned documents</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Очередь документов</p>
+                            <p className="mt-1 text-sm font-semibold text-neutral-900">Отсутствующие, просроченные и исключения</p>
                         </div>
-                        <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                            {documentQueue.length} actions
+                        <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
+                            {documentQueue.length} {documentQueue.length === 1 ? 'действие' : 'действий'}
                         </span>
                     </div>
                     <div className="mt-3 grid gap-2">
                         {documentQueue.map((item) => (
-                            <div key={item.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                            <div key={item.id} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <p className="text-sm font-semibold text-slate-900">{transportDocumentLabel(item.documentType)}</p>
-                                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${bucketClass[item.bucket] || 'bg-slate-100 text-slate-600'}`}>
-                                                {item.bucket}
+                                            <p className="text-sm font-semibold text-neutral-900">{transportDocumentLabel(item.documentType)}</p>
+                                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${bucketClass[item.bucket] || 'bg-neutral-100 text-neutral-600'}`}>
+                                                {bucketLabel(item.bucket)}
                                             </span>
-                                            <span className="inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                                                owner: {roleLabel[item.responsibleRole] || item.responsibleRole}
+                                            <span className="inline-flex rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
+                                                ответств.: {roleLabel[item.responsibleRole] || item.responsibleRole}
                                             </span>
                                         </div>
-                                        <p className="mt-1 text-xs text-slate-600">{item.action}</p>
-                                        <p className="mt-1 text-[11px] text-slate-500">
+                                        <p className="mt-1 text-xs text-neutral-600">{item.action}</p>
+                                        <p className="mt-1 text-[11px] text-neutral-500">
                                             {dossierItemStatusLabel(item.status)}
-                                            {item.dueAt ? ` · due ${formatTimelineDate(item.dueAt)}` : ''}
+                                            {item.dueAt ? ` · до ${formatTimelineDate(item.dueAt)}` : ''}
                                             {item.reason ? ` · ${item.reason}` : ''}
                                         </p>
                                     </div>
@@ -563,7 +630,7 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                                             className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
                                         >
                                             <FileText className="h-3.5 w-3.5" />
-                                            {item.printLabel || 'Print act'}
+                                            {item.printLabel || 'Печать акта'}
                                         </button>
                                     )}
                                 </div>
@@ -591,62 +658,62 @@ function DossierNextActions({
     const repairUrl = `/repair?action=create&tripId=${encodeURIComponent(trip.id || '')}&vehicleId=${encodeURIComponent(trip.vehicleId || '')}&source=mechanic`;
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Next actions</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">Repair, return and close-flow shortcuts</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Дальнейшие действия</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">Ремонт, возврат, закрытие — быстрые ссылки</p>
                 </div>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                     closeGate?.canClose ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
                 }`}>
-                    close: {closeGate?.canClose ? 'ready' : 'blocked'}
+                    {closeGate?.canClose ? 'Готов к закрытию' : 'Закрытие заблокировано'}
                 </span>
             </div>
             <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
                 <button
                     type="button"
                     onClick={() => window.open(repairUrl, '_blank', 'noopener,noreferrer')}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <Wrench className="h-3.5 w-3.5" />
-                        Repair request
+                        Заявка на ремонт
                     </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Open repair UI with this vehicle and trip context.</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-neutral-500">Открыть ремонт с контекстом этого ТС и рейса.</span>
                 </button>
                 <button
                     type="button"
                     onClick={() => onSelectAction('return')}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <RotateCcw className="h-3.5 w-3.5" />
-                        Return checklist
+                        Чек-лист возврата
                     </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Jump to post-trip return: documents, odometer, fuel, inspection.</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-neutral-500">Возврат после рейса: документы, одометр, топливо, осмотр.</span>
                 </button>
                 <button
                     type="button"
                     onClick={() => onSelectAction('breakdown')}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <AlertTriangle className="h-3.5 w-3.5" />
-                        Breakdown flow
+                        Поломка в рейсе
                     </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">Record blocking event, then open repair or replacement if needed.</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-neutral-500">Зафиксировать блокирующее событие и открыть ремонт/замену.</span>
                 </button>
                 <a
                     href="#document-queue"
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
                 >
                     <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        Close gate
+                        Закрытие рейса
                     </span>
-                    <span className="mt-1 block text-[11px] leading-4 text-slate-500">
-                        {blockerCount} blockers, {warningCount} warnings, {queueCount} document actions.
+                    <span className="mt-1 block text-[11px] leading-4 text-neutral-500">
+                        Блокеров: {blockerCount}, рисков: {warningCount}, документов в очереди: {queueCount}.
                     </span>
                 </a>
             </div>
@@ -654,14 +721,45 @@ function DossierNextActions({
     );
 }
 
+function formatWindow(from?: string | null, to?: string | null) {
+    if (!from && !to) return null;
+    const fmt = (v?: string | null) => {
+        if (!v) return '—';
+        try {
+            const d = new Date(v);
+            if (Number.isNaN(d.getTime())) return v;
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mi = String(d.getMinutes()).padStart(2, '0');
+            return `${dd}.${mm} ${hh}:${mi}`;
+        } catch { return v; }
+    };
+    return `${fmt(from)} – ${fmt(to)}`;
+}
+
+function isWindowOverdue(point: RoutePoint, now = Date.now()): boolean {
+    if (!point.windowTo) return false;
+    if (point.status === 'completed') return false;
+    const t = new Date(point.windowTo).getTime();
+    if (Number.isNaN(t)) return false;
+    return now > t;
+}
+
 function OperationalStructureBlock({
     dossier,
     loadPlan,
     routePoints,
+    canSort,
+    onSortRoute,
+    sorting,
 }: {
     dossier: any;
     loadPlan?: TripLoadPlan | null;
     routePoints: RoutePoint[];
+    canSort?: boolean;
+    onSortRoute?: () => void;
+    sorting?: boolean;
 }) {
     const orders = Array.isArray(dossier?.orders) ? dossier.orders : [];
     const assignments = Array.isArray(loadPlan?.assignments) ? loadPlan.assignments : [];
@@ -686,123 +784,147 @@ function OperationalStructureBlock({
     const routePointById = new globalThis.Map(sortedPoints.map((point, index) => [point.id, `${routePointOrder(point, index)}. ${routePointTypeLabel(point.type)}`]));
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Load structure</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Load structure</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">
                         Multi-order, lot assignments, and route stops
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiOrder ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiOrder ? 'bg-indigo-100 text-indigo-700' : 'bg-neutral-100 text-neutral-600'}`}>
                         {orderCount} orders
                     </span>
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${assignments.length > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${assignments.length > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-600'}`}>
                         {assignments.length} lots
                     </span>
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiStop ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-600'}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiStop ? 'bg-sky-100 text-sky-700' : 'bg-neutral-100 text-neutral-600'}`}>
                         {sortedPoints.length} stops
                     </span>
                 </div>
             </div>
 
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{'One trip to many orders'}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{hasMultiOrder ? 'Consolidated trip' : 'Single-order trip'}</p>
-                    <p className="mt-1 text-xs text-slate-500">Grouped by linked orders from the dossier.</p>
+                <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{'One trip to many orders'}</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">{hasMultiOrder ? 'Consolidated trip' : 'Single-order trip'}</p>
+                    <p className="mt-1 text-xs text-neutral-500">Grouped by linked orders from the dossier.</p>
                 </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Lot load plan</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Lot load plan</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">
                         {formatWeightKg(summary?.totalAssignedWeightKg)} / {formatWeightKg(summary?.payloadCapacityKg)}
                     </p>
-                    <p className={`mt-1 text-xs ${summary?.overweight || summary?.overVolume ? 'text-rose-600' : 'text-slate-500'}`}>
+                    <p className={`mt-1 text-xs ${summary?.overweight || summary?.overVolume ? 'text-rose-600' : 'text-neutral-500'}`}>
                         {summary?.overweight ? 'Over payload capacity' : summary?.overVolume ? 'Over volume capacity' : 'Capacity summary from load-plan.'}
                     </p>
                 </div>
-                <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Multi-stop route</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">{loadingCount} loading / {unloadingCount} unloading</p>
-                    <p className="mt-1 text-xs text-slate-500">Visual sequence only; no solver or VRP changes.</p>
+                <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Multi-stop route</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">{loadingCount} loading / {unloadingCount} unloading</p>
+                    <p className="mt-1 text-xs text-neutral-500">Visual sequence only; no solver or VRP changes.</p>
                 </div>
             </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-3">
-                <div className="rounded-xl border border-slate-200">
-                    <div className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="rounded-xl border border-neutral-200">
+                    <div className="border-b border-neutral-100 bg-neutral-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
                         Lot assignments
                     </div>
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-neutral-100">
                         {assignments.length === 0 ? (
-                            <div className="px-3 py-4 text-sm text-slate-500">
+                            <div className="px-3 py-4 text-sm text-neutral-500">
                                 No lot assignments returned yet. Split/assignment data will appear here when the load-plan API has it.
                             </div>
                         ) : assignments.slice(0, 6).map((assignment) => (
                             <div key={assignment.id} className="px-3 py-3">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-slate-900">
+                                        <p className="text-sm font-semibold text-neutral-900">
                                             {assignment.orderNumber || 'Order'} / lot {assignment.lotSequence ?? '-'}
                                         </p>
-                                        <p className="truncate text-xs text-slate-500">{assignment.cargoDescription || assignment.cargoType || 'Cargo details not provided'}</p>
+                                        <p className="truncate text-xs text-neutral-500">{assignment.cargoDescription || assignment.cargoType || 'Cargo details not provided'}</p>
                                     </div>
-                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                    <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
                                         {assignment.status || assignment.lotStatus || 'planned'}
                                     </span>
                                 </div>
-                                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
-                                    <span className="rounded-full bg-slate-50 px-2 py-0.5">{formatWeightKg(assignment.assignedWeightKg || assignment.plannedWeightKg)}</span>
-                                    <span className="rounded-full bg-slate-50 px-2 py-0.5">{formatVolumeM3(assignment.assignedVolumeM3)}</span>
+                                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-neutral-500">
+                                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">{formatWeightKg(assignment.assignedWeightKg || assignment.plannedWeightKg)}</span>
+                                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">{formatVolumeM3(assignment.assignedVolumeM3)}</span>
                                     {assignment.assignedPlaces != null && (
-                                        <span className="rounded-full bg-slate-50 px-2 py-0.5">{assignment.assignedPlaces} places</span>
+                                        <span className="rounded-full bg-neutral-50 px-2 py-0.5">{assignment.assignedPlaces} places</span>
                                     )}
                                 </div>
-                                <p className="mt-2 text-[11px] text-slate-400">
+                                <p className="mt-2 text-[11px] text-neutral-400">
                                     {`${routePointById.get(assignment.loadingRoutePointId || '') || 'Loading stop not linked'} to ${routePointById.get(assignment.unloadingRoutePointId || '') || 'Unloading stop not linked'}`}
                                 </p>
                             </div>
                         ))}
                         {assignments.length > 6 && (
-                            <div className="px-3 py-2 text-xs text-slate-500">+{assignments.length - 6} more assignments</div>
+                            <div className="px-3 py-2 text-xs text-neutral-500">+{assignments.length - 6} more assignments</div>
                         )}
                     </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-200">
-                    <div className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Route sequence
+                <div className="rounded-xl border border-neutral-200">
+                    <div className="flex items-center justify-between gap-2 border-b border-neutral-100 bg-neutral-50 px-3 py-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Route sequence</span>
+                        {canSort && (
+                            <button
+                                type="button"
+                                onClick={onSortRoute}
+                                disabled={sorting || sortedPoints.length === 0}
+                                className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {sorting && <Loader2 className="h-3 w-3 animate-spin" />}
+                                Сортировать маршрут
+                            </button>
+                        )}
                     </div>
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-neutral-100">
                         {sortedPoints.length === 0 ? (
-                            <div className="px-3 py-4 text-sm text-slate-500">
+                            <div className="px-3 py-4 text-sm text-neutral-500">
                                 No route points returned. The route timeline will appear after points are generated.
                             </div>
-                        ) : sortedPoints.map((point, index) => (
-                            <div key={point.id} className="flex gap-3 px-3 py-3">
-                                <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
-                                    {routePointOrder(point, index)}
-                                </span>
-                                <div className="min-w-0">
-                                    <p className="text-sm font-semibold text-slate-900">{routePointTypeLabel(point.type)}</p>
-                                    <p className="truncate text-xs text-slate-500">{point.address || 'Address not provided'}</p>
-                                    <p className="mt-1 text-[11px] text-slate-400">
-                                        {point.status || 'planned'} | plan {formatTimelineDate(point.plannedArrivalAt)} | fact {formatTimelineDate(point.actualArrivalAt)}
-                                    </p>
+                        ) : sortedPoints.map((point, index) => {
+                            const overdue = isWindowOverdue(point);
+                            const window = formatWindow(point.windowFrom, point.windowTo);
+                            return (
+                                <div
+                                    key={point.id}
+                                    className={`flex gap-3 px-3 py-3 ${overdue ? 'bg-rose-50' : ''}`}
+                                >
+                                    <span className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${overdue ? 'bg-rose-200 text-rose-800' : 'bg-indigo-100 text-indigo-700'}`}>
+                                        {routePointOrder(point, index)}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-semibold text-neutral-900">{routePointTypeLabel(point.type)}</p>
+                                        <p className="truncate text-xs text-neutral-500">{point.address || 'Address not provided'}</p>
+                                        <p className="mt-1 text-[11px] text-neutral-400">
+                                            {point.status || 'planned'} | plan {formatTimelineDate(point.plannedArrivalAt)} | fact {formatTimelineDate(point.actualArrivalAt)}
+                                        </p>
+                                        {window && (
+                                            <p className={`mt-1 text-[11px] font-medium ${overdue ? 'text-rose-700' : 'text-neutral-500'}`}>
+                                                Окно: {window}
+                                                {overdue && <span className="ml-1 font-semibold">· просрочено</span>}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-200">
-                    <div className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="rounded-xl border border-neutral-200">
+                    <div className="border-b border-neutral-100 bg-neutral-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
                         Order grouping
                     </div>
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-neutral-100">
                         {orders.length === 0 ? (
-                            <div className="px-3 py-4 text-sm text-slate-500">
+                            <div className="px-3 py-4 text-sm text-neutral-500">
                                 No linked orders in dossier.
                             </div>
                         ) : orders.map((order: any) => {
@@ -811,14 +933,25 @@ function OperationalStructureBlock({
                                 <div key={order.id || order.number} className="px-3 py-3">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-slate-900">{order.number || order.id}</p>
-                                            <p className="truncate text-xs text-slate-500">{order.cargoDescription || 'Cargo details not provided'}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-semibold text-neutral-900">{order.number || order.id}</p>
+                                                {order.adrClass && (
+                                                    <span
+                                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold border border-red-200"
+                                                        title={`ADR класс ${order.adrClass}${order.adrUnNumber ? ` · ${order.adrUnNumber}` : ''}`}
+                                                    >
+                                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                                        ADR-{order.adrClass}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="truncate text-xs text-neutral-500">{order.cargoDescription || 'Cargo details not provided'}</p>
                                         </div>
                                         <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
                                             {group.length} lots
                                         </span>
                                     </div>
-                                    <p className="mt-2 text-[11px] text-slate-400">
+                                    <p className="mt-2 text-[11px] text-neutral-400">
                                         {`${order.loadingAddress || 'Loading address not set'} to ${order.unloadingAddress || 'Unloading address not set'}`}
                                     </p>
                                 </div>
@@ -1027,13 +1160,13 @@ function OperationalActionsBlock({
     ] as const;
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Операционные действия</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">Простой, переадресация, поломка, отмена и возврат</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Операционные действия</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">Простой, переадресация, поломка, отмена и возврат</p>
                 </div>
-                <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                     {routePoints.length} точек
                 </span>
             </div>
@@ -1048,7 +1181,7 @@ function OperationalActionsBlock({
                         className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                             activeAction === action.id
                                 ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                         }`}
                     >
                         {action.label}
@@ -1068,11 +1201,11 @@ function OperationalActionsBlock({
 
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
                 <label className="block">
-                    <span className="text-xs font-semibold text-slate-600">Точка маршрута</span>
+                    <span className="text-xs font-semibold text-neutral-600">Точка маршрута</span>
                     <select
                         value={routePointId}
                         onChange={event => setRoutePointId(event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     >
                         <option value="">Без привязки к точке</option>
                         {routePoints.map((point, index) => (
@@ -1084,22 +1217,22 @@ function OperationalActionsBlock({
                 </label>
 
                 <label className="block">
-                    <span className="text-xs font-semibold text-slate-600">Причина</span>
+                    <span className="text-xs font-semibold text-neutral-600">Причина</span>
                     <input
                         value={reason}
                         onChange={event => setReason(event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     />
                 </label>
 
                 {activeAction === 'readdress' && (
                     <label className="block lg:col-span-2">
-                        <span className="text-xs font-semibold text-slate-600">Новый адрес</span>
+                        <span className="text-xs font-semibold text-neutral-600">Новый адрес</span>
                         <input
                             value={address}
                             onChange={event => setAddress(event.target.value)}
                             placeholder="Новый адрес погрузки или выгрузки"
-                            className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                         />
                     </label>
                 )}
@@ -1107,22 +1240,22 @@ function OperationalActionsBlock({
                 {(activeAction === 'downtime' || activeAction === 'cancel') && (
                     <>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Финансовый резерв, руб.</span>
+                            <span className="text-xs font-semibold text-neutral-600">Финансовый резерв, руб.</span>
                             <input
                                 value={reserveAmount}
                                 onChange={event => setReserveAmount(event.target.value)}
                                 inputMode="decimal"
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                         {activeAction === 'downtime' && (
                             <label className="block">
-                                <span className="text-xs font-semibold text-slate-600">Бесплатные минуты</span>
+                                <span className="text-xs font-semibold text-neutral-600">Бесплатные минуты</span>
                                 <input
                                     value={freeMinutes}
                                     onChange={event => setFreeMinutes(event.target.value)}
                                     inputMode="numeric"
-                                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                                 />
                             </label>
                         )}
@@ -1132,29 +1265,29 @@ function OperationalActionsBlock({
                 {activeAction === 'return' && (
                     <>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Одометр</span>
+                            <span className="text-xs font-semibold text-neutral-600">Одометр</span>
                             <input
                                 value={odometerEnd}
                                 onChange={event => setOdometerEnd(event.target.value)}
                                 inputMode="decimal"
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Топливо</span>
+                            <span className="text-xs font-semibold text-neutral-600">Топливо</span>
                             <input
                                 value={fuelEnd}
                                 onChange={event => setFuelEnd(event.target.value)}
                                 inputMode="decimal"
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Послерейсовый осмотр</span>
+                            <span className="text-xs font-semibold text-neutral-600">Послерейсовый осмотр</span>
                             <select
                                 value={postTripInspectionStatus}
                                 onChange={event => setPostTripInspectionStatus(event.target.value as 'pending' | 'passed' | 'failed')}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="pending">Ожидает</option>
                                 <option value="passed">Пройден</option>
@@ -1167,11 +1300,11 @@ function OperationalActionsBlock({
                 {activeAction === 'replace' && (
                     <>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Новое ТС</span>
+                            <span className="text-xs font-semibold text-neutral-600">Новое ТС</span>
                             <select
                                 value={replacementVehicleId}
                                 onChange={event => setReplacementVehicleId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="">Не менять ТС</option>
                                 {vehicles.map(vehicle => (
@@ -1182,11 +1315,11 @@ function OperationalActionsBlock({
                             </select>
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Новый водитель</span>
+                            <span className="text-xs font-semibold text-neutral-600">Новый водитель</span>
                             <select
                                 value={replacementDriverId}
                                 onChange={event => setReplacementDriverId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="">Не менять водителя</option>
                                 {drivers.map(driver => (
@@ -1197,11 +1330,11 @@ function OperationalActionsBlock({
                             </select>
                         </label>
                         <label className="block lg:col-span-2">
-                            <span className="text-xs font-semibold text-slate-600">Новый прицеп</span>
+                            <span className="text-xs font-semibold text-neutral-600">Новый прицеп</span>
                             <select
                                 value={replacementTrailerId}
                                 onChange={event => setReplacementTrailerId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="">Не менять прицеп</option>
                                 {trailers.map(trailer => (
@@ -1217,11 +1350,11 @@ function OperationalActionsBlock({
                 {activeAction === 'crew' && (
                     <>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Основной водитель</span>
+                            <span className="text-xs font-semibold text-neutral-600">Основной водитель</span>
                             <select
                                 value={crewPrimaryDriverId}
                                 onChange={event => setCrewPrimaryDriverId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="">Выберите водителя</option>
                                 {drivers.map(driver => (
@@ -1232,11 +1365,11 @@ function OperationalActionsBlock({
                             </select>
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Второй водитель</span>
+                            <span className="text-xs font-semibold text-neutral-600">Второй водитель</span>
                             <select
                                 value={crewSecondaryDriverId}
                                 onChange={event => setCrewSecondaryDriverId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
                                 <option value="">Без второго водителя</option>
                                 {drivers.map(driver => (
@@ -1247,42 +1380,42 @@ function OperationalActionsBlock({
                             </select>
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Начало смены</span>
+                            <span className="text-xs font-semibold text-neutral-600">Начало смены</span>
                             <input
                                 type="datetime-local"
                                 value={shiftStart}
                                 onChange={event => setShiftStart(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Конец смены</span>
+                            <span className="text-xs font-semibold text-neutral-600">Конец смены</span>
                             <input
                                 type="datetime-local"
                                 value={shiftEnd}
                                 onChange={event => setShiftEnd(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-600">Лимит смены, минут</span>
+                            <span className="text-xs font-semibold text-neutral-600">Лимит смены, минут</span>
                             <input
                                 value={maxShiftMinutes}
                                 onChange={event => setMaxShiftMinutes(event.target.value)}
                                 inputMode="numeric"
-                                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             />
                         </label>
                     </>
                 )}
 
                 <label className="block lg:col-span-2">
-                    <span className="text-xs font-semibold text-slate-600">Комментарий</span>
+                    <span className="text-xs font-semibold text-neutral-600">Комментарий</span>
                     <textarea
                         value={notes}
                         onChange={event => setNotes(event.target.value)}
                         rows={3}
-                        className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                     />
                 </label>
             </div>
@@ -1290,31 +1423,31 @@ function OperationalActionsBlock({
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap gap-3">
                     {activeAction === 'cancel' && (
-                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-600">
                             <input type="checkbox" checked={cancelTrip} onChange={event => setCancelTrip(event.target.checked)} />
                             Отменить рейс
                         </label>
                     )}
                     {activeAction === 'breakdown' && (
-                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-600">
                             <input type="checkbox" checked={requiresReplacement} onChange={event => setRequiresReplacement(event.target.checked)} />
                             Нужна замена ресурса
                         </label>
                     )}
                     {activeAction === 'return' && (
                         <>
-                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-600">
                                 <input type="checkbox" checked={originalDocumentsReceived} onChange={event => setOriginalDocumentsReceived(event.target.checked)} />
                                 Оригиналы сданы
                             </label>
-                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-600">
                                 <input type="checkbox" checked={blockNextTrip} onChange={event => setBlockNextTrip(event.target.checked)} />
                                 Блокировать следующий рейс
                             </label>
                         </>
                     )}
                     {(activeAction === 'replace' || activeAction === 'crew') && optionsLoading && (
-                        <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">
+                        <span className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-500">
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             Загружаем справочники
                         </span>
@@ -1340,19 +1473,94 @@ function OperationalActionsBlock({
     );
 }
 
-function TransportDocumentsBlock({ dossier }: { dossier: any }) {
+function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: boolean }) {
     const transportDocuments = dossier?.transportDocuments;
     const etrn = dossier?.etrn;
     const tripId = dossier?.trip?.id;
     const [documentActionLoading, setDocumentActionLoading] = useState<string | null>(null);
     const [documentActionResult, setDocumentActionResult] = useState<string | null>(null);
+    const [ediActionLoading, setEdiActionLoading] = useState<string | null>(null);
+    const [ediStatuses, setEdiStatuses] = useState<Record<string, { status?: string; provider?: string; sentAt?: string }>>({});
+    const [ediHistoryDoc, setEdiHistoryDoc] = useState<any | null>(null);
+    const [ediHistory, setEdiHistory] = useState<any[]>([]);
+    const [ediHistoryLoading, setEdiHistoryLoading] = useState(false);
+
+    const refreshEdiStatus = async (docId: string) => {
+        try {
+            const res = await api.get<{ success: boolean; data: any[] }>(`/transport-documents/${docId}/edi/history`);
+            const events = Array.isArray(res?.data) ? res.data : [];
+            // Latest event determines status
+            const latest = events[0];
+            setEdiStatuses(prev => ({
+                ...prev,
+                [docId]: {
+                    status: latest?.eventType || prev[docId]?.status,
+                    provider: latest?.payload?.provider || prev[docId]?.provider,
+                    sentAt: latest?.createdAt || prev[docId]?.sentAt,
+                },
+            }));
+        } catch {
+            // silent
+        }
+    };
+
+    const sendEdi = async (docId: string, provider: 'diadoc' | 'sbis' | 'kontur') => {
+        setEdiActionLoading(`send-${docId}-${provider}`);
+        try {
+            await api.post(`/transport-documents/${docId}/edi/send`, { provider });
+            setDocumentActionResult(`EDI: документ отправлен через ${provider}`);
+            await refreshEdiStatus(docId);
+        } catch (err: any) {
+            setDocumentActionResult(err?.message || 'Не удалось отправить EDI');
+        } finally {
+            setEdiActionLoading(null);
+        }
+    };
+
+    const mockEdiProgress = async (docId: string, to: 'signed_by_carrier' | 'signed_by_client' | 'rejected') => {
+        setEdiActionLoading(`mock-${docId}-${to}`);
+        try {
+            await api.post(`/transport-documents/${docId}/edi/mock-progress`, { to });
+            setDocumentActionResult(`EDI mock: ${to}`);
+            await refreshEdiStatus(docId);
+        } catch (err: any) {
+            setDocumentActionResult(err?.message || 'Не удалось обновить EDI mock');
+        } finally {
+            setEdiActionLoading(null);
+        }
+    };
+
+    const openEdiHistory = async (doc: any) => {
+        setEdiHistoryDoc(doc);
+        setEdiHistory([]);
+        setEdiHistoryLoading(true);
+        try {
+            const res = await api.get<{ success: boolean; data: any[] }>(`/transport-documents/${doc.id}/edi/history`);
+            setEdiHistory(Array.isArray(res?.data) ? res.data : []);
+        } catch {
+            setEdiHistory([]);
+        } finally {
+            setEdiHistoryLoading(false);
+        }
+    };
 
     if (!transportDocuments && !etrn) return null;
 
-    const docs = (transportDocuments?.documents || []) as any[];
-    const docProblems = (transportDocuments?.problems || []) as any[];
-    const etrnTitles = (etrn?.titles || []) as any[];
-    const etrnProblems = (etrn?.problems || []) as any[];
+    // TODO(type): formalize TransportDocument / ETRN shapes in @tms/shared and replace these locals
+    type TransportDoc = {
+        providerName?: string; retryCount?: number;
+        providerDocumentId?: string; providerMessageId?: string; acceptedAt?: string;
+        nextRetryAt?: string; lastAttemptAt?: string; lastRetryAt?: string; sentAt?: string;
+        type?: string; status?: string; updatedAt?: string;
+        [k: string]: unknown;
+    };
+    type DocProblem = { code?: string; severity?: string; message?: string; [k: string]: unknown };
+    type EtrnTitle = { type?: string; status?: string; [k: string]: unknown };
+    type EtrnProblem = { code?: string; severity?: string; message?: string; [k: string]: unknown };
+    const docs = (transportDocuments?.documents || []) as TransportDoc[];
+    const docProblems = (transportDocuments?.problems || []) as DocProblem[];
+    const etrnTitles = (etrn?.titles || []) as EtrnTitle[];
+    const etrnProblems = (etrn?.problems || []) as EtrnProblem[];
     const exchangeTotals = {
         providers: new Set(docs.map((doc: any) => doc.providerName || 'internal')).size,
         retries: docs.reduce((total: number, doc: any) => total + Number(doc.retryCount || 0), 0),
@@ -1427,23 +1635,23 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
         <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Persisted transport documents</p>
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Транспортные документы</p>
+                    <p className="text-sm font-semibold text-neutral-900">
                         {phaseLabelMap[transportDocuments?.lifecycle?.documentPhase] || transportDocuments?.lifecycle?.documentPhase || 'сформирован'} · {workflowLabelMap[etrn?.status] || etrn?.status || 'draft'}
                     </p>
-                    <p className="mt-1 text-xs text-slate-600">
-                        {transportDocuments?.summary?.nextAction ? `Next action: ${humanizeNextAction(transportDocuments.summary.nextAction)}` : 'Поток документов доступен через dossier API'}
+                    <p className="mt-1 text-xs text-neutral-600">
+                        {transportDocuments?.summary?.nextAction ? `Следующее действие: ${humanizeNextAction(transportDocuments.summary.nextAction)}` : 'Поток документов доступен через dossier API'}
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {transportDocuments?.lifecycle?.hasBlockingProblems && (
-                        <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-700">blocked</span>
+                        <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-700">блокировка</span>
                     )}
                     {transportDocuments?.lifecycle?.hasWarnings && (
-                        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">check</span>
+                        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">проверить</span>
                     )}
-                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
-                        {transportDocuments?.summary?.problemCount ?? 0} issues
+                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-600 shadow-sm">
+                        Замечаний: {transportDocuments?.summary?.problemCount ?? 0}
                     </span>
                 </div>
             </div>
@@ -1455,41 +1663,41 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
             )}
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Документов: {transportDocuments?.summary?.totalDocuments ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Готово: {transportDocuments?.summary?.completedDocuments ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Последняя активность: {formatTimelineDate(transportDocuments?.summary?.latestActivityAt)}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
-                    ETRN: {etrnTitles.filter((title) => title.status === 'blocked' || title.status === 'missing').length} blocked/missing
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
+                    ЭТРН: заблокировано/нет {etrnTitles.filter((title) => title.status === 'blocked' || title.status === 'missing').length}
                 </div>
             </div>
 
             <div className="rounded-2xl border border-white bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                     <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Внешний обмен</p>
-                        <p className="text-sm font-semibold text-slate-900">Статус провайдера, попытки и квитанции</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Внешний обмен</p>
+                        <p className="text-sm font-semibold text-neutral-900">Статус провайдера, попытки и квитанции</p>
                     </div>
-                    <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                        {exchangeTotals.providers} providers
+                    <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
+                        Провайдеров: {exchangeTotals.providers}
                     </span>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Попытки: {exchangeTotals.retries}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Квитанции: {exchangeTotals.receipts}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Последняя попытка: {formatTimelineDate(exchangeTotals.lastAttemptAt)}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Следующий retry: {formatTimelineDate(exchangeTotals.nextRetryAt)}
                     </div>
                 </div>
@@ -1498,7 +1706,7 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
             {(transportDocuments?.lifecycle?.missingDocumentTypes?.length || etrn?.summary?.blockingTitleTypes?.length) && (
                 <div className="grid gap-3 lg:grid-cols-2">
                     <div className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Missing transport docs</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Не хватает документов</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(transportDocuments?.lifecycle?.missingDocumentTypes || []).map((type: string) => (
                                 <span key={type} className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">
@@ -1506,12 +1714,12 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                                 </span>
                             ))}
                             {(transportDocuments?.lifecycle?.missingDocumentTypes || []).length === 0 && (
-                                <span className="text-xs text-slate-500">Нет критичных пробелов</span>
+                                <span className="text-xs text-neutral-500">Нет критичных пробелов</span>
                             )}
                         </div>
                     </div>
                     <div className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">ETRN blockers</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Блокировки ЭТРН</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(etrn?.summary?.blockingTitleTypes || []).map((type: string) => (
                                 <span key={type} className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
@@ -1519,7 +1727,7 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                                 </span>
                             ))}
                             {(etrn?.summary?.blockingTitleTypes || []).length === 0 && (
-                                <span className="text-xs text-slate-500">Блокирующих титулов нет</span>
+                                <span className="text-xs text-neutral-500">Блокирующих титулов нет</span>
                             )}
                         </div>
                     </div>
@@ -1531,7 +1739,7 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Ошибки и подсказки retry</p>
-                            <p className="text-sm font-semibold text-slate-900">Persisted document issues</p>
+                            <p className="text-sm font-semibold text-neutral-900">Persisted document issues</p>
                         </div>
                         <RetryHint label="Исправить и повторить" />
                     </div>
@@ -1541,13 +1749,13 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
                                         <p className="text-xs font-semibold text-rose-700">{problem.code}</p>
-                                        <p className="text-sm text-slate-900">{problem.message}</p>
+                                        <p className="text-sm text-neutral-900">{problem.message}</p>
                                     </div>
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(problem.severity, 'bg')}`}>
                                         {problem.severity}
                                     </span>
                                 </div>
-                                <p className="mt-1 text-[11px] text-slate-500">
+                                <p className="mt-1 text-[11px] text-neutral-500">
                                     {problem.documentType ? transportDocumentLabel(problem.documentType) : 'Документ'}{problem.at ? ` · ${formatTimelineDate(problem.at)}` : ''}
                                 </p>
                             </div>
@@ -1561,19 +1769,19 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                     <div key={doc.id} className="rounded-2xl border border-white bg-white p-4 shadow-sm">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{transportDocumentLabel(doc.type)}</p>
-                                <p className="text-sm font-semibold text-slate-900">{doc.externalId}</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{transportDocumentLabel(doc.type)}</p>
+                                <p className="text-sm font-semibold text-neutral-900">{doc.externalId}</p>
                             </div>
                             <div className="flex flex-col items-end gap-1">
                                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClass(documentStatusTone(doc.status), 'bg')}`}>
                                     {transportDocumentStatusLabel(doc.status)}
                                 </span>
-                                <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                <span className="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
                                     {doc.providerStatus || doc.providerName || 'internal'}
                                 </span>
                             </div>
                         </div>
-                        <div className="mt-3 grid gap-2 text-[11px] text-slate-500">
+                        <div className="mt-3 grid gap-2 text-[11px] text-neutral-500">
                             <div>Создан: {formatTimelineDate(doc.createdAt)}</div>
                             <div>Обновлён: {formatTimelineDate(doc.updatedAt)}</div>
                             <div>Провайдер: {doc.providerName || 'internal'}</div>
@@ -1599,12 +1807,12 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                                 </span>
                             )}
                             {doc.lastSyncedAt && (
-                                <span className="inline-flex rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                                <span className="inline-flex rounded-full bg-neutral-50 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                                     синхр. {formatTimelineDate(doc.lastSyncedAt)}
                                 </span>
                             )}
                         </div>
-                        <div className="mt-3 text-[11px] text-slate-500">
+                        <div className="mt-3 text-[11px] text-neutral-500">
                             {doc.nextRetryAt
                                 ? `Ручное действие: повторить после ${formatTimelineDate(doc.nextRetryAt)}`
                                 : doc.status === 'error' || doc.status === 'rejected'
@@ -1636,6 +1844,95 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                                 {doc.error || 'Документ требует повторной проверки перед retry'}
                             </div>
                         )}
+                        {(() => {
+                            const ediOverride = ediStatuses[doc.id] || {};
+                            const ediStatus = ediOverride.status || doc.ediStatus;
+                            const ediProvider = ediOverride.provider || doc.ediProvider;
+                            const ediSentAt = ediOverride.sentAt || doc.ediSentAt;
+                            const badge = (() => {
+                                switch (ediStatus) {
+                                    case 'sent':
+                                    case 'edi_sent':
+                                        return { label: '📤 Отправлено', cls: 'border-blue-200 bg-blue-50 text-blue-700' };
+                                    case 'signed_by_carrier':
+                                        return { label: '✓ Подписано перевозчиком', cls: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
+                                    case 'signed_by_client':
+                                        return { label: '✓✓ Подписано клиентом', cls: 'border-emerald-200 bg-emerald-100 text-emerald-800' };
+                                    case 'rejected':
+                                        return { label: '✕ Отклонено', cls: 'border-rose-200 bg-rose-50 text-rose-700' };
+                                    default:
+                                        return ediStatus
+                                            ? { label: ediStatus, cls: 'border-neutral-200 bg-neutral-50 text-neutral-600' }
+                                            : null;
+                                }
+                            })();
+                            return (
+                                <div className="mt-3 space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/40 px-3 py-2">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">EDI</p>
+                                        {badge ? (
+                                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badge.cls}`}>
+                                                {badge.label}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] text-neutral-400">не отправлено</span>
+                                        )}
+                                    </div>
+                                    {(ediProvider || ediSentAt) && (
+                                        <div className="flex flex-wrap gap-2 text-[10px] text-neutral-600">
+                                            {ediProvider && <span className="rounded bg-white px-1.5 py-0.5 shadow-sm">{ediProvider}</span>}
+                                            {ediSentAt && <span className="rounded bg-white px-1.5 py-0.5 shadow-sm">{formatTimelineDate(ediSentAt)}</span>}
+                                        </div>
+                                    )}
+                                    {isAdmin && (
+                                        <>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {(['diadoc', 'sbis', 'kontur'] as const).map((prov) => (
+                                                    <button
+                                                        key={prov}
+                                                        type="button"
+                                                        disabled={ediActionLoading === `send-${doc.id}-${prov}`}
+                                                        onClick={() => sendEdi(doc.id, prov)}
+                                                        className="rounded-md border border-indigo-200 bg-white px-2 py-1 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                                                    >
+                                                        {ediActionLoading === `send-${doc.id}-${prov}`
+                                                            ? '...'
+                                                            : prov === 'diadoc' ? 'Диадок' : prov === 'sbis' ? 'СБИС' : 'Контур'}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                <span className="text-[10px] text-neutral-500">Mock:</span>
+                                                <select
+                                                    onChange={(e) => {
+                                                        const value = e.target.value as 'signed_by_carrier' | 'signed_by_client' | 'rejected' | '';
+                                                        if (value) {
+                                                            mockEdiProgress(doc.id, value);
+                                                            e.target.value = '';
+                                                        }
+                                                    }}
+                                                    disabled={Boolean(ediActionLoading?.startsWith(`mock-${doc.id}`))}
+                                                    className="rounded-md border border-neutral-200 bg-white px-1.5 py-1 text-[10px] text-neutral-700 disabled:opacity-50"
+                                                    defaultValue=""
+                                                >
+                                                    <option value="">Перейти в...</option>
+                                                    <option value="signed_by_carrier">signed_by_carrier</option>
+                                                    <option value="signed_by_client">signed_by_client</option>
+                                                    <option value="rejected">rejected</option>
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => openEdiHistory(doc)}
+                                        className="text-[10px] font-semibold text-indigo-600 underline-offset-2 hover:underline"
+                                    >
+                                        История EDI
+                                    </button>
+                                </div>
+                            );
+                        })()}
                     </div>
                 ))}
             </div>
@@ -1655,11 +1952,11 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                         events={etrn?.timeline || []}
                         emptyLabel="ETRN timeline пока пуст"
                     />
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="rounded-2xl border border-neutral-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">ETRN titles</p>
-                                <p className="text-sm font-semibold text-slate-900">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">ETRN titles</p>
+                                <p className="text-sm font-semibold text-neutral-900">
                                     {etrn?.summary?.completedTitles ?? 0}/{etrn?.summary?.totalTitles ?? 0} completed
                                 </p>
                             </div>
@@ -1669,17 +1966,17 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                         </div>
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                             {etrnTitles.slice(0, 6).map((title: any) => (
-                                <div key={title.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                <div key={title.id} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title.titleNumber}</p>
-                                            <p className="text-sm font-semibold text-slate-900">{title.titleLabel}</p>
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{title.titleNumber}</p>
+                                            <p className="text-sm font-semibold text-neutral-900">{title.titleLabel}</p>
                                         </div>
                                         <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(titleStatusTone(title.status), 'bg')}`}>
                                             {etrnTitleStatusLabel(title.status)}
                                         </span>
                                     </div>
-                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
                                         <span>{title.isRequired ? 'required' : 'optional'}</span>
                                         <span>history {title.history?.length || 0}</span>
                                         {title.error && <RetryHint label="retry after fix" />}
@@ -1698,17 +1995,17 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">ETRN issues</p>
-                                    <p className="text-sm font-semibold text-slate-900">Что мешает пройти по контуру</p>
+                                    <p className="text-sm font-semibold text-neutral-900">Что мешает пройти по контуру</p>
                                 </div>
                                 <RetryHint label="Check blockers" />
                             </div>
                             <div className="mt-3 space-y-2">
                                 {etrnProblems.slice(0, 4).map((problem: any) => (
-                                    <div key={`${problem.code}-${problem.documentId || problem.at || problem.message}`} className="rounded-xl border border-white bg-white px-3 py-2 text-sm text-slate-700">
+                                    <div key={`${problem.code}-${problem.documentId || problem.at || problem.message}`} className="rounded-xl border border-white bg-white px-3 py-2 text-sm text-neutral-700">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="font-semibold text-slate-900">{problem.message}</p>
-                                                <p className="text-[11px] text-slate-500">
+                                                <p className="font-semibold text-neutral-900">{problem.message}</p>
+                                                <p className="text-[11px] text-neutral-500">
                                                     {problem.documentType ? transportDocumentLabel(problem.documentType) : 'ETRN'}{problem.at ? ` · ${formatTimelineDate(problem.at)}` : ''}
                                                 </p>
                                             </div>
@@ -1723,6 +2020,34 @@ function TransportDocumentsBlock({ dossier }: { dossier: any }) {
                     )}
                 </div>
             </div>
+
+            <Dialog
+                open={Boolean(ediHistoryDoc)}
+                onClose={() => setEdiHistoryDoc(null)}
+                title={ediHistoryDoc ? `История EDI · ${transportDocumentLabel(ediHistoryDoc.type)} ${ediHistoryDoc.externalId || ''}` : 'История EDI'}
+            >
+                {ediHistoryLoading ? (
+                    <div className="py-6 text-center text-sm text-neutral-500">Загрузка...</div>
+                ) : ediHistory.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-neutral-400">Событий нет</div>
+                ) : (
+                    <ul className="space-y-2">
+                        {ediHistory.map((evt: any, idx: number) => (
+                            <li key={idx} className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-xs font-bold text-neutral-800">{evt.eventType}</span>
+                                    <span className="text-[10px] text-neutral-500">{formatTimelineDate(evt.createdAt)}</span>
+                                </div>
+                                {evt.payload && (
+                                    <pre className="mt-1 max-h-32 overflow-auto rounded bg-white p-1.5 text-[10px] text-neutral-600">
+                                        {typeof evt.payload === 'string' ? evt.payload : JSON.stringify(evt.payload, null, 2)}
+                                    </pre>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Dialog>
         </div>
     );
 }
@@ -1744,6 +2069,7 @@ export default function TripsPage() {
     const [vehicleMap, setVehicleMap] = useState<Record<string, VehicleInfo>>({});
     const [trailerMap, setTrailerMap] = useState<Record<string, TrailerInfo>>({});
     const [tripOrderNumbers, setTripOrderNumbers] = useState<Record<string, string[]>>({});
+    const [tripColdChain, setTripColdChain] = useState<Record<string, ColdChainSummaryRow>>({});
     const [dossierTripId, setDossierTripId] = useState<string | null>(null);
     const [dossierLoading, setDossierLoading] = useState(false);
     const [dossierError, setDossierError] = useState('');
@@ -1751,9 +2077,107 @@ export default function TripsPage() {
     const [dossierRoutePoints, setDossierRoutePoints] = useState<RoutePoint[]>([]);
     const [dossierLoadPlan, setDossierLoadPlan] = useState<TripLoadPlan | null>(null);
     const [preferredDossierAction, setPreferredDossierAction] = useState<OperationalAction | null>(null);
+    const [sortingRoute, setSortingRoute] = useState(false);
+    const [tripsToast, setTripsToast] = useState<{ message: string; tone: 'success' | 'error' | 'warning' } | null>(null);
+    const [tripEta, setTripEta] = useState<{ etaIso?: string | null; reason?: string } | null>(null);
+    // Carriers (for assignment in dossier)
+    const [carrierOptions, setCarrierOptions] = useState<Array<{ id: string; name: string; activeContract?: any }>>([]);
+    const [assigningCarrier, setAssigningCarrier] = useState(false);
+    const [selectedCarrierId, setSelectedCarrierId] = useState('');
+
+    const canSortRoute = !!user?.roles?.some(r => r === 'dispatcher' || r === 'logist' || r === 'admin');
+
+    useEffect(() => {
+        if (!tripsToast) return;
+        const id = setTimeout(() => setTripsToast(null), 4000);
+        return () => clearTimeout(id);
+    }, [tripsToast]);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    // Wave 1: trip lifecycle (start/complete) modals
+    const [startTripFor, setStartTripFor] = useState<Trip | null>(null);
+    const [completeTripFor, setCompleteTripFor] = useState<Trip | null>(null);
+    const [lifecycleOdometer, setLifecycleOdometer] = useState('');
+    const [lifecycleNotes, setLifecycleNotes] = useState('');
+    const [lifecycleSubmitting, setLifecycleSubmitting] = useState(false);
+    const [lifecycleError, setLifecycleError] = useState('');
+    const [lifecycleToast, setLifecycleToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    useEffect(() => {
+        if (lifecycleToast) {
+            const timer = setTimeout(() => setLifecycleToast(null), 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [lifecycleToast]);
+
+    const openStartTripModal = (trip: Trip) => {
+        setStartTripFor(trip);
+        setLifecycleOdometer('');
+        setLifecycleNotes('');
+        setLifecycleError('');
+    };
+
+    const openCompleteTripModal = (trip: Trip) => {
+        setCompleteTripFor(trip);
+        setLifecycleOdometer('');
+        setLifecycleNotes('');
+        setLifecycleError('');
+    };
+
+    const closeLifecycleModals = () => {
+        setStartTripFor(null);
+        setCompleteTripFor(null);
+        setLifecycleOdometer('');
+        setLifecycleNotes('');
+        setLifecycleError('');
+    };
+
+    const submitStartTrip = async () => {
+        if (!startTripFor) return;
+        const odometer = Number(lifecycleOdometer);
+        if (!Number.isFinite(odometer) || odometer < 0) {
+            setLifecycleError('Введите корректное значение одометра');
+            return;
+        }
+        try {
+            setLifecycleSubmitting(true);
+            setLifecycleError('');
+            await api.post(`/trips/${startTripFor.id}/start`, { odometerStart: odometer });
+            setLifecycleToast({ message: `Рейс ${startTripFor.number} запущен`, type: 'success' });
+            closeLifecycleModals();
+            await loadTrips();
+        } catch (err: any) {
+            setLifecycleError(err?.message || 'Не удалось запустить рейс');
+        } finally {
+            setLifecycleSubmitting(false);
+        }
+    };
+
+    const submitCompleteTrip = async () => {
+        if (!completeTripFor) return;
+        const odometer = Number(lifecycleOdometer);
+        if (!Number.isFinite(odometer) || odometer < 0) {
+            setLifecycleError('Введите корректное значение одометра');
+            return;
+        }
+        try {
+            setLifecycleSubmitting(true);
+            setLifecycleError('');
+            await api.post(`/trips/${completeTripFor.id}/complete`, {
+                odometerEnd: odometer,
+                notes: lifecycleNotes.trim() || undefined,
+            });
+            setLifecycleToast({ message: `Рейс ${completeTripFor.number} завершён`, type: 'success' });
+            closeLifecycleModals();
+            await loadTrips();
+        } catch (err: any) {
+            setLifecycleError(err?.message || 'Не удалось завершить рейс');
+        } finally {
+            setLifecycleSubmitting(false);
+        }
+    };
 
     useEffect(() => {
         const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -1774,25 +2198,75 @@ export default function TripsPage() {
 
         (async () => {
             const results = await Promise.allSettled(trips.map(async (trip) => {
-                const result = await api.get<{ success: boolean; data: { orders?: Array<{ number: string }> } }>(`/trips/${trip.id}`);
-                return [
-                    trip.id,
-                    result.success ? (result.data.orders || []).map(order => order.number) : [],
-                ] as const;
+                const result = await api.get<{ success: boolean; data: { orders?: Array<{ number: string; coldChainRequired?: boolean; temperatureMinC?: number | string | null; temperatureMaxC?: number | string | null }> } }>(`/trips/${trip.id}`);
+                const orders = result.success ? (result.data.orders || []) : [];
+                const numbers = orders.map(order => order.number);
+                const coldChainRequired = orders.some(order => order.coldChainRequired === true);
+                return {
+                    tripId: trip.id,
+                    numbers,
+                    coldChainRequired,
+                };
             }));
 
             if (cancelled) return;
 
-            const next: Record<string, string[]> = {};
+            const nextNumbers: Record<string, string[]> = {};
+            const coldTripIds: string[] = [];
             for (const result of results) {
                 if (result.status === 'fulfilled') {
-                    const [tripId, orderNumbers] = result.value;
-                    next[tripId] = orderNumbers;
+                    nextNumbers[result.value.tripId] = result.value.numbers;
+                    if (result.value.coldChainRequired) {
+                        coldTripIds.push(result.value.tripId);
+                    }
                 }
             }
-            setTripOrderNumbers(next);
+            setTripOrderNumbers(nextNumbers);
+
+            if (coldTripIds.length === 0) {
+                setTripColdChain({});
+                return;
+            }
+
+            // Fetch temperature summaries lazily for cold-chain trips only
+            const summaries = await Promise.allSettled(
+                coldTripIds.map(async (tripId) => {
+                    const r = await api.get<{ success: boolean; data: any }>(`/trips/${tripId}/temperature-summary`);
+                    return { tripId, summary: r.success ? r.data : null };
+                }),
+            );
+
+            if (cancelled) return;
+
+            const nextCold: Record<string, ColdChainSummaryRow> = {};
+            for (const result of summaries) {
+                if (result.status === 'fulfilled' && result.value.summary) {
+                    const s = result.value.summary;
+                    nextCold[result.value.tripId] = {
+                        coldChainRequired: true,
+                        breachCount: Number(s.breachCount || 0),
+                        minC: s.minC === null || s.minC === undefined ? null : Number(s.minC),
+                        maxC: s.maxC === null || s.maxC === undefined ? null : Number(s.maxC),
+                        slaMinC: s.slaMinC === null || s.slaMinC === undefined ? null : Number(s.slaMinC),
+                        slaMaxC: s.slaMaxC === null || s.slaMaxC === undefined ? null : Number(s.slaMaxC),
+                    };
+                } else if (result.status === 'fulfilled') {
+                    nextCold[result.value.tripId] = {
+                        coldChainRequired: true,
+                        breachCount: 0,
+                        minC: null,
+                        maxC: null,
+                        slaMinC: null,
+                        slaMaxC: null,
+                    };
+                }
+            }
+            setTripColdChain(nextCold);
         })().catch(() => {
-            if (!cancelled) setTripOrderNumbers({});
+            if (!cancelled) {
+                setTripOrderNumbers({});
+                setTripColdChain({});
+            }
         });
 
         return () => {
@@ -1861,7 +2335,7 @@ export default function TripsPage() {
             const [result, pointsResult, loadPlanResult] = await Promise.all([
                 api.get<any>(`/trips/${tripId}/dossier`),
                 api.get<any>(`/trips/${tripId}/points`).catch(() => ({ success: false, data: [] })),
-                api.get<{ success: boolean; data: TripLoadPlan }>(`/trips/${tripId}/load-plan`).catch(() => ({ success: false, data: null as any })),
+                api.get<{ success: boolean; data: TripLoadPlan | null }>(`/trips/${tripId}/load-plan`).catch(() => ({ success: false, data: null as TripLoadPlan | null })),
             ]);
             setDossier(result.data || null);
             setDossierRoutePoints(pointsResult.success ? (pointsResult.data || []) : []);
@@ -1881,6 +2355,87 @@ export default function TripsPage() {
         setDossierRoutePoints([]);
         setDossierLoadPlan(null);
         setPreferredDossierAction(null);
+        setTripEta(null);
+        setSelectedCarrierId('');
+    };
+
+    // ETA polling for in-transit trips while dossier modal is open
+    useEffect(() => {
+        if (!dossierTripId) return;
+        const trip = trips.find(t => t.id === dossierTripId);
+        if (!trip || trip.status !== 'in_transit') {
+            setTripEta(null);
+            return;
+        }
+        let cancelled = false;
+        const fetchEta = async () => {
+            try {
+                const res = await api.get<{ success: boolean; data: { etaIso: string | null; distanceKm?: number } | null; reason?: string }>(`/trips/${dossierTripId}/eta`);
+                if (cancelled) return;
+                setTripEta({ etaIso: res.data?.etaIso ?? null, reason: res.reason });
+            } catch {
+                if (!cancelled) setTripEta({ etaIso: null, reason: 'no_gps' });
+            }
+        };
+        fetchEta();
+        const intervalId = setInterval(fetchEta, 60000);
+        return () => { cancelled = true; clearInterval(intervalId); };
+    }, [dossierTripId, trips]);
+
+    // Load carriers when dossier opens for trips not yet started
+    useEffect(() => {
+        if (!dossierTripId) return;
+        const trip = trips.find(t => t.id === dossierTripId);
+        if (!trip) return;
+        const startedStatuses = ['in_transit', 'completed', 'billed', 'cancelled'];
+        if (startedStatuses.includes(trip.status)) return;
+        let cancelled = false;
+        api.get<{ success: boolean; data: Array<{ id: string; name: string; activeContract?: any }> }>('/carriers')
+            .then(res => { if (!cancelled) setCarrierOptions(res.data || []); })
+            .catch(() => { if (!cancelled) setCarrierOptions([]); });
+        return () => { cancelled = true; };
+    }, [dossierTripId, trips]);
+
+    const handleAssignCarrier = async () => {
+        if (!dossierTripId || !selectedCarrierId) return;
+        setAssigningCarrier(true);
+        try {
+            await api.post(`/trips/${dossierTripId}/assign-carrier`, { carrierContractorId: selectedCarrierId });
+            setTripsToast({ message: 'Перевозчик назначен', tone: 'success' });
+            await openDossier(dossierTripId);
+        } catch (err: any) {
+            setTripsToast({ message: err?.message || 'Не удалось назначить перевозчика', tone: 'error' });
+        } finally {
+            setAssigningCarrier(false);
+        }
+    };
+
+    const handleSortRoute = async () => {
+        if (!dossierTripId || sortingRoute) return;
+        setSortingRoute(true);
+        try {
+            const res = await api.post<{ success: boolean; data?: { sortedPoints?: RoutePoint[]; warnings?: string[] }; error?: string }>(
+                `/trips/${dossierTripId}/sort-route-points`,
+            );
+            if (!res.success) throw new Error(res.error || 'Не удалось отсортировать маршрут');
+            // Refetch points to ensure consistent state
+            const pointsResult = await api.get<any>(`/trips/${dossierTripId}/points`).catch(() => ({ success: false, data: [] }));
+            if (pointsResult.success) {
+                setDossierRoutePoints(pointsResult.data || []);
+            } else if (Array.isArray(res.data?.sortedPoints)) {
+                setDossierRoutePoints(res.data!.sortedPoints!);
+            }
+            const warnings = res.data?.warnings || [];
+            if (warnings.length > 0) {
+                setTripsToast({ message: `Маршрут отсортирован. Предупреждения: ${warnings.join('; ')}`, tone: 'warning' });
+            } else {
+                setTripsToast({ message: 'Маршрут отсортирован', tone: 'success' });
+            }
+        } catch (err: any) {
+            setTripsToast({ message: err?.message || 'Ошибка сортировки маршрута', tone: 'error' });
+        } finally {
+            setSortingRoute(false);
+        }
     };
 
     // Status counters
@@ -1906,35 +2461,222 @@ export default function TripsPage() {
         hasOrders: Boolean(dossier?.orders?.length),
     });
 
-    return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Рейсы</h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Все рейсы вЂў {trips.length} записей
-                    </p>
+    const tripColumns: Column<Trip>[] = [
+        {
+            id: 'number',
+            header: '№ Рейса',
+            accessor: (t) => t.number,
+            sortable: true,
+            sticky: 'left',
+            minWidth: '130px',
+            cell: (t) => (
+                <div className="flex items-center gap-2 font-semibold text-brand-600">
+                    <span>{t.number}</span>
+                    {tripColdChain[t.id]?.coldChainRequired && (() => {
+                        const cc = tripColdChain[t.id];
+                        const hasBreach = cc.breachCount > 0;
+                        return (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openDossier(t.id); }}
+                                title={hasBreach ? `Нарушений SLA: ${cc.breachCount}` : 'Холодовая цепь'}
+                                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold border transition-colors ${
+                                    hasBreach
+                                        ? 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200'
+                                        : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                }`}
+                            >
+                                <Thermometer className="w-3 h-3" />
+                                {hasBreach ? `⚠ ${cc.breachCount}` : ''}
+                            </button>
+                        );
+                    })()}
                 </div>
+            ),
+        },
+        {
+            id: 'status',
+            header: 'Статус',
+            accessor: (t) => t.status,
+            sortable: true,
+            minWidth: '180px',
+            cell: (t) => (
+                <div className="flex flex-col gap-1">
+                    <span className={`inline-flex w-fit px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[t.status] || 'bg-neutral-100 text-neutral-700'}`}>
+                        {STATUS_LABELS[t.status] || t.status}
+                    </span>
+                    {(tripOrderNumbers[t.id] || []).length > 1 && (
+                        <span className="inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700">
+                            Сборный рейс • {(tripOrderNumbers[t.id] || []).length} заявок
+                        </span>
+                    )}
+                    {t.carrierContractorId && (
+                        <span className="inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                            Перевозчик: {t.carrierName || 'назначен'}
+                        </span>
+                    )}
+                </div>
+            ),
+        },
+        {
+            id: 'vehicle',
+            header: 'ТС',
+            minWidth: '180px',
+            cell: (t) => t.vehicleId ? (
+                <div className="flex flex-col gap-0.5 text-neutral-600">
+                    <span className="flex items-center gap-1">
+                        <Truck className="w-3.5 h-3.5" />
+                        <span className="font-medium">
+                            {vehicleMap[t.vehicleId]?.plateNumber || t.vehicleId.slice(0, 8) + '...'}
+                        </span>
+                    </span>
+                    {vehicleMap[t.vehicleId]?.bodyType && (
+                        <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                            ПЛ: {getVehicleProfile(vehicleMap[t.vehicleId].bodyType).displayLabel}
+                        </span>
+                    )}
+                    {vehicleMap[t.vehicleId]?.bodyType && (
+                        <span className="inline-flex w-fit rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                            {getVehicleWaybillCue(vehicleMap[t.vehicleId].bodyType, undefined, {
+                                trailerPlate: trailerMap[t.vehicleId]?.plateNumber || null,
+                            }).tone === 'ready' ? 'ПЛ ✓' : 'ПЛ ⚠'}
+                        </span>
+                    )}
+                    {!vehicleMap[t.vehicleId]?.bodyType && (
+                        <span className="inline-flex w-fit rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                            Тип ТС для ПЛ не задан
+                        </span>
+                    )}
+                    {trailerMap[t.vehicleId] && (
+                        <span className="text-xs text-neutral-400">
+                            + прицеп {trailerMap[t.vehicleId].plateNumber}
+                        </span>
+                    )}
+                </div>
+            ) : <span className="text-neutral-400">—</span>,
+        },
+        {
+            id: 'orders',
+            header: 'Заявки',
+            minWidth: '160px',
+            cell: (t) => (tripOrderNumbers[t.id] || []).length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                    {(tripOrderNumbers[t.id] || []).slice(0, 2).map((orderNumber) => (
+                        <span key={orderNumber} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
+                            {orderNumber}
+                        </span>
+                    ))}
+                    {(tripOrderNumbers[t.id] || []).length > 2 && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600">
+                            +{(tripOrderNumbers[t.id] || []).length - 2}
+                        </span>
+                    )}
+                </div>
+            ) : <span className="text-neutral-400">—</span>,
+        },
+        {
+            id: 'distance',
+            header: 'Дистанция',
+            width: '130px',
+            align: 'right',
+            cell: (t) => (
+                <span className="text-neutral-600 text-sm">
+                    {t.plannedDistanceKm ? `${t.plannedDistanceKm} км` : '—'}
+                    {t.actualDistanceKm ? (
+                        <span className="text-emerald-600 ml-1">
+                            <ArrowRight className="w-3 h-3 inline" />
+                            {t.actualDistanceKm} км
+                        </span>
+                    ) : null}
+                </span>
+            ),
+        },
+        {
+            id: 'plannedDepartureAt',
+            header: 'Выезд (план)',
+            accessor: (t) => t.plannedDepartureAt,
+            cell: (t) => <span className="text-neutral-500 text-xs">{formatDate(t.plannedDepartureAt)}</span>,
+            sortable: true,
+            width: '130px',
+            align: 'right',
+            monospace: true,
+        },
+        {
+            id: 'actualDepartureAt',
+            header: 'Выезд (факт)',
+            accessor: (t) => t.actualDepartureAt,
+            cell: (t) => <span className="text-neutral-500 text-xs">{formatDate(t.actualDepartureAt)}</span>,
+            sortable: true,
+            width: '130px',
+            align: 'right',
+            monospace: true,
+        },
+        {
+            id: 'actualCompletionAt',
+            header: 'Завершён',
+            accessor: (t) => t.actualCompletionAt,
+            cell: (t) => <span className="text-neutral-500 text-xs">{formatDate(t.actualCompletionAt)}</span>,
+            sortable: true,
+            width: '130px',
+            align: 'right',
+            monospace: true,
+        },
+        {
+            id: 'createdAt',
+            header: 'Создан',
+            accessor: (t) => t.createdAt,
+            sortable: true,
+            width: '120px',
+            align: 'right',
+            monospace: true,
+            cell: (t) => <span className="text-neutral-400 text-xs">{formatDate(t.createdAt)}</span>,
+        },
+    ];
+
+    return (
+        <ErrorBoundary scope="trips">
+        <div className="space-y-6">
+            {tripsToast && (
+                <div
+                    role="status"
+                    className={`fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-soft-lg text-white font-medium text-sm animate-fade-in ${
+                        tripsToast.tone === 'success'
+                            ? 'bg-emerald-600'
+                            : tripsToast.tone === 'warning'
+                                ? 'bg-amber-500'
+                                : 'bg-red-600'
+                    }`}
+                >
+                    {tripsToast.message}
+                </div>
+            )}
+            {/* Header */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-soft-md shrink-0">
+                        <Map className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                        <h1 className="text-2xl font-bold text-neutral-900 leading-tight">Рейсы</h1>
+                        <p className="text-sm text-neutral-500 truncate">Все рейсы — {trips.length} записей</p>
+                    </div>
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    isLoading={loading}
+                    leftIcon={<RefreshCcw className="w-3.5 h-3.5" />}
+                    onClick={() => loadTrips()}
+                >
+                    Обновить
+                </Button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Всего рейсов</p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900">{trips.length}</p>
-                </div>
-                <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-indigo-500">Сборных рейсов</p>
-                    <p className="mt-2 text-2xl font-bold text-indigo-700">{multiOrderTripsCount}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">С ТС</p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900">{withVehicleCount}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">С прицепом</p>
-                    <p className="mt-2 text-2xl font-bold text-slate-900">{withTrailerCount}</p>
-                </div>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <Stat label="Всего рейсов" value={trips.length} icon={Map} tone="neutral" />
+                <Stat label="Сборных рейсов" value={multiOrderTripsCount} icon={FileText} tone="brand" />
+                <Stat label="С ТС" value={withVehicleCount} icon={Truck} tone="info" />
+                <Stat label="С прицепом" value={withTrailerCount} icon={Truck} tone="success" />
             </div>
 
             {/* Status pills */}
@@ -1942,7 +2684,7 @@ export default function TripsPage() {
                 <button
                     onClick={() => setStatusFilter('')}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all
-                        ${!statusFilter ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        ${!statusFilter ? 'bg-indigo-600 text-white shadow-sm' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
                 >
                     Все ({trips.length})
                 </button>
@@ -1951,186 +2693,197 @@ export default function TripsPage() {
                         key={key}
                         onClick={() => setStatusFilter(key === statusFilter ? '' : key)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all
-                            ${statusFilter === key ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                            ${statusFilter === key ? 'bg-indigo-600 text-white shadow-sm' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
                     >
                         {label} ({statusCounts[key] || 0})
                     </button>
                 ))}
             </div>
 
-            {/* Content Card */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-                {/* Search */}
-                <div className="p-4 border-b border-slate-200">
-                    <div className="relative max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Поиск по номеру рейса..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm
-                                focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                        />
-                    </div>
+            {/* Search row (server-side) */}
+            <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative flex-1 min-w-[220px] max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                    <input
+                        type="text"
+                        placeholder="Поиск по номеру рейса..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        className="w-full h-9 pl-10 pr-3 rounded-lg border border-neutral-200 bg-white text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
+                    />
                 </div>
-
-                {/* Table */}
-                {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                    </div>
-                ) : trips.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                        <Map className="w-12 h-12 mb-3" />
-                        <p className="text-sm">Рейсы не найдены</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-slate-50 text-slate-500 text-left">
-                                    <th className="px-4 py-3 font-medium">в„– Рейса</th>
-                                    <th className="px-4 py-3 font-medium">Статус</th>
-                                    <th className="px-4 py-3 font-medium">ТС</th>
-                                    <th className="px-4 py-3 font-medium">Заявки</th>
-                                    <th className="px-4 py-3 font-medium">Дистанция</th>
-                                    <th className="px-4 py-3 font-medium">Выезд (план)</th>
-                                    <th className="px-4 py-3 font-medium">Выезд (факт)</th>
-                                    <th className="px-4 py-3 font-medium">Завершён</th>
-                                    <th className="px-4 py-3 font-medium">Создан</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {trips.map(t => (
-                                    <tr
-                                        key={t.id}
-                                        className={`hover:bg-slate-50 transition-colors cursor-pointer ${(tripOrderNumbers[t.id] || []).length > 1 ? 'bg-indigo-50/40' : ''}`}
-                                    >
-                                        <td className="px-4 py-3 font-semibold text-indigo-600">{t.number}</td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-col gap-1">
-                                                <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[t.status] || 'bg-slate-100 text-slate-700'}`}>
-                                                    {STATUS_LABELS[t.status] || t.status}
-                                                </span>
-                                                {(tripOrderNumbers[t.id] || []).length > 1 && (
-                                                    <span className="inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700">
-                                                        Сборный рейс вЂў {(tripOrderNumbers[t.id] || []).length} заявок
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">
-                                            {t.vehicleId ? (
-                                                <div className="flex flex-col gap-0.5">
-                                                    <span className="flex items-center gap-1">
-                                                        <Truck className="w-3.5 h-3.5" />
-                                                        <span className="font-medium">
-                                                            {vehicleMap[t.vehicleId]?.plateNumber || t.vehicleId.slice(0, 8) + '...'}
-                                                        </span>
-                                                    </span>
-                                                    {vehicleMap[t.vehicleId]?.bodyType && (
-                                                        <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
-                                                            ПЛ: {getVehicleProfile(vehicleMap[t.vehicleId].bodyType).displayLabel}
-                                                        </span>
-                                                    )}
-                                                    {vehicleMap[t.vehicleId]?.bodyType && (
-                                                        <span className="inline-flex w-fit rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                                                            {getVehicleWaybillCue(vehicleMap[t.vehicleId].bodyType, undefined, {
-                                                                trailerPlate: trailerMap[t.vehicleId]?.plateNumber || null,
-                                                            }).tone === 'ready' ? 'ПЛ ready' : 'ПЛ check'}
-                                                        </span>
-                                                    )}
-                                                    {vehicleMap[t.vehicleId]?.bodyType && (
-                                                        <span className="inline-flex w-fit rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 shadow-sm">
-                                                            {getVehicleWaybillCue(vehicleMap[t.vehicleId].bodyType, undefined, {
-                                                                trailerPlate: trailerMap[t.vehicleId]?.plateNumber || null,
-                                                            }).modeLabel}
-                                                        </span>
-                                                    )}
-                                                    {!vehicleMap[t.vehicleId]?.bodyType && (
-                                                        <span className="inline-flex w-fit rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                                                            Тип ТС для ПЛ не задан
-                                                        </span>
-                                                    )}
-                                                    {trailerMap[t.vehicleId] && (
-                                                        <span className="text-xs text-slate-400">
-                                                            + прицеп {trailerMap[t.vehicleId].plateNumber}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            ) : 'вЂ”'}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">
-                                            {(tripOrderNumbers[t.id] || []).length > 0 ? (
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {(tripOrderNumbers[t.id] || []).slice(0, 2).map((orderNumber) => (
-                                                        <span
-                                                            key={orderNumber}
-                                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700"
-                                                        >
-                                                            {orderNumber}
-                                                        </span>
-                                                    ))}
-                                                    {(tripOrderNumbers[t.id] || []).length > 2 && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
-                                                            +{(tripOrderNumbers[t.id] || []).length - 2}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            ) : 'вЂ”'}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">
-                                            {t.plannedDistanceKm ? `${t.plannedDistanceKm} км` : 'вЂ”'}
-                                            {t.actualDistanceKm ? (
-                                                <span className="text-emerald-600 ml-1">
-                                                    <ArrowRight className="w-3 h-3 inline" />
-                                                    {t.actualDistanceKm} км
-                                                </span>
-                                            ) : null}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-500">{formatDate(t.plannedDepartureAt)}</td>
-                                        <td className="px-4 py-3 text-slate-500">{formatDate(t.actualDepartureAt)}</td>
-                                        <td className="px-4 py-3 text-slate-500">{formatDate(t.actualCompletionAt)}</td>
-                                        <td className="px-4 py-3 text-slate-400 text-xs">
-                                            <div className="flex flex-col items-end gap-2">
-                                                <span>{formatDate(t.createdAt)}</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openDossier(t.id)}
-                                                    className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 px-3 py-2 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
-                                                >
-                                                    <FileText className="w-3.5 h-3.5" />
-                                                    Досье
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
             </div>
 
-            {dossierTripId && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeDossier} />
-                    <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-2xl border border-slate-200">
-                        <div className="sticky top-0 bg-white px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-900">Досье рейса</h2>
-                                <p className="text-sm text-slate-500">{dossier?.trip?.number || dossierTripId}</p>
-                            </div>
-                            <button
-                                onClick={closeDossier}
-                                className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
+            {/* Table */}
+            <DataTable<Trip>
+                tableId="trips"
+                data={trips}
+                columns={tripColumns}
+                keyField="id"
+                loading={loading}
+                onRowClick={(t) => openDossier(t.id)}
+                rowClassName={(t) => (tripOrderNumbers[t.id] || []).length > 1 ? 'bg-indigo-50/40' : ''}
+                rowActions={(t) => {
+                    const actions: Array<{ id: string; label: string; icon?: React.ReactNode; onClick: (r: Trip) => void; tone?: 'default' | 'danger' }> = [
+                        {
+                            id: 'dossier',
+                            label: 'Открыть досье',
+                            icon: <FileText className="w-4 h-4" />,
+                            onClick: (r) => openDossier(r.id),
+                        },
+                        {
+                            id: 'documents',
+                            label: 'Документы',
+                            icon: <FolderOpen className="w-4 h-4" />,
+                            onClick: (r) => router.push(`/trips/${r.id}/documents`),
+                        },
+                    ];
+                    if (t.status === 'waybill_issued') {
+                        actions.unshift({
+                            id: 'start',
+                            label: 'Начать рейс',
+                            icon: <Play className="w-4 h-4" />,
+                            onClick: (r) => openStartTripModal(r),
+                        });
+                    }
+                    if (t.status === 'in_transit') {
+                        actions.unshift({
+                            id: 'complete',
+                            label: 'Завершить рейс',
+                            icon: <Flag className="w-4 h-4" />,
+                            onClick: (r) => openCompleteTripModal(r),
+                        });
+                    }
+                    return actions;
+                }}
+                emptyState={
+                    <EmptyState
+                        icon={Map}
+                        title={statusFilter || debouncedSearch ? 'Рейсы по фильтру не найдены' : 'Пока нет рейсов'}
+                        description={statusFilter || debouncedSearch
+                            ? 'Попробуйте сбросить фильтры или изменить поисковый запрос.'
+                            : 'Рейсы создаются из диспетчерской после назначения ТС на заявку.'}
+                        action={(statusFilter || debouncedSearch) ? (
+                            <Button variant="outline" size="sm" onClick={() => { setStatusFilter(''); setSearch(''); }}>
+                                Сбросить фильтры
+                            </Button>
+                        ) : undefined}
+                    />
+                }
+                pageSize={50}
+            />
+            {/* Wave 1: Toast */}
+            {lifecycleToast && (
+                <div className={`fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${lifecycleToast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                    {lifecycleToast.message}
+                </div>
+            )}
 
-                        <div className="p-6">
+            {/* Wave 1: Start trip modal */}
+            <Dialog
+                open={!!startTripFor}
+                onClose={closeLifecycleModals}
+                title={startTripFor ? `Начать рейс ${startTripFor.number}` : 'Начать рейс'}
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-neutral-500">
+                        Укажите показания одометра на момент начала рейса.
+                    </p>
+                    <div>
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                            Одометр (км) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            inputMode="numeric"
+                            value={lifecycleOdometer}
+                            onChange={(e) => setLifecycleOdometer(e.target.value)}
+                            placeholder="например 145320"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                        />
+                    </div>
+                    {lifecycleError && (
+                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                            {lifecycleError}
+                        </div>
+                    )}
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" size="sm" onClick={closeLifecycleModals} disabled={lifecycleSubmitting}>
+                            Отмена
+                        </Button>
+                        <Button size="sm" onClick={submitStartTrip} disabled={lifecycleSubmitting || !lifecycleOdometer}>
+                            {lifecycleSubmitting && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                            Начать рейс
+                        </Button>
+                    </div>
+                </div>
+            </Dialog>
+
+            {/* Wave 1: Complete trip modal */}
+            <Dialog
+                open={!!completeTripFor}
+                onClose={closeLifecycleModals}
+                title={completeTripFor ? `Завершить рейс ${completeTripFor.number}` : 'Завершить рейс'}
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-neutral-500">
+                        Зафиксируйте показания одометра на финише и при необходимости оставьте комментарий.
+                    </p>
+                    <div>
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                            Одометр (км) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            min={0}
+                            step={1}
+                            inputMode="numeric"
+                            value={lifecycleOdometer}
+                            onChange={(e) => setLifecycleOdometer(e.target.value)}
+                            placeholder="например 145890"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                            Комментарий
+                        </label>
+                        <textarea
+                            value={lifecycleNotes}
+                            onChange={(e) => setLifecycleNotes(e.target.value)}
+                            rows={3}
+                            placeholder="Опционально"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+                        />
+                    </div>
+                    {lifecycleError && (
+                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                            {lifecycleError}
+                        </div>
+                    )}
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" size="sm" onClick={closeLifecycleModals} disabled={lifecycleSubmitting}>
+                            Отмена
+                        </Button>
+                        <Button size="sm" onClick={submitCompleteTrip} disabled={lifecycleSubmitting || !lifecycleOdometer}>
+                            {lifecycleSubmitting && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                            Завершить рейс
+                        </Button>
+                    </div>
+                </div>
+            </Dialog>
+
+            <Dialog
+                open={!!dossierTripId}
+                onClose={closeDossier}
+                title="Досье рейса"
+                description={dossier?.trip?.number || dossierTripId || ''}
+                size="xl"
+            >
+                {dossierTripId && (
+                    <div>
                             {dossierLoading ? (
                                 <div className="flex items-center justify-center py-20">
                                     <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
@@ -2142,36 +2895,47 @@ export default function TripsPage() {
                             ) : dossier ? (
                                 <div className="space-y-6">
                                     <div className="grid gap-4 md:grid-cols-3">
-                                        <div className="rounded-2xl border border-slate-200 p-4">
-                                            <div className="text-xs uppercase tracking-wide text-slate-400">Рейс</div>
-                                            <div className="mt-2 text-lg font-bold text-slate-900">{dossier.trip?.number}</div>
-                                            <div className="mt-1 text-sm text-slate-500">{dossier.trip?.status}</div>
+                                        <div className="rounded-2xl border border-neutral-200 p-4">
+                                            <div className="text-xs uppercase tracking-wide text-neutral-400">Рейс</div>
+                                            <div className="mt-2 text-lg font-bold text-neutral-900">{dossier.trip?.number}</div>
+                                            <div className="mt-1 text-sm text-neutral-500">{dossier.trip?.status}</div>
+                                            {dossier?.trip?.status === 'in_transit' && (
+                                                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
+                                                    <Clock3 className="w-3 h-3" />
+                                                    {formatEtaBadge(tripEta?.etaIso, tripEta?.reason)}
+                                                </div>
+                                            )}
+                                            {dossier?.trip?.carrierContractorId && (
+                                                <div className="mt-2 text-xs text-neutral-600">
+                                                    Перевозчик: <span className="font-medium">{dossier?.carrier?.name || dossier?.trip?.carrierContractorId}</span>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="rounded-2xl border border-slate-200 p-4">
-                                            <div className="text-xs uppercase tracking-wide text-slate-400">ТС / прицеп</div>
-                                            <div className="mt-2 text-sm font-medium text-slate-900">
+                                        <div className="rounded-2xl border border-neutral-200 p-4">
+                                            <div className="text-xs uppercase tracking-wide text-neutral-400">ТС / прицеп</div>
+                                            <div className="mt-2 text-sm font-medium text-neutral-900">
                                                 {dossier.vehicle?.plateNumber || 'Нет ТС'}
                                             </div>
-                                            <div className="text-sm text-slate-500">
+                                            <div className="text-sm text-neutral-500">
                                                 {dossier.trailer?.plateNumber ? `Прицеп: ${dossier.trailer.plateNumber}` : 'Прицеп не назначен'}
                                             </div>
                                         </div>
-                                        <div className="rounded-2xl border border-slate-200 p-4">
-                                            <div className="text-xs uppercase tracking-wide text-slate-400">ПЛ</div>
-                                            <div className="mt-2 text-sm font-medium text-slate-900">
+                                        <div className="rounded-2xl border border-neutral-200 p-4">
+                                            <div className="text-xs uppercase tracking-wide text-neutral-400">ПЛ</div>
+                                            <div className="mt-2 text-sm font-medium text-neutral-900">
                                                 {dossier.waybill?.number || 'Не оформлен'}
                                             </div>
-                                            <div className="text-sm text-slate-500">
+                                            <div className="text-sm text-neutral-500">
                                                 {dossier.summary?.orderCount || 0} заявок в рейсе
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                                    <div className="rounded-2xl border border-neutral-200 bg-white p-4">
                                         <div className="flex items-start justify-between gap-3">
                                             <div>
-                                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Readiness checklist</p>
-                                                <p className="text-sm font-semibold text-slate-900">
+                                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Готовность</p>
+                                                <p className="text-sm font-semibold text-neutral-900">
                                                     {dossierReadiness.title} · {dossierReadiness.doneCount}/{dossierReadiness.totalCount}
                                                 </p>
                                             </div>
@@ -2182,25 +2946,25 @@ export default function TripsPage() {
                                                         ? 'bg-amber-100 text-amber-700'
                                                         : 'bg-emerald-100 text-emerald-700'
                                             }`}>
-                                                {dossierReadiness.tone === 'ready' ? 'ready' : dossierReadiness.tone === 'attention' ? 'check' : 'block'}
+                                                {dossierReadiness.tone === 'ready' ? 'Готов' : dossierReadiness.tone === 'attention' ? 'Проверить' : 'Заблок.'}
                                             </span>
                                         </div>
                                         <div className="mt-3 grid gap-2 md:grid-cols-2">
                                             {dossierReadiness.items.map(item => (
-                                                <div key={item.key} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                                <div key={item.key} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                                                     <div className="flex items-center justify-between gap-3">
-                                                        <span className="text-xs font-medium text-slate-700">{item.label}</span>
+                                                        <span className="text-xs font-medium text-neutral-700">{item.label}</span>
                                                         <span className={`text-[11px] font-semibold ${
                                                             item.state === 'done'
                                                                 ? 'text-emerald-700'
                                                                 : item.state === 'warn'
                                                                     ? 'text-amber-700'
-                                                                    : 'text-slate-500'
+                                                                    : 'text-neutral-500'
                                                         }`}>
-                                                            {item.state === 'done' ? 'ok' : item.state === 'warn' ? 'check' : 'optional'}
+                                                            {item.state === 'done' ? 'OK' : item.state === 'warn' ? 'Проверить' : 'Опц.'}
                                                         </span>
                                                     </div>
-                                                    <p className="mt-1 text-[11px] leading-4 text-slate-500">{item.hint}</p>
+                                                    <p className="mt-1 text-[11px] leading-4 text-neutral-500">{item.hint}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -2215,6 +2979,9 @@ export default function TripsPage() {
                                         dossier={dossier}
                                         loadPlan={dossierLoadPlan}
                                         routePoints={dossierRoutePoints}
+                                        canSort={canSortRoute}
+                                        onSortRoute={handleSortRoute}
+                                        sorting={sortingRoute}
                                     />
 
                                     <CloseGateBlock closeGate={dossier.closeGate} />
@@ -2226,21 +2993,89 @@ export default function TripsPage() {
                                         onDone={() => openDossier(dossier.trip?.id || dossierTripId)}
                                     />
 
-                                    <TransportDocumentsBlock dossier={dossier} />
+                                    {/* Carrier assignment (Wave 4) */}
+                                    {(() => {
+                                        const status = dossier?.trip?.status;
+                                        const startedStatuses = ['in_transit', 'completed', 'billed', 'cancelled'];
+                                        if (status && startedStatuses.includes(status)) return null;
+                                        return (
+                                            <div className="rounded-2xl border border-neutral-200 p-4">
+                                                <div className="text-sm font-semibold text-neutral-900 mb-2">Назначить перевозчика</div>
+                                                {dossier?.trip?.carrierContractorId && (
+                                                    <p className="text-xs text-neutral-500 mb-2">
+                                                        Текущий перевозчик: {dossier?.carrier?.name || dossier?.trip?.carrierContractorId}
+                                                    </p>
+                                                )}
+                                                <div className="flex items-end gap-2">
+                                                    <div className="flex-1">
+                                                        <label className="block text-xs text-neutral-500 mb-1">Перевозчик с активным договором</label>
+                                                        <select
+                                                            value={selectedCarrierId}
+                                                            onChange={(e) => setSelectedCarrierId(e.target.value)}
+                                                            className="flex h-9 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm shadow-sm"
+                                                        >
+                                                            <option value="">— выбрать —</option>
+                                                            {carrierOptions
+                                                                .filter(c => c.activeContract)
+                                                                .map(c => (
+                                                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                                                ))}
+                                                        </select>
+                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        disabled={!selectedCarrierId || assigningCarrier}
+                                                        onClick={handleAssignCarrier}
+                                                    >
+                                                        {assigningCarrier ? 'Назначение...' : 'Назначить'}
+                                                    </Button>
+                                                </div>
+                                                {carrierOptions.filter(c => c.activeContract).length === 0 && (
+                                                    <p className="mt-2 text-xs text-amber-600">Нет перевозчиков с активным договором</p>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
+
+                                    <TransportDocumentsBlock dossier={dossier} isAdmin={Boolean(user?.roles?.includes('admin'))} />
+
+                                    {(() => {
+                                        const orders: any[] = dossier?.orders || [];
+                                        const hasCold = orders.some((o) => o?.coldChainRequired === true)
+                                            || tripColdChain[dossier?.trip?.id || dossierTripId || '']?.coldChainRequired;
+                                        if (!hasCold) return null;
+                                        return (
+                                            <TemperaturePanel
+                                                tripId={dossier?.trip?.id || dossierTripId || ''}
+                                                tripNumber={dossier?.trip?.number}
+                                            />
+                                        );
+                                    })()}
 
                                     <div className="grid gap-6 lg:grid-cols-2">
-                                        <div className="rounded-2xl border border-slate-200">
-                                            <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 font-semibold text-slate-900">
+                                        <div className="rounded-2xl border border-neutral-200">
+                                            <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3 font-semibold text-neutral-900">
                                                 Заявки
                                             </div>
-                                            <div className="divide-y divide-slate-100">
+                                            <div className="divide-y divide-neutral-100">
                                                 {(dossier.orders || []).map((order: any) => (
                                                     <div key={order.id} className="p-4">
                                                         <div className="flex items-start justify-between gap-3">
                                                             <div>
-                                                                <div className="text-sm font-semibold text-slate-900">{order.number}</div>
-                                                                <div className="text-xs text-slate-500">{order.cargoDescription || 'Без описания груза'}</div>
-                                                                <div className="mt-2 text-xs text-slate-500">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="text-sm font-semibold text-neutral-900">{order.number}</div>
+                                                                    {order.adrClass && (
+                                                                        <span
+                                                                            className="inline-flex items-center gap-0.5 rounded border border-red-200 bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700"
+                                                                            title={`ADR класс ${order.adrClass}${order.adrUnNumber ? ` · ${order.adrUnNumber}` : ''}`}
+                                                                        >
+                                                                            <AlertTriangle className="w-2.5 h-2.5" />
+                                                                            ADR-{order.adrClass}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-xs text-neutral-500">{order.cargoDescription || 'Без описания груза'}</div>
+                                                                <div className="mt-2 text-xs text-neutral-500">
                                                                     Контрагент: {order.contractor?.name || 'Не указан'}
                                                                 </div>
                                                             </div>
@@ -2248,14 +3083,14 @@ export default function TripsPage() {
                                                                 {order.status}
                                                             </span>
                                                         </div>
-                                                        <div className="mt-3 grid gap-2 text-xs text-slate-500">
+                                                        <div className="mt-3 grid gap-2 text-xs text-neutral-500">
                                                             <div className="flex items-start gap-2">
-                                                                <MapPin className="mt-0.5 w-3.5 h-3.5 text-slate-400" />
-                                                                <span>Погрузка: {order.loadingAddress || 'вЂ”'}</span>
+                                                                <MapPin className="mt-0.5 w-3.5 h-3.5 text-neutral-400" />
+                                                                <span>Погрузка: {order.loadingAddress || '—'}</span>
                                                             </div>
                                                             <div className="flex items-start gap-2">
-                                                                <MapPin className="mt-0.5 w-3.5 h-3.5 text-slate-400" />
-                                                                <span>Выгрузка: {order.unloadingAddress || 'вЂ”'}</span>
+                                                                <MapPin className="mt-0.5 w-3.5 h-3.5 text-neutral-400" />
+                                                                <span>Выгрузка: {order.unloadingAddress || '—'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -2264,24 +3099,24 @@ export default function TripsPage() {
                                         </div>
 
                                         <div className="space-y-4">
-                                            <div className="rounded-2xl border border-slate-200">
-                                                <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 font-semibold text-slate-900">
+                                            <div className="rounded-2xl border border-neutral-200">
+                                                <div className="border-b border-neutral-100 bg-neutral-50 px-4 py-3 font-semibold text-neutral-900">
                                                     Участники
                                                 </div>
-                                                <div className="divide-y divide-slate-100">
+                                                <div className="divide-y divide-neutral-100">
                                                     {(dossier.parties || []).map((party: any) => (
                                                         <div key={party.id} className="p-4">
-                                                            <div className="text-sm font-medium text-slate-900">{party.name}</div>
-                                                            <div className="text-xs text-slate-500">{party.inn}</div>
-                                                            <div className="text-xs text-slate-500">{party.legalAddress}</div>
+                                                            <div className="text-sm font-medium text-neutral-900">{party.name}</div>
+                                                            <div className="text-xs text-neutral-500">{party.inn}</div>
+                                                            <div className="text-xs text-neutral-500">{party.legalAddress}</div>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
 
-                                            <div className="rounded-2xl border border-slate-200 p-4">
-                                                <div className="text-sm font-semibold text-slate-900 mb-3">Сводка</div>
-                                                <div className="grid grid-cols-2 gap-3 text-sm text-slate-600">
+                                            <div className="rounded-2xl border border-neutral-200 p-4">
+                                                <div className="text-sm font-semibold text-neutral-900 mb-3">Сводка</div>
+                                                <div className="grid grid-cols-2 gap-3 text-sm text-neutral-600">
                                                     <div>Заявок: {dossier.summary?.orderCount ?? 0}</div>
                                                     <div>ПЛ: {dossier.summary?.hasWaybill ? 'да' : 'нет'}</div>
                                                     <div>ТС: {dossier.summary?.hasVehicle ? 'да' : 'нет'}</div>
@@ -2292,10 +3127,10 @@ export default function TripsPage() {
                                     </div>
                                 </div>
                             ) : null}
-                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </Dialog>
         </div>
+        </ErrorBoundary>
     );
 }

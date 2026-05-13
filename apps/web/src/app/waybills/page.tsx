@@ -3,11 +3,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { downloadFromApi } from '@/lib/download';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Stat } from '@/components/ui/stat';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useToast } from '@/components/ui/toast';
+import { DataTable, type Column } from '@/components/ui/data-table';
+import { Dialog } from '@/components/ui/dialog';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 import {
-    FileText, Search, Filter, X, Eye, Lock, CheckCircle2,
-    Clock, RotateCcw, ChevronDown, Truck, User, Download, FileDown, Printer, Paperclip, Upload, Trash2, RefreshCcw,
+    FileText, Eye, Lock, CheckCircle2,
+    Clock, RotateCcw, Truck, User, Download, FileDown, Printer, Paperclip, Upload, Trash2, RefreshCcw,
 } from 'lucide-react';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from '../fleet/components/vehicleProfile';
 
@@ -121,7 +126,7 @@ interface WaybillDetail extends Waybill {
 function StatusBadge({ status }: { status: string }) {
     const config: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
         draft: {
-            color: 'bg-slate-100 text-slate-600 border-slate-200',
+            color: 'bg-neutral-100 text-neutral-600 border-neutral-200',
             label: 'Черновик',
             icon: <Clock className="w-3.5 h-3.5" />,
         },
@@ -156,7 +161,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function formatComplianceDate(value?: string | null) {
-    if (!value) return 'вЂ”';
+    if (!value) return '—';
     return new Date(value).toLocaleString('ru-RU', {
         day: '2-digit',
         month: '2-digit',
@@ -285,22 +290,22 @@ function ComplianceTimeline({
     const items = (events || []).slice().reverse().slice(0, 6);
 
     return (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4">
             <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">{items.length}</span>
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{title}</p>
+                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">{items.length}</span>
             </div>
             <div className="mt-3 space-y-2">
                 {items.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                    <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500">
                         {emptyLabel}
                     </div>
                 ) : items.map((event) => (
-                    <div key={event.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                    <div key={event.id} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
-                                <p className="text-sm font-semibold text-slate-900">{event.title}</p>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-sm font-semibold text-neutral-900">{event.title}</p>
+                                <p className="text-xs text-neutral-500">
                                     {(event.documentType ? transportDocLabel(event.documentType) : etrnTitleTypeLabel(event.titleType))} · {complianceStatusLabel(event.status)}
                                 </p>
                             </div>
@@ -308,7 +313,7 @@ function ComplianceTimeline({
                                 {event.isProblem ? 'problem' : event.severity}
                             </span>
                         </div>
-                        <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                        <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-neutral-500">
                             <span>{event.message || 'Готово к следующему шагу'}</span>
                             <span>{formatComplianceDate(event.at)}</span>
                         </div>
@@ -348,63 +353,63 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
         <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Persisted transport documents</p>
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Транспортные документы</p>
+                    <p className="text-sm font-semibold text-neutral-900">
                         {transportDocuments?.lifecycle?.documentPhase || 'planning'} · {etrn?.status || 'draft'}
                     </p>
-                    <p className="mt-1 text-xs text-slate-600">
-                        {transportDocuments?.summary?.nextAction ? `Next action: ${humanizeNextAction(transportDocuments.summary.nextAction)}` : 'Досье и ЭТРН доступны через dossier API'}
+                    <p className="mt-1 text-xs text-neutral-600">
+                        {transportDocuments?.summary?.nextAction ? `Следующее действие: ${humanizeNextAction(transportDocuments.summary.nextAction)}` : 'Досье и ЭТРН доступны через dossier API'}
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {transportDocuments?.lifecycle?.hasBlockingProblems && (
-                        <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-700">blocked</span>
+                        <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-700">блокировка</span>
                     )}
                     {transportDocuments?.lifecycle?.hasWarnings && (
-                        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">check</span>
+                        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">проверить</span>
                     )}
-                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
-                        {transportDocuments?.summary?.problemCount ?? 0} issues
+                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-600 shadow-sm">
+                        Замечаний: {transportDocuments?.summary?.problemCount ?? 0}
                     </span>
                 </div>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Документов: {transportDocuments?.summary?.totalDocuments ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Готово: {transportDocuments?.summary?.completedDocuments ?? 0}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
                     Последняя активность: {formatComplianceDate(transportDocuments?.summary?.latestActivityAt)}
                 </div>
-                <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600 shadow-sm">
-                    ETRN: {etrn?.summary?.blockedTitles ?? 0} blocked
+                <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-600 shadow-sm">
+                    ЭТРН: заблокировано {etrn?.summary?.blockedTitles ?? 0}
                 </div>
             </div>
 
             <div className="rounded-2xl border border-white bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                     <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Внешний обмен</p>
-                        <p className="text-sm font-semibold text-slate-900">Статус провайдера, попытки и квитанции</p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Внешний обмен</p>
+                        <p className="text-sm font-semibold text-neutral-900">Статус провайдера, попытки и квитанции</p>
                     </div>
-                    <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                        {exchangeTotals.providers} providers
+                    <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
+                        Провайдеров: {exchangeTotals.providers}
                     </span>
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Попытки: {exchangeTotals.retries}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Квитанции: {exchangeTotals.receipts}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Последняя попытка: {formatComplianceDate(exchangeTotals.lastAttemptAt)}
                     </div>
-                    <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
                         Следующий retry: {formatComplianceDate(exchangeTotals.nextRetryAt)}
                     </div>
                 </div>
@@ -413,7 +418,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
             {(transportDocuments?.lifecycle?.missingDocumentTypes?.length || etrn?.summary?.blockingTitleTypes?.length) && (
                 <div className="grid gap-3 lg:grid-cols-2">
                     <div className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Missing transport docs</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Не хватает документов</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(transportDocuments?.lifecycle?.missingDocumentTypes || []).map((type: string) => (
                                 <span key={type} className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">
@@ -421,12 +426,12 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                 </span>
                             ))}
                             {(transportDocuments?.lifecycle?.missingDocumentTypes || []).length === 0 && (
-                                <span className="text-xs text-slate-500">Нет критичных пробелов</span>
+                                <span className="text-xs text-neutral-500">Нет критичных пробелов</span>
                             )}
                         </div>
                     </div>
                     <div className="rounded-xl border border-white bg-white px-3 py-2 shadow-sm">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">ETRN blockers</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Блокировки ЭТРН</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(etrn?.summary?.blockingTitleTypes || []).map((type: string) => (
                                 <span key={type} className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
@@ -434,7 +439,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                 </span>
                             ))}
                             {(etrn?.summary?.blockingTitleTypes || []).length === 0 && (
-                                <span className="text-xs text-slate-500">Блокирующих титулов нет</span>
+                                <span className="text-xs text-neutral-500">Блокирующих титулов нет</span>
                             )}
                         </div>
                     </div>
@@ -446,7 +451,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Ошибки и подсказки retry</p>
-                            <p className="text-sm font-semibold text-slate-900">Persisted document issues</p>
+                            <p className="text-sm font-semibold text-neutral-900">Persisted document issues</p>
                         </div>
                         <RetryHint label="Исправить и повторить" />
                     </div>
@@ -456,13 +461,13 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
                                         <p className="text-xs font-semibold text-rose-700">{problem.code}</p>
-                                        <p className="text-sm text-slate-900">{problem.message}</p>
+                                        <p className="text-sm text-neutral-900">{problem.message}</p>
                                     </div>
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(problem.severity, 'bg')}`}>
                                         {problem.severity}
                                     </span>
                                 </div>
-                                <p className="mt-1 text-[11px] text-slate-500">
+                                <p className="mt-1 text-[11px] text-neutral-500">
                                     {problem.documentType ? transportDocLabel(problem.documentType) : 'Документ'}{problem.at ? ` · ${formatComplianceDate(problem.at)}` : ''}
                                 </p>
                             </div>
@@ -476,19 +481,19 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                     <div key={doc.id} className="rounded-2xl border border-white bg-white p-4 shadow-sm">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{transportDocLabel(doc.type)}</p>
-                                <p className="text-sm font-semibold text-slate-900">{doc.externalId}</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{transportDocLabel(doc.type)}</p>
+                                <p className="text-sm font-semibold text-neutral-900">{doc.externalId}</p>
                             </div>
                             <div className="flex flex-col items-end gap-1">
                                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClass(transportTone(doc.status), 'bg')}`}>
                                     {transportDocStatusLabel(doc.status)}
                                 </span>
-                                <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                                <span className="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
                                     {doc.providerStatus || doc.providerName || 'internal'}
                                 </span>
                             </div>
                         </div>
-                        <div className="mt-3 grid gap-2 text-[11px] text-slate-500">
+                        <div className="mt-3 grid gap-2 text-[11px] text-neutral-500">
                             <div>Создан: {formatComplianceDate(doc.createdAt)}</div>
                             <div>Обновлён: {formatComplianceDate(doc.updatedAt)}</div>
                             <div>Провайдер: {doc.providerName || 'internal'}</div>
@@ -514,12 +519,12 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                 </span>
                             )}
                             {doc.lastSyncedAt && (
-                                <span className="inline-flex rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                                <span className="inline-flex rounded-full bg-neutral-50 px-2.5 py-1 text-[11px] font-semibold text-neutral-600">
                                     синхр. {formatComplianceDate(doc.lastSyncedAt)}
                                 </span>
                             )}
                         </div>
-                        <div className="mt-3 text-[11px] text-slate-500">
+                        <div className="mt-3 text-[11px] text-neutral-500">
                             {doc.nextRetryAt
                                 ? `Ручное действие: повторить после ${formatComplianceDate(doc.nextRetryAt)}`
                                 : doc.status === 'error' || doc.status === 'rejected'
@@ -550,11 +555,11 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         events={etrn?.timeline || []}
                         emptyLabel="ETRN timeline пока пуст"
                     />
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="rounded-2xl border border-neutral-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">ETRN titles</p>
-                                <p className="text-sm font-semibold text-slate-900">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">ETRN titles</p>
+                                <p className="text-sm font-semibold text-neutral-900">
                                     {etrn?.summary?.completedTitles ?? 0}/{etrn?.summary?.totalTitles ?? 0} completed
                                 </p>
                             </div>
@@ -564,20 +569,20 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         </div>
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                             {titles.slice(0, 6).map((title: any) => (
-                                <div key={title.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                <div key={title.id} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title.titleNumber}</p>
-                                            <p className="text-sm font-semibold text-slate-900">{title.titleLabel}</p>
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{title.titleNumber}</p>
+                                            <p className="text-sm font-semibold text-neutral-900">{title.titleLabel}</p>
                                         </div>
                                         <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(titleTone(title.status), 'bg')}`}>
                                             {etrnTitleStatusLabel(title.status)}
                                         </span>
                                     </div>
-                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                                        <span>{title.isRequired ? 'required' : 'optional'}</span>
-                                        <span>history {title.history?.length || 0}</span>
-                                        {title.error && <RetryHint label="retry after fix" />}
+                                    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
+                                        <span>{title.isRequired ? 'обязат.' : 'опц.'}</span>
+                                        <span>история {title.history?.length || 0}</span>
+                                        {title.error && <RetryHint label="повторить после исправления" />}
                                     </div>
                                     {title.error && (
                                         <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
@@ -592,18 +597,18 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">ETRN issues</p>
-                                    <p className="text-sm font-semibold text-slate-900">Что мешает пройти по контуру</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Проблемы ЭТРН</p>
+                                    <p className="text-sm font-semibold text-neutral-900">Что мешает пройти по контуру</p>
                                 </div>
-                                <RetryHint label="Check blockers" />
+                                <RetryHint label="Проверить блокеры" />
                             </div>
                             <div className="mt-3 space-y-2">
                                 {(etrnProblems.slice(0, 4)).map((problem: any) => (
-                                    <div key={`${problem.code}-${problem.documentId || problem.at || problem.message}`} className="rounded-xl border border-white bg-white px-3 py-2 text-sm text-slate-700">
+                                    <div key={`${problem.code}-${problem.documentId || problem.at || problem.message}`} className="rounded-xl border border-white bg-white px-3 py-2 text-sm text-neutral-700">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
-                                                <p className="font-semibold text-slate-900">{problem.message}</p>
-                                                <p className="text-[11px] text-slate-500">
+                                                <p className="font-semibold text-neutral-900">{problem.message}</p>
+                                                <p className="text-[11px] text-neutral-500">
                                                     {problem.documentType ? transportDocLabel(problem.documentType) : 'ETRN'}{problem.at ? ` · ${formatComplianceDate(problem.at)}` : ''}
                                                 </p>
                                             </div>
@@ -667,29 +672,20 @@ function CloseWaybillModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <Card className="w-full max-w-md mx-4 shadow-xl">
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2">
-                            <Lock className="w-5 h-5 text-emerald-600" />
-                            Закрытие путевого листа
-                        </CardTitle>
-                        <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100">
-                            <X className="w-5 h-5 text-slate-400" />
-                        </button>
-                    </div>
-                    <p className="text-sm text-slate-500 mt-1">
-                        {waybill.number} вЂў {waybill.vehicle?.plateNumber}
-                    </p>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
+        <Dialog
+            open={true}
+            onClose={onClose}
+            title="Закрытие путевого листа"
+            description={`${waybill.number} • ${waybill.vehicle?.plateNumber ?? ''}`}
+            size="md"
+        >
+            <div className="space-y-4">
+                    <div className="p-3 bg-neutral-50 rounded-lg text-sm text-neutral-600">
                         Одометр при выезде: <strong>{waybill.odometerOut.toLocaleString()} км</strong>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-semibold text-slate-700">
+                        <label className="block text-sm font-semibold text-neutral-700">
                             Одометр при возврате (км) *
                         </label>
                         <input
@@ -697,13 +693,13 @@ function CloseWaybillModal({
                             placeholder="Пробег при возврате"
                             value={odometerIn}
                             onChange={e => setOdometerIn(e.target.value)}
-                            className="w-full px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                            className="w-full px-4 py-3 text-base border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
                             min={waybill.odometerOut}
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <label className="block text-sm font-semibold text-slate-700">
+                        <label className="block text-sm font-semibold text-neutral-700">
                             Остаток топлива (л)
                         </label>
                         <input
@@ -712,7 +708,7 @@ function CloseWaybillModal({
                             placeholder="Необязательное поле"
                             value={fuelIn}
                             onChange={e => setFuelIn(e.target.value)}
-                            className="w-full px-4 py-3 text-base border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                            className="w-full px-4 py-3 text-base border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
                         />
                     </div>
 
@@ -732,9 +728,8 @@ function CloseWaybillModal({
                             {submitting ? 'Закрываю...' : 'Закрыть ПЛ'}
                         </Button>
                     </div>
-                </CardContent>
-            </Card>
-        </div>
+            </div>
+        </Dialog>
     );
 }
 
@@ -748,6 +743,7 @@ function DetailModal({
     dossier,
     onClose,
     onCloseWaybill,
+    onSyncStatus,
     onUploadAttachment,
     onDeleteAttachment,
     onDownloadAttachment,
@@ -759,6 +755,7 @@ function DetailModal({
     dossier?: any | null;
     onClose: () => void;
     onCloseWaybill: () => void;
+    onSyncStatus?: () => void | Promise<void>;
     onUploadAttachment: (file: File) => Promise<void>;
     onDeleteAttachment: (attachmentId: string) => Promise<void>;
     onDownloadAttachment: (attachment: WaybillAttachment) => Promise<void>;
@@ -781,30 +778,23 @@ function DetailModal({
     });
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <Card className="w-full max-w-lg mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-blue-600" />
-                            Путевой лист {waybill.number}
-                        </CardTitle>
-                        <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100">
-                            <X className="w-5 h-5 text-slate-400" />
-                        </button>
-                    </div>
-                    <StatusBadge status={waybill.status} />
-                </CardHeader>
-                <CardContent className="space-y-4">
+        <Dialog
+            open={true}
+            onClose={onClose}
+            title={`Путевой лист ${waybill.number}`}
+            size="md"
+        >
+            <div className="space-y-4">
+                <StatusBadge status={waybill.status} />
                     {/* Vehicle */}
                     {(waybill.vehicle || vehicleInfo) && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                            <Truck className="w-5 h-5 text-slate-500" />
+                        <div className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl">
+                            <Truck className="w-5 h-5 text-neutral-500" />
                             <div>
-                                <p className="text-sm font-semibold text-slate-800">
+                                <p className="text-sm font-semibold text-neutral-800">
                                     {waybill.vehicle?.plateNumber || vehicleInfo?.plateNumber}
                                 </p>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-neutral-500">
                                     {waybill.vehicle?.make || vehicleInfo?.make} {waybill.vehicle?.model || vehicleInfo?.model}
                                 </p>
                                 {resolvedVehicleProfile && (
@@ -816,7 +806,7 @@ function DetailModal({
                                     <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
                                         {waybillCue.modeLabel}
                                     </span>
-                                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm">
+                                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-600 shadow-sm">
                                         {waybillCue.profileLabel}
                                     </span>
                                 </div>
@@ -826,7 +816,7 @@ function DetailModal({
                                     </div>
                                 )}
                                 {trailerInfo && (
-                                    <p className="text-xs text-slate-400">
+                                    <p className="text-xs text-neutral-400">
                                         Прицеп: {trailerInfo.plateNumber}
                                     </p>
                                 )}
@@ -854,34 +844,34 @@ function DetailModal({
                                 }`}>
                                     Профиль ПЛ
                                 </p>
-                                <p className="text-sm font-semibold text-slate-900">{waybillCue.title}</p>
+                                <p className="text-sm font-semibold text-neutral-900">{waybillCue.title}</p>
                             </div>
-                            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-sm">
-                                {waybillCue.tone === 'ready' ? 'ready' : 'check'}
+                            <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-600 shadow-sm">
+                                {waybillCue.tone === 'ready' ? 'Готов' : 'Проверить'}
                             </span>
                         </div>
-                        <p className="mt-2 text-xs leading-5 text-slate-600">{waybillCue.description}</p>
+                        <p className="mt-2 text-xs leading-5 text-neutral-600">{waybillCue.description}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                             {waybillCue.markers.map((marker) => (
                                 <span
                                     key={marker}
-                                    className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 shadow-sm"
+                                    className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-600 shadow-sm"
                                 >
                                     {marker}
                                 </span>
                             ))}
                         </div>
                         <div className="mt-3 rounded-xl border border-white/70 bg-white/80 px-3 py-2">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Что влияет на ПЛ</p>
-                            <p className="mt-1 text-xs leading-5 text-slate-600">{waybillCue.impactLabel}</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Что влияет на ПЛ</p>
+                            <p className="mt-1 text-xs leading-5 text-neutral-600">{waybillCue.impactLabel}</p>
                         </div>
                         <div className="mt-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Обязательные поля и проверки</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Обязательные поля и проверки</p>
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {waybillCue.requirements.map((requirement) => (
                                     <span
                                         key={requirement}
-                                        className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700"
+                                        className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-semibold text-neutral-700"
                                     >
                                         {requirement}
                                     </span>
@@ -907,21 +897,21 @@ function DetailModal({
 
                     {/* Driver */}
                     {waybill.driver && (
-                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
-                            <User className="w-5 h-5 text-slate-500" />
+                        <div className="flex items-center gap-3 p-3 bg-neutral-50 rounded-xl">
+                            <User className="w-5 h-5 text-neutral-500" />
                             <div>
-                                <p className="text-sm font-semibold text-slate-800">{waybill.driver.fullName}</p>
-                                <p className="text-xs text-slate-500">ВУ: {waybill.driver.licenseNumber}</p>
+                                <p className="text-sm font-semibold text-neutral-800">{waybill.driver.fullName}</p>
+                                <p className="text-xs text-neutral-500">ВУ: {waybill.driver.licenseNumber}</p>
                             </div>
                         </div>
                     )}
 
                     {/* Trip */}
                     {waybill.trip && (
-                        <div className="p-3 bg-slate-50 rounded-xl">
-                            <p className="text-sm text-slate-600">
+                        <div className="p-3 bg-neutral-50 rounded-xl">
+                            <p className="text-sm text-neutral-600">
                                 Рейс: <strong>{waybill.trip.number}</strong>
-                                <span className="ml-2 text-xs text-slate-400">({waybill.trip.status})</span>
+                                <span className="ml-2 text-xs text-neutral-400">({waybill.trip.status})</span>
                             </p>
                         </div>
                     )}
@@ -930,30 +920,30 @@ function DetailModal({
                         <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 space-y-3">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Compliance snapshot</p>
-                                    <p className="text-sm font-semibold text-slate-900">Досье рейса</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Сводка по compliance</p>
+                                    <p className="text-sm font-semibold text-neutral-900">Досье рейса</p>
                                 </div>
                                 <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
                                     {dossier.summary?.hasWaybill ? 'ПЛ есть' : 'ПЛ нет'}
                                 </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                            <div className="grid grid-cols-2 gap-2 text-xs text-neutral-600">
                                 <div className="rounded-xl bg-white px-3 py-2">Заявок: {dossier.summary?.orderCount ?? 0}</div>
                                 <div className="rounded-xl bg-white px-3 py-2">ТС: {dossier.summary?.hasVehicle ? 'да' : 'нет'}</div>
                                 <div className="rounded-xl bg-white px-3 py-2">Прицеп: {dossier.summary?.hasTrailer ? 'да' : 'нет'}</div>
                                 <div className="rounded-xl bg-white px-3 py-2">ПЛ: {dossier.summary?.hasWaybill ? 'да' : 'нет'}</div>
                             </div>
-                            <div className="rounded-xl bg-white px-3 py-2 text-xs text-slate-500">
-                                {dossier.parties?.length || 0} участников вЂў {dossier.orders?.length || 0} заявок в досье
+                            <div className="rounded-xl bg-white px-3 py-2 text-xs text-neutral-500">
+                                {dossier.parties?.length || 0} участников • {dossier.orders?.length || 0} заявок в досье
                             </div>
                         </div>
                     )}
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="rounded-2xl border border-neutral-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Readiness checklist</p>
-                                <p className="text-sm font-semibold text-slate-900">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Готовность</p>
+                                <p className="text-sm font-semibold text-neutral-900">
                                     {readiness.title} · {readiness.doneCount}/{readiness.totalCount}
                                 </p>
                             </div>
@@ -964,25 +954,25 @@ function DetailModal({
                                         ? 'bg-amber-100 text-amber-700'
                                         : 'bg-emerald-100 text-emerald-700'
                             }`}>
-                                {readiness.tone === 'ready' ? 'ready' : readiness.tone === 'attention' ? 'check' : 'block'}
+                                {readiness.tone === 'ready' ? 'Готов' : readiness.tone === 'attention' ? 'Проверить' : 'Заблок.'}
                             </span>
                         </div>
                         <div className="mt-3 grid gap-2 md:grid-cols-2">
                             {readiness.items.map(item => (
-                                <div key={item.key} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                <div key={item.key} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                                     <div className="flex items-center justify-between gap-3">
-                                        <span className="text-xs font-medium text-slate-700">{item.label}</span>
+                                        <span className="text-xs font-medium text-neutral-700">{item.label}</span>
                                         <span className={`text-[11px] font-semibold ${
                                             item.state === 'done'
                                                 ? 'text-emerald-700'
                                                 : item.state === 'warn'
                                                     ? 'text-amber-700'
-                                                    : 'text-slate-500'
+                                                    : 'text-neutral-500'
                                         }`}>
-                                            {item.state === 'done' ? 'ok' : item.state === 'warn' ? 'check' : 'optional'}
+                                            {item.state === 'done' ? 'OK' : item.state === 'warn' ? 'Проверить' : 'Опц.'}
                                         </span>
                                     </div>
-                                    <p className="mt-1 text-[11px] leading-4 text-slate-500">{item.hint}</p>
+                                    <p className="mt-1 text-[11px] leading-4 text-neutral-500">{item.hint}</p>
                                 </div>
                             ))}
                         </div>
@@ -999,19 +989,19 @@ function DetailModal({
                         <div className="p-3 bg-emerald-50 rounded-xl">
                             <p className="text-xs text-emerald-500 mb-1">Одометр возврата</p>
                             <p className="text-lg font-bold text-emerald-700">
-                                {waybill.odometerIn ? `${waybill.odometerIn.toLocaleString()} км` : 'вЂ”'}
+                                {waybill.odometerIn ? `${waybill.odometerIn.toLocaleString()} км` : '—'}
                             </p>
                         </div>
-                        <div className="p-3 bg-slate-50 rounded-xl">
-                            <p className="text-xs text-slate-400 mb-1">Выезд</p>
-                            <p className="text-sm font-medium text-slate-700">
-                                {waybill.departureAt ? new Date(waybill.departureAt).toLocaleString('ru-RU') : 'вЂ”'}
+                        <div className="p-3 bg-neutral-50 rounded-xl">
+                            <p className="text-xs text-neutral-400 mb-1">Выезд</p>
+                            <p className="text-sm font-medium text-neutral-700">
+                                {waybill.departureAt ? new Date(waybill.departureAt).toLocaleString('ru-RU') : '—'}
                             </p>
                         </div>
-                        <div className="p-3 bg-slate-50 rounded-xl">
-                            <p className="text-xs text-slate-400 mb-1">Возврат</p>
-                            <p className="text-sm font-medium text-slate-700">
-                                {waybill.returnAt ? new Date(waybill.returnAt).toLocaleString('ru-RU') : 'вЂ”'}
+                        <div className="p-3 bg-neutral-50 rounded-xl">
+                            <p className="text-xs text-neutral-400 mb-1">Возврат</p>
+                            <p className="text-sm font-medium text-neutral-700">
+                                {waybill.returnAt ? new Date(waybill.returnAt).toLocaleString('ru-RU') : '—'}
                             </p>
                         </div>
                     </div>
@@ -1028,34 +1018,34 @@ function DetailModal({
                         <div className="p-3 bg-orange-50 rounded-xl">
                             <p className="text-xs text-orange-500 mb-1">Подпись механика</p>
                             <p className="text-sm font-medium text-orange-700">
-                                {waybill.mechanicSignature ? 'вњ“ ПЭП' : 'вЂ”'}
+                                {waybill.mechanicSignature ? '✓ ПЭП' : '—'}
                             </p>
                         </div>
                         <div className="p-3 bg-rose-50 rounded-xl">
                             <p className="text-xs text-rose-500 mb-1">Подпись медика</p>
                             <p className="text-sm font-medium text-rose-700">
-                                {waybill.medicSignature ? 'вњ“ ПЭП' : 'вЂ”'}
+                                {waybill.medicSignature ? '✓ ПЭП' : '—'}
                             </p>
                         </div>
                     </div>
 
                     {waybill.drivers && waybill.drivers.length > 0 && (
-                        <div className="p-3 bg-slate-50 rounded-xl space-y-2">
-                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Водители на путевом</p>
+                        <div className="p-3 bg-neutral-50 rounded-xl space-y-2">
+                            <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wide">Водители на путевом</p>
                             <div className="space-y-2">
                                 {waybill.drivers.map((link) => (
                                     <div key={link.id} className="flex items-center justify-between gap-3 text-sm">
                                         <div>
-                                            <p className="font-medium text-slate-800">{link.driverName}</p>
-                                            <p className="text-xs text-slate-500">ВУ: {link.licenseNumber}</p>
+                                            <p className="font-medium text-neutral-800">{link.driverName}</p>
+                                            <p className="text-xs text-neutral-500">ВУ: {link.licenseNumber}</p>
                                         </div>
-                                        <div className="text-right text-xs text-slate-500">
+                                        <div className="text-right text-xs text-neutral-500">
                                             {link.isPrimary && <p className="text-emerald-600 font-semibold">Основной</p>}
                                             {(link.shiftStart || link.shiftEnd) && (
                                                 <p>
-                                                    {link.shiftStart ? new Date(link.shiftStart).toLocaleString('ru-RU') : 'вЂ”'}
+                                                    {link.shiftStart ? new Date(link.shiftStart).toLocaleString('ru-RU') : '—'}
                                                     {' в†’ '}
-                                                    {link.shiftEnd ? new Date(link.shiftEnd).toLocaleString('ru-RU') : 'вЂ”'}
+                                                    {link.shiftEnd ? new Date(link.shiftEnd).toLocaleString('ru-RU') : '—'}
                                                 </p>
                                             )}
                                         </div>
@@ -1066,16 +1056,16 @@ function DetailModal({
                     )}
 
                     {waybill.expenses && waybill.expenses.length > 0 && (
-                        <div className="p-3 bg-slate-50 rounded-xl space-y-2">
-                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Расходы по путевому</p>
+                        <div className="p-3 bg-neutral-50 rounded-xl space-y-2">
+                            <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wide">Расходы по путевому</p>
                             <div className="space-y-2">
                                 {waybill.expenses.map((expense) => (
-                                    <div key={expense.id} className="flex items-center justify-between gap-3 text-sm border-b border-slate-200 pb-2 last:border-b-0 last:pb-0">
+                                    <div key={expense.id} className="flex items-center justify-between gap-3 text-sm border-b border-neutral-200 pb-2 last:border-b-0 last:pb-0">
                                         <div>
-                                            <p className="font-medium text-slate-800">{expense.category}</p>
-                                            <p className="text-xs text-slate-500">{expense.description || 'Без описания'}</p>
+                                            <p className="font-medium text-neutral-800">{expense.category}</p>
+                                            <p className="text-xs text-neutral-500">{expense.description || 'Без описания'}</p>
                                         </div>
-                                        <div className="text-right text-xs text-slate-600">
+                                        <div className="text-right text-xs text-neutral-600">
                                             <p>План: {expense.plannedAmount ?? 0} в‚Ѕ</p>
                                             <p>Факт: {expense.actualAmount ?? 0} в‚Ѕ</p>
                                         </div>
@@ -1084,13 +1074,13 @@ function DetailModal({
                             </div>
                         </div>
                     )}
-                    <div className="p-3 bg-slate-50 rounded-xl space-y-3">
+                    <div className="p-3 bg-neutral-50 rounded-xl space-y-3">
                         <div className="flex items-center justify-between gap-3">
                             <div>
-                                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide">Вложения</p>
-                                <p className="text-sm text-slate-600">Файлы Рё сканы, прикреплённые к путевому листу.</p>
+                                <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wide">Вложения</p>
+                                <p className="text-sm text-neutral-600">Файлы Рё сканы, прикреплённые к путевому листу.</p>
                             </div>
-                            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-100 cursor-pointer">
+                            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-100 cursor-pointer">
                                 <Upload className="w-4 h-4" />
                                 {uploadingAttachment ? 'Загрузка...' : 'Загрузить'}
                                 <input
@@ -1109,10 +1099,10 @@ function DetailModal({
                         {waybill.attachments && waybill.attachments.length > 0 ? (
                             <div className="space-y-2">
                                 {waybill.attachments.map((attachment) => (
-                                    <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-lg bg-white border border-slate-200 px-3 py-2">
+                                    <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-lg bg-white border border-neutral-200 px-3 py-2">
                                         <div className="min-w-0">
-                                            <p className="text-sm font-medium text-slate-800 truncate">{attachment.originalName}</p>
-                                            <p className="text-xs text-slate-500">{Math.max(1, Math.round(attachment.fileSize / 1024))} KB</p>
+                                            <p className="text-sm font-medium text-neutral-800 truncate">{attachment.originalName}</p>
+                                            <p className="text-xs text-neutral-500">{Math.max(1, Math.round(attachment.fileSize / 1024))} KB</p>
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <button
@@ -1134,17 +1124,29 @@ function DetailModal({
                                 ))}
                             </div>
                         ) : (
-                            <div className="flex items-center gap-2 text-sm text-slate-500">
+                            <div className="flex items-center gap-2 text-sm text-neutral-500">
                                 <Paperclip className="w-4 h-4" />
                                 Вложений пока нет
                             </div>
                         )}
                     </div>
 
-                    <div className="text-xs text-slate-400 pt-2">
+                    <div className="text-xs text-neutral-400 pt-2">
                         Выдан: {new Date(waybill.issuedAt).toLocaleString('ru-RU')}
                         {waybill.closedAt && ' Закрыт: ' + new Date(waybill.closedAt).toLocaleString('ru-RU')}
                     </div>
+                    {/* Sync status button */}
+                    {onSyncStatus && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full mt-2"
+                            onClick={() => { void onSyncStatus(); }}
+                        >
+                            <RotateCcw className="w-4 h-4 mr-1.5" />
+                            Пересчитать статус
+                        </Button>
+                    )}
                     {/* Close button if not yet closed */}
                     {waybill.status === 'issued' && (
                         <Button
@@ -1156,9 +1158,8 @@ function DetailModal({
                             Закрыть путевой лист
                         </Button>
                     )}
-                </CardContent>
-            </Card>
-        </div>
+            </div>
+        </Dialog>
     );
 }
 
@@ -1184,7 +1185,15 @@ export default function WaybillsPage() {
     // Modals
     const [detailWaybill, setDetailWaybill] = useState<WaybillDetail | null>(null);
     const [closeWaybill, setCloseWaybill] = useState<WaybillDetail | null>(null);
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const { toast: toastFn } = useToast();
+    const setToast = useCallback((value: { message: string; type: 'success' | 'error' } | null) => {
+        if (!value) return;
+        toastFn({
+            variant: value.type === 'error' ? 'error' : 'success',
+            title: value.type === 'error' ? 'Ошибка' : 'Готово',
+            description: value.message,
+        });
+    }, [toastFn]);
     const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
     const loadWaybills = useCallback(async () => {
@@ -1317,34 +1326,154 @@ export default function WaybillsPage() {
     const handleCloseSuccess = () => {
         setCloseWaybill(null);
         setDetailWaybill(null);
-        setToast({ message: 'вњ… Путевой лист закрыт', type: 'success' });
+        setToast({ message: '✅ Путевой лист закрыт', type: 'success' });
         loadWaybills();
     };
 
-    useEffect(() => {
-        if (toast) {
-            const timer = setTimeout(() => setToast(null), 4000);
-            return () => clearTimeout(timer);
-        }
-    }, [toast]);
+    // Toast auto-dismiss handled by ToastProvider
 
-    // Server-side filtering вЂ” API returns pre-filtered results
+    // Server-side filtering — API returns pre-filtered results
     const filteredWaybills = waybills;
 
     const totalPages = Math.ceil(total / limit);
 
+    const waybillColumns: Column<Waybill>[] = [
+        {
+            id: 'number',
+            header: 'Номер',
+            accessor: (r) => r.number,
+            cell: (r) => <span className="font-mono font-semibold text-brand-700">{r.number}</span>,
+            sortable: true,
+            sticky: 'left',
+            minWidth: '120px',
+        },
+        {
+            id: 'status',
+            header: 'Статус',
+            accessor: (r) => r.status,
+            cell: (r) => <StatusBadge status={r.status} />,
+            sortable: true,
+            width: '130px',
+        },
+        {
+            id: 'vehicle',
+            header: 'ТС',
+            cell: (r) => {
+                const rowVehicle = vehicleMap[r.vehicleId];
+                const rowTrailer = trailerMap[r.vehicleId];
+                const rowCue = getVehicleWaybillCue(rowVehicle?.bodyType, undefined, {
+                    trailerPlate: rowTrailer?.plateNumber || null,
+                });
+                const rowReadiness = getVehicleWaybillReadiness({
+                    bodyType: rowVehicle?.bodyType,
+                    trailerPlate: rowTrailer?.plateNumber || null,
+                    isBlocked: false,
+                    hasWaybill: true,
+                    hasOrders: true,
+                });
+                return (
+                    <div className="flex flex-col gap-0.5 text-xs">
+                        <span className="font-medium text-neutral-700">
+                            {vehicleMap[r.vehicleId]?.plateNumber || r.vehicleId.substring(0, 8)}
+                        </span>
+                        <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                            {rowCue.profileLabel}
+                        </span>
+                        <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            rowCue.tone === 'warning'
+                                ? 'bg-rose-100 text-rose-700'
+                                : rowCue.tone === 'attention'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                            {rowCue.tone === 'ready' ? 'ПЛ готов' : rowCue.tone === 'attention' ? 'Проверь ПЛ' : 'ПЛ заблокирован'}
+                        </span>
+                        <span className="inline-flex w-fit rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-neutral-500 shadow-sm">
+                            {rowCue.modeLabel}
+                        </span>
+                        <span className="text-[11px] leading-4 text-neutral-500">
+                            {rowCue.impactLabel}
+                        </span>
+                        {rowReadiness && (
+                            <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                rowReadiness.tone === 'warning'
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : rowReadiness.tone === 'attention'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                                {rowReadiness.tone === 'ready' ? 'Готов' : rowReadiness.tone === 'attention' ? 'Проверить' : 'Заблок.'}
+                            </span>
+                        )}
+                        {trailerMap[r.vehicleId] && (
+                            <span className="text-[11px] text-neutral-400">
+                                + прицеп {trailerMap[r.vehicleId].plateNumber}
+                            </span>
+                        )}
+                    </div>
+                );
+            },
+            minWidth: '220px',
+        },
+        {
+            id: 'driver',
+            header: 'Водитель',
+            cell: (r) => <span className="text-neutral-700 text-xs">{driverMap[r.driverId] || r.driverId.substring(0, 8)}</span>,
+            minWidth: '160px',
+        },
+        {
+            id: 'departureAt',
+            header: 'Выезд',
+            accessor: (r) => r.departureAt,
+            cell: (r) => (
+                <span className="text-neutral-600 text-xs">
+                    {r.departureAt ? new Date(r.departureAt).toLocaleString('ru-RU', {
+                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+                    }) : '—'}
+                </span>
+            ),
+            sortable: true,
+            width: '120px',
+        },
+        {
+            id: 'odometer',
+            header: 'Одометр (км)',
+            cell: (r) => (
+                <span className="text-neutral-600 text-xs font-mono whitespace-nowrap">
+                    {r.odometerOut.toLocaleString('ru-RU')}
+                    {' → '}
+                    {r.odometerIn ? r.odometerIn.toLocaleString('ru-RU') : '…'}
+                    {' км'}
+                </span>
+            ),
+            align: 'right',
+            width: '180px',
+        },
+        {
+            id: 'issuedAt',
+            header: 'Дата выдачи',
+            accessor: (r) => r.issuedAt,
+            cell: (r) => <span className="text-neutral-500 text-xs">{new Date(r.issuedAt).toLocaleDateString('ru-RU')}</span>,
+            sortable: true,
+            width: '120px',
+            align: 'right',
+            monospace: true,
+        },
+    ];
+
     return (
-        <div className="min-h-screen bg-slate-50">
+        <ErrorBoundary scope="waybills">
+        <div className="min-h-screen bg-neutral-50">
             {/* Header */}
-            <header className="bg-white border-b border-slate-200 px-6 py-4 -m-6 mb-6">
+            <header className="bg-white border-b border-neutral-200 px-6 py-4 -m-6 mb-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
                             <FileText className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-slate-900">Путевые листы</h1>
-                            <p className="text-sm text-slate-500">Управление путевыми листами</p>
+                            <h1 className="text-xl font-bold text-neutral-900">Путевые листы</h1>
+                            <p className="text-sm text-neutral-500">Управление путевыми листами</p>
                         </div>
                     </div>
                     <Button variant="outline" size="sm" onClick={loadWaybills}>
@@ -1354,267 +1483,88 @@ export default function WaybillsPage() {
                 </div>
             </header>
 
-            {/* Toast */}
-            {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
-                    {toast.message}
-                </div>
-            )}
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <Stat label="Всего" value={total} icon={FileText} tone="neutral" />
+                <Stat label="Сформированы" value={waybills.filter(w => w.status === 'draft').length} icon={Clock} tone="info" />
+                <Stat label="Выданы" value={waybills.filter(w => w.status === 'issued').length} icon={Truck} tone="warning" />
+                <Stat label="Закрыты" value={waybills.filter(w => w.status === 'closed').length} icon={CheckCircle2} tone="success" />
+            </div>
 
-            {/* Filters */}
-            <div className="flex flex-wrap gap-3 mb-4">
-                {/* Search */}
-                <div className="relative flex-1 min-w-[200px] max-w-sm">
-                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            {/* Search row (server-side filter) */}
+            <div className="flex flex-wrap gap-2 items-center">
+                <div className="relative flex-1 min-w-[220px] max-w-xs">
                     <input
                         type="text"
                         placeholder="Поиск по номеру (WB-...)"
                         value={searchFilter}
                         onChange={e => { setSearchFilter(e.target.value); setPage(1); }}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
+                        className="w-full h-9 px-3 rounded-lg border border-neutral-200 bg-white text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
                     />
                 </div>
-
-                {/* Status filter */}
-                <div className="relative">
-                    <select
-                        value={statusFilter}
-                        onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
-                        className="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 cursor-pointer"
-                    >
-                        <option value="">Все статусы</option>
-                        <option value="draft">Сформирован</option>
-                        <option value="issued">Выдан</option>
-                        <option value="closed">Закрыт</option>
-                    </select>
-                    <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                </div>
-
-                {(statusFilter || searchFilter) && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => { setStatusFilter(''); setSearchFilter(''); setPage(1); }}
-                        className="text-slate-500"
-                    >
-                        <X className="w-4 h-4 mr-1" />
-                        Сбросить
-                    </Button>
-                )}
             </div>
 
             {/* Table */}
-            <Card>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-slate-100 bg-slate-50">
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Номер</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Статус</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">ТС</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Водитель</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Выезд</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Одометр</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600">Дата выдачи</th>
-                                <th className="text-left px-4 py-3 font-semibold text-slate-600 w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={8} className="text-center py-16">
-                                        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
-                                    </td>
-                                </tr>
-                            ) : filteredWaybills.length === 0 ? (
-                                <tr>
-                                    <td colSpan={8} className="text-center py-16 text-slate-400">
-                                        {waybills.length === 0 ? 'Нет путевых листов' : 'Ничего не найдено'}
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredWaybills.map((wb) => (
-                                    <tr
-                                        key={wb.id}
-                                        onClick={() => openDetail(wb.id)}
-                                        className="border-b border-slate-50 hover:bg-blue-50/50 cursor-pointer transition"
-                                    >
-                                        {(() => {
-                                            const rowVehicle = vehicleMap[wb.vehicleId];
-                                            const rowTrailer = trailerMap[wb.vehicleId];
-                                            const rowCue = getVehicleWaybillCue(rowVehicle?.bodyType, undefined, {
-                                                trailerPlate: rowTrailer?.plateNumber || null,
-                                            });
-                                            const rowReadiness = getVehicleWaybillReadiness({
-                                                bodyType: rowVehicle?.bodyType,
-                                                trailerPlate: rowTrailer?.plateNumber || null,
-                                                isBlocked: false,
-                                                hasWaybill: true,
-                                                hasOrders: true,
-                                            });
-                                            return (
-                                                <>
-                                        <td className="px-4 py-3">
-                                            <span className="font-mono font-semibold text-blue-700">{wb.number}</span>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <StatusBadge status={wb.status} />
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-700 font-medium text-xs">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span>
-                                                    {vehicleMap[wb.vehicleId]?.plateNumber || wb.vehicleId.substring(0, 8)}
-                                                </span>
-                                                <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
-                                                    {rowCue.profileLabel}
-                                                </span>
-                                                <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                                    rowCue.tone === 'warning'
-                                                        ? 'bg-rose-100 text-rose-700'
-                                                        : rowCue.tone === 'attention'
-                                                            ? 'bg-amber-100 text-amber-700'
-                                                            : 'bg-emerald-100 text-emerald-700'
-                                                }`}>
-                                                    {rowCue.tone === 'ready' ? 'ПЛ готов' : rowCue.tone === 'attention' ? 'Проверь ПЛ' : 'ПЛ заблокирован'}
-                                                </span>
-                                                <span className="inline-flex w-fit rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 shadow-sm">
-                                                    {rowCue.modeLabel}
-                                                </span>
-                                                <span className="text-[11px] leading-4 text-slate-500">
-                                                    {rowCue.impactLabel}
-                                                </span>
-                                                <div className="flex flex-wrap gap-1 pt-0.5">
-                                                    {rowCue.requirements.slice(0, 2).map((requirement) => (
-                                                        <span
-                                                            key={`${wb.id}-${requirement}`}
-                                                            className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600"
-                                                        >
-                                                            {requirement}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                                {false && (
-                                                    <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
-                                                        ПЛ: {getVehicleProfile(vehicleMap[wb.vehicleId].bodyType).displayLabel}
-                                                    </span>
-                                                )}
-                                                {false && (
-                                                    <span className="inline-flex w-fit rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                                                        {getVehicleWaybillCue(vehicleMap[wb.vehicleId].bodyType, undefined, {
-                                                            trailerPlate: trailerMap[wb.vehicleId]?.plateNumber || null,
-                                                        }).tone === 'ready' ? 'ПЛ готов' : 'ПЛ: check'}
-                                                    </span>
-                                                )}
-                                                {false && (
-                                                    <span className="inline-flex w-fit rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500 shadow-sm">
-                                                        {getVehicleWaybillCue(vehicleMap[wb.vehicleId].bodyType, undefined, {
-                                                            trailerPlate: trailerMap[wb.vehicleId]?.plateNumber || null,
-                                                        }).modeLabel}
-                                                    </span>
-                                                )}
-                                                {rowReadiness && (
-                                                    <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                                        rowReadiness.tone === 'warning'
-                                                            ? 'bg-rose-100 text-rose-700'
-                                                            : rowReadiness.tone === 'attention'
-                                                                ? 'bg-amber-100 text-amber-700'
-                                                                : 'bg-emerald-100 text-emerald-700'
-                                                    }`}>
-                                                        {rowReadiness.tone === 'ready' ? 'ready' : rowReadiness.tone === 'attention' ? 'check' : 'block'}
-                                                    </span>
-                                                )}
-                                                {trailerMap[wb.vehicleId] && (
-                                                    <span className="text-[11px] text-slate-400">
-                                                        + прицеп {trailerMap[wb.vehicleId].plateNumber}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-700 text-xs">{driverMap[wb.driverId] || wb.driverId.substring(0, 8)}</td>
-                                        <td className="px-4 py-3 text-slate-600 text-xs">
-                                            {wb.departureAt ? new Date(wb.departureAt).toLocaleString('ru-RU', {
-                                                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-                                            }) : 'вЂ”'}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600 text-xs">
-                                            {wb.odometerOut.toLocaleString()} в†’{' '}
-                                            {wb.odometerIn ? wb.odometerIn.toLocaleString() : '...'}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-500 text-xs">
-                                            {new Date(wb.issuedAt).toLocaleDateString('ru-RU')}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); openDetail(wb.id); }}
-                                                    className="p-1 rounded hover:bg-blue-100 transition-colors" title="Подробности"
-                                                >
-                                                    <Eye className="w-4 h-4 text-slate-400" />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); void downloadFromApi(`/api/waybills/${wb.id}/etrn`, `etrn_${wb.number}.xml`); }}
-                                                    className="p-1 rounded hover:bg-emerald-100 transition-colors" title="Скачать ЭТрН XML"
-                                                >
-                                                    <Download className="w-4 h-4 text-emerald-600" />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); void downloadFromApi(`/api/waybills/${wb.id}/pdf`, `waybill_${wb.number}.pdf`); }}
-                                                    className="p-1 rounded hover:bg-red-100 transition-colors" title="Скачать PDF (Путевой лист)"
-                                                >
-                                                    <FileDown className="w-4 h-4 text-red-500" />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); window.open(`/print/etrn/${wb.id}`, '_blank'); }}
-                                                    className="p-1 rounded hover:bg-sky-100 transition-colors" title="Предпросмотр ЭТрН"
-                                                >
-                                                    <FileText className="w-4 h-4 text-sky-600" />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); window.open(`/print/waybill/${wb.id}`, '_blank'); }}
-                                                    className="p-1 rounded hover:bg-purple-100 transition-colors" title="Печать путевого листа"
-                                                >
-                                                    <Printer className="w-4 h-4 text-purple-500" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                                </>
-                                            );
-                                        })()}
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-                        <p className="text-xs text-slate-500">
-                            Показано {((page - 1) * limit) + 1}вЂ“{Math.min(page * limit, total)} из {total}
-                        </p>
-                        <div className="flex gap-1">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page === 1}
-                                onClick={() => setPage(p => p - 1)}
-                            >
-                                в†ђ Назад
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page >= totalPages}
-                                onClick={() => setPage(p => p + 1)}
-                            >
-                                Вперёд в†’
-                            </Button>
-                        </div>
+            <DataTable<Waybill>
+                tableId="waybills"
+                data={filteredWaybills}
+                columns={waybillColumns}
+                keyField="id"
+                loading={loading}
+                filters={[
+                    {
+                        id: 'status',
+                        label: 'Статус',
+                        value: statusFilter,
+                        onChange: (v) => { setStatusFilter(v); setPage(1); },
+                        options: [
+                            { value: 'draft', label: 'Сформирован' },
+                            { value: 'issued', label: 'Выдан' },
+                            { value: 'closed', label: 'Закрыт' },
+                        ],
+                    },
+                ]}
+                onRowClick={(wb) => openDetail(wb.id)}
+                rowActions={(wb) => [
+                    { id: 'detail', label: 'Подробности', icon: <Eye className="w-4 h-4" />, onClick: () => openDetail(wb.id) },
+                    {
+                        id: 'sync', label: 'Пересчитать статус', icon: <RotateCcw className="w-4 h-4" />,
+                        onClick: async () => {
+                            try {
+                                await api.post(`/waybills/${wb.id}/sync-status`);
+                                setToast({ message: '✅ Статус ПЛ пересчитан', type: 'success' });
+                                await loadWaybills();
+                            } catch (err: any) {
+                                setToast({ message: err?.message || 'Не удалось пересчитать статус', type: 'error' });
+                            }
+                        },
+                    },
+                    { id: 'etrn-xml', label: 'Скачать ЭТрН XML', icon: <Download className="w-4 h-4" />, onClick: () => { void downloadFromApi(`/api/waybills/${wb.id}/etrn`, `etrn_${wb.number}.xml`); } },
+                    { id: 'pdf', label: 'Скачать PDF', icon: <FileDown className="w-4 h-4" />, onClick: () => { void downloadFromApi(`/api/waybills/${wb.id}/pdf`, `waybill_${wb.number}.pdf`); } },
+                    { id: 'etrn-preview', label: 'Предпросмотр ЭТрН', icon: <FileText className="w-4 h-4" />, onClick: () => { window.open(`/print/etrn/${wb.id}`, '_blank'); } },
+                    { id: 'print', label: 'Печать ПЛ', icon: <Printer className="w-4 h-4" />, onClick: () => { window.open(`/print/waybill/${wb.id}`, '_blank'); } },
+                ]}
+                emptyState={
+                    <EmptyState
+                        icon={FileText}
+                        title={waybills.length === 0 ? 'Нет путевых листов' : 'Ничего не найдено'}
+                        description={waybills.length === 0 ? 'Путевые листы появятся после оформления рейсов.' : 'Попробуйте сбросить фильтры.'}
+                    />
+                }
+                pageSize={0}
+            />
+            {/* Server-side pagination */}
+            {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 -mt-3 bg-white border border-neutral-200 border-t-0 rounded-b-xl text-xs text-neutral-500">
+                    <p>
+                        Показано {((page - 1) * limit) + 1}–{Math.min(page * limit, total)} из {total}
+                    </p>
+                    <div className="flex gap-1">
+                        <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Назад</Button>
+                        <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Вперёд →</Button>
                     </div>
-                )}
-            </Card>
-
+                </div>
+            )}
             {/* Detail Modal */}
             {detailWaybill && !closeWaybill && (
                 <DetailModal
@@ -1625,6 +1575,16 @@ export default function WaybillsPage() {
                     onClose={() => setDetailWaybill(null)}
                     onCloseWaybill={() => {
                         setCloseWaybill(detailWaybill);
+                    }}
+                    onSyncStatus={async () => {
+                        try {
+                            await api.post(`/waybills/${detailWaybill.id}/sync-status`);
+                            setToast({ message: '✅ Статус ПЛ пересчитан', type: 'success' });
+                            await openDetail(detailWaybill.id);
+                            await loadWaybills();
+                        } catch (err: any) {
+                            setToast({ message: err?.message || 'Не удалось пересчитать статус', type: 'error' });
+                        }
                     }}
                     onUploadAttachment={handleUploadAttachment}
                     onDeleteAttachment={handleDeleteAttachment}
@@ -1642,6 +1602,7 @@ export default function WaybillsPage() {
                 />
             )}
         </div>
+        </ErrorBoundary>
     );
 }
 

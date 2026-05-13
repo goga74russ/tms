@@ -2,7 +2,7 @@
 // WebSocket — Real-time Vehicle Positions (Sprint 6)
 // Streams GPS positions to dispatcher map via @fastify/websocket
 // ============================================================
-import { FastifyPluginAsync } from 'fastify';
+import { FastifyPluginAsync, type FastifyBaseLogger } from 'fastify';
 import websocket from '@fastify/websocket';
 import { db } from '../db/connection.js';
 import { vehicles } from '../db/schema.js';
@@ -57,6 +57,8 @@ function broadcastPositions(positions: VehiclePosition[]) {
 // Position polling interval (simulates Wialon push)
 // ================================================================
 let positionInterval: ReturnType<typeof setInterval> | null = null;
+// Logger captured by startPositionBroadcast for use inside the polling closure.
+let broadcastLogger: FastifyBaseLogger | null = null;
 
 async function fetchAndBroadcastPositions() {
     try {
@@ -101,16 +103,19 @@ async function fetchAndBroadcastPositions() {
 
         broadcastPositions(positions);
     } catch (err: any) {
-        console.error('❌ Position broadcast error:', err.message);
+        if (broadcastLogger) {
+            broadcastLogger.error({ err }, 'Position broadcast error');
+        }
     }
 }
 
-export function startPositionBroadcast(intervalMs = 10000) {
+export function startPositionBroadcast(logger: FastifyBaseLogger, intervalMs = 10000) {
     if (positionInterval) return;
+    broadcastLogger = logger;
     positionInterval = setInterval(fetchAndBroadcastPositions, intervalMs);
     // Initial broadcast
     fetchAndBroadcastPositions();
-    console.info(`📡 Vehicle position broadcast started (every ${intervalMs / 1000}s)`);
+    logger.info({ intervalSec: intervalMs / 1000 }, 'Vehicle position broadcast started');
 }
 
 export function stopPositionBroadcast() {
@@ -238,6 +243,30 @@ export default websocketRoutes;
 // Export for client count monitoring
 export function getConnectedClientsCount(): number {
     return connectedClients.size;
+}
+
+// ================================================================
+// Wave 4: общий broadcast события произвольного типа
+// (например, trip.eta_updated). Сообщение получают все
+// подключенные клиенты с учётом их organizationId, если оно есть.
+// ================================================================
+export function broadcastEvent(eventType: string, payload: Record<string, unknown> & { organizationId?: string | null }) {
+    const baseMessage = JSON.stringify({
+        type: eventType,
+        data: payload,
+        timestamp: new Date().toISOString(),
+    });
+    for (const [client, meta] of connectedClients.entries()) {
+        if (client.readyState !== 1) continue;
+        if (payload.organizationId && meta.organizationId && payload.organizationId !== meta.organizationId) {
+            continue;
+        }
+        try {
+            client.send(baseMessage);
+        } catch {
+            /* ignore individual send errors */
+        }
+    }
 }
 
 

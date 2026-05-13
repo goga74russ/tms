@@ -38,13 +38,22 @@ export async function getToken(): Promise<string | null> {
     return await SecureStore.getItemAsync(TOKEN_KEY);
 }
 
+export class AuthError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = 'AuthError';
+        this.status = status;
+    }
+}
+
 export async function getMe(token: string) {
     const response = await fetch(`${API_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) {
-        throw new Error('Failed to fetch user data');
+        throw new AuthError('Failed to fetch user data', response.status);
     }
 
     return response.json();

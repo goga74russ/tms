@@ -2,6 +2,10 @@
 // Mock ГИБДД Fines Lookup Service (§3.15)
 // Имитирует API агрегатора штрафов по госномеру ТС
 // ============================================================
+// TODO(wave6): placeholder for a paid GIBDD-fines aggregator (Штрафы ГИБДД,
+// shtrafyonline, etc.). Контракт GibddFine стабилен — реальный провайдер
+// должен вернуть тот же shape.
+// ============================================================
 
 export interface GibddFine {
     resolutionNumber: string;  // Номер постановления (уникальный)

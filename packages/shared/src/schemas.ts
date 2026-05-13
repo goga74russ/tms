@@ -196,6 +196,10 @@ export const OrderSchema = z.object({
     // Sprint 9: Температурный режим
     temperatureMin: z.number().optional(),
     temperatureMax: z.number().optional(),
+    // Wave 2: Cold chain v0
+    coldChainRequired: z.boolean().optional(),
+    temperatureMinC: z.number().optional(),
+    temperatureMaxC: z.number().optional(),
     // Sprint 9: Тип загрузки
     loadingType: z.enum(['rear', 'side', 'top']).optional(),
     hydraulicLiftRequired: z.boolean().default(false),
@@ -286,6 +290,8 @@ export const RoutePointSchema = z.object({
     lon: z.number().optional(),
     windowStart: dateStr.optional(),
     windowEnd: dateStr.optional(),
+    windowFrom: dateStr.optional(),
+    windowTo: dateStr.optional(),
     arrivedAt: dateStr.optional(),
     completedAt: dateStr.optional(),
     signatureUrl: z.string().optional(),

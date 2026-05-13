@@ -4,6 +4,7 @@ import { getToken } from './auth';
 import { uploadPhoto } from './upload';
 
 const QUEUE_KEY = 'tms_offline_action_queue';
+const FAILED_QUEUE_KEY = 'tms_offline_action_queue.failed';
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
 
 /** Encode queue JSON before storing to prevent casual inspection of offline data */
@@ -27,7 +28,7 @@ function decodeQueue(encoded: string): string {
 
 export interface OfflineAction {
     id: string;
-    type: 'trip_status' | 'checkpoint_confirm' | 'inspection_submit' | 'delivery_confirmation';
+    type: 'trip_status' | 'checkpoint_confirm' | 'inspection_submit' | 'delivery_confirmation' | 'temperature_reading';
     endpoint: string;
     method: 'POST' | 'PATCH' | 'PUT';
     body: any;
@@ -56,7 +57,34 @@ export async function getQueue(): Promise<OfflineAction[]> {
 }
 
 export async function clearQueue(): Promise<void> {
-    await AsyncStorage.removeItem(QUEUE_KEY);
+    await Promise.all([
+        AsyncStorage.removeItem(QUEUE_KEY),
+        AsyncStorage.removeItem(FAILED_QUEUE_KEY),
+    ]);
+}
+
+/** Returns actions that exceeded the retry budget and were moved to the dead-letter queue. */
+export async function getFailedQueue(): Promise<OfflineAction[]> {
+    try {
+        const raw = await AsyncStorage.getItem(FAILED_QUEUE_KEY);
+        return raw ? JSON.parse(decodeQueue(raw)) : [];
+    } catch {
+        return [];
+    }
+}
+
+/** Count of actions parked in the dead-letter queue (for UI surfacing). */
+export async function getFailedCount(): Promise<number> {
+    const failed = await getFailedQueue();
+    return failed.length;
+}
+
+/** Move actions that exhausted their retry budget into the dead-letter queue. */
+async function appendToFailedQueue(actions: OfflineAction[]): Promise<void> {
+    if (actions.length === 0) return;
+    const existing = await getFailedQueue();
+    const merged = [...existing, ...actions];
+    await AsyncStorage.setItem(FAILED_QUEUE_KEY, encodeQueue(JSON.stringify(merged)));
 }
 
 export async function getQueueSize(): Promise<number> {
@@ -80,30 +108,42 @@ function isLocalPhotoUri(uri: string): boolean {
     return uri.startsWith('file://') || uri.startsWith('content://') || uri.startsWith('ph://');
 }
 
+async function uploadIfLocal(items: unknown[]): Promise<string[]> {
+    const out: string[] = [];
+    for (const item of items) {
+        if (typeof item !== 'string') continue;
+        if (isLocalPhotoUri(item)) {
+            out.push(await uploadPhoto(item));
+        } else {
+            out.push(item);
+        }
+    }
+    return out;
+}
+
 async function prepareBodyForReplay(action: OfflineAction): Promise<any> {
     if (action.type !== 'delivery_confirmation') {
         return action.body;
     }
 
-    const photos = Array.isArray(action.body?.photos) ? action.body.photos : [];
-    if (photos.length === 0) {
-        return action.body;
+    const isV2 = typeof action.endpoint === 'string' && action.endpoint.endsWith('/delivery-confirmation/v2');
+
+    // Legacy body shape: { ..., photos: string[] }
+    // v2 body shape:    { ..., photoUrls: string[], photos?: string[] (queue-only local URIs) }
+    const legacyPhotos = Array.isArray(action.body?.photos) ? action.body.photos : [];
+    const v2PhotoUrls = Array.isArray(action.body?.photoUrls) ? action.body.photoUrls : [];
+
+    if (!isV2) {
+        if (legacyPhotos.length === 0) return action.body;
+        return { ...action.body, photos: await uploadIfLocal(legacyPhotos) };
     }
 
-    const uploadedPhotos = await Promise.all(
-        photos.map(async (photo: unknown) => {
-            if (typeof photo === 'string' && isLocalPhotoUri(photo)) {
-                return uploadPhoto(photo);
-            }
-
-            return photo;
-        })
-    );
-
-    return {
-        ...action.body,
-        photos: uploadedPhotos,
-    };
+    // v2 — merge any queued local URIs (under photos) into the uploaded
+    // photoUrls array, then drop the local-only field.
+    const merged = [...v2PhotoUrls, ...(await uploadIfLocal(legacyPhotos))];
+    const replayBody: Record<string, unknown> = { ...action.body, photoUrls: merged };
+    delete replayBody.photos;
+    return replayBody;
 }
 
 export async function replayQueue(): Promise<{ success: number; failed: number }> {
@@ -120,6 +160,7 @@ export async function replayQueue(): Promise<{ success: number; failed: number }
     let success = 0;
     let failed = 0;
     const remaining: OfflineAction[] = [];
+    const exhausted: OfflineAction[] = [];
 
     for (const action of queue) {
         try {
@@ -142,18 +183,25 @@ export async function replayQueue(): Promise<{ success: number; failed: number }
             action.retries++;
             if (action.retries < 5) {
                 remaining.push(action);
+            } else {
+                // Retry budget exhausted — park in the dead-letter queue instead of
+                // silently dropping. UI can surface this via getFailedCount().
+                exhausted.push(action);
             }
             failed++;
         } catch {
             action.retries++;
             if (action.retries < 5) {
                 remaining.push(action);
+            } else {
+                exhausted.push(action);
             }
             failed++;
         }
     }
 
     await AsyncStorage.setItem(QUEUE_KEY, encodeQueue(JSON.stringify(remaining)));
+    await appendToFailedQueue(exhausted);
     return { success, failed };
 }
 

@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { api } from "@/lib/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Stat } from "@/components/ui/stat";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useToast } from "@/components/ui/toast";
+import { DataTable, type Column, Pill, type PillTone } from "@/components/ui/data-table";
+import { Receipt, FileText, CheckCircle2 } from "lucide-react";
 
-// ——— Types (structured for future API) ———
+// ——— Types ———
 interface Tariff {
     id: string;
     contractorName: string;
@@ -32,129 +32,170 @@ const TYPE_LABELS: Record<string, string> = {
     combined: 'Комби',
 };
 
-const TYPE_COLORS: Record<string, string> = {
-    per_km: 'bg-blue-50 text-blue-700 border-blue-200',
-    per_ton: 'bg-purple-50 text-purple-700 border-purple-200',
-    per_hour: 'bg-amber-50 text-amber-700 border-amber-200',
-    fixed_route: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    combined: 'bg-slate-100 text-slate-700 border-slate-200',
+const TYPE_TONES: Record<string, PillTone> = {
+    per_km: 'info',
+    per_ton: 'brand',
+    per_hour: 'warning',
+    fixed_route: 'success',
+    combined: 'neutral',
 };
 
-const TYPE_OPTIONS = [
-    { value: '', label: 'Все типы' },
-    ...Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label }))
-];
+function rateAsNumber(rate: string): number {
+    const cleaned = String(rate ?? '').replace(/[^\d.,-]/g, '').replace(',', '.');
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : 0;
+}
 
 export default function TariffsPage() {
+    const { toast } = useToast();
     const [tariffs, setTariffs] = useState<Tariff[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [search, setSearch] = useState('');
     const [filterType, setFilterType] = useState('');
 
     useEffect(() => {
         api.get<{ success: boolean; data: Tariff[] }>('/auth/tariffs')
             .then(res => setTariffs(res.data))
-            .catch(err => setError(err.message))
+            .catch(err => toast({ variant: 'error', title: 'Не удалось загрузить тарифы', description: err?.message }))
             .finally(() => setLoading(false));
-    }, []);
+    }, [toast]);
 
-    const filtered = tariffs.filter(t => {
-        if (filterType && t.type !== filterType) return false;
-        if (search && !t.contractorName?.toLowerCase().includes(search.toLowerCase()) && !t.contractName?.toLowerCase().includes(search.toLowerCase())) return false;
-        return true;
-    });
+    const filtered = filterType ? tariffs.filter(t => t.type === filterType) : tariffs;
+    const activeCount = tariffs.filter(t => t.active).length;
 
-    if (loading) return <div className="p-8">Загрузка тарифов...</div>;
-    if (error) return <div className="p-8 text-red-600">Ошибка: {error}</div>;
+    const columns: Column<Tariff>[] = [
+        {
+            id: 'contractorName',
+            header: 'Контрагент',
+            accessor: (r) => r.contractorName,
+            cell: (r) => <span className="font-medium text-neutral-900">{r.contractorName}</span>,
+            sortable: true,
+            sticky: 'left',
+            minWidth: '200px',
+        },
+        {
+            id: 'contractName',
+            header: 'Договор',
+            accessor: (r) => r.contractName,
+            cell: (r) => <span className="font-medium text-brand-600">{r.contractName}</span>,
+            minWidth: '180px',
+        },
+        {
+            id: 'type',
+            header: 'Тип',
+            accessor: (r) => TYPE_LABELS[r.type] ?? r.type,
+            cell: (r) => <Pill tone={TYPE_TONES[r.type] ?? 'neutral'}>{TYPE_LABELS[r.type] ?? r.type}</Pill>,
+            width: '140px',
+        },
+        {
+            id: 'rate',
+            header: 'Ставка',
+            accessor: (r) => rateAsNumber(r.rate),
+            cell: (r) => <span className="font-semibold text-neutral-900">{r.rate}</span>,
+            sortable: true,
+            align: 'right',
+            width: '130px',
+        },
+        {
+            id: 'modifiers',
+            header: 'Модификаторы',
+            accessor: (r) => r.modifiers.join(', '),
+            cell: (r) => (
+                <div className="flex flex-wrap gap-1">
+                    {r.modifiers.length > 0
+                        ? r.modifiers.map((m) => (
+                            <span key={m} className="text-xs bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full">{m}</span>
+                        ))
+                        : <span className="text-xs text-neutral-400">—</span>
+                    }
+                </div>
+            ),
+            minWidth: '180px',
+        },
+        {
+            id: 'vat',
+            header: 'НДС',
+            accessor: (r) => r.vatRate,
+            cell: (r) => (
+                <span className="text-neutral-600 text-sm">
+                    {r.vatRate > 0 ? `${r.vatRate}% ${r.vatIncluded ? '(вкл.)' : '(сверху)'}` : 'Без НДС'}
+                </span>
+            ),
+            width: '130px',
+        },
+        {
+            id: 'minTripCost',
+            header: 'Мин. стоимость',
+            accessor: (r) => r.minTripCost,
+            cell: (r) => (
+                <span className="text-neutral-600 text-sm">
+                    {r.minTripCost > 0 ? `${r.minTripCost.toLocaleString('ru-RU')} ₽` : '—'}
+                </span>
+            ),
+            align: 'right',
+            width: '140px',
+        },
+        {
+            id: 'active',
+            header: 'Статус',
+            accessor: (r) => (r.active ? 1 : 0),
+            cell: (r) => (
+                <Pill tone={r.active ? 'success' : 'neutral'}>
+                    {r.active ? 'Активный' : 'Архив'}
+                </Pill>
+            ),
+            width: '110px',
+        },
+    ];
 
     return (
-        <div className="p-8 space-y-8 bg-slate-50 min-h-screen text-slate-900">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">Тарифы</h1>
-                    <p className="text-slate-500">Управление тарифными сетками по договорам с контрагентами.</p>
+        <div className="p-8 space-y-6 bg-neutral-50 min-h-screen text-neutral-900">
+            <div className="flex justify-between items-center flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <Receipt className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Тарифы</h1>
+                        <p className="text-sm text-neutral-500 mt-0.5">Тарифные сетки по договорам с контрагентами</p>
+                    </div>
                 </div>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white" disabled>
+                <Button variant="brand" disabled>
                     + Новый тариф (скоро)
                 </Button>
             </div>
 
-            <Card>
-                <div className="p-6">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                        <h2 className="text-xl font-semibold text-slate-900">Реестр тарифов</h2>
-                        <div className="flex gap-3">
-                            <Input
-                                placeholder="Поиск контрагента..."
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                className="w-52"
-                            />
-                            <Select
-                                value={filterType}
-                                onChange={e => setFilterType(e.target.value)}
-                                options={TYPE_OPTIONS}
-                                className="w-48"
-                            />
-                        </div>
-                    </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <Stat label="Всего тарифов" value={tariffs.length} icon={Receipt} tone="neutral" />
+                <Stat label="Активные" value={activeCount} icon={CheckCircle2} tone="success" />
+                <Stat label="Архив" value={tariffs.length - activeCount} icon={FileText} tone="neutral" />
+            </div>
 
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Контрагент</TableHead>
-                                    <TableHead>Договор</TableHead>
-                                    <TableHead>Тип</TableHead>
-                                    <TableHead>Ставка</TableHead>
-                                    <TableHead>Модификаторы</TableHead>
-                                    <TableHead>НДС</TableHead>
-                                    <TableHead>Мин. стоимость</TableHead>
-                                    <TableHead className="text-center">Статус</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filtered.map(tariff => (
-                                    <TableRow key={tariff.id}>
-                                        <TableCell className="font-medium text-slate-900">{tariff.contractorName}</TableCell>
-                                        <TableCell className="text-blue-600 font-medium">{tariff.contractName}</TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className={TYPE_COLORS[tariff.type]}>
-                                                {TYPE_LABELS[tariff.type]}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="font-semibold">{tariff.rate}</TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-wrap gap-1">
-                                                {tariff.modifiers.length > 0
-                                                    ? tariff.modifiers.map((m, i) => (
-                                                        <span key={i} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{m}</span>
-                                                    ))
-                                                    : <span className="text-xs text-slate-400">—</span>
-                                                }
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-slate-500">
-                                            {tariff.vatRate > 0
-                                                ? `${tariff.vatRate}% ${tariff.vatIncluded ? '(вкл.)' : '(сверху)'}`
-                                                : 'Без НДС'}
-                                        </TableCell>
-                                        <TableCell className="text-slate-500">
-                                            {tariff.minTripCost > 0 ? `${tariff.minTripCost.toLocaleString('ru-RU')} ₽` : '—'}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <Badge variant={tariff.active ? 'default' : 'secondary'} className={tariff.active ? 'bg-emerald-600' : ''}>
-                                                {tariff.active ? 'Активный' : 'Архив'}
-                                            </Badge>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </div>
-            </Card>
+            <DataTable<Tariff>
+                tableId="tariffs"
+                data={filtered}
+                columns={columns}
+                keyField="id"
+                loading={loading}
+                searchPlaceholder="Поиск контрагента или договора…"
+                searchKeys={['contractorName', 'contractName']}
+                filters={[
+                    {
+                        id: 'type',
+                        label: 'Тип',
+                        value: filterType,
+                        onChange: setFilterType,
+                        options: Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label })),
+                    },
+                ]}
+                emptyState={
+                    <EmptyState
+                        icon={Receipt}
+                        title={tariffs.length === 0 ? 'Тарифов пока нет' : 'Ничего не найдено'}
+                        description={tariffs.length === 0 ? 'Тарифы появятся после настройки договоров с контрагентами.' : 'Попробуйте сбросить фильтры.'}
+                    />
+                }
+                pageSize={50}
+            />
         </div>
     );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 
 const API_BASE = '/api';
@@ -115,6 +115,7 @@ export default function ClaimActPrintPage() {
     const id = params?.id as string;
     const [claim, setClaim] = useState<Claim | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const printedRef = useRef(false);
 
     useEffect(() => {
         if (!id) return;
@@ -128,7 +129,8 @@ export default function ClaimActPrintPage() {
     }, [id]);
 
     useEffect(() => {
-        if (!claim) return;
+        if (!claim || printedRef.current) return;
+        printedRef.current = true;
         const timer = window.setTimeout(() => window.print(), 400);
         return () => window.clearTimeout(timer);
     }, [claim]);
