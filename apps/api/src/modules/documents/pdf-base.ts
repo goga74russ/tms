@@ -200,16 +200,23 @@ export function drawSignatureLine(
 }
 
 // ----------------------------------------------------------------
-// CARRIER_INFO — company defaults from env
+// CARRIER_INFO — company defaults from env.
+//
+// Fallbacks point at the actual registered entity (ИП Бардин Г.Д.,
+// ИНН 746003023587). Operators on production should still set the
+// CARRIER_* env vars explicitly — but if they forget, generated
+// invoices/acts stay correct rather than showing the fictional
+// "ООО ТМС Логистик" placeholder of the dev seed.
 // ----------------------------------------------------------------
 export const CARRIER = {
-    name:    process.env.CARRIER_NAME    || 'ООО «ТМС Логистик»',
-    inn:     process.env.CARRIER_INN     || '7701234567',
-    kpp:     process.env.CARRIER_KPP     || '770101001',
-    address: process.env.CARRIER_ADDRESS || 'г. Москва, ул. Транспортная, д. 1',
-    bank:    process.env.CARRIER_BANK    || 'ПАО Сбербанк',
-    bik:     process.env.CARRIER_BIK     || '044525225',
-    account: process.env.CARRIER_ACCOUNT || '40702810938000123456',
-    corr:    process.env.CARRIER_CORR    || '30101810400000000225',
-    phone:   process.env.CARRIER_PHONE   || '+7 (495) 000-00-00',
+    name:    process.env.CARRIER_NAME    || 'ИП Бардин Георгий Дмитриевич',
+    inn:     process.env.CARRIER_INN     || '746003023587',
+    // ИП has no КПП.
+    kpp:     process.env.CARRIER_KPP     || '',
+    address: process.env.CARRIER_ADDRESS || 'Челябинская область, Чебаркульский район, село Непряхино',
+    bank:    process.env.CARRIER_BANK    || 'ООО "Банк Точка"',
+    bik:     process.env.CARRIER_BIK     || '044525104',
+    account: process.env.CARRIER_ACCOUNT || '40802810220000919838',
+    corr:    process.env.CARRIER_CORR    || '30101810745374525104',
+    phone:   process.env.CARRIER_PHONE   || '',
 };
