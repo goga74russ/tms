@@ -1,0 +1,14 @@
+{
+    "extends": "../../../tsconfig.base.json",
+    "compilerOptions": {
+        "module": "Node16",
+        "moduleResolution": "Node16",
+        "noEmit": true,
+        "rootDir": "..",
+        "types": ["node"]
+    },
+    "include": [
+        "integration/**/*.ts",
+        "../src/**/*.ts"
+    ]
+}

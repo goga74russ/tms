@@ -14,7 +14,7 @@ import * as GibddMock from '../mocks/gibdd.mock.js';
 
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
-async function processFinesSync(job: Job): Promise<{
+export async function processFinesSync(job: Job): Promise<{
     imported: number;
     duplicates: number;
     errors: number;

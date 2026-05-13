@@ -12,7 +12,7 @@ import { processEdiProgressionJob, type EdiProgressionJobData } from '../../modu
 
 let ediWorker: Worker | null = null;
 
-async function processJob(job: Job<EdiProgressionJobData>): Promise<{ progressed: boolean }> {
+export async function processEdiJob(job: Job<EdiProgressionJobData>): Promise<{ progressed: boolean }> {
     const { documentId, stage } = job.data;
     job.log(`EDI progression: doc=${documentId} stage=${stage}`);
     try {
@@ -26,7 +26,7 @@ async function processJob(job: Job<EdiProgressionJobData>): Promise<{ progressed
 }
 
 export function startEdiWorker(logger: FastifyBaseLogger): Worker {
-    ediWorker = new Worker(QUEUE_EDI_PROGRESSION, processJob, {
+    ediWorker = new Worker(QUEUE_EDI_PROGRESSION, processEdiJob, {
         connection: redisConnectionConfig,
         concurrency: 5,
     });

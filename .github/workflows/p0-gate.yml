@@ -302,3 +302,67 @@ jobs:
           name: api-log-smoke-chain
           path: api.log
           retention-days: 7
+
+  # ----------------------------------------------------------------
+  # API integration tests — route-level Fastify.inject against a
+  # real Postgres + Redis. Distinct from the smoke chain (which
+  # exercises the full operational chain) and from unit tests
+  # (which stub the DB). These catch RBAC + tenant-scoping
+  # regressions in route handlers that pure unit tests miss.
+  # ----------------------------------------------------------------
+  api-integration:
+    runs-on: ubuntu-latest
+    needs: build-and-static-gates
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tms_test
+          POSTGRES_PASSWORD: tms_test
+          POSTGRES_DB: tms_test
+        options: >-
+          --health-cmd "pg_isready -U tms_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 15432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 16379:6379
+    env:
+      # Test setup.ts reads these — match docker-compose.test.yml ports.
+      TEST_DATABASE_URL: postgres://tms_test:tms_test@localhost:15432/tms_test
+      TEST_REDIS_URL: redis://localhost:16379
+      JWT_SECRET: ci-test-jwt-secret-32-bytes-long-hex
+      CREDENTIALS_KEY: ci-test-credentials-key-32-bytes-hex
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared
+        run: pnpm --filter @tms/shared build
+
+      - name: API integration tests
+        run: pnpm --filter @tms/api test:integration

@@ -1,0 +1,42 @@
+# ============================================================
+# Integration test stack — dedicated Postgres + Redis on
+# non-default ports so they don't collide with the dev stack
+# (5432/6379) running on the same host.
+#
+# All data is ephemeral (tmpfs / no volumes). Each `up` gives
+# you a clean slate. Bring it up with:
+#   pnpm --filter @tms/api test:integration:up
+# Run tests with:
+#   pnpm --filter @tms/api test:integration
+# Tear down with:
+#   pnpm --filter @tms/api test:integration:down
+# ============================================================
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: tms-test-postgres
+    environment:
+      POSTGRES_USER: tms_test
+      POSTGRES_PASSWORD: tms_test
+      POSTGRES_DB: tms_test
+    ports:
+      - "15432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tms_test -d tms_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: tms-test-redis
+    ports:
+      - "16379:6379"
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
