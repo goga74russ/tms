@@ -92,7 +92,7 @@ sudo ufw enable
 ```bash
 # 1. Каталог + код
 sudo mkdir -p /opt/tms && sudo chown -R "$USER":"$USER" /opt/tms
-git clone https://github.com/<org>/tms-prod.git /opt/tms
+git clone https://github.com/<org>/transpult.git /opt/tms
 cd /opt/tms
 git checkout v0.1.1-pilot
 

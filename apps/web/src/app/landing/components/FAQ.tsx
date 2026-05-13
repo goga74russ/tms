@@ -116,8 +116,8 @@ export function FAQ() {
                     <div className="font-semibold text-neutral-900">Остались вопросы?</div>
                     <div className="text-sm text-neutral-600 mt-0.5">
                         Напишите на{' '}
-                        <a href="mailto:support@tms-prod.ru" className="text-brand-600 font-semibold underline">
-                            support@tms-prod.ru
+                        <a href="mailto:support@transpult.ru" className="text-brand-600 font-semibold underline">
+                            support@transpult.ru
                         </a>{' '}
                         — ответим в течение рабочего дня.
                     </div>

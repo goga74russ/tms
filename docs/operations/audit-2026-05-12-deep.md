@@ -129,7 +129,7 @@ CI: P0 Gate теперь реально gate'ит (3 job'а: static, Playwright 
 - 19 files c `key={i}` на dynamic lists.
 - Raw `<a href>` для internal navigation (3 файла).
 - Arbitrary Tailwind values: `text-[11px]`, `max-h-[85vh]` — без design tokens.
-- Email/legal contacts в плейсхолдерах `privacy@tms-prod.ru` (домен не зарегистрирован).
+- Email/legal contacts в плейсхолдерах `privacy@transpult.ru` (домен не зарегистрирован).
 - Hover tooltips без keyboard focus.
 - Helmet/CSP не на Next.js side (только API).
 

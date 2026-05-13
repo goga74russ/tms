@@ -92,7 +92,7 @@ export function Hero() {
                                 <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
                                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                                 <div className="ml-3 px-3 h-5 flex items-center bg-white rounded text-[10px] text-neutral-500 border border-neutral-200">
-                                    tms-prod.ru/dispatcher
+                                    transpult.ru/dispatcher
                                 </div>
                             </div>
                             <div className="p-4 sm:p-5 bg-neutral-50">
