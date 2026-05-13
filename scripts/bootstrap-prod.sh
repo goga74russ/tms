@@ -18,32 +18,34 @@
 # ============================================================
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/goga74russ/tms.git}"
-REPO_TAG="${REPO_TAG:-v0.1.2-pilot}"
+# Some hosts (e.g. Timeweb) block outbound 443 to github.com IPs
+# (140.82.x.x) but still allow Fastly-fronted raw.githubusercontent.com
+# (185.199.x.x). We download a pre-archived tarball over raw URLs to
+# sidestep this. Override SOURCE_TARBALL_URL if running elsewhere.
+SOURCE_TARBALL_URL="${SOURCE_TARBALL_URL:-https://raw.githubusercontent.com/goga74russ/tms/claude/bootstrap-script-2026-05-13/scripts/dist/transpult-v0.1.2-pilot.tar.gz}"
 INSTALL_DIR="${INSTALL_DIR:-/opt/transpult}"
 PUBLIC_IP="${PUBLIC_IP:-$(curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')}"
 
 echo "============================================================"
 echo "  TransPult bootstrap"
-echo "  repo:     $REPO_URL"
-echo "  tag:      $REPO_TAG"
+echo "  tarball:  $SOURCE_TARBALL_URL"
 echo "  install:  $INSTALL_DIR"
 echo "  ip:       $PUBLIC_IP"
 echo "============================================================"
 
-# --- 1. Clone (or refresh) repo ---
+# --- 1. Download + extract source ---
 mkdir -p "$(dirname "$INSTALL_DIR")"
-if [ -d "$INSTALL_DIR/.git" ]; then
-    echo "[1/8] Repo exists — fetching latest tags..."
+if [ -d "$INSTALL_DIR/docker-compose.prod.yml" ] || [ -f "$INSTALL_DIR/docker-compose.prod.yml" ]; then
+    echo "[1/8] Source уже в $INSTALL_DIR — пропускаю download"
     cd "$INSTALL_DIR"
-    git fetch --tags --prune
 else
-    echo "[1/8] Cloning repo..."
-    git clone "$REPO_URL" "$INSTALL_DIR"
+    echo "[1/8] Downloading source tarball..."
+    mkdir -p "$INSTALL_DIR"
+    curl -fsSL --max-time 60 "$SOURCE_TARBALL_URL" \
+        | tar -xz -C "$INSTALL_DIR" --strip-components=1
     cd "$INSTALL_DIR"
+    echo "  → source extracted ($(ls | wc -l) entries)"
 fi
-git checkout "$REPO_TAG"
-echo "  → on $(git describe --tags --always)"
 
 # --- 2. Generate secrets (only if .env doesn't exist yet) ---
 ENV_FILE="$INSTALL_DIR/.env"
