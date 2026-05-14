@@ -117,6 +117,44 @@ services:
       S3_ACCESS_KEY: ${MINIO_ROOT_USER}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+      # Credential encryption key — required for AES-GCM of provider creds.
+      # Without this, in production every encryptCredentials() throws.
+      CREDENTIALS_KEY: ${CREDENTIALS_KEY:?Set CREDENTIALS_KEY}
+      # SMTP for transactional email (signup verification, invites, billing).
+      # Optional — without these, the email registry falls back to the
+      # console mock and verification codes go to stdout only.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      # ЮKassa webhook signing secret. Defensive: keep empty if not yet
+      # wired so the webhook route rejects requests that can't be verified.
+      YOOKASSA_WEBHOOK_SECRET: ${YOOKASSA_WEBHOOK_SECRET:-}
+      # Carrier (ИП) reference data used to render waybills, invoices,
+      # ЭТрН XML and other documents. Empty fallbacks keep the API booting
+      # even in early-pilot deploys where some fields are TBD.
+      COMPANY_NAME: ${COMPANY_NAME:-}
+      COMPANY_INN: ${COMPANY_INN:-}
+      COMPANY_KPP: ${COMPANY_KPP:-}
+      CARRIER_NAME: ${CARRIER_NAME:-}
+      CARRIER_INN: ${CARRIER_INN:-}
+      CARRIER_KPP: ${CARRIER_KPP:-}
+      CARRIER_OGRNIP: ${CARRIER_OGRNIP:-}
+      CARRIER_ADDRESS: ${CARRIER_ADDRESS:-}
+      CARRIER_PHONE: ${CARRIER_PHONE:-}
+      CARRIER_BANK: ${CARRIER_BANK:-}
+      CARRIER_BIK: ${CARRIER_BIK:-}
+      CARRIER_ACCOUNT: ${CARRIER_ACCOUNT:-}
+      CARRIER_CORR: ${CARRIER_CORR:-}
+      # TMS-internal tariff/rate constants used by trip cost calculator.
+      FUEL_PRICE_PER_LITER: ${FUEL_PRICE_PER_LITER:-60}
+      DRIVER_SALARY_PER_HOUR: ${DRIVER_SALARY_PER_HOUR:-350}
+      AMORTIZATION_PER_KM: ${AMORTIZATION_PER_KM:-5}
+      FUEL_NORM_PER_100KM: ${FUEL_NORM_PER_100KM:-30}
+      BASE_OPERATIONAL_COST: ${BASE_OPERATIONAL_COST:-500}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Moscow}
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-false}
     expose:
       - "4000"
     healthcheck:
