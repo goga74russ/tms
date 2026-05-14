@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/ui/form-field';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 
@@ -103,32 +104,35 @@ export function StepProfile({ initial, onNext, onBack }: Props) {
                         error={errors.name}
                     />
                 </div>
-                <Input
+                <FormField
+                    format="inn"
                     label="ИНН"
                     required
                     inputMode="numeric"
                     maxLength={12}
                     value={inn}
                     onChange={(e) => setInn(e.target.value.replace(/\D/g, ''))}
-                    error={errors.inn}
+                    externalError={errors.inn}
                 />
-                <Input
+                <FormField
+                    format="kpp"
                     label="КПП"
                     inputMode="numeric"
                     maxLength={9}
                     value={kpp}
                     onChange={(e) => setKpp(e.target.value.replace(/\D/g, ''))}
-                    error={errors.kpp}
+                    externalError={errors.kpp}
                     helperText="Не требуется для ИП"
                 />
                 <div className="sm:col-span-2">
-                    <Input
+                    <FormField
+                        format="ogrn"
                         label="ОГРН / ОГРНИП"
                         inputMode="numeric"
                         maxLength={15}
                         value={ogrn}
                         onChange={(e) => setOgrn(e.target.value.replace(/\D/g, ''))}
-                        error={errors.ogrn}
+                        externalError={errors.ogrn}
                     />
                 </div>
                 <div className="sm:col-span-2">
@@ -138,13 +142,14 @@ export function StepProfile({ initial, onNext, onBack }: Props) {
                         onChange={(e) => setLegalAddress(e.target.value)}
                     />
                 </div>
-                <Input
+                <FormField
+                    format="bik"
                     label="БИК банка"
                     inputMode="numeric"
                     maxLength={9}
                     value={bankBik}
                     onChange={(e) => setBankBik(e.target.value.replace(/\D/g, ''))}
-                    error={errors.bankBik}
+                    externalError={errors.bankBik}
                 />
                 <Input
                     label="Расчётный счёт"

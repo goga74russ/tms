@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/ui/form-field';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { AuthSplitLayout } from '@/components/auth-split-layout';
@@ -268,15 +269,15 @@ export default function SignupPage() {
             rightPanel={<ShowcaseCarousel />}
         >
             <form onSubmit={handleSignup} className="space-y-4" noValidate>
-                <Input
+                <FormField
+                    format="email"
                     label="Электронная почта"
-                    type="email"
                     required
                     autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     leftAddon={<Mail className="h-4 w-4" />}
-                    error={errors.email}
+                    externalError={errors.email}
                     placeholder="you@company.ru"
                 />
 
@@ -320,14 +321,14 @@ export default function SignupPage() {
                     placeholder="Иванов Иван Иванович"
                 />
 
-                <Input
+                <FormField
+                    format="phone"
                     label="Телефон"
-                    type="tel"
                     autoComplete="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     leftAddon={<Phone className="h-4 w-4" />}
-                    error={errors.phone}
+                    externalError={errors.phone}
                     helperText="Необязательно — пригодится для звонка от поддержки"
                     placeholder="+7 ___ ___-__-__"
                 />

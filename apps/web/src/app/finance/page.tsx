@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MetricCard } from "@/components/ui/metric-card";
 import { DashboardHeader } from "@/components/ui/dashboard-header";
 import { computeRange, type PeriodRange } from "@/components/ui/period-selector";
@@ -545,7 +546,7 @@ export default function FinanceDashboard() {
     const overdueCount = periodInvoices.filter(i => i.status === 'overdue').length;
 
     return (
-        <div className="p-8 space-y-6 bg-neutral-50 min-h-screen text-neutral-900">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-neutral-50 min-h-screen text-neutral-900">
             <DashboardHeader
                 title="Финансы и Бухгалтерия"
                 subtitle="Управление счетами, актами и тарификацией рейсов"
@@ -772,56 +773,67 @@ export default function FinanceDashboard() {
                         )}
 
                         <div className="border-t border-neutral-200 pt-4">
-                            <p className="text-sm font-medium text-neutral-700 mb-3">Оплата, допуслуги и сверка:</p>
-                            <div className="grid gap-3 lg:grid-cols-3">
-                                <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Оплата</p>
-                                    <Input type="number" step="0.01" placeholder="Сумма" value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
-                                    <Input placeholder="Платежное поручение" value={paymentForm.paymentRef} onChange={(e) => setPaymentForm({ ...paymentForm, paymentRef: e.target.value })} />
-                                    <Input placeholder="Плательщик" value={paymentForm.payerName} onChange={(e) => setPaymentForm({ ...paymentForm, payerName: e.target.value })} />
-                                    <Button size="sm" className="w-full" disabled={financeActionLoading === 'payment'} onClick={handleRecordPayment}>
-                                        {financeActionLoading === 'payment' ? 'Запись...' : 'Зафиксировать оплату'}
-                                    </Button>
-                                </div>
+                            <Tabs defaultValue="payment" className="space-y-3">
+                                <TabsList>
+                                    <TabsTrigger value="payment">Оплата</TabsTrigger>
+                                    <TabsTrigger value="service">Доп. услуги</TabsTrigger>
+                                    <TabsTrigger value="reconciliation">Сверка 1С</TabsTrigger>
+                                </TabsList>
 
-                                <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Допуслуга</p>
-                                    <Select value={serviceForm.serviceType} onChange={(e) => handleServiceTypeChange(e.target.value)} options={ADDITIONAL_SERVICE_OPTIONS} />
-                                    <Input placeholder="Описание" value={serviceForm.description} onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })} />
-                                    <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-neutral-700">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span>Расчет: {SERVICE_UNIT_LABELS[SERVICE_RULES[serviceForm.serviceType]?.unit || 'service']}</span>
-                                            <span className="font-semibold">{fmtMoney(calculateServiceAmount() || 0)}</span>
+                                <TabsContent value="payment">
+                                    <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Зафиксировать оплату</p>
+                                        <Input type="number" step="0.01" placeholder="Сумма" value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
+                                        <Input placeholder="Платежное поручение" value={paymentForm.paymentRef} onChange={(e) => setPaymentForm({ ...paymentForm, paymentRef: e.target.value })} />
+                                        <Input placeholder="Плательщик" value={paymentForm.payerName} onChange={(e) => setPaymentForm({ ...paymentForm, payerName: e.target.value })} />
+                                        <Button size="sm" className="w-full" disabled={financeActionLoading === 'payment'} onClick={handleRecordPayment}>
+                                            {financeActionLoading === 'payment' ? 'Запись...' : 'Зафиксировать оплату'}
+                                        </Button>
+                                    </div>
+                                </TabsContent>
+
+                                <TabsContent value="service">
+                                    <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Добавить допуслугу</p>
+                                        <Select value={serviceForm.serviceType} onChange={(e) => handleServiceTypeChange(e.target.value)} options={ADDITIONAL_SERVICE_OPTIONS} />
+                                        <Input placeholder="Описание" value={serviceForm.description} onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })} />
+                                        <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-neutral-700">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span>Расчет: {SERVICE_UNIT_LABELS[SERVICE_RULES[serviceForm.serviceType]?.unit || 'service']}</span>
+                                                <span className="font-semibold">{fmtMoney(calculateServiceAmount() || 0)}</span>
+                                            </div>
                                         </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                            <Input type="number" step="0.01" placeholder="Кол-во" value={serviceForm.quantity} onChange={(e) => updateServiceCalc({ quantity: e.target.value })} />
+                                            <Input type="number" step="0.01" placeholder="Ставка" value={serviceForm.rate} onChange={(e) => updateServiceCalc({ rate: e.target.value })} />
+                                            <Input type="number" step="0.01" placeholder="Коэфф." value={serviceForm.coefficient} onChange={(e) => updateServiceCalc({ coefficient: e.target.value })} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Input type="number" step="0.01" placeholder="Сумма" value={serviceForm.amount} onChange={(e) => setServiceForm({ ...serviceForm, amount: e.target.value })} />
+                                            <Input type="number" step="0.01" placeholder="НДС %" value={serviceForm.vatRate} onChange={(e) => setServiceForm({ ...serviceForm, vatRate: e.target.value })} />
+                                        </div>
+                                        <Input placeholder="Примечание к правилу" value={serviceForm.notes} onChange={(e) => setServiceForm({ ...serviceForm, notes: e.target.value })} />
+                                        <Button size="sm" variant="outline" className="w-full" disabled={financeActionLoading === 'service'} onClick={handleAddService}>
+                                            {financeActionLoading === 'service' ? 'Добавление...' : 'Добавить допуслугу'}
+                                        </Button>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <Input type="number" step="0.01" placeholder="Кол-во" value={serviceForm.quantity} onChange={(e) => updateServiceCalc({ quantity: e.target.value })} />
-                                        <Input type="number" step="0.01" placeholder="Ставка" value={serviceForm.rate} onChange={(e) => updateServiceCalc({ rate: e.target.value })} />
-                                        <Input type="number" step="0.01" placeholder="Коэфф." value={serviceForm.coefficient} onChange={(e) => updateServiceCalc({ coefficient: e.target.value })} />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <Input type="number" step="0.01" placeholder="Сумма" value={serviceForm.amount} onChange={(e) => setServiceForm({ ...serviceForm, amount: e.target.value })} />
-                                        <Input type="number" step="0.01" placeholder="НДС %" value={serviceForm.vatRate} onChange={(e) => setServiceForm({ ...serviceForm, vatRate: e.target.value })} />
-                                    </div>
-                                    <Input placeholder="Примечание к правилу" value={serviceForm.notes} onChange={(e) => setServiceForm({ ...serviceForm, notes: e.target.value })} />
-                                    <Button size="sm" variant="outline" className="w-full" disabled={financeActionLoading === 'service'} onClick={handleAddService}>
-                                        {financeActionLoading === 'service' ? 'Добавление...' : 'Добавить допуслугу'}
-                                    </Button>
-                                </div>
+                                </TabsContent>
 
-                                <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Сверка 1С</p>
-                                    <Input placeholder="Документ 1С" value={reconciliationForm.externalDocumentId} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalDocumentId: e.target.value })} />
-                                    <Input placeholder="Статус 1С" value={reconciliationForm.externalStatus} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalStatus: e.target.value })} />
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <Input type="number" step="0.01" placeholder="Итого 1С" value={reconciliationForm.externalTotal} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalTotal: e.target.value })} />
-                                        <Input type="number" step="0.01" placeholder="НДС 1С" value={reconciliationForm.externalVatAmount} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalVatAmount: e.target.value })} />
+                                <TabsContent value="reconciliation">
+                                    <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Сверка с 1С</p>
+                                        <Input placeholder="Документ 1С" value={reconciliationForm.externalDocumentId} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalDocumentId: e.target.value })} />
+                                        <Input placeholder="Статус 1С" value={reconciliationForm.externalStatus} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalStatus: e.target.value })} />
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <Input type="number" step="0.01" placeholder="Итого 1С" value={reconciliationForm.externalTotal} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalTotal: e.target.value })} />
+                                            <Input type="number" step="0.01" placeholder="НДС 1С" value={reconciliationForm.externalVatAmount} onChange={(e) => setReconciliationForm({ ...reconciliationForm, externalVatAmount: e.target.value })} />
+                                        </div>
+                                        <Button size="sm" variant="outline" className="w-full" disabled={financeActionLoading === 'reconciliation'} onClick={handleReconcile1C}>
+                                            {financeActionLoading === 'reconciliation' ? 'Сверка...' : 'Записать сверку'}
+                                        </Button>
                                     </div>
-                                    <Button size="sm" variant="outline" className="w-full" disabled={financeActionLoading === 'reconciliation'} onClick={handleReconcile1C}>
-                                        {financeActionLoading === 'reconciliation' ? 'Сверка...' : 'Записать сверку'}
-                                    </Button>
-                                </div>
-                            </div>
+                                </TabsContent>
+                            </Tabs>
                         </div>
 
                         <div className="border-t border-neutral-200 pt-4">

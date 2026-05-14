@@ -439,7 +439,7 @@ export default function AnalyticsPage() {
                     <div className="bg-white rounded-xl shadow-sm border border-neutral-200">
                         {/* Summary bar */}
                         {summary && (
-                            <div className="grid grid-cols-4 gap-4 p-4 border-b border-neutral-200 bg-neutral-50/50 rounded-t-xl">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-4 border-b border-neutral-200 bg-neutral-50/50 rounded-t-xl">
                                 <MiniStat label="Выручка" value={`${fmt(summary.totalRevenue)} ₽`} />
                                 <MiniStat label="Себестоимость" value={`${fmt(summary.totalCost)} ₽`} />
                                 <MiniStat label="Маржа" value={`${fmt(summary.totalMargin)} ₽`} />

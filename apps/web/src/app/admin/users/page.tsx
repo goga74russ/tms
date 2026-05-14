@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/ui/form-field';
 import { Stat } from '@/components/ui/stat';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
@@ -135,8 +136,8 @@ function UserFormModal({
             size="md"
         >
             <div className="space-y-4">
-                <Input
-                    type="email"
+                <FormField
+                    format="email"
                     label="Email"
                     required
                     value={form.email}
@@ -154,8 +155,8 @@ function UserFormModal({
                     placeholder="Иванов Иван Иванович"
                 />
 
-                <Input
-                    type="tel"
+                <FormField
+                    format="phone"
                     label="Телефон"
                     value={form.phone}
                     onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Plus, Users, Loader2, AlertTriangle, Timer, ShieldCheck, HeartPulse, UserCheck, UserX } from 'lucide-react';
+import { Plus, Users, Loader2, AlertTriangle, Timer, ShieldCheck, HeartPulse, UserCheck, UserX, Pencil } from 'lucide-react';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ interface Driver {
     licenseCategories: string[];
     licenseExpiry: string;
     medCertificateExpiry?: string;
+    adrCertificateExpiry?: string;
     phone?: string;
     isActive: boolean;
     createdAt: string;
@@ -153,15 +154,17 @@ function HoursChartDialog({ driver, onClose }: { driver: Driver; onClose: () => 
     );
 }
 
-function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateDriverModal({ onClose, onCreated, editingItem }: { onClose: () => void; onCreated: () => void; editingItem?: Driver | null }) {
     const { toast } = useToast();
-    const [fullName, setFullName] = useState('');
-    const [licenseNumber, setLicenseNumber] = useState('');
-    const [licenseCategories, setLicenseCategories] = useState('');
-    const [licenseExpiry, setLicenseExpiry] = useState('');
-    const [medCertExpiry, setMedCertExpiry] = useState('');
-    const [adrCertExpiry, setAdrCertExpiry] = useState('');
-    const [phone, setPhone] = useState('');
+    const isEdit = !!editingItem;
+    const toDateInput = (s?: string) => (s ? s.slice(0, 10) : '');
+    const [fullName, setFullName] = useState(editingItem?.fullName ?? '');
+    const [licenseNumber, setLicenseNumber] = useState(editingItem?.licenseNumber ?? '');
+    const [licenseCategories, setLicenseCategories] = useState((editingItem?.licenseCategories ?? []).join(', '));
+    const [licenseExpiry, setLicenseExpiry] = useState(toDateInput(editingItem?.licenseExpiry));
+    const [medCertExpiry, setMedCertExpiry] = useState(toDateInput(editingItem?.medCertificateExpiry));
+    const [adrCertExpiry, setAdrCertExpiry] = useState(toDateInput(editingItem?.adrCertificateExpiry));
+    const [phone, setPhone] = useState(editingItem?.phone ?? '');
     const [submitting, setSubmitting] = useState(false);
     const [fieldError, setFieldError] = useState<{ fullName?: string; licenseNumber?: string }>({});
 
@@ -174,7 +177,7 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
 
         setSubmitting(true);
         try {
-            const result = await api.post<any>('/fleet/drivers', {
+            const payload = {
                 fullName,
                 licenseNumber,
                 licenseCategories: licenseCategories.split(',').map(s => s.trim()).filter(Boolean),
@@ -182,22 +185,33 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
                 medCertificateExpiry: medCertExpiry || undefined,
                 adrCertificateExpiry: adrCertExpiry || undefined,
                 phone: phone || undefined,
-            });
+            };
+            const result = isEdit
+                ? await api.put<any>(`/fleet/drivers/${editingItem!.id}`, payload)
+                : await api.post<any>('/fleet/drivers', payload);
             if (result.success) {
-                toast({ variant: 'success', title: 'Готово', description: `Водитель ${fullName} добавлен` });
+                toast({
+                    variant: 'success',
+                    title: 'Готово',
+                    description: isEdit ? `Водитель ${fullName} обновлён` : `Водитель ${fullName} добавлен`,
+                });
                 onCreated();
             } else {
                 throw new Error(result.error || 'Ошибка');
             }
         } catch (err: any) {
-            toast({ variant: 'error', title: 'Ошибка', description: err.message || 'Не удалось создать водителя' });
+            toast({
+                variant: 'error',
+                title: 'Ошибка',
+                description: err.message || (isEdit ? 'Не удалось обновить водителя' : 'Не удалось создать водителя'),
+            });
         } finally {
             setSubmitting(false);
         }
     }
 
     return (
-        <Dialog open={true} onClose={onClose} title="Новый водитель" size="md">
+        <Dialog open={true} onClose={onClose} title={isEdit ? 'Редактировать водителя' : 'Новый водитель'} size="md">
             <div className="space-y-4">
                 <Input
                     label="ФИО"
@@ -243,7 +257,7 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
                 <div className="flex gap-3 justify-end pt-2">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
                     <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
-                        {submitting ? 'Создание...' : 'Создать'}
+                        {submitting ? (isEdit ? 'Сохранение...' : 'Создание...') : (isEdit ? 'Сохранить' : 'Создать')}
                     </Button>
                 </div>
             </div>
@@ -256,6 +270,7 @@ export default function DriversPage() {
     const [drivers, setDrivers] = useState<Driver[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
     const [hosDriver, setHosDriver] = useState<Driver | null>(null);
     const [statusFilter, setStatusFilter] = useState('');
     const [confirmAction, setConfirmAction] = useState<null | { run: () => Promise<void> | void; title: string; description?: string; destructive?: boolean; confirmLabel?: string }>(null);
@@ -485,6 +500,12 @@ export default function DriversPage() {
                 )}
                 rowActions={(row) => [
                     {
+                        id: 'edit',
+                        label: 'Редактировать',
+                        icon: <Pencil className="w-4 h-4" />,
+                        onClick: () => setEditingDriver(row),
+                    },
+                    {
                         id: 'hos',
                         label: 'Показать РТО',
                         icon: <Timer className="w-4 h-4" />,
@@ -527,6 +548,15 @@ export default function DriversPage() {
                 <CreateDriverModal
                     onClose={() => setShowCreateModal(false)}
                     onCreated={() => { setShowCreateModal(false); void loadDrivers(); }}
+                />
+            )}
+
+            {editingDriver && (
+                <CreateDriverModal
+                    key={editingDriver.id}
+                    editingItem={editingDriver}
+                    onClose={() => setEditingDriver(null)}
+                    onCreated={() => { setEditingDriver(null); void loadDrivers(); }}
                 />
             )}
 

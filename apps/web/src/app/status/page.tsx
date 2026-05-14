@@ -263,8 +263,8 @@ export default function StatusPage() {
 
                     {/* SLA reminder */}
                     <h2 className="text-lg font-semibold text-neutral-900 mt-10 mb-4">SLA по тарифам</h2>
-                    <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-                        <table className="w-full text-sm">
+                    <div className="rounded-xl border border-neutral-200 bg-white overflow-x-auto">
+                        <table className="w-full text-sm min-w-[560px]">
                             <thead className="bg-neutral-50 text-neutral-600 text-xs uppercase tracking-wider">
                                 <tr>
                                     <th className="text-left p-3 font-semibold">Тариф</th>

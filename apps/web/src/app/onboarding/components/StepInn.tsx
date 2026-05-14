@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Search, Building2, Pencil, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '@/lib/api';
-import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/ui/form-field';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 
@@ -72,9 +72,9 @@ export function StepInn({ onNext }: Props) {
 
             <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
                 <div className="flex-1">
-                    <Input
+                    <FormField
+                        format="inn"
                         label="ИНН"
-                        type="text"
                         inputMode="numeric"
                         maxLength={12}
                         value={inn}
@@ -84,7 +84,7 @@ export function StepInn({ onNext }: Props) {
                         }}
                         leftAddon={<Building2 className="h-4 w-4" />}
                         placeholder="10 или 12 цифр"
-                        error={error}
+                        externalError={error}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter' && validInn && !loading) {
                                 e.preventDefault();

@@ -5,6 +5,8 @@ import { PauseCircle, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { AddDowntimeModal } from './AddDowntimeModal';
 import { durationHours, formatDateTime, getRowRecord } from './deepFleetShared';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
 
 type DowntimeRow = {
     id: string;
@@ -112,7 +114,21 @@ export function DowntimeRecordsTable() {
                         {loading ? (
                             <tr><td colSpan={7} className="px-4 py-10 text-center text-neutral-400">Загружаем простои...</td></tr>
                         ) : rows.length === 0 ? (
-                            <tr><td colSpan={7} className="px-4 py-10 text-center text-neutral-400">Простои не зарегистрированы.</td></tr>
+                            <tr>
+                                <td colSpan={7} className="p-4">
+                                    <EmptyState
+                                        icon={PauseCircle}
+                                        title={filters.openOnly ? 'Активных простоев нет' : 'Простоев пока нет'}
+                                        description={filters.openOnly ? 'Все простои закрыты. Откройте новый, если ТС простаивает прямо сейчас.' : 'Откройте простой, чтобы фиксировать причины и длительность.'}
+                                        tone="brand"
+                                        action={
+                                            <Button variant="brand" leftIcon={<PauseCircle className="w-4 h-4" />} onClick={() => setShowAddModal(true)}>
+                                                Открыть простой
+                                            </Button>
+                                        }
+                                    />
+                                </td>
+                            </tr>
                         ) : rows.map((row: any) => {
                             const record = getRowRecord<DowntimeRow>(row, 'downtime_records');
                             const vehicle = row.vehicles;

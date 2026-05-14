@@ -621,7 +621,7 @@ export default function ClaimsPage() {
     ];
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-6">
             <div className="flex justify-between items-center flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                     <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">

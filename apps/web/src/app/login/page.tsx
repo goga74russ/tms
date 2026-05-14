@@ -7,6 +7,7 @@ import { LogIn, KeyRound, Mail, MapPin, Activity } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useUser } from '@/lib/user-context';
 import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/ui/form-field';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { AuthSplitLayout } from '@/components/auth-split-layout';
@@ -204,9 +205,9 @@ export default function LoginPage() {
             )}
 
             <form onSubmit={handleLogin} className="space-y-5" noValidate>
-                <Input
+                <FormField
+                    format="email"
                     label="Электронная почта"
-                    type="email"
                     autoComplete="email"
                     required
                     value={email}
@@ -216,7 +217,7 @@ export default function LoginPage() {
                     }}
                     leftAddon={<Mail className="h-4 w-4" />}
                     placeholder="admin@tms.local"
-                    error={emailError}
+                    externalError={emailError}
                     disabled={loading}
                 />
 

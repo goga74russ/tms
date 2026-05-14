@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
-import { Plus, Building2, Archive, Mail } from 'lucide-react';
+import { Plus, Building2, Archive, Mail, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -24,15 +24,16 @@ interface Contractor {
     createdAt: string;
 }
 
-function CreateContractorModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function CreateContractorModal({ onClose, onCreated, editingItem }: { onClose: () => void; onCreated: () => void; editingItem?: Contractor | null }) {
     const { toast } = useToast();
-    const [name, setName] = useState('');
-    const [inn, setInn] = useState('');
-    const [kpp, setKpp] = useState('');
-    const [legalAddress, setLegalAddress] = useState('');
-    const [phone, setPhone] = useState('');
-    const [email, setEmail] = useState('');
-    const [contactPerson, setContactPerson] = useState('');
+    const isEdit = !!editingItem;
+    const [name, setName] = useState(editingItem?.name ?? '');
+    const [inn, setInn] = useState(editingItem?.inn ?? '');
+    const [kpp, setKpp] = useState(editingItem?.kpp ?? '');
+    const [legalAddress, setLegalAddress] = useState(editingItem?.legalAddress ?? '');
+    const [phone, setPhone] = useState(editingItem?.phone ?? '');
+    const [email, setEmail] = useState(editingItem?.email ?? '');
+    const [contactPerson, setContactPerson] = useState(editingItem?.contactPerson ?? '');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
@@ -44,13 +45,16 @@ function CreateContractorModal({ onClose, onCreated }: { onClose: () => void; on
         setSubmitting(true);
         setError('');
         try {
-            const result = await api.post<any>('/fleet/contractors', {
+            const payload = {
                 name, inn, kpp: kpp || undefined,
                 legalAddress, phone: phone || undefined,
                 email: email || undefined, contactPerson: contactPerson || undefined,
-            });
+            };
+            const result = isEdit
+                ? await api.put<any>(`/fleet/contractors/${editingItem!.id}`, payload)
+                : await api.post<any>('/fleet/contractors', payload);
             if (result.success) {
-                toast({ variant: 'success', title: 'Контрагент создан' });
+                toast({ variant: 'success', title: isEdit ? 'Контрагент обновлён' : 'Контрагент создан' });
                 onCreated();
             } else {
                 throw new Error(result.error || 'Ошибка');
@@ -65,7 +69,7 @@ function CreateContractorModal({ onClose, onCreated }: { onClose: () => void; on
     }
 
     return (
-        <Dialog open={true} onClose={onClose} title="Новый контрагент" size="md">
+        <Dialog open={true} onClose={onClose} title={isEdit ? 'Редактировать контрагента' : 'Новый контрагент'} size="md">
             <div className="space-y-4">
                 <div>
                     <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Наименование *</label>
@@ -117,7 +121,9 @@ function CreateContractorModal({ onClose, onCreated }: { onClose: () => void; on
                 {error && <p className="text-sm text-red-600">{error}</p>}
                 <div className="flex gap-3 justify-end pt-2">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
-                    <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>Создать</Button>
+                    <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
+                        {isEdit ? 'Сохранить' : 'Создать'}
+                    </Button>
                 </div>
             </div>
         </Dialog>
@@ -129,6 +135,7 @@ export default function ContractorsPage() {
     const [contractors, setContractors] = useState<Contractor[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [editingContractor, setEditingContractor] = useState<Contractor | null>(null);
     const [statusFilter, setStatusFilter] = useState('');
     const [confirmAction, setConfirmAction] = useState<null | { run: () => Promise<void> | void; title: string; description?: string; destructive?: boolean; confirmLabel?: string }>(null);
 
@@ -294,6 +301,12 @@ export default function ContractorsPage() {
                 )}
                 rowActions={(row) => [
                     {
+                        id: 'edit',
+                        label: 'Редактировать',
+                        icon: <Pencil className="w-4 h-4" />,
+                        onClick: () => setEditingContractor(row),
+                    },
+                    {
                         id: 'archive',
                         label: row.isArchived ? 'Восстановить' : 'В архив',
                         icon: <Archive className="w-4 h-4" />,
@@ -328,6 +341,15 @@ export default function ContractorsPage() {
                 <CreateContractorModal
                     onClose={() => setShowCreateModal(false)}
                     onCreated={() => { setShowCreateModal(false); loadContractors(); }}
+                />
+            )}
+
+            {editingContractor && (
+                <CreateContractorModal
+                    key={editingContractor.id}
+                    editingItem={editingContractor}
+                    onClose={() => setEditingContractor(null)}
+                    onCreated={() => { setEditingContractor(null); loadContractors(); }}
                 />
             )}
 

@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { RefreshCw, Wrench } from 'lucide-react';
+import { CheckCircle2, RefreshCw, Wrench } from 'lucide-react';
 import { api } from '@/lib/api';
 import { AddMaintenanceModal } from './AddMaintenanceModal';
 import { formatDate, formatMoney } from './deepFleetShared';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 type MaintenanceRecord = {
     id: string;
@@ -27,7 +31,9 @@ export function MaintenanceScheduleTable() {
     const [vehicles, setVehicles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
-    const [completeDrafts, setCompleteDrafts] = useState<Record<string, { actualDate: string; actualOdometerKm: string; cost: string }>>({});
+    const [completingRecord, setCompletingRecord] = useState<MaintenanceRecord | null>(null);
+    const [completeDraft, setCompleteDraft] = useState<{ actualDate: string; actualOdometerKm: string; cost: string }>({ actualDate: '', actualOdometerKm: '', cost: '' });
+    const [submitting, setSubmitting] = useState(false);
     const [filters, setFilters] = useState({ vehicleId: '', status: '', maintenanceType: '' });
 
     async function loadData() {
@@ -54,20 +60,39 @@ export function MaintenanceScheduleTable() {
         loadData();
     }, [filters.vehicleId, filters.status, filters.maintenanceType]);
 
-    async function markDone(record: MaintenanceRecord) {
-        const draft = completeDrafts[record.id];
-        await api.put(`/fleet/maintenance-schedule/${record.id}`, {
-            status: 'done',
-            actualDate: draft?.actualDate ? new Date(`${draft.actualDate}T00:00:00`).toISOString() : new Date().toISOString(),
-            actualOdometerKm: draft?.actualOdometerKm ? Number(draft.actualOdometerKm) : undefined,
-            cost: draft?.cost ? Number(draft.cost) : undefined,
+    function openComplete(record: MaintenanceRecord) {
+        setCompletingRecord(record);
+        setCompleteDraft({
+            actualDate: '',
+            actualOdometerKm: record.plannedOdometerKm != null ? String(record.plannedOdometerKm) : '',
+            cost: '',
         });
-        setCompleteDrafts((prev) => {
-            const next = { ...prev };
-            delete next[record.id];
-            return next;
-        });
-        await loadData();
+    }
+
+    function closeComplete() {
+        if (submitting) return;
+        setCompletingRecord(null);
+        setCompleteDraft({ actualDate: '', actualOdometerKm: '', cost: '' });
+    }
+
+    async function submitComplete() {
+        if (!completingRecord) return;
+        setSubmitting(true);
+        try {
+            await api.put(`/fleet/maintenance-schedule/${completingRecord.id}`, {
+                status: 'done',
+                actualDate: completeDraft.actualDate ? new Date(`${completeDraft.actualDate}T00:00:00`).toISOString() : new Date().toISOString(),
+                actualOdometerKm: completeDraft.actualOdometerKm ? Number(completeDraft.actualOdometerKm) : undefined,
+                cost: completeDraft.cost ? Number(completeDraft.cost) : undefined,
+            });
+            setCompletingRecord(null);
+            setCompleteDraft({ actualDate: '', actualOdometerKm: '', cost: '' });
+            await loadData();
+        } catch (err) {
+            console.error('Failed to mark maintenance done', err);
+        } finally {
+            setSubmitting(false);
+        }
     }
 
     const statusTone: Record<string, string> = {
@@ -132,10 +157,23 @@ export function MaintenanceScheduleTable() {
                         {loading ? (
                             <tr><td colSpan={9} className="px-4 py-10 text-center text-neutral-400">Загружаем план ТО...</td></tr>
                         ) : rows.length === 0 ? (
-                            <tr><td colSpan={9} className="px-4 py-10 text-center text-neutral-400">Плановых работ пока нет.</td></tr>
+                            <tr>
+                                <td colSpan={9} className="p-4">
+                                    <EmptyState
+                                        icon={Wrench}
+                                        title={filters.vehicleId || filters.status || filters.maintenanceType ? 'По фильтрам ничего не найдено' : 'План ТО пуст'}
+                                        description={filters.vehicleId || filters.status || filters.maintenanceType ? 'Попробуйте сбросить фильтры.' : 'Запланируйте первое ТО, чтобы не пропустить регламентные работы.'}
+                                        tone="brand"
+                                        action={!filters.vehicleId && !filters.status && !filters.maintenanceType ? (
+                                            <Button variant="brand" leftIcon={<Wrench className="w-4 h-4" />} onClick={() => setShowAddModal(true)}>
+                                                Запланировать ТО
+                                            </Button>
+                                        ) : undefined}
+                                    />
+                                </td>
+                            </tr>
                         ) : rows.map((record) => {
                             const visualStatus = record.computedStatus || record.status;
-                            const draft = completeDrafts[record.id] || { actualDate: '', actualOdometerKm: '', cost: '' };
                             return (
                                 <tr key={record.id}>
                                     <td className="px-4 py-3 font-medium text-neutral-800">{record.vehicle?.plateNumber || record.vehicleId}</td>
@@ -150,16 +188,13 @@ export function MaintenanceScheduleTable() {
                                     <td className="px-4 py-3 text-neutral-600">{record.contractor || '—'}</td>
                                     <td className="px-4 py-3">
                                         {(visualStatus === 'planned' || visualStatus === 'overdue') ? (
-                                            <div className="space-y-2">
-                                                <div className="grid gap-2 md:grid-cols-3">
-                                                    <input type="date" value={draft.actualDate} onChange={(e) => setCompleteDrafts((prev) => ({ ...prev, [record.id]: { ...draft, actualDate: e.target.value } }))} className="rounded-lg border border-neutral-200 px-2 py-1 text-xs" />
-                                                    <input type="number" min="0" value={draft.actualOdometerKm} onChange={(e) => setCompleteDrafts((prev) => ({ ...prev, [record.id]: { ...draft, actualOdometerKm: e.target.value } }))} placeholder="Км" className="rounded-lg border border-neutral-200 px-2 py-1 text-xs" />
-                                                    <input type="number" step="0.01" min="0" value={draft.cost} onChange={(e) => setCompleteDrafts((prev) => ({ ...prev, [record.id]: { ...draft, cost: e.target.value } }))} placeholder="Стоимость" className="rounded-lg border border-neutral-200 px-2 py-1 text-xs" />
-                                                </div>
-                                                <button onClick={() => markDone(record)} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50">
-                                                    Отметить выполненным
-                                                </button>
-                                            </div>
+                                            <button
+                                                onClick={() => openComplete(record)}
+                                                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50"
+                                            >
+                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                                Отметить ТО выполненным
+                                            </button>
                                         ) : '—'}
                                     </td>
                                 </tr>
@@ -170,6 +205,57 @@ export function MaintenanceScheduleTable() {
             </div>
 
             <AddMaintenanceModal open={showAddModal} onClose={() => setShowAddModal(false)} onCreated={loadData} />
+
+            <Dialog
+                open={!!completingRecord}
+                onClose={closeComplete}
+                title="Отметить ТО выполненным"
+                description={completingRecord ? `${completingRecord.vehicle?.plateNumber || completingRecord.vehicleId} · ${completingRecord.maintenanceType}` : undefined}
+            >
+                {completingRecord && (
+                    <div className="space-y-4">
+                        <div className="space-y-3">
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-neutral-600">Дата ТО</label>
+                                <Input
+                                    type="date"
+                                    value={completeDraft.actualDate}
+                                    onChange={(e) => setCompleteDraft((prev) => ({ ...prev, actualDate: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-neutral-600">Пробег, км</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder="Например, 125000"
+                                    value={completeDraft.actualOdometerKm}
+                                    onChange={(e) => setCompleteDraft((prev) => ({ ...prev, actualOdometerKm: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-xs font-medium text-neutral-600">Стоимость, ₽</label>
+                                <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    placeholder="Например, 12500"
+                                    value={completeDraft.cost}
+                                    onChange={(e) => setCompleteDraft((prev) => ({ ...prev, cost: e.target.value }))}
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <Button variant="outline" onClick={closeComplete} disabled={submitting}>
+                                Отмена
+                            </Button>
+                            <Button onClick={submitComplete} isLoading={submitting}>
+                                Сохранить
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </Dialog>
         </div>
     );
 }

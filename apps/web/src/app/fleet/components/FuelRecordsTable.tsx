@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Fuel } from 'lucide-react';
 import { api } from '@/lib/api';
 import { AddFuelRecordModal } from './AddFuelRecordModal';
 import { formatDateTime, formatMoney, getRowRecord } from './deepFleetShared';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
 
 type FuelRow = {
     id: string;
@@ -126,7 +128,21 @@ export function FuelRecordsTable() {
                         {loading ? (
                             <tr><td colSpan={9} className="px-4 py-10 text-center text-neutral-400">Загружаем записи...</td></tr>
                         ) : rows.length === 0 ? (
-                            <tr><td colSpan={9} className="px-4 py-10 text-center text-neutral-400">Заправки пока не зарегистрированы.</td></tr>
+                            <tr>
+                                <td colSpan={9} className="p-4">
+                                    <EmptyState
+                                        icon={Fuel}
+                                        title="Заправок пока нет"
+                                        description="Зарегистрируйте первую заправку, чтобы отслеживать расход и затраты на топливо."
+                                        tone="brand"
+                                        action={
+                                            <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowAddModal(true)}>
+                                                Добавить заправку
+                                            </Button>
+                                        }
+                                    />
+                                </td>
+                            </tr>
                         ) : rows.map((row: any) => {
                             const record = getRowRecord<FuelRow>(row, 'fuel_records');
                             const vehicle = row.vehicles;

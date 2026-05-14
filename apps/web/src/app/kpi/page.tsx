@@ -368,7 +368,7 @@ export default function KPIDashboard() {
     }));
 
     return (
-        <div className="min-h-screen space-y-6 bg-neutral-50 p-8 text-neutral-900">
+        <div className="min-h-screen space-y-6 bg-neutral-50 p-4 sm:p-6 lg:p-8 text-neutral-900">
             <DashboardHeader
                 title="Панель KPI"
                 subtitle="Ключевые показатели бизнеса и аналитика затрат"

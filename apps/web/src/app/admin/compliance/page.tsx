@@ -333,65 +333,69 @@ function MarkingTab() {
                 {cats.length === 0 ? (
                     <div className="text-neutral-400 text-sm">Нет данных</div>
                 ) : (
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="text-left text-xs uppercase text-neutral-500 border-b border-neutral-200">
-                                <th className="py-2 px-2">Категория</th>
-                                <th className="py-2 px-2">Всего</th>
-                                <th className="py-2 px-2">Валидных</th>
-                                <th className="py-2 px-2">Невалидных</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {cats.map(c => (
-                                <tr key={c.category} className="border-b border-neutral-100">
-                                    <td className="py-2 px-2 font-medium">{c.category}</td>
-                                    <td className="py-2 px-2">{c.total}</td>
-                                    <td className="py-2 px-2 text-green-700">{c.valid}</td>
-                                    <td className="py-2 px-2 text-red-700">{c.invalid}</td>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm min-w-[480px]">
+                            <thead>
+                                <tr className="text-left text-xs uppercase text-neutral-500 border-b border-neutral-200">
+                                    <th className="py-2 px-2">Категория</th>
+                                    <th className="py-2 px-2">Всего</th>
+                                    <th className="py-2 px-2">Валидных</th>
+                                    <th className="py-2 px-2">Невалидных</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {cats.map(c => (
+                                    <tr key={c.category} className="border-b border-neutral-100">
+                                        <td className="py-2 px-2 font-medium">{c.category}</td>
+                                        <td className="py-2 px-2">{c.total}</td>
+                                        <td className="py-2 px-2 text-green-700">{c.valid}</td>
+                                        <td className="py-2 px-2 text-red-700">{c.invalid}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
 
             <div>
                 <div className="font-medium text-neutral-700 text-sm mb-2">Последние проверки</div>
                 {loading ? <Loading /> : (
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="text-left text-xs uppercase text-neutral-500 border-b border-neutral-200">
-                                <th className="py-2 px-2">Когда</th>
-                                <th className="py-2 px-2">Код</th>
-                                <th className="py-2 px-2">Категория</th>
-                                <th className="py-2 px-2">Товар</th>
-                                <th className="py-2 px-2">Статус</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows.length === 0 && (
-                                <tr><td colSpan={5}>
-                                    <div className="p-6">
-                                        <EmptyState icon={ScanLine} title="Проверок ещё нет" description="Здесь появятся результаты валидации кодов маркировки." />
-                                    </div>
-                                </td></tr>
-                            )}
-                            {rows.slice(0, 50).map(r => (
-                                <tr key={r.id} className="border-b border-neutral-100">
-                                    <td className="py-2 px-2 text-neutral-500">{formatDateTime(r.verifiedAt)}</td>
-                                    <td className="py-2 px-2 font-mono text-xs truncate max-w-xs">{r.code}</td>
-                                    <td className="py-2 px-2">{r.category ?? '—'}</td>
-                                    <td className="py-2 px-2">{r.productName ?? '—'}</td>
-                                    <td className="py-2 px-2">
-                                        {r.valid
-                                            ? <span className="text-green-700 text-xs">валиден</span>
-                                            : <span className="text-red-700 text-xs">невалиден</span>}
-                                    </td>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm min-w-[640px]">
+                            <thead>
+                                <tr className="text-left text-xs uppercase text-neutral-500 border-b border-neutral-200">
+                                    <th className="py-2 px-2">Когда</th>
+                                    <th className="py-2 px-2">Код</th>
+                                    <th className="py-2 px-2">Категория</th>
+                                    <th className="py-2 px-2">Товар</th>
+                                    <th className="py-2 px-2">Статус</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {rows.length === 0 && (
+                                    <tr><td colSpan={5}>
+                                        <div className="p-6">
+                                            <EmptyState icon={ScanLine} title="Проверок ещё нет" description="Здесь появятся результаты валидации кодов маркировки." />
+                                        </div>
+                                    </td></tr>
+                                )}
+                                {rows.slice(0, 50).map(r => (
+                                    <tr key={r.id} className="border-b border-neutral-100">
+                                        <td className="py-2 px-2 text-neutral-500">{formatDateTime(r.verifiedAt)}</td>
+                                        <td className="py-2 px-2 font-mono text-xs truncate max-w-xs">{r.code}</td>
+                                        <td className="py-2 px-2">{r.category ?? '—'}</td>
+                                        <td className="py-2 px-2">{r.productName ?? '—'}</td>
+                                        <td className="py-2 px-2">
+                                            {r.valid
+                                                ? <span className="text-green-700 text-xs">валиден</span>
+                                                : <span className="text-red-700 text-xs">невалиден</span>}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
         </Card>

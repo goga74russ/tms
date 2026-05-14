@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Search, Plus, Building2, MapPin, Edit3, Trash2 } from 'lucide-react';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
 
 interface Contractor {
     id: string;
@@ -401,9 +403,20 @@ export function ContractorsTable() {
                     <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
                 </div>
             ) : contractors.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
-                    <Building2 className="w-12 h-12 mb-3" />
-                    <p className="text-sm">Контрагенты не найдены</p>
+                <div className="p-6">
+                    <EmptyState
+                        icon={Building2}
+                        title={search ? 'Контрагенты не найдены' : 'Пока нет контрагентов'}
+                        description={search ? 'Попробуйте изменить запрос или сбросить поиск.' : 'Добавьте первого контрагента, чтобы привязывать к нему рейсы и адреса.'}
+                        tone="brand"
+                        action={search ? (
+                            <Button variant="outline" onClick={() => setSearch('')}>Сбросить поиск</Button>
+                        ) : (
+                            <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => { window.location.href = '/contractors'; }}>
+                                Добавить контрагента
+                            </Button>
+                        )}
+                    />
                 </div>
             ) : (
                 <div className="overflow-x-auto">

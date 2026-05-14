@@ -206,7 +206,17 @@ export default function AdminCarriersPage() {
                             </TableBody>
                         </Table>
                     ) : carriers.length === 0 ? (
-                        <EmptyState icon={Truck} title="Перевозчики не найдены" description="Назначьте контрагенту признак перевозчика, чтобы он появился в списке." />
+                        <EmptyState
+                            icon={Truck}
+                            title="Перевозчики не найдены"
+                            description="Назначьте контрагенту признак перевозчика, чтобы он появился в списке."
+                            tone="brand"
+                            action={contractorsAvailable ? (
+                                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setPromoteOpen(true)}>
+                                    Сделать перевозчиком
+                                </Button>
+                            ) : undefined}
+                        />
                     ) : (
                         <Table>
                             <TableHeader>

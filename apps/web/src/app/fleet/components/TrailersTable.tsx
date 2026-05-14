@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import { Search, Plus, Truck } from 'lucide-react';
+import { Search, Plus, Container } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
 
 interface Trailer {
     id: string;
@@ -249,9 +251,20 @@ export function TrailersTable() {
                         <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
                     </div>
                 ) : trailers.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
-                        <Truck className="w-12 h-12 mb-3" />
-                        <p className="text-sm">Прицепы не найдены</p>
+                    <div className="p-6">
+                        <EmptyState
+                            icon={Container}
+                            title={search ? 'Прицепы не найдены' : 'Пока нет прицепов'}
+                            description={search ? 'Попробуйте изменить запрос или сбросить поиск.' : 'Добавьте первый прицеп, чтобы закреплять его за тягачами.'}
+                            tone="brand"
+                            action={search ? (
+                                <Button variant="outline" onClick={() => setSearch('')}>Сбросить поиск</Button>
+                            ) : (
+                                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowAddModal(true)}>
+                                    Добавить прицеп
+                                </Button>
+                            )}
+                        />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">

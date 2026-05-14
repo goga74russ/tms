@@ -300,7 +300,7 @@ function ImportPanel({
                 {/* Preview */}
                 {preview && !result && (
                     <>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <Stat label="Всего строк" value={preview.total} />
                             <Stat label="Валидных" value={preview.validCount} valueClass="text-emerald-700" />
                             <Stat label="С ошибками" value={preview.errorCount} valueClass={preview.errorCount > 0 ? 'text-rose-700' : ''} />

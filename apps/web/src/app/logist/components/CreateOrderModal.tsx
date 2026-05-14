@@ -295,7 +295,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         {errors.contractorId && <p className="text-xs text-red-500 mt-1">{errors.contractorId}</p>}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="col-span-2">
                             <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
                                 <Package className="w-4 h-4 text-neutral-400" />

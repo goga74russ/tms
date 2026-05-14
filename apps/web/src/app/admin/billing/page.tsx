@@ -230,8 +230,8 @@ export default function AdminBillingPage() {
             </div>
 
             {/* Table */}
-            <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
+            <div className="bg-white border border-neutral-200 rounded-xl overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
                     <thead className="bg-neutral-50 text-neutral-600 text-xs uppercase">
                         <tr>
                             <th className="text-left px-4 py-2.5">Организация</th>

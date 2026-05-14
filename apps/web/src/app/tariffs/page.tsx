@@ -148,7 +148,7 @@ export default function TariffsPage() {
     ];
 
     return (
-        <div className="p-8 space-y-6 bg-neutral-50 min-h-screen text-neutral-900">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-neutral-50 min-h-screen text-neutral-900">
             <div className="flex justify-between items-center flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                     <div className="shrink-0 w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">

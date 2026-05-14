@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Gauge } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDateTime, toLocalDateTimeInputValue } from './deepFleetShared';
+import { EmptyState } from '@/components/ui/empty-state';
 
 type OdometerRow = {
     id: string;
@@ -138,7 +140,16 @@ export function OdometerHistoryTable() {
                         {loading ? (
                             <tr><td colSpan={6} className="px-4 py-10 text-center text-neutral-400">Загружаем показания...</td></tr>
                         ) : rows.length === 0 ? (
-                            <tr><td colSpan={6} className="px-4 py-10 text-center text-neutral-400">История одометра пока пуста.</td></tr>
+                            <tr>
+                                <td colSpan={6} className="p-4">
+                                    <EmptyState
+                                        icon={Gauge}
+                                        title="История одометра пуста"
+                                        description="Добавьте первое показание через форму выше — для контроля пробега и планирования ТО."
+                                        tone="brand"
+                                    />
+                                </td>
+                            </tr>
                         ) : rows.map((row) => {
                             const vehicle = vehicles.find((item) => item.id === row.vehicleId);
                             const delta = trends.get(row.id);

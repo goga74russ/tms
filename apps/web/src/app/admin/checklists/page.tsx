@@ -123,7 +123,7 @@ function ChecklistFormModal({
             size="lg"
         >
             <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-neutral-700 mb-1.5">
                             Тип <span className="text-red-500 ml-0.5">*</span>
