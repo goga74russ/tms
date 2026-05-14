@@ -19,7 +19,7 @@ import { jwtVerify } from 'jose';
 // Root '/' is public so RootPage (app/page.tsx) can redirect unauthenticated
 // visitors to /landing (and authenticated users to their role dashboard).
 // Without this, middleware fires before RootPage and forces /login.
-const publicRoutes = ['/', '/login', '/_not-found', '/signup', '/signup/verify', '/onboarding', '/landing'];
+const publicRoutes = ['/', '/about', '/status', '/login', '/_not-found', '/signup', '/signup/verify', '/onboarding', '/landing'];
 const publicPrefixes = ['/legal/'];
 const excludedPrefixes = ['/api', '/_next/static', '/_next/image', '/favicon.ico'];
 
