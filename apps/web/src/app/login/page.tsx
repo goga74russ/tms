@@ -216,7 +216,7 @@ export default function LoginPage() {
                         if (emailError) setEmailError(null);
                     }}
                     leftAddon={<Mail className="h-4 w-4" />}
-                    placeholder="admin@tms.local"
+                    placeholder="your@company.ru"
                     externalError={emailError}
                     disabled={loading}
                 />
@@ -307,11 +307,13 @@ export default function LoginPage() {
                     </Link>
                 </p>
 
-                <div className="text-center">
-                    <p className="text-[11px] text-neutral-400">
-                        Тестовый аккаунт: <span className="font-mono text-neutral-500">admin@tms.local</span>
-                    </p>
-                </div>
+                {process.env.NODE_ENV !== 'production' && (
+                    <div className="text-center">
+                        <p className="text-[11px] text-neutral-400">
+                            Тестовый аккаунт (только dev): <span className="font-mono text-neutral-500">admin@tms.local</span>
+                        </p>
+                    </div>
+                )}
             </form>
         </AuthSplitLayout>
     );

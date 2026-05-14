@@ -62,10 +62,10 @@ export default function LoginScreen() {
                             </View>
                         ) : null}
 
-                        <Text style={styles.label}>Email</Text>
+                        <Text style={styles.label}>Эл. почта</Text>
                         <TextInput
                             style={styles.input}
-                            placeholder="driver@tms.local"
+                            placeholder="your@company.ru"
                             placeholderTextColor={colors.neutral[400]}
                             value={email}
                             onChangeText={setEmail}
