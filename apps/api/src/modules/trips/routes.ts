@@ -220,7 +220,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
                 ...body,
                 createdBy: user.userId,
             });
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             if (parsed.data.vehicleId) await assertVehicleAccess(parsed.data.vehicleId, user);
             if (parsed.data.driverId) await assertDriverAccess(parsed.data.driverId, user);
             if (parsed.data.trailerId) await assertTrailerAccess(parsed.data.trailerId, user);
@@ -396,7 +396,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
             const parsed = TripStartSchema.safeParse(request.body);
             if (!parsed.success) {
-                return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+                return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             }
 
             const [trip] = await db.select().from(trips).where(eq(trips.id, id)).limit(1);
@@ -463,7 +463,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
             const parsed = TripCompleteSchema.safeParse(request.body);
             if (!parsed.success) {
-                return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+                return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             }
 
             const [trip] = await db.select().from(trips).where(eq(trips.id, id)).limit(1);
@@ -547,7 +547,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         if (!parsed.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: parsed.error.flatten(),
             });
         }
@@ -736,7 +736,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const parsed = DeliveryConfirmationV2Schema.safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         try {
@@ -877,7 +877,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         await assertTripAccess(id, user);
         const parsed = bodySchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         await syncTransportDocumentsForTrip(id, user.userId);
@@ -911,7 +911,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         await assertTripAccess(id, user);
         const parsed = bodySchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         await syncTransportDocumentsForTrip(id, user.userId);
@@ -971,7 +971,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const parsed = bodySchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         await syncTransportDocumentsForTrip(id, user.userId);
@@ -1019,7 +1019,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const parsed = bodySchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         await syncTransportDocumentsForTrip(id, user.userId);
@@ -1060,7 +1060,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const parsed = bodySchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         await syncTransportDocumentsForTrip(id, user.userId);
@@ -1093,7 +1093,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const parsed = bodySchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         await syncTransportDocumentsForTrip(id, user.userId);
@@ -1132,7 +1132,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const parsed = bodySchema.safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         await syncTransportDocumentsForTrip(id, user.userId);
@@ -1172,7 +1172,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const parsed = bodySchema.safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         await syncTransportDocumentsForTrip(id, user.userId);

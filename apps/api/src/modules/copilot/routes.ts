@@ -82,7 +82,7 @@ const copilotRoutes: FastifyPluginAsync = async (app) => {
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[] };
         if (!userCanUseCopilot(user.roles)) {
-            return reply.status(403).send({ success: false, error: 'Forbidden' });
+            return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
         }
         const data = await listConversations(user.userId);
         return { success: true, data };
@@ -98,7 +98,7 @@ const copilotRoutes: FastifyPluginAsync = async (app) => {
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[] };
         if (!userCanUseCopilot(user.roles)) {
-            return reply.status(403).send({ success: false, error: 'Forbidden' });
+            return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
         }
         const params = request.params as { id: string };
         const data = await getConversationMessages(params.id, user.userId);

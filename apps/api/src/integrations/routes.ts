@@ -184,7 +184,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
         const user = request.user as { userId: string; roles: string[] };
         const parsed = StartSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         try {
             const status = await WialonMockRunner.startSimulation(parsed.data.vehicleId, parsed.data.tripId, {
@@ -214,7 +214,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
         const user = request.user as { userId: string; roles: string[] };
         const parsed = StopSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         const stopped = await WialonMockRunner.stopSimulation(parsed.data.vehicleId);
         await recordEvent({
@@ -240,7 +240,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
     }, async (request, reply) => {
         const parsed = PositionsQuerySchema.safeParse(request.query ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         const where = parsed.data.since
             ? and(eq(vehiclePositions.vehicleId, parsed.data.vehicleId), gte(vehiclePositions.recordedAt, new Date(parsed.data.since)))
@@ -284,7 +284,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
         const user = request.user as { userId: string; roles: string[] };
         const parsed = FuelCardSyncSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         const { vehicleId, fromDate, toDate } = parsed.data;
         const from = new Date(fromDate);

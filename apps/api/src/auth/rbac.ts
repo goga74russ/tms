@@ -208,20 +208,70 @@ export function defineAbilitiesFor(roles: string[], userId: string): AppAbility 
 }
 
 /**
+ * Human-readable Russian labels for CASL actions and subjects.
+ * Used by requireAbility() to produce user-facing 403 messages instead of
+ * leaking the internal `read KPI`-style ability string.
+ */
+const ACTION_LABELS: Record<Actions, string> = {
+    read: 'просмотр',
+    create: 'создание',
+    update: 'изменение',
+    delete: 'удаление',
+    manage: 'управление',
+};
+
+const SUBJECT_LABELS: Record<Subjects, string> = {
+    Order: 'заявок',
+    Trip: 'рейсов',
+    Vehicle: 'автопарка',
+    Driver: 'водителей',
+    Contractor: 'контрагентов',
+    TechInspection: 'технических осмотров',
+    MedInspection: 'медосмотров',
+    MedInspectionDetails: 'деталей медосмотров',
+    Waybill: 'путевых листов',
+    RepairRequest: 'заявок на ремонт',
+    Permit: 'разрешений',
+    Fine: 'штрафов',
+    Tariff: 'тарифов',
+    Contract: 'договоров',
+    Invoice: 'счетов',
+    KPI: 'панели KPI',
+    Settings: 'настроек',
+    ChecklistTemplate: 'шаблонов чек-листов',
+    Incident: 'инцидентов',
+    Trailer: 'прицепов',
+    WaybillExpense: 'расходов по путевому листу',
+    WaybillDriver: 'водителей путевого листа',
+    WaybillAttachment: 'вложений путевого листа',
+    DeliveryConfirmation: 'подтверждений доставки',
+    DocumentReturn: 'возврата документов',
+    Claim: 'претензий',
+    all: 'системы',
+};
+
+/**
  * Fastify middleware — проверяет права на действие
  */
 export function requireAbility(action: Actions, subject: Subjects) {
     return async (request: FastifyRequest, reply: FastifyReply) => {
         const user = request.user as { userId: string; roles: string[] };
         if (!user) {
-            return reply.status(401).send({ success: false, error: 'Unauthorized' });
+            return reply.status(401).send({ success: false, error: 'Требуется авторизация' });
         }
 
         const ability = defineAbilitiesFor(user.roles, user.userId);
         if (!ability.can(action, subject)) {
+            const actionLabel = ACTION_LABELS[action] ?? action;
+            const subjectLabel = SUBJECT_LABELS[subject] ?? subject;
             return reply.status(403).send({
                 success: false,
-                error: `Нет доступа: ${action} ${subject}`,
+                error: `Недостаточно прав: ${actionLabel} ${subjectLabel}`,
+                // Stable code for the frontend (e.g. to swap in a Paywall-style
+                // explainer) while the `error` field carries the localized text.
+                code: 'ABILITY_DENIED',
+                action,
+                subject,
             });
         }
     };

@@ -46,7 +46,7 @@ const rtoRoutes: FastifyPluginAsync = async (app) => {
         if (!query.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: query.error.flatten(),
             });
         }
@@ -103,7 +103,7 @@ const rtoRoutes: FastifyPluginAsync = async (app) => {
         if (!query.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: query.error.flatten(),
             });
         }

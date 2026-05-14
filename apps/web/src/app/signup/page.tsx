@@ -142,7 +142,7 @@ function ShowcaseFrame({ kind }: { kind: 'cockpit' | 'mobile' | 'pricing' }) {
         <div className="rounded-2xl border border-white/60 bg-white shadow-soft-lg p-6 space-y-4">
             <div className="flex items-center gap-2">
                 <Wallet className="w-5 h-5 text-brand-600" />
-                <span className="text-sm font-bold text-neutral-900">Free Start</span>
+                <span className="text-sm font-bold text-neutral-900">Бесплатный старт</span>
             </div>
             <div>
                 <span className="text-4xl font-bold text-neutral-900">0 ₽</span>

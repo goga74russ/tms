@@ -1977,9 +1977,9 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                         </span>
                                     </div>
                                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
-                                        <span>{title.isRequired ? 'required' : 'optional'}</span>
-                                        <span>history {title.history?.length || 0}</span>
-                                        {title.error && <RetryHint label="retry after fix" />}
+                                        <span>{title.isRequired ? 'обязателен' : 'необязателен'}</span>
+                                        <span>история ({title.history?.length || 0})</span>
+                                        {title.error && <RetryHint label="повторить после исправления" />}
                                     </div>
                                     {title.error && (
                                         <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">

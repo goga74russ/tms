@@ -8,6 +8,35 @@
 // In production: browser hits :3000/api/* → Next.js proxies to :4000/api/*
 const API_BASE = '/api';
 
+/**
+ * Map of API error codes -> user-facing Russian messages. The API returns
+ * stable machine-readable codes (e.g. `PLAN_FEATURE_LOCKED`) so other UI
+ * concerns (Paywall modal triggers, retry logic) can branch on them; this
+ * map ensures the **fallback** text users see is human Russian instead of
+ * the raw SCREAMING_SNAKE_CASE.
+ */
+const ERROR_CODE_MESSAGES: Record<string, string> = {
+    PLAN_FEATURE_LOCKED: 'Эта функция доступна на платных тарифах. Перейдите к оплате.',
+    PLAN_LIMIT_EXCEEDED: 'Достигнут лимит вашего тарифа. Перейдите на тариф выше.',
+    ABILITY_DENIED: 'Недостаточно прав для этого действия.',
+    Unauthorized: 'Требуется авторизация.',
+    Forbidden: 'Доступ запрещён.',
+};
+
+function translateApiError(payload: Record<string, unknown> | { error?: string }, status: number): string {
+    const errStr = typeof (payload as { error?: unknown }).error === 'string'
+        ? (payload as { error: string }).error
+        : '';
+    // 1. Exact code match — covers SCREAMING_SNAKE_CASE codes from the API.
+    if (errStr && ERROR_CODE_MESSAGES[errStr]) return ERROR_CODE_MESSAGES[errStr];
+    // 2. Already a Russian sentence (server-translated, e.g. requireAbility).
+    //    Heuristic: contains Cyrillic. Pass through.
+    if (errStr && /[А-Яа-яЁё]/.test(errStr)) return errStr;
+    // 3. Otherwise wrap in a generic Russian fallback.
+    if (errStr) return `Ошибка: ${errStr}`;
+    return `Ошибка запроса (HTTP ${status})`;
+}
+
 class ApiClient {
     private async request<T>(
         method: string,
@@ -42,7 +71,7 @@ class ApiClient {
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({ error: 'Ошибка запроса' }));
-            throw new Error(error.error || `HTTP ${response.status}`);
+            throw new Error(translateApiError(error, response.status));
         }
 
         return response.json();
@@ -73,7 +102,7 @@ class ApiClient {
         });
         if (!response.ok || !response.body) {
             const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-            throw new Error((err as { error?: string }).error || `HTTP ${response.status}`);
+            throw new Error(translateApiError(err as Record<string, unknown>, response.status));
         }
         const reader = response.body.getReader();
         const decoder = new TextDecoder();

@@ -105,7 +105,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const user = request.user as { userId: string; roles: string[]; organizationId?: string };
             // H-4: Zod validation
             const parsed = VehicleCreateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const vehicle = await fleetService.createVehicle(parsed.data as z.infer<typeof VehicleCreateSchema>, user);
             return reply.status(201).send({ success: true, data: vehicle });
         } catch (err: any) {
@@ -122,7 +122,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
             // H-4: Zod partial validation for updates
             const parsed = VehicleCreateSchema.partial().safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const vehicle = await fleetService.updateVehicle(id, parsed.data as z.infer<typeof VehicleCreateSchema>, user);
             return { success: true, data: vehicle };
         } catch (err: any) {
@@ -188,7 +188,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         try {
             const user = request.user as { userId: string; roles: string[]; organizationId?: string };
             const parsed = DriverCreateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const driver = await fleetService.createDriver(parsed.data as z.infer<typeof DriverCreateSchema>, user);
             return reply.status(201).send({ success: true, data: driver });
         } catch (err: any) {
@@ -204,7 +204,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const { id } = request.params as { id: string };
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
             const parsed = DriverCreateSchema.partial().safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const driver = await fleetService.updateDriver(id, parsed.data as z.infer<typeof DriverCreateSchema>, user);
             const myDriverId = user.roles.includes('driver') ? await resolveDriverId(user.userId) : null;
         return { success: true, data: sanitizeDriverForViewer(driver, user, myDriverId) };
@@ -237,7 +237,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         try {
             const user = request.user as { userId: string; roles: string[]; organizationId?: string };
             const parsed = ContractorCreateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const contractor = await fleetService.createContractor(parsed.data as z.infer<typeof ContractorCreateSchema>, user);
             return reply.status(201).send({ success: true, data: contractor });
         } catch (err: any) {
@@ -253,7 +253,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const { id } = request.params as { id: string };
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
             const parsed = ContractorCreateSchema.partial().safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const contractor = await fleetService.updateContractor(id, parsed.data as z.infer<typeof ContractorCreateSchema>, user);
             return { success: true, data: contractor };
         } catch (err: any) {
@@ -277,7 +277,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         const { organizationId } = request.user as { organizationId?: string };
         const parsed = contractorAddressSchema.safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         try {
@@ -296,7 +296,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         const { organizationId } = request.user as { organizationId?: string };
         const parsed = contractorAddressSchema.partial().safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         try {
@@ -369,7 +369,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         try {
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
             const parsed = PermitCreateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             await assertVehicleAccess(parsed.data.vehicleId, user);
             const permit = await fleetService.createPermit(parsed.data as z.infer<typeof PermitCreateSchema>, user);
             return reply.status(201).send({ success: true, data: permit });
@@ -386,7 +386,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const { id } = request.params as { id: string };
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
             const parsed = PermitUpdateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const permit = await fleetService.updatePermit(id, parsed.data as z.infer<typeof PermitUpdateSchema>, user);
             return { success: true, data: permit };
         } catch (err: any) {
@@ -418,7 +418,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         try {
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
             const parsed = FineCreateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             await assertScopedRefs({ vehicleId: parsed.data.vehicleId, driverId: parsed.data.driverId }, user);
             const fine = await fleetService.createFine(parsed.data as z.infer<typeof FineCreateSchema>, user);
             return reply.status(201).send({ success: true, data: fine });
@@ -435,7 +435,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const { id } = request.params as { id: string };
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
             const parsed = FineUpdateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             if (parsed.data.driverId) await assertDriverAccess(parsed.data.driverId, user);
             const fine = await fleetService.updateFine(id, parsed.data as z.infer<typeof FineUpdateSchema>, user);
             return { success: true, data: fine };
@@ -493,7 +493,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         try {
             const user = request.user as AuthUser;
             const parsed = FuelRecordCreateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             // Driver RLS
             if (user.roles.includes('driver') && !hasPrivilege(user.roles)) {
                 const myDriverId = await resolveDriverId(user.userId);
@@ -556,7 +556,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         try {
             const user = request.user as AuthUser;
             const parsed = OdometerReadingCreateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             if (user.roles.includes('driver') && !hasPrivilege(user.roles)) {
                 const myDriverId = await resolveDriverId(user.userId);
                 if (parsed.data.driverId && parsed.data.driverId !== myDriverId) {
@@ -610,7 +610,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         try {
             const user = request.user as AuthUser;
             const parsed = DowntimeRecordCreateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             await assertScopedRefs({ vehicleId: parsed.data.vehicleId, tripId: parsed.data.tripId }, user);
             const record = await fleetService.createDowntimeRecord({ ...parsed.data, organizationId: user.organizationId, createdBy: user.userId });
             return reply.status(201).send({ success: true, data: record });
@@ -627,7 +627,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const { id } = request.params as { id: string };
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
             const parsed = DowntimeRecordUpdateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const updated = await fleetService.updateDowntimeRecord(id, parsed.data, user.organizationId);
             if (!updated) return reply.status(404).send({ success: false, error: 'Запись не найдена' });
             return reply.send({ success: true, data: updated });
@@ -662,7 +662,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
         try {
             const user = request.user as AuthUser;
             const parsed = MaintenancePlanCreateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             await assertVehicleAccess(parsed.data.vehicleId, user);
             const record = await fleetService.createMaintenancePlan({ ...parsed.data, organizationId: user.organizationId, createdBy: user.userId });
             return reply.status(201).send({ success: true, data: record });
@@ -679,7 +679,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const { id } = request.params as { id: string };
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
             const parsed = MaintenancePlanUpdateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const updated = await fleetService.updateMaintenancePlan(id, parsed.data, user.organizationId);
             if (!updated) return reply.status(404).send({ success: false, error: 'Запись не найдена' });
             return reply.send({ success: true, data: updated });

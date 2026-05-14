@@ -226,7 +226,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
             try {
                 const parseResult = z.object({ status: z.string().min(1) }).safeParse(request.body);
                 if (!parseResult.success) {
-                    return reply.code(400).send({ success: false, error: 'Validation failed', details: parseResult.error.flatten() });
+                    return reply.code(400).send({ success: false, error: 'Ошибка валидации данных', details: parseResult.error.flatten() });
                 }
 
                 const access = await ensureInvoiceAccess(request.params.id, request.user as { userId: string; roles: string[]; organizationId?: string });

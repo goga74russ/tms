@@ -70,7 +70,7 @@ const osagoRoutes: FastifyPluginAsync = async (app) => {
             return reply.status(403).send({ success: false, error: 'admin only' });
         }
         if (!user.organizationId) {
-            return reply.status(400).send({ success: false, error: 'no organization in token' });
+            return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
         }
         const summary = await runOrgOsagoSync(user.organizationId);
         return {

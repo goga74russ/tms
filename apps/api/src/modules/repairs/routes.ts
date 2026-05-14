@@ -83,7 +83,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
     }, async (request, reply) => {
         try {
             const parsed = RepairPartCatalogCreateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const user = request.user as { userId: string; organizationId?: string };
             const data = await repairsService.createRepairPartCatalogItem(parsed.data, user);
             return reply.status(201).send({ success: true, data });
@@ -99,7 +99,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
         try {
             const { id } = request.params as { id: string };
             const parsed = RepairPartCatalogUpdateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const user = request.user as { userId: string; organizationId?: string | null };
             const data = await repairsService.updateRepairPartCatalogItem(id, parsed.data, user);
             return { success: true, data };
@@ -142,7 +142,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
         try {
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
             const parsed = RepairRequestCreateSchema.safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             await assertVehicleAccess(parsed.data.vehicleId, user);
             const repair = await repairsService.createRepair(parsed.data as z.infer<typeof RepairRequestCreateSchema>, user);
             return reply.status(201).send({ success: true, data: repair });
@@ -160,7 +160,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
             const { id } = request.params as { id: string };
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
             const parsed = RepairRequestSchema.partial().safeParse(request.body);
-            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const payload: Parameters<typeof repairsService.updateRepair>[1] = {};
             if (parsed.data.description !== undefined) payload.description = parsed.data.description;
             if (parsed.data.priority !== undefined) payload.priority = parsed.data.priority;

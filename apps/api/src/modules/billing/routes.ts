@@ -139,7 +139,7 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
         preHandler: [fastify.authenticate],
     }, async (request, reply) => {
         const orgId = requireOrg(request.user as AuthUser);
-        if (!orgId) return reply.status(400).send({ success: false, error: 'no organization in token' });
+        if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
         const parsed = SubscribeSchema.safeParse(request.body);
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: parsed.error.message });
@@ -162,7 +162,7 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
         preHandler: [fastify.authenticate],
     }, async (request, reply) => {
         const orgId = requireOrg(request.user as AuthUser);
-        if (!orgId) return reply.status(400).send({ success: false, error: 'no organization in token' });
+        if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
         const updated = await cancelAtPeriodEnd(orgId);
         if (!updated) return reply.status(404).send({ success: false, error: 'no active subscription' });
         return { success: true, data: updated };
@@ -238,7 +238,7 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
 
         const parsed = YookassaWebhookSchema.safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'malformed webhook payload' });
+            return reply.status(400).send({ success: false, error: 'Некорректные данные вебхука' });
         }
         const { object, event } = parsed.data;
         const status = mapYookassaStatus(event, object.status);

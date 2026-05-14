@@ -46,7 +46,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const orgId = requireOrg(user);
-        if (!orgId) return reply.status(400).send({ success: false, error: 'no organization in token' });
+        if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
 
         const [org] = await db
             .select()
@@ -113,7 +113,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const orgId = requireOrg(user);
-        if (!orgId) return reply.status(400).send({ success: false, error: 'no organization in token' });
+        if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
 
         const parsed = ProfileSchema.safeParse(request.body);
         if (!parsed.success) {
@@ -140,7 +140,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const orgId = requireOrg(user);
-        if (!orgId) return reply.status(400).send({ success: false, error: 'no organization in token' });
+        if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
 
         const parsed = ScenarioSchema.safeParse(request.body);
         if (!parsed.success) {
@@ -162,7 +162,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const orgId = requireOrg(user);
-        if (!orgId) return reply.status(400).send({ success: false, error: 'no organization in token' });
+        if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
 
         const parsed = IntegrationChoiceSchema.safeParse(request.body);
         if (!parsed.success) {
@@ -219,7 +219,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const orgId = requireOrg(user);
-        if (!orgId) return reply.status(400).send({ success: false, error: 'no organization in token' });
+        if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
 
         const parsed = InviteSchema.safeParse(request.body);
         if (!parsed.success) {
@@ -288,7 +288,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
     }, async (request, reply) => {
         const user = request.user as AuthUser;
         const orgId = requireOrg(user);
-        if (!orgId) return reply.status(400).send({ success: false, error: 'no organization in token' });
+        if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
 
         await db.update(organizations).set({
             onboardingCompletedAt: new Date(),

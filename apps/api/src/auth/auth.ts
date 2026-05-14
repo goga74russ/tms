@@ -105,9 +105,9 @@ export function registerAuthRoutes(app: FastifyInstance) {
                 return;
             }
 
-            reply.status(401).send({ success: false, error: 'Unauthorized' });
+            reply.status(401).send({ success: false, error: 'Требуется авторизация' });
         } catch (err) {
-            reply.status(401).send({ success: false, error: 'Unauthorized' });
+            reply.status(401).send({ success: false, error: 'Требуется авторизация' });
         }
     });
 
@@ -126,7 +126,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!parseResult.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: parseResult.error.flatten(),
             });
         }
@@ -139,12 +139,12 @@ export function registerAuthRoutes(app: FastifyInstance) {
             .limit(1);
 
         if (!user || !user.isActive) {
-            return reply.status(401).send({ success: false, error: 'Invalid credentials' });
+            return reply.status(401).send({ success: false, error: 'Неверный email или пароль' });
         }
 
         const isValid = await verifyPassword(password, user.passwordHash);
         if (!isValid) {
-            return reply.status(401).send({ success: false, error: 'Invalid credentials' });
+            return reply.status(401).send({ success: false, error: 'Неверный email или пароль' });
         }
 
         const token = app.jwt.sign(
@@ -196,7 +196,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!parseResult.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: parseResult.error.flatten(),
             });
         }
@@ -209,12 +209,12 @@ export function registerAuthRoutes(app: FastifyInstance) {
             .limit(1);
 
         if (!user || !user.isActive) {
-            return reply.status(401).send({ success: false, error: 'Invalid credentials' });
+            return reply.status(401).send({ success: false, error: 'Неверный email или пароль' });
         }
 
         const isValid = await verifyPassword(password, user.passwordHash);
         if (!isValid) {
-            return reply.status(401).send({ success: false, error: 'Invalid credentials' });
+            return reply.status(401).send({ success: false, error: 'Неверный email или пароль' });
         }
 
         const token = app.jwt.sign(
@@ -377,7 +377,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!parseResult.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: parseResult.error.flatten(),
             });
         }
@@ -425,7 +425,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!parseResult.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: parseResult.error.flatten(),
             });
         }
@@ -594,7 +594,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!parseResult.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: parseResult.error.flatten(),
             });
         }
@@ -630,7 +630,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!parseResult.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: parseResult.error.flatten(),
             });
         }
@@ -730,7 +730,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!parseResult.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: parseResult.error.flatten(),
             });
         }
@@ -756,7 +756,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!parseResult.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: parseResult.error.flatten(),
             });
         }
@@ -859,7 +859,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!parsed.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: parsed.error.flatten(),
             });
         }
@@ -965,7 +965,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         const parsed = VerifyEmailSchema.safeParse(request.body);
         if (!parsed.success) {
             return reply.status(400).send({
-                success: false, error: 'Validation failed', details: parsed.error.flatten(),
+                success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten(),
             });
         }
         const { email, code } = parsed.data;
@@ -1048,7 +1048,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         const parsed = ResendCodeSchema.safeParse(request.body);
         if (!parsed.success) {
             return reply.status(400).send({
-                success: false, error: 'Validation failed', details: parsed.error.flatten(),
+                success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten(),
             });
         }
         const { email } = parsed.data;

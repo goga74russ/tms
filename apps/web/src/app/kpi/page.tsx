@@ -214,7 +214,7 @@ function DriverScoreboardSection() {
                 {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div>
-                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-600">Top 5</p>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-600">Топ 5</p>
                         {top.length === 0 ? (
                             <p className="py-4 text-center text-sm text-neutral-400">Нет данных</p>
                         ) : (
@@ -222,7 +222,7 @@ function DriverScoreboardSection() {
                         )}
                     </div>
                     <div>
-                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-600">Bottom 5</p>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-600">Худшие 5</p>
                         {bottom.length === 0 ? (
                             <p className="py-4 text-center text-sm text-neutral-400">Нет данных</p>
                         ) : (
@@ -252,11 +252,11 @@ function DriverScoreboardSection() {
                             <p className="text-lg font-bold text-neutral-900">{detail.onTimePercent}</p>
                         </div>
                         <div className="rounded-lg bg-neutral-50 px-3 py-2">
-                            <p className="text-xs text-neutral-500">Cold breaches</p>
+                            <p className="text-xs text-neutral-500">Нарушения холодовой цепи</p>
                             <p className="text-lg font-bold text-neutral-900">{detail.coldBreaches}</p>
                         </div>
                         <div className="rounded-lg bg-neutral-50 px-3 py-2">
-                            <p className="text-xs text-neutral-500">RTO breaches</p>
+                            <p className="text-xs text-neutral-500">Нарушения возврата ТС</p>
                             <p className="text-lg font-bold text-neutral-900">{detail.rtoBreaches}</p>
                         </div>
                         <div className="rounded-lg bg-neutral-50 px-3 py-2">
@@ -264,7 +264,7 @@ function DriverScoreboardSection() {
                             <p className="text-lg font-bold text-neutral-900">{detail.fines}</p>
                         </div>
                         <div className="rounded-lg bg-emerald-50 px-3 py-2">
-                            <p className="text-xs text-emerald-600">Score</p>
+                            <p className="text-xs text-emerald-600">Оценка</p>
                             <p className="text-lg font-bold text-emerald-700">{detail.score}</p>
                         </div>
                     </div>

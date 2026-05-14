@@ -171,7 +171,7 @@ export function AddVehicleModal({ onClose, onCreated }: AddVehicleModalProps) {
                                     <p className="text-sm font-semibold text-neutral-900">{waybillCue.title}</p>
                                 </div>
                                 <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-600 shadow-sm">
-                                    {waybillCue.tone === 'ready' ? 'ready' : waybillCue.tone === 'attention' ? 'check' : 'block'}
+                                    {waybillCue.tone === 'ready' ? 'готов' : waybillCue.tone === 'attention' ? 'проверить' : 'блок'}
                                 </span>
                             </div>
                             <div className="mt-2 flex flex-wrap gap-2">

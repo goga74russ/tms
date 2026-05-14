@@ -192,7 +192,7 @@ if (metricsEnabled) {
             const header = request.headers.authorization;
             if (!header || !header.startsWith('Basic ')) {
                 reply.header('WWW-Authenticate', 'Basic realm="metrics"');
-                reply.status(401).send({ success: false, error: 'Unauthorized' });
+                reply.status(401).send({ success: false, error: 'Требуется авторизация' });
                 return;
             }
             try {
@@ -202,11 +202,11 @@ if (metricsEnabled) {
                 const pass = sep >= 0 ? decoded.slice(sep + 1) : '';
                 if (user !== metricsUser || pass !== metricsPass) {
                     reply.header('WWW-Authenticate', 'Basic realm="metrics"');
-                    reply.status(401).send({ success: false, error: 'Unauthorized' });
+                    reply.status(401).send({ success: false, error: 'Требуется авторизация' });
                     return;
                 }
             } catch {
-                reply.status(401).send({ success: false, error: 'Unauthorized' });
+                reply.status(401).send({ success: false, error: 'Требуется авторизация' });
                 return;
             }
             done();
@@ -365,9 +365,9 @@ if (!process.env.S3_ENDPOINT && process.env.NODE_ENV !== 'production') {
         const filePath = resolve(uploadsDir, requestedPath);
         const relativePath = relative(uploadsDir, filePath);
         if (relativePath.startsWith('..') || relativePath === '' || relativePath.includes('..\\') || relativePath.includes('../')) {
-            return reply.status(403).send({ success: false, error: 'Forbidden' });
+            return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
         }
-        if (!existsSync(filePath)) return reply.status(404).send({ success: false, error: 'Not found' });
+        if (!existsSync(filePath)) return reply.status(404).send({ success: false, error: 'Ресурс не найден' });
         return reply.send(createReadStream(filePath));
     });
 }

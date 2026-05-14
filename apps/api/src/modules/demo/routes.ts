@@ -38,7 +38,7 @@ function demoDisabledReply(reply: import('fastify').FastifyReply) {
     // route, so route enumeration via response code is defeated.
     return reply.status(404).send({
         success: false,
-        error: 'Not found',
+        error: 'Ресурс не найден',
     });
 }
 

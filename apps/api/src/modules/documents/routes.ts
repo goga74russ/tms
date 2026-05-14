@@ -91,7 +91,7 @@ const documentRoutes: FastifyPluginAsync = async (app) => {
 
         const parsed = CreateDocReturnSchema.safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         const [tripExists] = await db.select({ id: trips.id }).from(trips).where(eq(trips.id, id)).limit(1);
@@ -155,7 +155,7 @@ const documentRoutes: FastifyPluginAsync = async (app) => {
 
         const parsed = UpdateDocReturnSchema.safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         const [existing] = await db

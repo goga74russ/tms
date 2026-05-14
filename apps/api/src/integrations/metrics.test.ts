@@ -34,7 +34,7 @@ async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
                 const header = request.headers.authorization;
                 if (!header || !header.startsWith('Basic ')) {
                     reply.header('WWW-Authenticate', 'Basic realm="metrics"');
-                    reply.status(401).send({ success: false, error: 'Unauthorized' });
+                    reply.status(401).send({ success: false, error: 'Требуется авторизация' });
                     return;
                 }
                 try {
@@ -44,11 +44,11 @@ async function buildApp(opts: BuildOpts = {}): Promise<FastifyInstance> {
                     const pass = sep >= 0 ? decoded.slice(sep + 1) : '';
                     if (user !== metricsUser || pass !== metricsPass) {
                         reply.header('WWW-Authenticate', 'Basic realm="metrics"');
-                        reply.status(401).send({ success: false, error: 'Unauthorized' });
+                        reply.status(401).send({ success: false, error: 'Требуется авторизация' });
                         return;
                     }
                 } catch {
-                    reply.status(401).send({ success: false, error: 'Unauthorized' });
+                    reply.status(401).send({ success: false, error: 'Требуется авторизация' });
                     return;
                 }
                 done();

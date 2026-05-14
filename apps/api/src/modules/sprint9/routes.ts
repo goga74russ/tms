@@ -89,7 +89,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
     }, async (request, reply) => {
         const parsed = trailerCreateSchema.safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
         if (parsed.data.currentVehicleId) {
@@ -114,7 +114,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
         const { id } = request.params as { id: string };
         const parsed = trailerCreateSchema.partial().safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
         if (parsed.data.currentVehicleId) {
@@ -182,7 +182,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
         const user = request.user as { userId: string; roles: string[] };
         const parsed = incidentCreateSchema.safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         const [created] = await db.insert(incidents).values({
@@ -202,7 +202,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
         await assertIncidentAccess(id, request.user as { userId: string; roles: string[]; organizationId?: string | null });
         const parsed = incidentCreateSchema.partial().safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         const [updated] = await db.update(incidents).set({
@@ -248,7 +248,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
         await assertWaybillAccess(id, request.user as { userId: string; roles: string[] });
         const parsed = waybillDriverCreateSchema.safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         const [waybill] = await db.select({ id: waybills.id }).from(waybills).where(eq(waybills.id, id)).limit(1);
@@ -315,7 +315,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
         await assertWaybillAccess(id, user);
         const parsed = waybillExpenseCreateSchema.safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         const [created] = await db.insert(waybillExpenses).values({
@@ -339,7 +339,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
         await assertWaybillAccess(waybillId, request.user as { userId: string; roles: string[] });
         const parsed = waybillExpenseCreateSchema.partial().safeParse(request.body);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         const [updated] = await db.update(waybillExpenses).set(parsed.data)

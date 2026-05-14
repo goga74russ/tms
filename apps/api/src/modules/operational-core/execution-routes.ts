@@ -41,7 +41,7 @@ async function handleCreateExecutionEvent(
 ) {
     const parsed = executionEventBodySchema.safeParse(request.body ?? {});
     if (!parsed.success) {
-        return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+        return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
     }
 
     const body = parsed.data as ExecutionEventBody;

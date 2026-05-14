@@ -45,7 +45,7 @@ const auditRoutes: FastifyPluginAsync = async (app) => {
         if (!parsed.success) {
             return reply.status(400).send({
                 success: false,
-                error: 'Validation failed',
+                error: 'Ошибка валидации данных',
                 details: parsed.error.flatten(),
             });
         }

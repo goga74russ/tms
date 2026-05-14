@@ -82,7 +82,7 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.status(403).send({ success: false, error: 'admin only' });
         }
         if (!user.organizationId) {
-            return reply.status(400).send({ success: false, error: 'no organization in token' });
+            return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
         }
 
         const parsed = CreateSchema.safeParse(request.body);
@@ -151,7 +151,7 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.status(403).send({ success: false, error: 'admin only' });
         }
         if (!user.organizationId) {
-            return reply.status(400).send({ success: false, error: 'no organization in token' });
+            return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
         }
 
         const { id } = request.params as { id: string };
@@ -202,7 +202,7 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.status(403).send({ success: false, error: 'admin only' });
         }
         if (!user.organizationId) {
-            return reply.status(400).send({ success: false, error: 'no organization in token' });
+            return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
         }
 
         const { id } = request.params as { id: string };

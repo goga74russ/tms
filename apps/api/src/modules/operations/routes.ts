@@ -109,7 +109,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
         await assertTripAccess(id, user);
         const parsed = DowntimeSchema.safeParse({ ...(request.body as object ?? {}), routePointId: pointId });
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         try {
             const data = await recordRoutePointDowntime(id, parsed.data, {
@@ -136,7 +136,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
         await assertTripAccess(id, user);
         const parsed = CancelAfterArrivalSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         try {
             const data = await cancelTripAfterArrival(id, parsed.data, {
@@ -163,7 +163,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
         await assertTripAccess(id, user);
         const parsed = BreakdownSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         try {
             const data = await recordTripBreakdown(id, parsed.data, {
@@ -191,7 +191,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
 
         const parsed = PostTripReturnSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         try {
@@ -220,7 +220,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
 
         const parsed = CrewRestPlanSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         for (const member of parsed.data.crew) await assertDriverAccess(member.driverId, user);
 
@@ -250,7 +250,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
 
         const parsed = ReaddressTripSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         if (parsed.data.orderId) await assertOrderAccess(parsed.data.orderId, user);
 
@@ -280,7 +280,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
 
         const parsed = ReplaceTripResourcesSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
         if (parsed.data.vehicleId) await assertVehicleAccess(parsed.data.vehicleId, user);
         if (parsed.data.driverId) await assertDriverAccess(parsed.data.driverId, user);
@@ -308,7 +308,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
     }, async (request, reply) => {
         const parsed = ExceptionsQuerySchema.safeParse(request.query);
         if (!parsed.success) {
-            return reply.status(400).send({ success: false, error: 'Validation failed', details: parsed.error.flatten() });
+            return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
 
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };

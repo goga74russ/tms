@@ -273,7 +273,7 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                                                 : 'bg-white text-emerald-700'
                                 }`}
                             >
-                                {waybillCue.tone === 'ready' ? 'ready' : waybillCue.tone === 'attention' ? 'check' : 'block'}
+                                {waybillCue.tone === 'ready' ? 'готов' : waybillCue.tone === 'attention' ? 'проверить' : 'блок'}
                             </span>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -300,7 +300,7 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                         <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-sm">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Readiness checklist</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Готовность</p>
                                     <p className="text-sm font-semibold text-neutral-900">
                                         {readiness.title} · {readiness.doneCount}/{readiness.totalCount}
                                     </p>
@@ -327,7 +327,7 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                                                         ? 'text-amber-700'
                                                         : 'text-neutral-500'
                                             }`}>
-                                                {item.state === 'done' ? 'ok' : item.state === 'warn' ? 'check' : 'optional'}
+                                                {item.state === 'done' ? 'готово' : item.state === 'warn' ? 'проверить' : 'опционально'}
                                             </span>
                                         </div>
                                         <p className="mt-1 text-[11px] leading-4 text-neutral-500">{item.hint}</p>
