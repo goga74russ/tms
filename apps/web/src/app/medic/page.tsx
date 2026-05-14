@@ -677,7 +677,7 @@ export default function MedicPage() {
                 </div>
             </header>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
                 {/* Stat cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <Stat label="В очереди" value={queue.length} icon={Users} tone="warning" />
@@ -841,7 +841,7 @@ export default function MedicPage() {
                             Журнал медосмотров
                         </h2>
 
-                        <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
+                        <div className="bg-white rounded-2xl border border-neutral-200 overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-neutral-100 bg-neutral-50">
@@ -969,25 +969,25 @@ export default function MedicPage() {
                                 <Card>
                                     <CardContent className="p-5">
                                         <p className="text-sm text-neutral-500 mb-1">Всего осмотров</p>
-                                        <p className="text-3xl font-bold text-neutral-900">{stats.total}</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-neutral-900">{stats.total}</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="border-emerald-200">
                                     <CardContent className="p-5">
                                         <p className="text-sm text-emerald-600 mb-1">Допущены</p>
-                                        <p className="text-3xl font-bold text-emerald-700">{stats.approved}</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-emerald-700">{stats.approved}</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="border-red-200">
                                     <CardContent className="p-5">
                                         <p className="text-sm text-red-600 mb-1">Не допущены</p>
-                                        <p className="text-3xl font-bold text-red-700">{stats.rejected}</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-red-700">{stats.rejected}</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="border-amber-200">
                                     <CardContent className="p-5">
                                         <p className="text-sm text-amber-600 mb-1">% недопусков</p>
-                                        <p className="text-3xl font-bold text-amber-700">{stats.rejectionRate}%</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-amber-700">{stats.rejectionRate}%</p>
                                     </CardContent>
                                 </Card>
                             </div>

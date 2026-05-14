@@ -213,13 +213,13 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
             </div>
 
             {/* Content */}
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
                 {activeSection === 'info' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Basic info */}
                         <div className="space-y-4">
                             <h3 className="text-sm font-semibold text-neutral-700 uppercase tracking-wider">Основное</h3>
-                            <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                                 <div><span className="text-neutral-500">VIN:</span> <span className="font-mono">{vehicle.vin}</span></div>
                                 <div><span className="text-neutral-500">Тип кузова:</span> {vehicle.bodyType}</div>
                                 <div><span className="text-neutral-500">Грузоподъёмность:</span> {(vehicle.payloadCapacityKg / 1000).toFixed(1)} т</div>

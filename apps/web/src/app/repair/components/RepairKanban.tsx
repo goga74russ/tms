@@ -816,7 +816,7 @@ function PlanPartsDialog({
           <p className="mt-2 text-xs text-blue-700">Ориентир на этапе заявки. После подтверждения поступления и закрытия ремонта появится фактическая стоимость.</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 rounded-lg border border-neutral-200 bg-white p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-lg border border-neutral-200 bg-white p-3">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-neutral-500">План</p>
             <p className="mt-1 text-sm font-semibold text-neutral-900">{formatMoney(partsSummary.plannedCost)} ₽</p>
@@ -920,7 +920,7 @@ function ReceivePartsDialog({
                 </label>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Фактически получено</label>
                   <Input
@@ -1053,7 +1053,7 @@ function CompleteRepairDialog({
                 <p className="text-sm font-medium text-neutral-900">{partLabel(part)}</p>
                 <p className="text-xs text-neutral-500">Получено: {part.receivedQuantity || 0} {part.unit || 'шт'} · {formatMoney(Number(part.actualUnitCost || 0))} ₽</p>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-neutral-500">Использовано</label>
                   <Input
@@ -1078,7 +1078,7 @@ function CompleteRepairDialog({
           ))}
         </div>
 
-        <div className="grid grid-cols-3 gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-neutral-500">План</p>
             <p className="mt-1 text-sm font-semibold text-neutral-900">{formatMoney(repairSummary.plannedCost)} ₽</p>
@@ -1096,7 +1096,7 @@ function CompleteRepairDialog({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-neutral-700">Итоговая сумма ремонта</label>
             <Input

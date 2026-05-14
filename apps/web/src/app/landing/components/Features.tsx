@@ -23,7 +23,7 @@ const TONE_STYLES: Record<Tone, { circle: string; icon: string; text: string }> 
 const FEATURES: Feature[] = [
     {
         icon: ShieldCheck,
-        title: 'Compliance из коробки',
+        title: 'Соответствие закону из коробки',
         desc: 'ЭТрН (Минтранс №2200), путевые листы, тех- и медосмотры, журналы 152-ФЗ. Шаблоны и сроки уже зашиты.',
         tone: 'success',
     },
@@ -42,7 +42,7 @@ const FEATURES: Feature[] = [
     },
     {
         icon: Thermometer,
-        title: 'Cold chain SLA',
+        title: 'Контроль температуры',
         desc: 'Контроль температуры в пути с алертами по нарушениям. Логирование с мобильного и телематики.',
         tone: 'danger',
     },

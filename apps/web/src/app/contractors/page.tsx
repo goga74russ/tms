@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
 import { DataTable, type Column, Pill } from '@/components/ui/data-table';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
+import { FormField } from '@/components/ui/form-field';
 
 interface Contractor {
     id: string;
@@ -73,18 +74,19 @@ function CreateContractorModal({ onClose, onCreated }: { onClose: () => void; on
                         placeholder="ООО Логистика" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                    <div>
-                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">ИНН *</label>
-                        <input type="text" value={inn} onChange={e => setInn(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="7701234567" />
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">КПП</label>
-                        <input type="text" value={kpp} onChange={e => setKpp(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="770101001" />
-                    </div>
+                    <FormField
+                        format="inn"
+                        label="ИНН"
+                        required
+                        value={inn}
+                        onChange={e => setInn(e.target.value)}
+                    />
+                    <FormField
+                        format="kpp"
+                        label="КПП"
+                        value={kpp}
+                        onChange={e => setKpp(e.target.value)}
+                    />
                 </div>
                 <div>
                     <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Юридический адрес *</label>
@@ -93,18 +95,18 @@ function CreateContractorModal({ onClose, onCreated }: { onClose: () => void; on
                         placeholder="г. Москва, ул. Примерная, 1" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                    <div>
-                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Телефон</label>
-                        <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="+7 (495) 123-45-67" />
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Email</label>
-                        <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="info@company.ru" />
-                    </div>
+                    <FormField
+                        format="phone"
+                        label="Телефон"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                    />
+                    <FormField
+                        format="email"
+                        label="Email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                    />
                 </div>
                 <div>
                     <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Контактное лицо</label>

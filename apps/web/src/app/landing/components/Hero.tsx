@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { ArrowRight, ShieldCheck, Sparkles, Truck, MapPin, FileText, Activity } from 'lucide-react';
 
 const STATS = [
-    { value: '5 000+*', label: 'Перевозчиков на платформе' },
-    { value: '1 200 000*', label: 'Рейсов в год' },
-    { value: '152-ФЗ', label: 'Соответствие законам РФ' },
+    { value: '5 мин', label: 'От ИНН до первого рейса' },
+    { value: '4', label: 'Оператора ЭДО на выбор' },
+    { value: 'РФ', label: 'Серверы и данные в России' },
 ];
 
 export function Hero() {
@@ -35,7 +35,7 @@ export function Hero() {
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-xs font-medium text-brand-50 mb-6">
                             <Sparkles className="w-3.5 h-3.5" />
-                            <span>Phase 7: ИИ-копилот диспетчера в бете</span>
+                            <span>Пилот-фаза · ранние пользователи</span>
                         </div>
                         <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight mb-5">
                             ТрансПульт, в котором<br className="hidden sm:block" /> логистика работает{' '}
@@ -44,8 +44,7 @@ export function Hero() {
                             </span>
                         </h1>
                         <p className="text-base sm:text-lg text-brand-100/90 max-w-xl mb-8 leading-relaxed">
-                            Заказы, рейсы, путевые листы, осмотры, ЭТрН и биллинг — в одном кабинете.
-                            Бесплатный коробочный режим. ИИ-копилот диспетчера в платных тарифах.
+                            Заказы, рейсы, ЭТрН и биллинг в одном кабинете. Готов к работе с 1 сентября 2026.
                         </p>
                         <div className="flex flex-wrap gap-3 mb-10">
                             <Link
@@ -70,7 +69,7 @@ export function Hero() {
                             </div>
                             <div className="inline-flex items-center gap-1.5">
                                 <Activity className="w-4 h-4" />
-                                <span>99,9% SLA на Business</span>
+                                <span>Бэкапы и аудит-лог из коробки</span>
                             </div>
                             <div className="inline-flex items-center gap-1.5">
                                 <FileText className="w-4 h-4" />
@@ -147,8 +146,8 @@ export function Hero() {
                     ))}
                 </div>
                 <p className="text-[11px] text-brand-100/60 mt-4">
-                    * Целевые показатели платформы. Текущие значения — на странице{' '}
-                    <Link href="/landing#pricing" className="underline">статус</Link>.
+                    Пилот-фаза. Текущий статус системы — на странице{' '}
+                    <Link href="/status" className="underline">статус</Link>.
                 </p>
             </div>
         </section>

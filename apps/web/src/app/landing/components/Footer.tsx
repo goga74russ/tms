@@ -3,27 +3,17 @@ import { Truck, Mail, Phone, Send } from 'lucide-react';
 
 const COLUMNS = [
     {
-        title: 'Продукт',
+        title: 'Продукт и поддержка',
         links: [
             { href: '#features', label: 'Возможности' },
             { href: '#pricing', label: 'Тарифы' },
             { href: '#demo', label: 'Демо' },
             { href: '/signup', label: 'Начать бесплатно' },
-        ],
-    },
-    {
-        title: 'Компания',
-        links: [
-            { href: '/about', label: 'О нас' },
-            { href: 'mailto:sales@transpult.ru', label: 'Партнёрам' },
-        ],
-    },
-    {
-        title: 'Поддержка',
-        links: [
             { href: 'mailto:support@transpult.ru', label: 'Связаться' },
             { href: '/status', label: 'Статус системы' },
             { href: '#faq', label: 'FAQ' },
+            { href: '/about', label: 'О нас' },
+            { href: 'mailto:sales@transpult.ru', label: 'Партнёрам' },
         ],
     },
     {
@@ -40,8 +30,8 @@ export function Footer() {
     return (
         <footer className="bg-neutral-900 text-neutral-300">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-8">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-10">
-                    <div className="col-span-2 md:col-span-3 lg:col-span-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                    <div>
                         <div className="flex items-center gap-2">
                             <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center">
                                 <Truck className="w-5 h-5 text-white" />

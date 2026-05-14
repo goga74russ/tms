@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { api } from '@/lib/api';
 import { getVehicleProfile, getVehicleWaybillCue, VEHICLE_BODY_OPTIONS } from './vehicleProfile';
 import { Dialog } from '@/components/ui/dialog';
+import { FormField } from '@/components/ui/form-field';
+import { useToast } from '@/components/ui/toast';
 
 interface AddVehicleModalProps {
     onClose: () => void;
@@ -13,6 +15,7 @@ interface AddVehicleModalProps {
 const BODY_TYPES = ['тент', 'борт', 'рефрижератор', 'фургон', 'цистерна', 'контейнеровоз', 'самосвал'];
 
 export function AddVehicleModal({ onClose, onCreated }: AddVehicleModalProps) {
+    const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [form, setForm] = useState({
@@ -50,6 +53,7 @@ export function AddVehicleModal({ onClose, onCreated }: AddVehicleModalProps) {
         setLoading(true);
         try {
             await api.post('/fleet/vehicles', form);
+            toast({ variant: 'success', title: 'Транспорт добавлен' });
             onCreated();
         } catch (err: any) {
             setError(err?.message || 'Ошибка создания ТС');
@@ -69,29 +73,23 @@ export function AddVehicleModal({ onClose, onCreated }: AddVehicleModalProps) {
 
                     {/* Row 1: Госномер + VIN */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-medium text-neutral-600 mb-1">Госномер *</label>
-                            <input
-                                type="text"
-                                placeholder="А123БВ77"
-                                value={form.plateNumber}
-                                onChange={e => updateField('plateNumber', e.target.value.toUpperCase())}
-                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm font-mono
-                                    focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-neutral-600 mb-1">VIN *</label>
-                            <input
-                                type="text"
-                                placeholder="17 символов"
-                                maxLength={17}
-                                value={form.vin}
-                                onChange={e => updateField('vin', e.target.value.toUpperCase())}
-                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm font-mono
-                                    focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                            />
-                        </div>
+                        <FormField
+                            format="plate"
+                            label="Госномер"
+                            required
+                            value={form.plateNumber}
+                            onChange={e => updateField('plateNumber', e.target.value.toUpperCase())}
+                            className="font-mono"
+                        />
+                        <FormField
+                            format="vin"
+                            label="VIN"
+                            required
+                            maxLength={17}
+                            value={form.vin}
+                            onChange={e => updateField('vin', e.target.value.toUpperCase())}
+                            className="font-mono"
+                        />
                     </div>
 
                     {/* Row 2: Марка + Модель + Год */}

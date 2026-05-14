@@ -849,7 +849,7 @@ export default function DispatcherPage() {
                                             <X className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-3 text-xs">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                                         <div>
                                             <p className="text-[10px] uppercase tracking-wide text-neutral-500 mb-0.5">Номер</p>
                                             <p className="text-sm font-semibold text-indigo-600 font-mono">{activeTripDetails.number}</p>

@@ -605,7 +605,7 @@ export default function MechanicPage() {
                 </div>
             </header>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-6">
                 {/* Stat cards */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <Stat label="В очереди" value={queue.length} icon={Truck} tone="warning" />
@@ -755,7 +755,7 @@ export default function MechanicPage() {
                             Журнал техосмотров
                         </h2>
 
-                        <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden">
+                        <div className="bg-white rounded-2xl border border-neutral-200 overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-neutral-100 bg-neutral-50">

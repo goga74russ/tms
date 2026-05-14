@@ -6,6 +6,7 @@ import { Plus, Users, Loader2, AlertTriangle, Timer, ShieldCheck, HeartPulse, Us
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/ui/form-field';
 import { Stat } from '@/components/ui/stat';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
@@ -233,12 +234,11 @@ function CreateDriverModal({ onClose, onCreated }: { onClose: () => void; onCrea
                     onChange={e => setAdrCertExpiry(e.target.value)}
                     helperText="Срок действия свидетельства о подготовке водителей ТС, перевозящих опасные грузы."
                 />
-                <Input
+                <FormField
+                    format="phone"
                     label="Телефон"
-                    type="tel"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
-                    placeholder="+7 (999) 123-45-67"
                 />
                 <div className="flex gap-3 justify-end pt-2">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>

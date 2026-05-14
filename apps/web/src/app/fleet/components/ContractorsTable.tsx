@@ -204,7 +204,7 @@ function ContractorAddressesModal({
                                     placeholder="Адрес"
                                     className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                                 />
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <input
                                         value={form.lat}
                                         onChange={(e) => setForm((current) => ({ ...current, lat: e.target.value }))}

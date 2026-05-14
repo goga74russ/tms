@@ -99,7 +99,7 @@ function AddTrailerModal({ onClose, onCreated }: { onClose: () => void; onCreate
             description="Добавление сущности прицепа из Sprint 9"
             size="md"
         >
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <input
                         value={form.plateNumber}
                         onChange={(e) => setForm(f => ({ ...f, plateNumber: e.target.value }))}
