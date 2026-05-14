@@ -14,18 +14,15 @@ const COLUMNS = [
     {
         title: 'Компания',
         links: [
-            { href: '#', label: 'О нас', muted: true },
-            { href: '#', label: 'Команда', muted: true },
-            { href: '#', label: 'Блог', muted: true },
+            { href: '/about', label: 'О нас' },
             { href: 'mailto:sales@transpult.ru', label: 'Партнёрам' },
         ],
     },
     {
         title: 'Поддержка',
         links: [
-            { href: '#', label: 'Документация', muted: true },
             { href: 'mailto:support@transpult.ru', label: 'Связаться' },
-            { href: '#', label: 'Статус системы', muted: true },
+            { href: '/status', label: 'Статус системы' },
             { href: '#faq', label: 'FAQ' },
         ],
     },
