@@ -62,18 +62,18 @@ export function Footer() {
                                 <Mail className="w-3.5 h-3.5" /> support@transpult.ru
                             </a>
                             <a
-                                href="tel:+78001000000"
+                                href="tel:+79193246582"
                                 className="flex items-center gap-2 text-neutral-400 hover:text-white"
                             >
-                                <Phone className="w-3.5 h-3.5" /> 8 800 100-00-00
+                                <Phone className="w-3.5 h-3.5" /> +7 919 324-65-82
                             </a>
                             <a
-                                href="https://t.me/tms_prod"
+                                href="https://t.me/BardinGD"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-2 text-neutral-400 hover:text-white"
                             >
-                                <Send className="w-3.5 h-3.5" /> Telegram
+                                <Send className="w-3.5 h-3.5" /> @BardinGD
                             </a>
                         </div>
                     </div>
@@ -124,7 +124,7 @@ export function Footer() {
                 <div className="mt-12 pt-6 border-t border-neutral-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-neutral-500">
                     <div>© {new Date().getFullYear()} ТрансПульт. Все права защищены.</div>
                     <div className="flex flex-wrap items-center gap-4">
-                        <span>ИНН 0000000000 · ОГРН 0000000000000</span>
+                        <span>ИП Бардин Г.Д. · ИНН 746003023587 · ОГРНИП 326745600039073</span>
                         <span>Сделано в России 🇷🇺 · Серверы в РФ · 152-ФЗ</span>
                     </div>
                 </div>
