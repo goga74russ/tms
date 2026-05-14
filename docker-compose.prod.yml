@@ -131,6 +131,10 @@ services:
       # ЮKassa webhook signing secret. Defensive: keep empty if not yet
       # wired so the webhook route rejects requests that can't be verified.
       YOOKASSA_WEBHOOK_SECRET: ${YOOKASSA_WEBHOOK_SECRET:-}
+      # DaData API key for INN/ОГРН lookup in /onboarding step 1 and
+      # /api/dadata/* routes. Empty -> dadata module returns deterministic
+      # mock data (good for dev / when DaData is unavailable).
+      DADATA_API_KEY: ${DADATA_API_KEY:-}
       # Carrier (ИП) reference data used to render waybills, invoices,
       # ЭТрН XML and other documents. Empty fallbacks keep the API booting
       # even in early-pilot deploys where some fields are TBD.

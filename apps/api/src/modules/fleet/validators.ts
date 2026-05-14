@@ -127,7 +127,7 @@ export async function lookupByInn(inn: string): Promise<{
     kpp?: string;
     legalAddress?: string;
 } | null> {
-    const company = dadataFindByInn(inn);
+    const company = await dadataFindByInn(inn);
     if (!company) return null;
     return {
         name: company.name,

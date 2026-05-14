@@ -99,7 +99,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: parsed.error.flatten() });
         }
-        const company = findByInn(parsed.data.inn);
+        const company = await findByInn(parsed.data.inn);
         if (!company) {
             return reply.status(404).send({ success: false, error: 'Компания не найдена' });
         }

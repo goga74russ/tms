@@ -106,7 +106,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
             });
         }
 
-        const company = DaDataMock.findByInn(inn);
+        const company = await DaDataMock.findByInn(inn);
         if (!company) {
             return reply.status(404).send({ success: false, error: 'Компания не найдена' });
         }
