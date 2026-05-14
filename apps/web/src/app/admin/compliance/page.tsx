@@ -383,7 +383,7 @@ function MarkingTab() {
                                 {rows.slice(0, 50).map(r => (
                                     <tr key={r.id} className="border-b border-neutral-100">
                                         <td className="py-2 px-2 text-neutral-500">{formatDateTime(r.verifiedAt)}</td>
-                                        <td className="py-2 px-2 font-mono text-xs truncate max-w-xs">{r.code}</td>
+                                        <td className="py-2 px-2 font-mono text-xs truncate max-w-xs" title={r.code}>{r.code}</td>
                                         <td className="py-2 px-2">{r.category ?? '—'}</td>
                                         <td className="py-2 px-2">{r.productName ?? '—'}</td>
                                         <td className="py-2 px-2">

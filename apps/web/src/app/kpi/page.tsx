@@ -24,7 +24,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { DashboardHeader } from "@/components/ui/dashboard-header";
 import { MetricCard } from "@/components/ui/metric-card";
 import { computeRange, type PeriodRange } from "@/components/ui/period-selector";
-import { BarChart3, TrendingUp, Truck, Percent, Gauge } from "lucide-react";
+import { BarChart3, TrendingUp, Truck, Percent, Wallet, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 interface KpiData {
     revenue: number | string | null;
@@ -43,17 +44,6 @@ interface KpiData {
     debtorLight: "green" | "yellow" | "red";
     finesLight: "green" | "yellow" | "red";
     topDrivers: { name: string; trips: number; eco: string; score: string }[];
-}
-
-interface FuelRow {
-    vehicleId: string;
-    vehicle: string;
-    totalDistanceKm: number;
-    fuelUsedLiters: number;
-    expectedFuelLiters: number;
-    differenceLiters: number;
-    variancePercent: number;
-    status: string;
 }
 
 type ApiResponse<T> = { success: boolean; data: T };
@@ -278,7 +268,6 @@ export default function KPIDashboard() {
     const [mounted, setMounted] = useState(false);
     const [kpi, setKpi] = useState<KpiData | null>(null);
     const [prevKpi, setPrevKpi] = useState<KpiData | null>(null);
-    const [fuelData, setFuelData] = useState<FuelRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [period, setPeriod] = useState<PeriodRange>(() => computeRange('mtd'));
@@ -302,15 +291,13 @@ export default function KPIDashboard() {
             const prevStart = format(prevFrom, 'yyyy-MM-dd');
             const prevEnd = format(prevTo, 'yyyy-MM-dd');
 
-            const [kpiRes, prevKpiRes, fuelRes] = await Promise.all([
+            const [kpiRes, prevKpiRes] = await Promise.all([
                 api.get<ApiResponse<KpiData>>(`/finance/kpi?startDate=${startDate}&endDate=${endDate}`),
                 api.get<ApiResponse<KpiData>>(`/finance/kpi?startDate=${prevStart}&endDate=${prevEnd}`).catch(() => ({ success: false, data: null as unknown as KpiData })),
-                api.get<ApiResponse<FuelRow[]>>(`/finance/fuel-analysis?startDate=${startDate}&endDate=${endDate}`),
             ]);
 
             setKpi(kpiRes.data);
             setPrevKpi(prevKpiRes.data ?? null);
-            setFuelData(fuelRes.data || []);
         } catch (err: any) {
             setError(err.message || "Не удалось загрузить данные KPI.");
         } finally {
@@ -334,15 +321,10 @@ export default function KPIDashboard() {
     const repairsAmount = toNumber(kpi?.repairsAmount);
     const tripsCompleted = toNumber(kpi?.tripsCompleted);
     const overdueDebt = toNumber(kpi?.overdueDebt);
-    const ktgPercent = toNumber(kpi?.ktgPercent);
-    const fleetActive = toNumber(kpi?.fleetActive);
-    const fleetReady = toNumber(kpi?.fleetReady);
-    const fleetUnavailable = toNumber(kpi?.fleetUnavailable);
 
     const prevRevenue = toNumber(prevKpi?.revenue);
     const prevTrips = toNumber(prevKpi?.tripsCompleted);
     const prevMargin = toNumber(prevKpi?.marginPercent);
-    const prevKtg = toNumber(prevKpi?.ktgPercent);
 
     // Build a 7-point sparkline from the current/prev pair (smooth visual gradient).
     const sparkBetween = (start: number, end: number, n = 7) => {
@@ -361,17 +343,11 @@ export default function KPIDashboard() {
         { name: "Прочие", value: Math.max(0, cost - repairsAmount - finesAmount) },
     ] : [];
 
-    const fuelChartData = fuelData.map((item) => ({
-        vehicle: item.vehicle.split("(")[0].trim(),
-        actual: item.fuelUsedLiters,
-        norm: item.expectedFuelLiters,
-    }));
-
     return (
         <div className="min-h-screen space-y-6 bg-neutral-50 p-4 sm:p-6 lg:p-8 text-neutral-900">
             <DashboardHeader
                 title="Панель KPI"
-                subtitle="Ключевые показатели бизнеса и аналитика затрат"
+                subtitle="Финансовый дашборд руководителя: выручка, маржа, дебиторка, штрафы"
                 icon={BarChart3}
                 iconTone="brand"
                 period={period}
@@ -418,16 +394,27 @@ export default function KPIDashboard() {
                     tone={marginPercent >= 30 ? 'success' : 'warning'}
                 />
                 <MetricCard
-                    label="КТГ"
-                    value={kpi ? `${ktgPercent.toFixed(1)}%` : "—"}
-                    change={computeChange(ktgPercent, prevKtg)}
-                    hint={kpi ? `${fleetReady} из ${fleetActive} готовы${fleetUnavailable > 0 ? `, ${fleetUnavailable} не готовы` : ''}` : 'Тех. готовность парка'}
-                    sparkline={sparkBetween(prevKtg, ktgPercent)}
-                    sparklineTone="brand"
-                    icon={Gauge}
-                    tone="info"
+                    label="Маржа, ₽"
+                    value={kpi ? formatCompactMoney(margin) : "—"}
+                    change={computeChange(margin, toNumber(prevKpi?.margin))}
+                    hint="абсолютная маржа"
+                    sparkline={sparkBetween(toNumber(prevKpi?.margin), margin)}
+                    sparklineTone={margin >= 0 ? 'success' : 'warning'}
+                    icon={Wallet}
+                    tone={margin >= 0 ? 'success' : 'warning'}
                 />
             </div>
+
+            <Link
+                href="/analytics"
+                className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700 shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50"
+            >
+                <span>
+                    Операционные метрики — ТО, маржинальность рейсов, расход топлива, КТГ парка — на странице{' '}
+                    <span className="font-semibold text-brand-700">Аналитика</span>
+                </span>
+                <ArrowRight className="h-4 w-4 text-neutral-400" />
+            </Link>
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <TrafficLight
@@ -490,37 +477,7 @@ export default function KPIDashboard() {
                 </Card>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-lg font-semibold text-neutral-900">Топливо: факт против нормы</CardTitle>
-                        {fuelData.some((item) => item.status === "overconsumption") && (
-                            <span className="rounded-full border border-yellow-200 bg-yellow-100 px-2 py-1 text-xs text-yellow-700">
-                                Есть перерасход
-                            </span>
-                        )}
-                    </CardHeader>
-                    <CardContent>
-                        {fuelChartData.length > 0 ? (
-                            <div className="mt-4 h-64 w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={fuelChartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
-                                        <XAxis type="number" stroke="#64748b" axisLine={false} tickLine={false} unit=" л" />
-                                        <YAxis type="category" dataKey="vehicle" stroke="#64748b" axisLine={false} tickLine={false} width={100} />
-                                        <RechartsTooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#e2e8f0", borderRadius: "8px" }} />
-                                        <Legend iconType="circle" />
-                                        <Bar dataKey="actual" name="Факт" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={14} />
-                                        <Bar dataKey="norm" name="Норма" fill="#10b981" radius={[0, 4, 4, 0]} barSize={14} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        ) : (
-                            <div className="py-12 text-center text-neutral-400">Нет данных по ГСМ за выбранный период.</div>
-                        )}
-                    </CardContent>
-                </Card>
-
+            <div className="grid grid-cols-1 gap-6">
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg font-semibold text-neutral-900">Топ водителей (KPI)</CardTitle>

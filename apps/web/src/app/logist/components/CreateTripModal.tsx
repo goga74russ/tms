@@ -343,6 +343,15 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                             !selectedVehicle || !selectedDriver || selectedOrders.length === 0
                             || submitting || loadingData
                         }
+                        title={
+                            !selectedVehicle
+                                ? 'Выберите автомобиль'
+                                : !selectedDriver
+                                    ? 'Выберите водителя'
+                                    : selectedOrders.length === 0
+                                        ? 'Добавьте хотя бы один заказ в рейс'
+                                        : undefined
+                        }
                         className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/25 gap-2"
                     >
                         {submitting ? (

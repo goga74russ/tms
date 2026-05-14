@@ -154,6 +154,7 @@ export function StepScenario({ onNext, onBack }: Props) {
                     isLoading={saving}
                     disabled={!selected || saving}
                     rightIcon={!saving ? <ArrowRight className="w-4 h-4" /> : undefined}
+                    title={!selected ? 'Выберите сценарий перевозок выше, чтобы продолжить' : undefined}
                 >
                     Далее
                 </Button>

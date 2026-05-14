@@ -7,29 +7,46 @@ import { Dialog } from '@/components/ui/dialog';
 import { FormField } from '@/components/ui/form-field';
 import { useToast } from '@/components/ui/toast';
 
+export interface EditableVehicle {
+    id: string;
+    plateNumber: string;
+    vin: string;
+    make: string;
+    model: string;
+    year: number;
+    bodyType: string;
+    payloadCapacityKg: number;
+    payloadVolumeM3?: number | null;
+    fuelTankLiters?: number | null;
+    fuelNormPer100Km?: number | null;
+    adrEquipped?: boolean | null;
+}
+
 interface AddVehicleModalProps {
     onClose: () => void;
     onCreated: () => void;
+    editingVehicle?: EditableVehicle | null;
 }
 
 const BODY_TYPES = ['тент', 'борт', 'рефрижератор', 'фургон', 'цистерна', 'контейнеровоз', 'самосвал'];
 
-export function AddVehicleModal({ onClose, onCreated }: AddVehicleModalProps) {
+export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehicleModalProps) {
     const { toast } = useToast();
+    const isEdit = !!editingVehicle;
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [form, setForm] = useState({
-        plateNumber: '',
-        vin: '',
-        make: '',
-        model: '',
-        year: new Date().getFullYear(),
-        bodyType: 'тент',
-        payloadCapacityKg: 5000,
-        payloadVolumeM3: 20,
-        fuelTankLiters: 120,
-        fuelNormPer100Km: 18,
-        adrEquipped: false,
+        plateNumber: editingVehicle?.plateNumber ?? '',
+        vin: editingVehicle?.vin ?? '',
+        make: editingVehicle?.make ?? '',
+        model: editingVehicle?.model ?? '',
+        year: editingVehicle?.year ?? new Date().getFullYear(),
+        bodyType: editingVehicle?.bodyType ?? 'тент',
+        payloadCapacityKg: editingVehicle?.payloadCapacityKg ?? 5000,
+        payloadVolumeM3: editingVehicle?.payloadVolumeM3 ?? 20,
+        fuelTankLiters: editingVehicle?.fuelTankLiters ?? 120,
+        fuelNormPer100Km: editingVehicle?.fuelNormPer100Km ?? 18,
+        adrEquipped: editingVehicle?.adrEquipped ?? false,
     });
     const vehicleProfile = getVehicleProfile(form.bodyType, form.payloadCapacityKg);
     const waybillCue = getVehicleWaybillCue(form.bodyType, form.payloadCapacityKg);
@@ -52,18 +69,23 @@ export function AddVehicleModal({ onClose, onCreated }: AddVehicleModalProps) {
 
         setLoading(true);
         try {
-            await api.post('/fleet/vehicles', form);
-            toast({ variant: 'success', title: 'Транспорт добавлен' });
+            if (isEdit && editingVehicle) {
+                await api.put(`/fleet/vehicles/${editingVehicle.id}`, form);
+                toast({ variant: 'success', title: 'ТС обновлено' });
+            } else {
+                await api.post('/fleet/vehicles', form);
+                toast({ variant: 'success', title: 'Транспорт добавлен' });
+            }
             onCreated();
         } catch (err: any) {
-            setError(err?.message || 'Ошибка создания ТС');
+            setError(err?.message || (isEdit ? 'Ошибка обновления ТС' : 'Ошибка создания ТС'));
         } finally {
             setLoading(false);
         }
     }
 
     return (
-        <Dialog open={true} onClose={onClose} title="Добавить ТС" size="md">
+        <Dialog open={true} onClose={onClose} title={isEdit ? 'Редактировать ТС' : 'Добавить ТС'} size="md">
             <form onSubmit={handleSubmit} className="space-y-4">
                     {error && (
                         <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
@@ -276,7 +298,7 @@ export function AddVehicleModal({ onClose, onCreated }: AddVehicleModalProps) {
                             className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg
                                 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                         >
-                            {loading ? 'Создание...' : 'Создать ТС'}
+                            {loading ? (isEdit ? 'Сохранение...' : 'Создание...') : (isEdit ? 'Сохранить' : 'Создать ТС')}
                         </button>
                     </div>
                 </form>

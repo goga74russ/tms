@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { ArrowLeft, Plus, Trash2, Mail, User, CheckCircle2, SkipForward } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/ui/form-field';
 import { useToast } from '@/components/ui/toast';
 
 const ROLE_OPTIONS = [
@@ -101,48 +103,55 @@ export function StepTeam({ onComplete, onBack }: Props) {
                 {invites.map((inv, i) => (
                     <div
                         key={i}
-                        className="grid grid-cols-12 gap-2 items-center bg-neutral-50 border border-neutral-200 rounded-xl p-3"
+                        className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start sm:items-center bg-neutral-50 border border-neutral-200 rounded-xl p-3"
                     >
-                        <div className="col-span-12 sm:col-span-5 relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
-                            <input
-                                type="email"
+                        <div className="sm:col-span-5">
+                            <FormField
+                                format="email"
                                 placeholder="email@company.ru"
                                 value={inv.email}
                                 onChange={(e) => updateRow(i, { email: e.target.value })}
-                                className="w-full h-9 pl-9 pr-3 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
+                                leftAddon={<Mail className="h-4 w-4" />}
+                                aria-label="E-mail приглашаемого"
                             />
                         </div>
-                        <div className="col-span-12 sm:col-span-4 relative">
-                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
-                            <input
+                        <div className="sm:col-span-4">
+                            <Input
                                 type="text"
                                 placeholder="ФИО"
                                 value={inv.fullName}
                                 onChange={(e) => updateRow(i, { fullName: e.target.value })}
-                                className="w-full h-9 pl-9 pr-3 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
+                                leftAddon={<User className="h-4 w-4" />}
+                                aria-label="ФИО приглашаемого"
                             />
                         </div>
-                        <select
-                            value={inv.roles[0]}
-                            onChange={(e) => updateRow(i, { roles: [e.target.value] })}
-                            className="col-span-10 sm:col-span-2 h-9 px-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
-                        >
-                            {ROLE_OPTIONS.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                    {r.label}
-                                </option>
-                            ))}
-                        </select>
-                        <button
-                            type="button"
-                            onClick={() => removeRow(i)}
-                            disabled={invites.length === 1}
-                            aria-label="Удалить строку"
-                            className="col-span-2 sm:col-span-1 inline-flex items-center justify-center h-9 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="grid grid-cols-[1fr_auto] gap-2 items-center sm:contents">
+                            <select
+                                value={inv.roles[0]}
+                                onChange={(e) => updateRow(i, { roles: [e.target.value] })}
+                                className="sm:col-span-2 h-10 px-2 bg-white border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
+                            >
+                                {ROLE_OPTIONS.map((r) => (
+                                    <option key={r.id} value={r.id}>
+                                        {r.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                type="button"
+                                onClick={() => removeRow(i)}
+                                disabled={invites.length === 1}
+                                aria-label="Удалить строку"
+                                title={
+                                    invites.length === 1
+                                        ? 'Нужна хотя бы одна строка — добавьте ещё, чтобы удалить эту'
+                                        : 'Удалить строку'
+                                }
+                                className="sm:col-span-1 inline-flex items-center justify-center h-10 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400 disabled:cursor-not-allowed"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
                 ))}
             </div>

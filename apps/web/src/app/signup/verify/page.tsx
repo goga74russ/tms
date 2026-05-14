@@ -309,6 +309,7 @@ function VerifyEmailContent() {
                     isLoading={loading}
                     disabled={code.length !== CODE_LENGTH}
                     onClick={() => verify(code)}
+                    title={code.length !== CODE_LENGTH ? `Введите все ${CODE_LENGTH} цифр кода` : undefined}
                 >
                     {loading ? 'Проверяем...' : 'Подтвердить'}
                 </Button>

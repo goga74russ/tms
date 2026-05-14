@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '@/lib/api';
-import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2, Play, Flag, FolderOpen, Thermometer } from 'lucide-react';
+import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2, Play, Flag, FolderOpen, Thermometer, Download } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
@@ -219,6 +219,32 @@ function formatDate(d?: string) {
         day: '2-digit', month: '2-digit', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
     });
+}
+
+function csvCell(value: unknown): string {
+    const s = value === null || value === undefined ? '' : String(value);
+    if (/[",;\n\r]/.test(s)) {
+        return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+}
+
+function downloadCSV(filename: string, lines: string[]) {
+    const csv = '﻿' + lines.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function formatDateRaw(d?: string) {
+    if (!d) return '';
+    return new Date(d).toLocaleString('ru-RU');
 }
 
 function formatTimelineDate(value?: string | null) {
@@ -2661,15 +2687,52 @@ export default function TripsPage() {
                         <p className="text-sm text-neutral-500 truncate">Все рейсы — {trips.length} записей</p>
                     </div>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    isLoading={loading}
-                    leftIcon={<RefreshCcw className="w-3.5 h-3.5" />}
-                    onClick={() => loadTrips()}
-                >
-                    Обновить
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        leftIcon={<Download className="w-3.5 h-3.5" />}
+                        disabled={trips.length === 0}
+                        title={trips.length === 0 ? 'Нет данных для экспорта' : `Экспортировать ${trips.length} записей`}
+                        onClick={() => {
+                            const headers = ['Номер рейса', 'Статус', 'ТС', 'Прицеп', 'Заявки', 'Перевозчик', 'Дистанция план (км)', 'Дистанция факт (км)', 'Выезд план', 'Выезд факт', 'Завершён', 'Создан'];
+                            const lines = [
+                                headers.map(csvCell).join(','),
+                                ...trips.map(t => {
+                                    const vehicle = t.vehicleId ? vehicleMap[t.vehicleId] : null;
+                                    const trailer = t.vehicleId ? trailerMap[t.vehicleId] : null;
+                                    const orders = (tripOrderNumbers[t.id] || []).join(';');
+                                    return [
+                                        t.number,
+                                        STATUS_LABELS[t.status] || t.status,
+                                        vehicle?.plateNumber ?? '',
+                                        trailer?.plateNumber ?? '',
+                                        orders,
+                                        t.carrierName ?? '',
+                                        t.plannedDistanceKm ?? '',
+                                        t.actualDistanceKm ?? '',
+                                        formatDateRaw(t.plannedDepartureAt),
+                                        formatDateRaw(t.actualDepartureAt),
+                                        formatDateRaw(t.actualCompletionAt),
+                                        formatDateRaw(t.createdAt),
+                                    ].map(csvCell).join(',');
+                                }),
+                            ];
+                            downloadCSV(`trips-${new Date().toISOString().split('T')[0]}.csv`, lines);
+                        }}
+                    >
+                        Экспорт CSV
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        isLoading={loading}
+                        leftIcon={<RefreshCcw className="w-3.5 h-3.5" />}
+                        onClick={() => loadTrips()}
+                    >
+                        Обновить
+                    </Button>
+                </div>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -2813,7 +2876,12 @@ export default function TripsPage() {
                         <Button variant="outline" size="sm" onClick={closeLifecycleModals} disabled={lifecycleSubmitting}>
                             Отмена
                         </Button>
-                        <Button size="sm" onClick={submitStartTrip} disabled={lifecycleSubmitting || !lifecycleOdometer}>
+                        <Button
+                            size="sm"
+                            onClick={submitStartTrip}
+                            disabled={lifecycleSubmitting || !lifecycleOdometer}
+                            title={!lifecycleOdometer ? 'Введите показания одометра, чтобы начать рейс' : undefined}
+                        >
                             {lifecycleSubmitting && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
                             Начать рейс
                         </Button>
@@ -2867,7 +2935,12 @@ export default function TripsPage() {
                         <Button variant="outline" size="sm" onClick={closeLifecycleModals} disabled={lifecycleSubmitting}>
                             Отмена
                         </Button>
-                        <Button size="sm" onClick={submitCompleteTrip} disabled={lifecycleSubmitting || !lifecycleOdometer}>
+                        <Button
+                            size="sm"
+                            onClick={submitCompleteTrip}
+                            disabled={lifecycleSubmitting || !lifecycleOdometer}
+                            title={!lifecycleOdometer ? 'Введите показания одометра, чтобы завершить рейс' : undefined}
+                        >
                             {lifecycleSubmitting && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
                             Завершить рейс
                         </Button>
@@ -3026,6 +3099,7 @@ export default function TripsPage() {
                                                         size="sm"
                                                         disabled={!selectedCarrierId || assigningCarrier}
                                                         onClick={handleAssignCarrier}
+                                                        title={!selectedCarrierId ? 'Выберите перевозчика с активным договором' : undefined}
                                                     >
                                                         {assigningCarrier ? 'Назначение...' : 'Назначить'}
                                                     </Button>

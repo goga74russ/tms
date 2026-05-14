@@ -904,7 +904,7 @@ export default function DispatcherPage() {
                                                         : rp.status === 'arrived' ? 'text-blue-500'
                                                             : 'text-neutral-300'
                                                         }`} />
-                                                    <span className={`truncate ${rp.status === 'completed' ? 'text-neutral-400 line-through' : 'text-neutral-600'}`}>
+                                                    <span className={`truncate ${rp.status === 'completed' ? 'text-neutral-400 line-through' : 'text-neutral-600'}`} title={rp.address || undefined}>
                                                         {rp.address || `Точка ${rp.sequenceNumber}`}
                                                     </span>
                                                     <span className={`ml-auto text-[10px] font-medium ${rp.type === 'loading' ? 'text-green-600' : 'text-orange-600'

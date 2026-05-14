@@ -406,6 +406,15 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                 <button
                     onClick={handleAssign}
                     disabled={!selectedOrder || !selectedVehicle || isAssigning}
+                    title={
+                        !selectedOrder && !selectedVehicle
+                            ? 'Выберите заказ и автомобиль, чтобы назначить'
+                            : !selectedOrder
+                                ? 'Выберите заказ для назначения'
+                                : !selectedVehicle
+                                    ? 'Выберите автомобиль для назначения'
+                                    : undefined
+                    }
                     className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${selectedOrder && selectedVehicle
                         ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl'
                         : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'

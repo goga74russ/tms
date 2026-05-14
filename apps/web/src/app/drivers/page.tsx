@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Plus, Users, Loader2, AlertTriangle, Timer, ShieldCheck, HeartPulse, UserCheck, UserX, Pencil } from 'lucide-react';
+import { Plus, Users, Loader2, AlertTriangle, Timer, ShieldCheck, HeartPulse, UserCheck, UserX, Pencil, Download } from 'lucide-react';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +44,46 @@ interface HoursSummary {
 function formatDate(d?: string) {
     if (!d) return '—';
     return new Date(d).toLocaleDateString('ru-RU');
+}
+
+function csvCell(value: unknown): string {
+    const s = value === null || value === undefined ? '' : String(value);
+    if (/[",;\n\r]/.test(s)) {
+        return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+}
+
+function downloadCSV(filename: string, lines: string[]) {
+    // BOM так, чтобы Excel корректно открывал UTF-8
+    const csv = '﻿' + lines.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function exportDriversCSV(rows: Driver[]) {
+    const headers = ['ФИО', 'Телефон', 'Категории ВУ', 'Номер ВУ', 'Срок ВУ', 'Срок медсправки', 'Срок ADR', 'Статус'];
+    const lines = [
+        headers.map(csvCell).join(','),
+        ...rows.map(r => [
+            r.fullName,
+            r.phone ?? '',
+            (r.licenseCategories ?? []).join(';'),
+            r.licenseNumber,
+            r.licenseExpiry ? formatDate(r.licenseExpiry) : '',
+            r.medCertificateExpiry ? formatDate(r.medCertificateExpiry) : '',
+            r.adrCertificateExpiry ? formatDate(r.adrCertificateExpiry) : '',
+            r.isActive ? 'активен' : 'неактивен',
+        ].map(csvCell).join(',')),
+    ];
+    downloadCSV(`drivers-${new Date().toISOString().split('T')[0]}.csv`, lines);
 }
 
 function expiryColor(d?: string) {
@@ -455,9 +495,20 @@ export default function DriversPage() {
                         </p>
                     </div>
                 </div>
-                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
-                    Добавить водителя
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        leftIcon={<Download className="w-4 h-4" />}
+                        onClick={() => exportDriversCSV(filtered)}
+                        disabled={filtered.length === 0}
+                        title={filtered.length === 0 ? 'Нет данных для экспорта' : `Экспортировать ${filtered.length} записей`}
+                    >
+                        Экспорт CSV
+                    </Button>
+                    <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
+                        Добавить водителя
+                    </Button>
+                </div>
             </div>
 
             {/* Stat cards */}

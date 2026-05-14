@@ -360,6 +360,7 @@ function ImportPanel({
                             <button
                                 onClick={onCommit}
                                 disabled={committing || preview.validCount === 0}
+                                title={preview.validCount === 0 ? 'Нет валидных строк для импорта — исправьте ошибки выше' : undefined}
                                 className="ml-auto flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
                             >
                                 {committing

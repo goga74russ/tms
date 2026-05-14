@@ -445,7 +445,7 @@ export function ContractorsTable() {
                                     </td>
                                     <td className="px-4 py-3 font-mono text-neutral-600">{contractor.inn}</td>
                                     <td className="px-4 py-3 font-mono text-neutral-500 text-xs">{contractor.kpp || '—'}</td>
-                                    <td className="px-4 py-3 text-neutral-600 max-w-xs truncate">{contractor.legalAddress}</td>
+                                    <td className="px-4 py-3 text-neutral-600 max-w-xs truncate" title={contractor.legalAddress}>{contractor.legalAddress}</td>
                                     <td className="px-4 py-3 text-neutral-600">{contractor.phone || '—'}</td>
                                     <td className="px-4 py-3 text-neutral-600">{contractor.email || '—'}</td>
                                     <td className="px-4 py-3 text-right">

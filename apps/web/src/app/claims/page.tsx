@@ -12,7 +12,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { DataTable, type Column, type RowAction, Pill, type PillTone } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
-import { AlertOctagon, ShieldAlert, Plus, CheckCircle2, FilePlus2, FileText, PlayCircle, XCircle, AlertCircle, Clock } from "lucide-react";
+import { BulkActionsBar } from "@/components/ui/bulk-actions-bar";
+import { AlertOctagon, ShieldAlert, Plus, CheckCircle2, FilePlus2, FileText, PlayCircle, XCircle, AlertCircle, Clock, FileSpreadsheet } from "lucide-react";
 
 // ——— Types ———
 interface Claim {
@@ -464,6 +465,17 @@ export default function ClaimsPage() {
     const [statusFilter, setStatusFilter] = useState('');
     const [showCreate, setShowCreate] = useState(false);
     const [resolvingClaim, setResolvingClaim] = useState<Claim | null>(null);
+    // Bulk selection state (for floating BulkActionsBar)
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkBusy, setBulkBusy] = useState(false);
+
+    const toggleRowSelected = useCallback((id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    }, []);
 
     const loadClaims = useCallback(async () => {
         setLoading(true);
@@ -512,7 +524,93 @@ export default function ClaimsPage() {
             .reduce((s, c) => s + (claimAmount(c, 'resolvedAmount') ?? 0), 0),
     };
 
+    // Filter visible claims for the "select-all-visible" header checkbox.
+    const visibleClaims = statusFilter ? claims.filter(c => c.status === statusFilter) : claims;
+    const allVisibleSelected =
+        visibleClaims.length > 0 && visibleClaims.every(c => selectedIds.has(c.id));
+    const someVisibleSelected =
+        visibleClaims.some(c => selectedIds.has(c.id)) && !allVisibleSelected;
+    const toggleAllVisible = () => {
+        const visibleIds = visibleClaims.map(c => c.id);
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (allVisibleSelected) {
+                visibleIds.forEach(id => next.delete(id));
+            } else {
+                visibleIds.forEach(id => next.add(id));
+            }
+            return next;
+        });
+    };
+
+    async function handleBulkClose() {
+        const ids = Array.from(selectedIds);
+        if (ids.length === 0) return;
+        setBulkBusy(true);
+        try {
+            // No bulk endpoint exists — per-id loop via existing /resolve endpoint.
+            const results = await Promise.allSettled(
+                ids.map(id =>
+                    api.post(`/claims/${id}/resolve`, {
+                        status: 'resolved',
+                        resolution: 'Массовое закрытие',
+                        resolvedAmount: null,
+                    }),
+                ),
+            );
+            const ok = results.filter(r => r.status === 'fulfilled').length;
+            const failed = results.length - ok;
+            await loadClaims();
+            setSelectedIds(new Set());
+            toast({
+                variant: failed === 0 ? 'success' : 'warning',
+                title: 'Претензии закрыты',
+                description: failed === 0 ? `Закрыто: ${ok}` : `Закрыто: ${ok}, ошибок: ${failed}`,
+            });
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Ошибка', description: err?.message });
+        } finally {
+            setBulkBusy(false);
+        }
+    }
+
+    function handleBulkExportExcel() {
+        // No bulk export endpoint exists yet — stub.
+        toast({
+            variant: 'info',
+            title: 'Скоро будет',
+            description: `Экспорт в Excel (${selectedIds.size}) появится в следующем релизе.`,
+        });
+    }
+
     const columns: Column<Claim>[] = [
+        {
+            id: '_select',
+            header: (
+                <input
+                    type="checkbox"
+                    aria-label="Выделить все"
+                    checked={allVisibleSelected}
+                    ref={(el: HTMLInputElement | null) => { if (el) el.indeterminate = someVisibleSelected; }}
+                    onChange={toggleAllVisible}
+                    onClick={e => e.stopPropagation()}
+                    className="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                />
+            ),
+            cell: (r) => (
+                <input
+                    type="checkbox"
+                    aria-label={`Выделить претензию ${r.id.slice(0, 8)}`}
+                    checked={selectedIds.has(r.id)}
+                    onChange={() => toggleRowSelected(r.id)}
+                    onClick={e => e.stopPropagation()}
+                    className="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                />
+            ),
+            width: '40px',
+            excludeFromSearch: true,
+            alwaysVisible: true,
+        },
         {
             id: 'description',
             header: 'Описание',
@@ -733,6 +831,27 @@ export default function ClaimsPage() {
                     onResolved={() => { setResolvingClaim(null); loadClaims(); }}
                 />
             )}
+
+            <BulkActionsBar
+                selectedCount={selectedIds.size}
+                onClear={() => setSelectedIds(new Set())}
+                actions={[
+                    {
+                        label: 'Закрыть выбранные',
+                        onClick: handleBulkClose,
+                        icon: CheckCircle2,
+                        variant: 'primary',
+                        confirm: true,
+                        disabled: bulkBusy,
+                    },
+                    {
+                        label: 'Экспорт в Excel',
+                        onClick: handleBulkExportExcel,
+                        icon: FileSpreadsheet,
+                        disabled: bulkBusy,
+                    },
+                ]}
+            />
         </div>
     );
 }

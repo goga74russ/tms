@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
-import { Plus, Building2, Archive, Mail, Pencil } from 'lucide-react';
+import { Plus, Building2, Archive, Mail, Pencil, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -22,6 +22,45 @@ interface Contractor {
     contactPerson?: string;
     isArchived: boolean;
     createdAt: string;
+}
+
+function csvCell(value: unknown): string {
+    const s = value === null || value === undefined ? '' : String(value);
+    if (/[",;\n\r]/.test(s)) {
+        return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+}
+
+function downloadCSV(filename: string, lines: string[]) {
+    const csv = '﻿' + lines.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function exportContractorsCSV(rows: Contractor[]) {
+    const headers = ['Наименование', 'ИНН', 'КПП', 'Адрес', 'Телефон', 'Email', 'Контактное лицо', 'Статус'];
+    const lines = [
+        headers.map(csvCell).join(','),
+        ...rows.map(r => [
+            r.name,
+            r.inn,
+            r.kpp ?? '',
+            r.legalAddress,
+            r.phone ?? '',
+            r.email ?? '',
+            r.contactPerson ?? '',
+            r.isArchived ? 'архив' : 'активный',
+        ].map(csvCell).join(',')),
+    ];
+    downloadCSV(`contractors-${new Date().toISOString().split('T')[0]}.csv`, lines);
 }
 
 function CreateContractorModal({ onClose, onCreated, editingItem }: { onClose: () => void; onCreated: () => void; editingItem?: Contractor | null }) {
@@ -186,6 +225,7 @@ export default function ContractorsPage() {
             header: 'КПП',
             accessor: (r) => r.kpp || '',
             cell: (r) => r.kpp || <span className="text-neutral-400">—</span>,
+            sortable: true,
             monospace: true,
             width: '120px',
         },
@@ -193,7 +233,8 @@ export default function ContractorsPage() {
             id: 'legalAddress',
             header: 'Адрес',
             accessor: (r) => r.legalAddress,
-            cell: (r) => <span className="text-neutral-600 truncate block max-w-xs">{r.legalAddress}</span>,
+            cell: (r) => <span className="text-neutral-600 truncate block max-w-xs" title={r.legalAddress}>{r.legalAddress}</span>,
+            sortable: true,
             minWidth: '240px',
         },
         {
@@ -255,9 +296,20 @@ export default function ContractorsPage() {
                         <p className="text-sm text-neutral-500 mt-0.5">Реестр клиентов, перевозчиков и поставщиков</p>
                     </div>
                 </div>
-                <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
-                    Добавить контрагента
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        leftIcon={<Download className="w-4 h-4" />}
+                        onClick={() => exportContractorsCSV(filtered)}
+                        disabled={filtered.length === 0}
+                        title={filtered.length === 0 ? 'Нет данных для экспорта' : `Экспортировать ${filtered.length} записей`}
+                    >
+                        Экспорт CSV
+                    </Button>
+                    <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowCreateModal(true)}>
+                        Добавить контрагента
+                    </Button>
+                </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

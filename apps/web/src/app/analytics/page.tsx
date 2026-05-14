@@ -6,9 +6,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import {
-    AlertTriangle, TrendingUp, Wrench, ShieldCheck,
-    Activity, Gauge, Loader2, RefreshCw, Droplets, TimerReset, BarChart3,
+    AlertTriangle, Wrench, ShieldCheck,
+    Activity, Gauge, Loader2, RefreshCw, Droplets, TimerReset, BarChart3, ArrowRight,
 } from 'lucide-react';
+import Link from 'next/link';
 
 // ================================================================
 // Types
@@ -274,7 +275,7 @@ export default function AnalyticsPage() {
                     <div>
                         <h1 className="text-2xl font-semibold text-neutral-900">Аналитика</h1>
                         <p className="text-sm text-neutral-500 mt-0.5">
-                            Предиктивное ТО и маржинальность рейсов
+                            Операционная картина менеджера: ТО, маржа рейсов, топливо, готовность парка
                         </p>
                     </div>
                 </div>
@@ -283,40 +284,46 @@ export default function AnalyticsPage() {
                 </Button>
             </div>
 
-            {/* Stat Cards */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            {/* Stat Cards — operational scope */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <StatCard
                     icon={<AlertTriangle className="w-5 h-5 text-red-500" />}
-                    label="Критические"
+                    label="ТО критические"
                     value={criticalCount}
                     color="red"
                 />
                 <StatCard
                     icon={<ShieldCheck className="w-5 h-5 text-amber-500" />}
-                    label="Предупреждения"
+                    label="ТО предупреждения"
                     value={warningCount}
                     color="amber"
                 />
                 <StatCard
-                    icon={<TrendingUp className="w-5 h-5 text-emerald-500" />}
-                    label="Ср. маржа"
-                    value={summary ? fmtPct(summary.avgMarginPercent) : '—'}
-                    color="emerald"
-                />
-                <StatCard
                     icon={<Activity className="w-5 h-5 text-indigo-500" />}
-                    label="Рейсов"
+                    label="Рейсы с маржой"
                     value={summary?.totalTrips ?? 0}
+                    subtitle="завершённые рейсы периода"
                     color="indigo"
                 />
                 <StatCard
                     icon={<Gauge className="w-5 h-5 text-emerald-500" />}
-                    label="КТГ"
+                    label="КТГ парка"
                     value={fleetHealth ? `${fleetHealth.ktgPercent.toFixed(1)}%` : '—'}
-                    subtitle={fleetHealth ? `Готовы к выпуску: ${fleetHealth.fleetReady} / ${fleetHealth.fleetActive}${fleetHealth.fleetUnavailable > 0 ? `, недоступны: ${fleetHealth.fleetUnavailable}` : ''}` : 'Готовность парка'}
+                    subtitle={fleetHealth ? `Готовы: ${fleetHealth.fleetReady} / ${fleetHealth.fleetActive}${fleetHealth.fleetUnavailable > 0 ? `, недоступны: ${fleetHealth.fleetUnavailable}` : ''}` : 'Готовность парка'}
                     color={fleetHealth?.ktgLight === 'yellow' ? 'amber' : fleetHealth?.ktgLight === 'red' ? 'red' : 'emerald'}
                 />
             </div>
+
+            <Link
+                href="/kpi"
+                className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-700 shadow-sm transition-colors hover:border-brand-300 hover:bg-brand-50"
+            >
+                <span>
+                    Финансовые показатели — выручка, маржа компании, дебиторка, штрафы — на странице{' '}
+                    <span className="font-semibold text-brand-700">KPI</span>
+                </span>
+                <ArrowRight className="h-4 w-4 text-neutral-400" />
+            </Link>
 
             {fleetHealth?.readiness && (
                 <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
@@ -423,7 +430,7 @@ export default function AnalyticsPage() {
                                                         {a.severity === 'critical' ? '🔴 Критично' : '🟡 Внимание'}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3 text-neutral-600 max-w-xs truncate">
+                                                <td className="px-4 py-3 text-neutral-600 max-w-xs truncate" title={a.message}>
                                                     {a.message}
                                                 </td>
                                             </tr>

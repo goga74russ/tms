@@ -21,7 +21,8 @@ import { computeRange, type PeriodRange } from "@/components/ui/period-selector"
 import { SkeletonTable } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
-import { FileDown, Printer, Wallet, Receipt, AlertCircle, CheckCircle2, Banknote, FileSpreadsheet, Plus } from "lucide-react";
+import { BulkActionsBar } from "@/components/ui/bulk-actions-bar";
+import { FileDown, Printer, Wallet, Receipt, AlertCircle, CheckCircle2, Banknote, FileSpreadsheet, Plus, Archive, CheckSquare, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 
 async function downloadPdfAuth(apiPath: string, filename: string) {
     const res = await fetch(apiPath, {
@@ -143,6 +144,15 @@ export default function FinanceDashboard() {
     // Filters
     const [filterStatus, setFilterStatus] = useState('');
     const [filterSearch, setFilterSearch] = useState('');
+    // Sort state — UI P2: sortable headers
+    type FinanceSortKey = 'number' | 'periodStart' | 'total' | 'status';
+    const [sortBy, setSortBy] = useState<FinanceSortKey | null>(null);
+    const [sortDir, setSortDir] = useState<'asc' | 'desc' | null>(null);
+    function toggleSort(key: FinanceSortKey) {
+        if (sortBy !== key) { setSortBy(key); setSortDir('asc'); return; }
+        if (sortDir === 'asc') { setSortDir('desc'); return; }
+        setSortBy(null); setSortDir(null);
+    }
     const [period, setPeriod] = useState<PeriodRange>(() => computeRange('mtd'));
 
     // Invoice modal
@@ -176,6 +186,10 @@ export default function FinanceDashboard() {
     const [generating, setGenerating] = useState(false);
     const [contractors, setContractors] = useState<ContractorOption[]>([]);
     const [selectedContractorId, setSelectedContractorId] = useState('');
+
+    // Bulk row selection (for floating BulkActionsBar)
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkBusy, setBulkBusy] = useState(false);
 
     // Bulk generate dialog
     const [bulkOpen, setBulkOpen] = useState(false);
@@ -297,12 +311,36 @@ export default function FinanceDashboard() {
 
     // ——— Filtered list ———
     const filteredInvoices = useMemo(() => {
-        return periodInvoices.filter(inv => {
+        const filtered = periodInvoices.filter(inv => {
             if (filterStatus && inv.status !== filterStatus) return false;
             if (filterSearch && !inv.number.toLowerCase().includes(filterSearch.toLowerCase())) return false;
             return true;
         });
-    }, [periodInvoices, filterStatus, filterSearch]);
+        if (!sortBy || !sortDir) return filtered;
+        const dir = sortDir === 'asc' ? 1 : -1;
+        return [...filtered].sort((a, b) => {
+            let aVal: string | number | null | undefined;
+            let bVal: string | number | null | undefined;
+            switch (sortBy) {
+                case 'number':
+                    aVal = a.number; bVal = b.number; break;
+                case 'periodStart':
+                    aVal = a.periodStart ? new Date(a.periodStart).getTime() : null;
+                    bVal = b.periodStart ? new Date(b.periodStart).getTime() : null;
+                    break;
+                case 'total':
+                    aVal = Number(a.total); bVal = Number(b.total); break;
+                case 'status':
+                    aVal = a.status; bVal = b.status; break;
+            }
+            if (aVal == null) return 1;
+            if (bVal == null) return -1;
+            const cmp = typeof aVal === 'string'
+                ? aVal.localeCompare(String(bVal), 'ru')
+                : (aVal as number) - (bVal as number);
+            return cmp * dir;
+        });
+    }, [periodInvoices, filterStatus, filterSearch, sortBy, sortDir]);
 
     // ——— Actions ———
     const handleGenerateInvoice = async () => {
@@ -540,6 +578,104 @@ export default function FinanceDashboard() {
         }
     };
 
+    // ——— Bulk row-selection actions ———
+    const toggleRowSelected = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleAllVisible = () => {
+        const visibleIds = filteredInvoices.map(i => i.id);
+        const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (allSelected) {
+                visibleIds.forEach(id => next.delete(id));
+            } else {
+                visibleIds.forEach(id => next.add(id));
+            }
+            return next;
+        });
+    };
+
+    const allVisibleSelected =
+        filteredInvoices.length > 0 && filteredInvoices.every(i => selectedIds.has(i.id));
+    const someVisibleSelected =
+        filteredInvoices.some(i => selectedIds.has(i.id)) && !allVisibleSelected;
+
+    const handleBulkDownloadPdf = async () => {
+        // No bulk-pdf endpoint exists yet — per-id loop downloading each PDF.
+        const ids = Array.from(selectedIds);
+        const targets = invoices.filter(inv => ids.includes(inv.id));
+        if (targets.length === 0) return;
+        setBulkBusy(true);
+        try {
+            for (const inv of targets) {
+                try {
+                    await downloadPdfAuth(`/api/finance/invoices/${inv.id}/pdf`, `${inv.type}_${inv.number}.pdf`);
+                } catch (err) {
+                    console.error('Bulk PDF download failed for', inv.id, err);
+                }
+            }
+            toast({ variant: 'success', title: 'Архив выгружен', description: `Скачано PDF: ${targets.length}` });
+        } finally {
+            setBulkBusy(false);
+        }
+    };
+
+    const handleBulkMarkPaid = async () => {
+        const ids = Array.from(selectedIds);
+        if (ids.length === 0) return;
+        setBulkBusy(true);
+        try {
+            // No bulk endpoint exists — per-id loop via existing /status endpoint.
+            const results = await Promise.allSettled(
+                ids.map(id => api.put(`/finance/invoices/${id}/status`, { status: 'paid' })),
+            );
+            const ok = results.filter(r => r.status === 'fulfilled').length;
+            const failed = results.length - ok;
+            await fetchInvoices();
+            setSelectedIds(new Set());
+            toast({
+                variant: failed === 0 ? 'success' : 'warning',
+                title: 'Отмечено оплаченными',
+                description: failed === 0 ? `Обновлено счетов: ${ok}` : `Успешно: ${ok}, ошибок: ${failed}`,
+            });
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Ошибка', description: err?.message });
+        } finally {
+            setBulkBusy(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        const ids = Array.from(selectedIds);
+        if (ids.length === 0) return;
+        setBulkBusy(true);
+        try {
+            // No bulk endpoint — per-id DELETE loop.
+            const results = await Promise.allSettled(
+                ids.map(id => api.delete(`/finance/invoices/${id}`)),
+            );
+            const ok = results.filter(r => r.status === 'fulfilled').length;
+            const failed = results.length - ok;
+            await fetchInvoices();
+            setSelectedIds(new Set());
+            toast({
+                variant: failed === 0 ? 'success' : 'warning',
+                title: 'Удалено',
+                description: failed === 0 ? `Удалено счетов: ${ok}` : `Удалено: ${ok}, ошибок: ${failed} (возможно, эндпоинт DELETE не реализован)`,
+            });
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Ошибка', description: err?.message });
+        } finally {
+            setBulkBusy(false);
+        }
+    };
+
     // ================================================================
     const pendingCount = periodInvoices.filter(i => i.status === 'sent' || i.status === 'draft').length;
     const paidCount = periodInvoices.filter(i => i.status === 'paid').length;
@@ -568,7 +704,7 @@ export default function FinanceDashboard() {
                             placeholder="Выберите контрагента"
                             className="w-72"
                         />
-                        <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} isLoading={generating} onClick={handleGenerateInvoice} disabled={!selectedContractorId}>
+                        <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} isLoading={generating} onClick={handleGenerateInvoice} disabled={!selectedContractorId} title={!selectedContractorId ? 'Сначала выберите контрагента' : undefined}>
                             Счёт по рейсам
                         </Button>
                         <Button variant="outline" leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => { setBulkResult(null); setBulkOpen(true); }}>
@@ -636,7 +772,7 @@ export default function FinanceDashboard() {
                     </div>
 
                     {loading ? (
-                        <SkeletonTable rows={6} columns={8} />
+                        <SkeletonTable rows={6} columns={9} />
                     ) : filteredInvoices.length === 0 ? (
                         <EmptyState
                             icon={Receipt}
@@ -649,19 +785,66 @@ export default function FinanceDashboard() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Номер</TableHead>
+                                        <TableHead className="w-8">
+                                            <input
+                                                type="checkbox"
+                                                aria-label="Выделить все"
+                                                checked={allVisibleSelected}
+                                                ref={el => { if (el) el.indeterminate = someVisibleSelected; }}
+                                                onChange={toggleAllVisible}
+                                                className="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                                            />
+                                        </TableHead>
+                                        <TableHead>
+                                            <button type="button" onClick={() => toggleSort('number')} className="inline-flex items-center gap-1 hover:text-neutral-900 transition-colors">
+                                                <span>Номер</span>
+                                                {sortBy !== 'number' && <ChevronsUpDown className="w-3 h-3 text-neutral-400" />}
+                                                {sortBy === 'number' && sortDir === 'asc' && <ChevronUp className="w-3 h-3 text-brand-600" />}
+                                                {sortBy === 'number' && sortDir === 'desc' && <ChevronDown className="w-3 h-3 text-brand-600" />}
+                                            </button>
+                                        </TableHead>
                                         <TableHead>Тип</TableHead>
-                                        <TableHead>Период</TableHead>
+                                        <TableHead>
+                                            <button type="button" onClick={() => toggleSort('periodStart')} className="inline-flex items-center gap-1 hover:text-neutral-900 transition-colors">
+                                                <span>Период</span>
+                                                {sortBy !== 'periodStart' && <ChevronsUpDown className="w-3 h-3 text-neutral-400" />}
+                                                {sortBy === 'periodStart' && sortDir === 'asc' && <ChevronUp className="w-3 h-3 text-brand-600" />}
+                                                {sortBy === 'periodStart' && sortDir === 'desc' && <ChevronDown className="w-3 h-3 text-brand-600" />}
+                                            </button>
+                                        </TableHead>
                                         <TableHead>Сумма</TableHead>
                                         <TableHead>НДС</TableHead>
-                                        <TableHead>Итого</TableHead>
-                                        <TableHead>Статус</TableHead>
+                                        <TableHead>
+                                            <button type="button" onClick={() => toggleSort('total')} className="inline-flex items-center gap-1 hover:text-neutral-900 transition-colors">
+                                                <span>Итого</span>
+                                                {sortBy !== 'total' && <ChevronsUpDown className="w-3 h-3 text-neutral-400" />}
+                                                {sortBy === 'total' && sortDir === 'asc' && <ChevronUp className="w-3 h-3 text-brand-600" />}
+                                                {sortBy === 'total' && sortDir === 'desc' && <ChevronDown className="w-3 h-3 text-brand-600" />}
+                                            </button>
+                                        </TableHead>
+                                        <TableHead>
+                                            <button type="button" onClick={() => toggleSort('status')} className="inline-flex items-center gap-1 hover:text-neutral-900 transition-colors">
+                                                <span>Статус</span>
+                                                {sortBy !== 'status' && <ChevronsUpDown className="w-3 h-3 text-neutral-400" />}
+                                                {sortBy === 'status' && sortDir === 'asc' && <ChevronUp className="w-3 h-3 text-brand-600" />}
+                                                {sortBy === 'status' && sortDir === 'desc' && <ChevronDown className="w-3 h-3 text-brand-600" />}
+                                            </button>
+                                        </TableHead>
                                         <TableHead className="text-right">Действия</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {filteredInvoices.map(inv => (
                                         <TableRow key={inv.id} className="cursor-pointer" onClick={() => setSelectedInvoice(inv)}>
+                                            <TableCell className="w-8" onClick={e => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    aria-label={`Выделить счёт ${inv.number}`}
+                                                    checked={selectedIds.has(inv.id)}
+                                                    onChange={() => toggleRowSelected(inv.id)}
+                                                    className="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                                                />
+                                            </TableCell>
                                             <TableCell className="font-medium text-blue-600" title={inv.number}>{shortInvoiceNo(inv.number)}</TableCell>
                                             <TableCell className="text-neutral-500">{invoiceTypeLabels[inv.type] || inv.type}</TableCell>
                                             <TableCell className="text-neutral-500">
@@ -903,6 +1086,35 @@ export default function FinanceDashboard() {
                     </div>
                 </div>
             </Dialog>
+
+            <BulkActionsBar
+                selectedCount={selectedIds.size}
+                onClear={() => setSelectedIds(new Set())}
+                actions={[
+                    {
+                        label: 'Скачать PDF архив',
+                        onClick: handleBulkDownloadPdf,
+                        icon: Archive,
+                        variant: 'primary',
+                        disabled: bulkBusy,
+                    },
+                    {
+                        label: 'Отметить оплаченными',
+                        onClick: handleBulkMarkPaid,
+                        icon: CheckSquare,
+                        disabled: bulkBusy,
+                        confirm: true,
+                    },
+                    {
+                        label: 'Удалить',
+                        onClick: handleBulkDelete,
+                        icon: Trash2,
+                        variant: 'danger',
+                        confirm: true,
+                        disabled: bulkBusy,
+                    },
+                ]}
+            />
         </div>
     );
 }

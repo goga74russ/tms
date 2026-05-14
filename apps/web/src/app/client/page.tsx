@@ -285,9 +285,9 @@ export default function ClientPortalPage() {
                                                     {st.label}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-neutral-700 max-w-48 truncate">{order.cargoDescription || '—'}</td>
-                                            <td className="px-4 py-3 text-neutral-600 text-xs max-w-40 truncate">{order.loadingAddress || '—'}</td>
-                                            <td className="px-4 py-3 text-neutral-600 text-xs max-w-40 truncate">{order.unloadingAddress || '—'}</td>
+                                            <td className="px-4 py-3 text-neutral-700 max-w-48 truncate" title={order.cargoDescription || undefined}>{order.cargoDescription || '—'}</td>
+                                            <td className="px-4 py-3 text-neutral-600 text-xs max-w-40 truncate" title={order.loadingAddress || undefined}>{order.loadingAddress || '—'}</td>
+                                            <td className="px-4 py-3 text-neutral-600 text-xs max-w-40 truncate" title={order.unloadingAddress || undefined}>{order.unloadingAddress || '—'}</td>
                                             <td className="px-4 py-3 text-neutral-500 text-xs">
                                                 {new Date(order.createdAt).toLocaleDateString('ru-RU')}
                                             </td>

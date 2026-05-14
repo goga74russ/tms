@@ -100,6 +100,7 @@ export function StepInn({ onNext }: Props) {
                     disabled={!validInn || loading}
                     onClick={lookup}
                     leftIcon={!loading ? <Search className="w-4 h-4" /> : undefined}
+                    title={!validInn ? 'Введите корректный ИНН: 10 цифр (ЮЛ) или 12 цифр (ИП)' : undefined}
                 >
                     Проверить
                 </Button>

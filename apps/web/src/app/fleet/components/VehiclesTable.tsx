@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Plus, Truck, History, ShieldOff, ShieldCheck, Edit2, CheckCircle2, UserCheck, Wrench, AlertCircle, Ban } from 'lucide-react';
+import { Plus, Truck, History, ShieldOff, ShieldCheck, Edit2, Pencil, CheckCircle2, UserCheck, Wrench, AlertCircle, Ban, Download } from 'lucide-react';
 import { VehicleCard } from './VehicleCard';
-import { AddVehicleModal } from './AddVehicleModal';
+import { AddVehicleModal, type EditableVehicle } from './AddVehicleModal';
 import { getVehicleProfile, getVehicleWaybillCue } from './vehicleProfile';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -113,6 +113,62 @@ function DeadlineDot({ color, label }: { color: DeadlineColor; label: string }) 
     );
 }
 
+function csvCell(value: unknown): string {
+    const s = value === null || value === undefined ? '' : String(value);
+    if (/[",;\n\r]/.test(s)) {
+        return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+}
+
+function downloadCSV(filename: string, lines: string[]) {
+    const csv = '﻿' + lines.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+const DEADLINE_LABELS: Record<string, string> = {
+    green: 'OK',
+    yellow: 'скоро',
+    red: 'срочно',
+    blocked: 'просрочен',
+};
+
+function exportVehiclesCSV(rows: Vehicle[], trailersByVehicleId: Record<string, TrailerLink>) {
+    const headers = ['Госномер', 'VIN', 'Марка', 'Модель', 'Год', 'Кузов', 'Грузоподъёмность (кг)', 'Пробег (км)', 'Прицеп', 'ТО', 'ОСАГО', 'Техосмотр', 'Тахограф', 'Статус', 'Заблокирован'];
+    const lines = [
+        headers.map(csvCell).join(','),
+        ...rows.map(v => {
+            const trailer = trailersByVehicleId[v.id];
+            return [
+                v.plateNumber,
+                v.vin,
+                v.make,
+                v.model,
+                v.year,
+                BODY_TYPE_LABELS[v.bodyType] ?? v.bodyType,
+                v.payloadCapacityKg,
+                v.currentOdometerKm,
+                trailer?.plateNumber ?? '',
+                v.deadlines.maintenance ? DEADLINE_LABELS[v.deadlines.maintenance] ?? v.deadlines.maintenance : '',
+                v.deadlines.osago ? DEADLINE_LABELS[v.deadlines.osago] ?? v.deadlines.osago : '',
+                v.deadlines.techInspection ? DEADLINE_LABELS[v.deadlines.techInspection] ?? v.deadlines.techInspection : '',
+                v.deadlines.tachograph ? DEADLINE_LABELS[v.deadlines.tachograph] ?? v.deadlines.tachograph : '',
+                STATUS_LABELS[v.status] ?? v.status,
+                v.isBlocked ? 'да' : 'нет',
+            ].map(csvCell).join(',');
+        }),
+    ];
+    downloadCSV(`vehicles-${new Date().toISOString().split('T')[0]}.csv`, lines);
+}
+
 export function VehiclesTable() {
     const { toast } = useToast();
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -120,6 +176,7 @@ export function VehiclesTable() {
     const [loading, setLoading] = useState(true);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [editingVehicle, setEditingVehicle] = useState<EditableVehicle | null>(null);
     const [statusFilter, setStatusFilter] = useState('');
     const [bodyTypeFilter, setBodyTypeFilter] = useState('');
     const [confirmAction, setConfirmAction] = useState<null | { run: () => Promise<void> | void; title: string; description?: string; destructive?: boolean; confirmLabel?: string }>(null);
@@ -175,6 +232,29 @@ export function VehiclesTable() {
         if (bodyTypeFilter && v.bodyType !== bodyTypeFilter) return false;
         return true;
     });
+
+    async function openEditModal(v: Vehicle) {
+        try {
+            const result = await api.get<any>(`/fleet/vehicles/${v.id}`);
+            const full = result.data || result;
+            setEditingVehicle({
+                id: full.id,
+                plateNumber: full.plateNumber,
+                vin: full.vin,
+                make: full.make,
+                model: full.model,
+                year: full.year,
+                bodyType: full.bodyType,
+                payloadCapacityKg: full.payloadCapacityKg,
+                payloadVolumeM3: full.payloadVolumeM3,
+                fuelTankLiters: full.fuelTankLiters,
+                fuelNormPer100Km: full.fuelNormPer100Km,
+                adrEquipped: full.adrEquipped,
+            });
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Ошибка', description: err?.message ?? 'Не удалось загрузить ТС' });
+        }
+    }
 
     async function toggleBlock(v: Vehicle, block: boolean) {
         try {
@@ -360,9 +440,20 @@ export function VehiclesTable() {
                         },
                     ]}
                     toolbar={
-                        <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowAddModal(true)}>
-                            Добавить ТС
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                leftIcon={<Download className="w-4 h-4" />}
+                                onClick={() => exportVehiclesCSV(filtered, trailersByVehicleId)}
+                                disabled={filtered.length === 0}
+                                title={filtered.length === 0 ? 'Нет данных для экспорта' : `Экспортировать ${filtered.length} записей`}
+                            >
+                                Экспорт CSV
+                            </Button>
+                            <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowAddModal(true)}>
+                                Добавить ТС
+                            </Button>
+                        </div>
                     }
                     onRowClick={(row) => setSelectedId(row.id)}
                     rowClassName={(row) => row.isBlocked ? 'bg-red-50/40' : ''}
@@ -377,6 +468,12 @@ export function VehiclesTable() {
                         </Button>
                     )}
                     rowActions={(row) => [
+                        {
+                            id: 'edit-vehicle',
+                            label: 'Редактировать',
+                            icon: <Pencil className="w-4 h-4" />,
+                            onClick: () => openEditModal(row),
+                        },
                         {
                             id: 'edit',
                             label: 'Открыть карточку',
@@ -418,6 +515,14 @@ export function VehiclesTable() {
                 <AddVehicleModal
                     onClose={() => setShowAddModal(false)}
                     onCreated={() => { setShowAddModal(false); loadVehicles(); }}
+                />
+            )}
+
+            {editingVehicle && (
+                <AddVehicleModal
+                    editingVehicle={editingVehicle}
+                    onClose={() => setEditingVehicle(null)}
+                    onCreated={() => { setEditingVehicle(null); loadVehicles(); }}
                 />
             )}
 
