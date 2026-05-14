@@ -5,7 +5,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { useUser } from '@/lib/user-context';
 import { formatKopecks, PLAN_IDS, type PlanId, type SubscriptionStatus } from '@tms/shared';
 import {
     Bar,
@@ -47,11 +49,22 @@ const STATUS_FILTER: Array<'' | SubscriptionStatus> = ['', 'trial', 'active', 'p
 
 export default function AdminBillingPage() {
     const { toast } = useToast();
+    const router = useRouter();
+    const { user, loading: userLoading } = useUser();
     const [rows, setRows] = useState<AdminBillingRow[] | null>(null);
     const [loading, setLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState<'' | SubscriptionStatus>('');
     const [planFilter, setPlanFilter] = useState<'' | PlanId>('');
     const [period, setPeriod] = useState<PeriodRange>(() => computeRange('mtd'));
+
+    // Guard: cross-tenant billing view is super-admin-only. Tenant admins
+    // landing here directly get redirected to their normal admin home.
+    useEffect(() => {
+        if (userLoading) return;
+        if (!user || !user.isSuperAdmin) {
+            router.replace('/admin/users');
+        }
+    }, [user, userLoading, router]);
 
     const loadRows = () => {
         setLoading(true);

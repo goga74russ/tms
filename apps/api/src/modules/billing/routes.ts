@@ -31,6 +31,16 @@ function isAdmin(user: AuthUser | undefined): boolean {
     return Array.isArray(user?.roles) && user!.roles.includes('admin');
 }
 
+/**
+ * Platform super-admin = role=admin AND organizationId is null/missing.
+ * Used to gate cross-tenant views (billing overview, all-orgs lists).
+ * Tenant admins (admins of a specific organization) MUST be blocked from
+ * these — they would otherwise see other tenants' billing data.
+ */
+function isSuperAdmin(user: AuthUser | undefined): boolean {
+    return isAdmin(user) && !user!.organizationId;
+}
+
 const SubscribeSchema = z.object({
     planId: z.enum(PLAN_IDS as [PlanId, ...PlanId[]]),
     returnUrl: z.string().url().optional(),
@@ -246,12 +256,14 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
 
     // ---------- Admin overview ----------
     fastify.get('/admin/billing/overview', {
-        schema: { tags: ['Биллинг'], summary: 'Все организации (admin)' },
+        schema: { tags: ['Биллинг'], summary: 'Все организации (super-admin)' },
         preHandler: [fastify.authenticate],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
-        if (!isAdmin(user)) {
-            return reply.status(403).send({ success: false, error: 'admin only' });
+        // Cross-tenant view — super-admin only. Tenant admins (with their
+        // own organizationId) must NOT see other organizations' billing.
+        if (!isSuperAdmin(user)) {
+            return reply.status(403).send({ success: false, error: 'super-admin only' });
         }
         const data = await listAllSubscriptionsForAdmin();
         return { success: true, data };

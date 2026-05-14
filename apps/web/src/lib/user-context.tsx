@@ -13,6 +13,12 @@ export interface CurrentUser {
     roles: string[];
     phone?: string;
     driverId?: string;
+    /** Organization the user belongs to. `null`/missing = platform super-admin
+     *  (owner of the SaaS — sees all tenants). */
+    organizationId?: string | null;
+    /** Convenience flag derived server-side: role=admin AND no organizationId.
+     *  Frontend uses this to hide cross-tenant admin views from tenant admins. */
+    isSuperAdmin?: boolean;
 }
 
 interface UserContextValue {

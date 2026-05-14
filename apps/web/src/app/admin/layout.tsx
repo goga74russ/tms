@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 type AdminNavItem =
-    | { kind: 'link'; name: string; href: string; icon: typeof Users }
+    | { kind: 'link'; name: string; href: string; icon: typeof Users; superAdminOnly?: boolean }
     | { kind: 'divider'; label: string };
 
 const adminNav: AdminNavItem[] = [
@@ -30,11 +30,12 @@ const adminNav: AdminNavItem[] = [
     { kind: 'link', name: 'Тарифы', href: '/admin/tariffs', icon: FileText },
 
     { kind: 'divider', label: 'Эксплуатация' },
-    { kind: 'link', name: 'Биллинг', href: '/admin/billing', icon: CreditCard },
+    // Platform-wide cross-tenant views — hidden from tenant admins.
+    { kind: 'link', name: 'Биллинг', href: '/admin/billing', icon: CreditCard, superAdminOnly: true },
     { kind: 'link', name: 'Контроль соответствия', href: '/admin/compliance', icon: ShieldCheck },
     { kind: 'link', name: 'Журнал событий', href: '/admin/audit-log', icon: ScrollText },
     { kind: 'link', name: 'Интеграции', href: '/admin/integrations', icon: Plug },
-    { kind: 'link', name: 'Демо-данные', href: '/admin/demo', icon: Sparkles },
+    { kind: 'link', name: 'Демо-данные', href: '/admin/demo', icon: Sparkles, superAdminOnly: true },
     { kind: 'link', name: 'Настройки', href: '/admin/settings', icon: Settings },
 ];
 
@@ -86,7 +87,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         К рабочему кабинету
                     </Link>
 
-                    {adminNav.map((item, idx) => {
+                    {adminNav.filter((item) => {
+                        if (item.kind !== 'link') return true;
+                        if (item.superAdminOnly && !user.isSuperAdmin) return false;
+                        return true;
+                    }).map((item, idx) => {
                         if (item.kind === 'divider') {
                             return (
                                 <div

@@ -258,6 +258,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
                 fullName: users.fullName,
                 phone: users.phone,
                 roles: users.roles,
+                organizationId: users.organizationId,
             })
             .from(users)
             .where(eq(users.id, payload.userId))
@@ -271,7 +272,14 @@ export function registerAuthRoutes(app: FastifyInstance) {
             driverId = driver?.id;
         }
 
-        return { success: true, data: { ...user, driverId } };
+        // isSuperAdmin = role=admin AND no organizationId. Frontend uses this
+        // to hide cross-tenant admin views (e.g. /admin/billing) from tenant
+        // admins who only see their own org.
+        const isSuperAdmin = Array.isArray(user?.roles)
+            && (user!.roles as string[]).includes('admin')
+            && !user?.organizationId;
+
+        return { success: true, data: { ...user, driverId, isSuperAdmin } };
     });
 
     // Short-lived token for WebSocket connections (browser can't send cookies over WS)
