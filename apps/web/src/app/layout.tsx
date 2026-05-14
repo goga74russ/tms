@@ -4,7 +4,7 @@ import { LayoutShell } from '@/components/layout-shell';
 import { UserProvider } from '@/lib/user-context';
 
 export const metadata: Metadata = {
-    title: 'TMS — Управление транспортом',
+    title: 'ТрансПульт — Управление транспортом',
     description: 'Операционная платформа управления транспортной компанией',
 };
 

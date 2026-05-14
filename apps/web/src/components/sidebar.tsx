@@ -92,7 +92,7 @@ export function Sidebar() {
                     </div>
                     {!collapsed && (
                         <div className="min-w-0 flex-1">
-                            <div className="font-bold text-lg text-neutral-900 leading-none truncate">TMS</div>
+                            <div className="font-bold text-lg text-neutral-900 leading-none truncate">ТрансПульт</div>
                             <div className="text-[10px] font-medium text-neutral-400 uppercase tracking-wider mt-0.5 truncate">Управление</div>
                         </div>
                     )}

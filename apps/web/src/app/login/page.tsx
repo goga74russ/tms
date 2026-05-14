@@ -188,7 +188,7 @@ export default function LoginPage() {
 
     return (
         <AuthSplitLayout
-            title="Войти в TMS"
+            title="Войти в ТрансПульт"
             subtitle="Продолжите работу с вашим аккаунтом"
             topRightLink={{ href: '/signup', label: 'Создать аккаунт' }}
             rightPanel={<ProductShowcase />}

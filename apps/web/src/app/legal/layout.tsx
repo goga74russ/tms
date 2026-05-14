@@ -18,7 +18,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
                             <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center">
                                 <Truck className="w-4 h-4" />
                             </div>
-                            <span className="font-bold text-neutral-900">TMS</span>
+                            <span className="font-bold text-neutral-900">ТрансПульт</span>
                         </Link>
                         <Link
                             href="/landing"

@@ -263,7 +263,7 @@ export default function SignupPage() {
     return (
         <AuthSplitLayout
             title="Создайте аккаунт"
-            subtitle="Запустите свою компанию в TMS за 5 минут — без банковской карты."
+            subtitle="Запустите свою компанию в ТрансПульт за 5 минут — без банковской карты."
             topRightLink={{ href: '/login', label: 'Уже есть аккаунт?' }}
             rightPanel={<ShowcaseCarousel />}
         >

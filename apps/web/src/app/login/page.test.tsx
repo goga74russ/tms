@@ -12,7 +12,7 @@ import LoginPage from './page';
 describe('LoginPage', () => {
     it('renders title and login form', async () => {
         renderWithProviders(<LoginPage />);
-        expect(await screen.findByRole('heading', { name: /Войти в TMS/i })).toBeInTheDocument();
+        expect(await screen.findByRole('heading', { name: /Войти в ТрансПульт/i })).toBeInTheDocument();
         expect(screen.getByLabelText(/Электронная почта/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/Пароль/i)).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Войти/i })).toBeInTheDocument();

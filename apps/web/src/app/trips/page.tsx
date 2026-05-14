@@ -1597,7 +1597,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
         try {
             await api.post(`/trips/${tripId}/transport-documents/${doc.id}/signatures`, {
                 signerRole: 'dispatcher',
-                signerName: 'Оператор TMS',
+                signerName: 'Оператор ТрансПульт',
                 authorityType: 'manual_ui',
                 signedAt: new Date().toISOString(),
                 notes: 'Зафиксировано из web dossier',
@@ -1618,7 +1618,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
         try {
             await api.post(`/trips/${tripId}/transport-documents/${doc.id}/signature-refusals`, {
                 signerRole: 'dispatcher',
-                signerName: 'Оператор TMS',
+                signerName: 'Оператор ТрансПульт',
                 reason,
                 refusedAt: new Date().toISOString(),
                 notes: 'Отказ зафиксирован из web dossier',

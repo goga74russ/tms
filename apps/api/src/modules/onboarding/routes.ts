@@ -262,11 +262,11 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
                 // a future entropy-source change can't introduce XSS.
                 await adapter.send(
                     invite.email,
-                    'TMS — приглашение в систему',
+                    'ТрансПульт — приглашение в систему',
                     `<p>Здравствуйте, ${escapeHtml(invite.fullName)}!</p>
-                     <p>Вас пригласили в TMS. Временный пароль: <strong>${escapeHtml(tempPassword)}</strong></p>
+                     <p>Вас пригласили в ТрансПульт. Временный пароль: <strong>${escapeHtml(tempPassword)}</strong></p>
                      <p>После входа смените пароль в профиле.</p>`,
-                    `Временный пароль для входа в TMS: ${tempPassword}`,
+                    `Временный пароль для входа в ТрансПульт: ${tempPassword}`,
                 );
             } catch (err) {
                 request.log.error({ err, email: invite.email }, 'Failed to send invite email');

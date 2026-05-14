@@ -16,7 +16,10 @@ import { jwtVerify } from 'jose';
 // must match the secret used by @tms/api for tokens to verify.
 // ----------------------------------------------------------------
 
-const publicRoutes = ['/login', '/_not-found', '/signup', '/signup/verify', '/onboarding', '/landing'];
+// Root '/' is public so RootPage (app/page.tsx) can redirect unauthenticated
+// visitors to /landing (and authenticated users to their role dashboard).
+// Without this, middleware fires before RootPage and forces /login.
+const publicRoutes = ['/', '/login', '/_not-found', '/signup', '/signup/verify', '/onboarding', '/landing'];
 const publicPrefixes = ['/legal/'];
 const excludedPrefixes = ['/api', '/_next/static', '/_next/image', '/favicon.ico'];
 

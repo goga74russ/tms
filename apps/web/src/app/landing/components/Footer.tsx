@@ -49,7 +49,7 @@ export function Footer() {
                             <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center">
                                 <Truck className="w-5 h-5 text-white" />
                             </div>
-                            <span className="font-bold text-white">TMS</span>
+                            <span className="font-bold text-white">ТрансПульт</span>
                         </div>
                         <p className="mt-4 text-sm text-neutral-400 leading-relaxed max-w-xs">
                             Транспортная управляющая система для российских перевозчиков и логистических операторов.
@@ -122,7 +122,7 @@ export function Footer() {
                 </div>
 
                 <div className="mt-12 pt-6 border-t border-neutral-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-neutral-500">
-                    <div>© {new Date().getFullYear()} TMS-prod. Все права защищены.</div>
+                    <div>© {new Date().getFullYear()} ТрансПульт. Все права защищены.</div>
                     <div className="flex flex-wrap items-center gap-4">
                         <span>ИНН 0000000000 · ОГРН 0000000000000</span>
                         <span>Сделано в России 🇷🇺 · Серверы в РФ · 152-ФЗ</span>

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { LegalPageShell } from '../components/LegalPageShell';
 
 export const metadata = {
-    title: 'Согласие на обработку персональных данных — TMS',
+    title: 'Согласие на обработку персональных данных — ТрансПульт',
     description: 'Согласие на обработку персональных данных в соответствии с 152-ФЗ.',
 };
 

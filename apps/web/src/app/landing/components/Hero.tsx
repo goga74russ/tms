@@ -38,7 +38,7 @@ export function Hero() {
                             <span>Phase 7: ИИ-копилот диспетчера в бете</span>
                         </div>
                         <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight mb-5">
-                            TMS, в которой<br className="hidden sm:block" /> логистика работает{' '}
+                            ТрансПульт, в котором<br className="hidden sm:block" /> логистика работает{' '}
                             <span className="bg-gradient-to-r from-white to-brand-200 bg-clip-text text-transparent">
                                 сама
                             </span>

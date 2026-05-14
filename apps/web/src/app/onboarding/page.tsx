@@ -163,7 +163,7 @@ export default function OnboardingPage() {
                     </div>
                     <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Онбординг завершён</h1>
                     <p className="text-neutral-600 mt-2">
-                        Всё готово к работе. Добро пожаловать в TMS!
+                        Всё готово к работе. Добро пожаловать в ТрансПульт!
                     </p>
                     <div className="mt-7 flex flex-col gap-2">
                         <Button
@@ -201,7 +201,7 @@ export default function OnboardingPage() {
                         <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center">
                             <Truck className="w-4 h-4" />
                         </div>
-                        <span className="font-bold text-neutral-900">TMS</span>
+                        <span className="font-bold text-neutral-900">ТрансПульт</span>
                     </Link>
                     <button
                         type="button"

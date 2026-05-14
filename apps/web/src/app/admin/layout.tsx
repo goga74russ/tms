@@ -119,7 +119,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </nav>
 
                 <div className="px-4 py-3 mt-4 border-t border-neutral-100 text-[10px] text-neutral-400">
-                    TMS v2 · Admin
+                    ТрансПульт · Admin
                 </div>
             </aside>
 

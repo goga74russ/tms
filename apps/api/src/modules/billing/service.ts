@@ -173,7 +173,7 @@ export async function createPayment(orgId: string, planId: PlanId, returnUrl: st
     const result = await adapter.createPayment({
         amountRub: plan.priceMonthlyKopecks / 100,
         orderId: pendingPayment.id,
-        description: `TMS — план «${plan.nameRu}» (месяц)`,
+        description: `ТрансПульт — план «${plan.nameRu}» (месяц)`,
         returnUrl,
     });
 
@@ -314,7 +314,7 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
                 const receipt = await ofd.fiscalize({
                     paymentId: paymentRow.id,
                     amountKopecks: paymentRow.amountKopecks,
-                    description: 'Подписка TMS (месяц)',
+                    description: 'Подписка ТрансПульт (месяц)',
                     customerEmail: payload.customerEmail,
                     customerPhone: payload.customerPhone,
                     taxSystem: 'usn_income',

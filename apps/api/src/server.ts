@@ -232,10 +232,10 @@ if (apiDocsEnabled) {
 await app.register(import('@fastify/swagger'), {
     openapi: {
         info: {
-            title: 'TMS API — Управление транспортом',
-            description: 'REST API для системы управления грузоперевозками (TMS). Включает управление заявками, рейсами, автопарком, водителями, финансами, аналитикой и импортом данных.',
+            title: 'ТрансПульт API — Управление транспортом',
+            description: 'REST API для системы управления грузоперевозками (ТрансПульт). Включает управление заявками, рейсами, автопарком, водителями, финансами, аналитикой и импортом данных.',
             version: '1.0.0',
-            contact: { name: 'TMS Team', email: 'admin@tms.local' },
+            contact: { name: 'ТрансПульт Team', email: 'admin@tms.local' },
         },
         servers: [
             { url: 'http://localhost:4000', description: 'Локальная разработка' },

@@ -45,12 +45,12 @@ export function AuthSplitLayout({
                     <Link
                         href="/landing"
                         className="inline-flex items-center gap-2 group"
-                        aria-label="TMS — на главную"
+                        aria-label="ТрансПульт — на главную"
                     >
                         <div className="w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-sm transition-transform group-hover:scale-105">
                             <Truck className="w-[18px] h-[18px]" />
                         </div>
-                        <span className="font-bold text-neutral-900 tracking-tight">TMS</span>
+                        <span className="font-bold text-neutral-900 tracking-tight">ТрансПульт</span>
                     </Link>
                     {topRightLink ? (
                         <Link
@@ -81,7 +81,7 @@ export function AuthSplitLayout({
 
                 {showFooter ? (
                     <footer className="mt-auto pt-4 text-xs text-neutral-400 flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span>&copy; {new Date().getFullYear()} TMS</span>
+                        <span>&copy; {new Date().getFullYear()} ТрансПульт</span>
                         <Link
                             href="/legal/privacy"
                             className="underline hover:text-neutral-600"

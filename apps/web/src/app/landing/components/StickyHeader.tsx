@@ -42,7 +42,7 @@ export function StickyHeader() {
                         <Truck className="w-5 h-5" />
                     </div>
                     <span className={`font-bold tracking-tight ${scrolled ? 'text-neutral-900' : 'text-white'}`}>
-                        TMS
+                        ТрансПульт
                     </span>
                 </Link>
 

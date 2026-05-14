@@ -55,7 +55,7 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
             });
 
             await sendMessage(chatId, [
-                '✅ <b>TMS Уведомления подключены!</b>',
+                '✅ <b>ТрансПульт — уведомления подключены!</b>',
                 '',
                 `Привет, ${firstName}! Теперь ты будешь получать уведомления о:`,
                 '• 🚛 Рейсах (создание, назначение, отправка, завершение)',
@@ -171,12 +171,12 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
             let sent = 0;
             for (const sub of subs) {
                 const res = await sendMessage(sub.telegramChatId,
-                    message || '🧪 <b>Тестовое уведомление</b>\n\nTMS работает корректно!');
+                    message || '🧪 <b>Тестовое уведомление</b>\n\nТрансПульт работает корректно!');
                 if (res.ok) sent++;
             }
             return { success: true, sent };
         }
-        const result = await sendMessage(chatId, message || '🧪 Тестовое уведомление TMS');
+        const result = await sendMessage(chatId, message || '🧪 Тестовое уведомление ТрансПульт');
         return { success: result.ok, data: result };
     });
 };
