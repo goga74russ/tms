@@ -324,6 +324,15 @@ export async function selectAdapter<T extends ProviderAdapter>(
         if (match) return match;
     }
 
+    // 3) Fallback when no per-org credentials are configured. Prefer an
+    // env-based production adapter (e.g. SmtpEmailProvider reading SMTP_*
+    // env vars) over a mock — this is the "global default" path used for
+    // system-level transactional emails like signup verification codes that
+    // must work before any org-specific config exists. Mock remains the
+    // last resort when no production adapter is registered (dev/test).
+    const productionAdapter = adapters.find(a => a.mode === 'production');
+    if (productionAdapter) return productionAdapter;
+
     const mockAdapter = adapters.find(a => a.mode === 'mock');
     if (mockAdapter) return mockAdapter;
 
