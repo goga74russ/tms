@@ -131,6 +131,10 @@ services:
       # ЮKassa webhook signing secret. Defensive: keep empty if not yet
       # wired so the webhook route rejects requests that can't be verified.
       YOOKASSA_WEBHOOK_SECRET: ${YOOKASSA_WEBHOOK_SECRET:-}
+      # Госключ callback HMAC secret. В production обязателен — без него
+      # эндпоинт /api/signatures/gosklyuch/callback станет открытым каналом
+      # инъекции поддельных подписей (см. server.ts boot-check).
+      GOSKLYUCH_CALLBACK_SECRET: ${GOSKLYUCH_CALLBACK_SECRET:-}
       # DaData API key for INN/ОГРН lookup in /onboarding step 1 and
       # /api/dadata/* routes. Empty -> dadata module returns deterministic
       # mock data (good for dev / when DaData is unavailable).
