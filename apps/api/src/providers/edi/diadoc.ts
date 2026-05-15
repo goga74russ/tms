@@ -7,6 +7,7 @@ import { nowIso, type ProviderHealth } from '../base.js';
 import type {
     EdiCallbackEvent, EdiExternalStatus, EdiProvider, EdiSendInput, EdiSendResult,
 } from './interface.js';
+import { assertValidETrNPayload } from '../../lib/xsd-validator-gate.js';
 
 export const DIADOC_API_URL = 'https://diadoc-api.kontur.ru';
 
@@ -38,7 +39,9 @@ export class DiadocEdiProvider implements EdiProvider {
         return this.sendDocument(input.organizationId, input.documentId, input.payload, input.counterpartyInn);
     }
 
-    async sendDocument(_orgId: string, _documentId: string, _payload: string, _counterpartyInn?: string): Promise<EdiSendResult> {
+    async sendDocument(_orgId: string, _documentId: string, payload: string, _counterpartyInn?: string): Promise<EdiSendResult> {
+        // Gate: structural ETrN XSD validation. No-op for non-XML payloads.
+        assertValidETrNPayload(payload);
         // Diadoc message protocol:
         //   POST {DIADOC_API_URL}/V3/PostMessage
         //   Headers:

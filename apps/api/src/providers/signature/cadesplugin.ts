@@ -49,19 +49,9 @@ export class CadespluginSignatureProvider implements SignatureProvider {
     }
 
     async verify(_signedXml: string): Promise<boolean> {
-        // Request shape:
-        //   POST {serverVerifyUrl ?? CADES_VERIFY_URL}/verify
-        //   Body: { signatureBase64, contentBase64 }
-        // Response: { valid: boolean, certInfo: {...} }
-        // TODO(real-impl): wire fetch — endpoint depends on the deployment
-        //                  (cryptopro server, contour, or gov verify endpoint).
-        // const url = `${this.creds.serverVerifyUrl ?? CADES_VERIFY_URL}/verify`;
-        // const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json',
-        //     ...(this.creds.apiKey ? { 'X-Api-Key': this.creds.apiKey } : {}) },
-        //     body: JSON.stringify({ signedXml }) });
-        // if (!res.ok) return false;
-        // const data = await res.json() as { valid: boolean };
-        // return data.valid;
-        return false;
+        // TODO: real verification via provider API.
+        // Until that is wired, surface the gap explicitly — silent `return false`
+        // masked failures and led to callers treating valid signatures as invalid.
+        throw new Error(`${this.name}.verify() is not implemented yet. Awaiting provider API credentials/sandbox access.`);
     }
 }

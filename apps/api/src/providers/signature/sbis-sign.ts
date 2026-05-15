@@ -47,7 +47,9 @@ export class SbisSignSignatureProvider implements SignatureProvider {
     }
 
     async verify(_signedXml: string): Promise<boolean> {
-        // TODO: JSON-RPC 'СБИС.ПроверитьПодпись' { Подпись, Документ } → { Валидна: bool }
-        return false;
+        // TODO: real verification via provider API.
+        // Until that is wired, surface the gap explicitly — silent `return false`
+        // masked failures and led to callers treating valid signatures as invalid.
+        throw new Error(`${this.name}.verify() is not implemented yet. Awaiting provider API credentials/sandbox access.`);
     }
 }

@@ -5,3 +5,4 @@ export * from './copilot.js';
 export * from './onboarding.js';
 export * from './billing.js';
 export * from './compliance.js';
+export * from './mchd.js';

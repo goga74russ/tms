@@ -16,6 +16,8 @@ import { transportDocuments, ediEvents } from '../../db/schema.js';
 import { eq, desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { ediProgressionQueue } from '../../integrations/queues.js';
+import { validateETrNXml, type ETrNTitleType } from '../../lib/xsd-validator.js';
+import { XsdValidationError } from '../../lib/xsd-validator-gate.js';
 
 export type EdiProvider = 'diadoc' | 'sbis' | 'kontur';
 export type EdiStatus =
@@ -108,17 +110,50 @@ export interface SendDocumentResult {
     ediSentAt: Date;
 }
 
+/** Mapping from DB `title_type` (e.g. `title_02`) → validator title enum. */
+const DB_TITLE_TYPE_TO_VALIDATOR: Record<string, ETrNTitleType> = {
+    title_01: 'T01',
+    title_02: 'T02',
+    title_05: 'T05',
+    title_06: 'T06',
+};
+
 export async function sendDocumentToEdi(
     documentId: string,
     provider: EdiProvider,
 ): Promise<SendDocumentResult> {
     const [doc] = await db
-        .select({ id: transportDocuments.id })
+        .select({
+            id: transportDocuments.id,
+            titleType: transportDocuments.titleType,
+            payload: transportDocuments.payload,
+        })
         .from(transportDocuments)
         .where(eq(transportDocuments.id, documentId))
         .limit(1);
     if (!doc) {
         throw new Error('Документ не найден');
+    }
+
+    // Gate: structural XSD validation for ETrN titles before mutating state.
+    // payload here is the persisted JSON snapshot; the XML may be embedded
+    // under `xml` / `xmlContent` keys depending on the generator pathway.
+    // TODO: replace with real XSD validation once ФНС schemas at
+    //   docs/etrn/schemas/ are loaded into runtime.
+    const titleType = doc.titleType ? DB_TITLE_TYPE_TO_VALIDATOR[doc.titleType] : undefined;
+    if (titleType) {
+        const payloadRecord = (doc.payload ?? {}) as Record<string, unknown>;
+        const xml =
+            typeof payloadRecord['xml'] === 'string' ? (payloadRecord['xml'] as string)
+            : typeof payloadRecord['xmlContent'] === 'string' ? (payloadRecord['xmlContent'] as string)
+            : null;
+        if (xml) {
+            const result = validateETrNXml(xml, titleType);
+            if (!result.valid) {
+                throw new XsdValidationError(result.errors);
+            }
+            console.log(`[edi] XSD-валидация ${titleType} OK для документа ${documentId}`);
+        }
     }
 
     const externalId = `mock-${nanoid(12)}`;

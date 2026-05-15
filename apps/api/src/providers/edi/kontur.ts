@@ -9,6 +9,7 @@ import { nowIso, type ProviderHealth } from '../base.js';
 import type {
     EdiCallbackEvent, EdiExternalStatus, EdiProvider, EdiSendInput, EdiSendResult,
 } from './interface.js';
+import { assertValidETrNPayload } from '../../lib/xsd-validator-gate.js';
 
 export const KONTUR_EDI_API_URL = 'https://api.kontur.ru/edi/v1';
 
@@ -38,7 +39,9 @@ export class KonturEdiProvider implements EdiProvider {
         return this.sendDocument(input.organizationId, input.documentId, input.payload, input.counterpartyInn);
     }
 
-    async sendDocument(_orgId: string, _documentId: string, _payload: string, _counterpartyInn?: string): Promise<EdiSendResult> {
+    async sendDocument(_orgId: string, _documentId: string, payload: string, _counterpartyInn?: string): Promise<EdiSendResult> {
+        // Gate: structural ETrN XSD validation. No-op for non-XML payloads.
+        assertValidETrNPayload(payload);
         // POST {KONTUR_EDI_API_URL}/messages
         //   Headers: x-kontur-apikey: <apiKey>
         //   Body: { fromBoxId, toInn, attachments: [{ contentBase64, type }] }

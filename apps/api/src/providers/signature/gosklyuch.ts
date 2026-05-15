@@ -7,7 +7,10 @@
 //   3. Госключ POSTs to our callbackUrl with signed XML.
 //   4. We retrieve the signed envelope by externalId.
 // ============================================================
+import { eq } from 'drizzle-orm';
 import { nowIso, type ProviderHealth } from '../base.js';
+import { db } from '../../db/connection.js';
+import { transportDocuments } from '../../db/schema.js';
 import type { SignatureInput, SignatureProvider, SignatureResult } from './interface.js';
 
 const GOSKLYUCH_API_URL = 'https://api.gosuslugi.ru/gosklyuch/v1';
@@ -84,19 +87,61 @@ export class GosklyuchSignatureProvider implements SignatureProvider {
     }
 
     async verify(_signedXml: string): Promise<boolean> {
-        // TODO: POST /verify with the signed envelope; Госключ returns
-        //       { valid: boolean, certInfo: {...}, errors?: string[] }.
-        return false;
+        // TODO: real verification via provider API.
+        // Until that is wired, surface the gap explicitly — silent `return false`
+        // masked failures and led to callers treating valid signatures as invalid.
+        throw new Error(`${this.name}.verify() is not implemented yet. Awaiting provider API credentials/sandbox access.`);
     }
 
     /**
-     * Called by our callback handler once Госключ delivers the signed XML.
-     * Skeleton — wire to the route that receives Госключ's POST.
+     * Read the signed envelope that the public callback route persisted
+     * onto `transport_documents.metadata.signatures[]`.
+     *
+     * Returns a `pending: true` shape when the callback hasn't fired yet,
+     * or a fully-populated SignatureResult when it has. Callers treat the
+     * pending shape as "keep polling / keep showing the deeplink".
      */
     async retrieveSignedDocument(externalId: string): Promise<SignatureResult> {
-        // TODO: GET {GOSKLYUCH_API_URL}/sign-request/{externalId}/result
-        //       headers: Authorization: Bearer <accessToken>
-        //       response: { signedXml: string, cert: { subject, issuer, serial, ... } }
-        throw new Error(`Госключ retrieveSignedDocument not yet implemented (extId=${externalId})`);
+        const [row] = await db
+            .select({ metadata: transportDocuments.metadata })
+            .from(transportDocuments)
+            .where(eq(transportDocuments.externalId, externalId))
+            .limit(1);
+
+        if (!row) {
+            throw new Error(`Госключ retrieveSignedDocument: externalId ${externalId} not found`);
+        }
+
+        const metadata = ((row.metadata as Record<string, unknown> | null) ?? {});
+        const signatures = Array.isArray(metadata.signatures)
+            ? metadata.signatures as Array<Record<string, unknown>>
+            : [];
+        // Match by externalId + provider; tolerate older entries that lack
+        // a provider field by also accepting any entry that carries the id.
+        const found = signatures.find((s) =>
+            s.externalId === externalId
+            && (s.provider === 'gosklyuch' || s.provider === undefined),
+        );
+
+        if (!found || typeof found.signedXml !== 'string' || found.signedXml.length === 0) {
+            // Callback hasn't landed yet — surface "still pending".
+            return {
+                signedXml: '',
+                certInfo: { subject: '', issuer: '', serial: '', validFrom: '', validTo: '' },
+                pending: true,
+                externalId,
+            };
+        }
+
+        return {
+            signedXml: found.signedXml,
+            // signerCertificate from the callback is opaque (PEM or base64
+            // cert); we don't parse it here. Real impl: pull the parsed
+            // certInfo out of `found.certInfo` once the callback supplies it.
+            certInfo: (found.certInfo as SignatureResult['certInfo'])
+                ?? { subject: '', issuer: '', serial: '', validFrom: '', validTo: '' },
+            pending: false,
+            externalId,
+        };
     }
 }

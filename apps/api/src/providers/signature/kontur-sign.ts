@@ -56,8 +56,9 @@ export class KonturSignSignatureProvider implements SignatureProvider {
     }
 
     async verify(_signedXml: string): Promise<boolean> {
-        // TODO: POST {KONTUR_SIGN_API_URL}/verifications
-        //       Body: { signatureBase64, contentBase64 } → { valid: boolean }
-        return false;
+        // TODO: real verification via provider API.
+        // Until that is wired, surface the gap explicitly — silent `return false`
+        // masked failures and led to callers treating valid signatures as invalid.
+        throw new Error(`${this.name}.verify() is not implemented yet. Awaiting provider API credentials/sandbox access.`);
     }
 }

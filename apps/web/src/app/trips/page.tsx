@@ -15,6 +15,7 @@ import { DataTable, type Column } from '@/components/ui/data-table';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from '../fleet/components/vehicleProfile';
 import { TemperaturePanel } from '@/components/TemperaturePanel';
+import { SignTitleButton, type TitleType } from './[id]/components/SignTitleButton';
 
 interface ColdChainSummaryRow {
     coldChainRequired: boolean;
@@ -1870,6 +1871,58 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                 {doc.error || 'Документ требует повторной проверки перед retry'}
                             </div>
                         )}
+                        {(() => {
+                            // ЭТрН XML titles (T01/T02/T05/T06) — provider-mediated signing.
+                            // Show only when the document is part of the ETrN flow.
+                            const etrnDocTypes = new Set(['etrn', 'consignment_note', 'waybill', 'ttn', 'transport_waybill']);
+                            const docType = String(doc.type || '').toLowerCase();
+                            if (!etrnDocTypes.has(docType)) return null;
+
+                            const meta = (doc.metadata || {}) as Record<string, any>;
+                            const sigState = meta.signatureState;
+                            const sigStateStr = typeof sigState === 'string'
+                                ? sigState
+                                : typeof sigState?.status === 'string' ? sigState.status : undefined;
+                            const signaturesList: any[] = Array.isArray(meta.signatures) ? meta.signatures : [];
+                            const signedTitles = new Set<string>(
+                                signaturesList
+                                    .map((s) => (typeof s?.titleType === 'string' ? s.titleType : null))
+                                    .filter(Boolean) as string[],
+                            );
+                            // If signatureState is a flat 'signed', treat the lastSignerRole's title (if any) as signed.
+                            const stateTitle: string | undefined =
+                                typeof sigState === 'object' && typeof sigState?.titleType === 'string'
+                                    ? sigState.titleType
+                                    : undefined;
+                            if (stateTitle && (sigStateStr === 'signed' || sigStateStr === 'completed')) {
+                                signedTitles.add(stateTitle);
+                            }
+
+                            const titles: TitleType[] = ['T01', 'T02', 'T05', 'T06'];
+                            return (
+                                <div className="mt-3 space-y-2 rounded-xl border border-emerald-100 bg-emerald-50/40 px-3 py-2">
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                                        ЭТрН титулы
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                        {titles.map((tt) => {
+                                            const isSigned = signedTitles.has(tt);
+                                            return (
+                                                <SignTitleButton
+                                                    key={tt}
+                                                    transportDocumentId={doc.id}
+                                                    titleType={tt}
+                                                    currentState={isSigned ? 'signed' : sigStateStr}
+                                                    onSigned={() => {
+                                                        setDocumentActionResult(`Титул ${tt} подписан`);
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                         {(() => {
                             const ediOverride = ediStatuses[doc.id] || {};
                             const ediStatus = ediOverride.status || doc.ediStatus;

@@ -309,6 +309,8 @@ await app.register(import('./modules/settings/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/operations/routes.js'), { prefix: '/api' });
 
 await app.register(import('./modules/documents/routes.js'), { prefix: '/api' });
+// Госключ public callback — mobile app POSTs signed XML back here.
+await app.register(import('./modules/signatures/gosklyuch-callback.js'), { prefix: '/api' });
 await app.register(import('./modules/sprint9/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/claims/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/uploads/routes.js'), { prefix: '/api' });
@@ -329,6 +331,8 @@ await app.register(import('./modules/onboarding/routes.js'), { prefix: '/api' })
 await app.register(import('./modules/billing/routes.js'), { prefix: '/api' });
 // Round 2A: compliance breadth — tachograph DDD, ОСАГО, ЦРПТ, ADR strict mode
 await app.register(import('./modules/compliance/routes.js'), { prefix: '/api' });
+// ЭТрН 01.09.2026: МЧД (Машиночитаемые Доверенности) — реестр для подписания
+await app.register(import('./modules/mchd/routes.js'), { prefix: '/api' });
 // Round 3B: D8 demo data generator + D10 audit log
 await app.register(import('./modules/demo/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/audit/routes.js'), { prefix: '/api' });

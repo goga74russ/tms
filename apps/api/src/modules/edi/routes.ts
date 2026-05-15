@@ -16,6 +16,7 @@ import {
     progressEdiManually,
     type EdiProvider,
 } from './service.js';
+import { isXsdValidationError } from '../../lib/xsd-validator-gate.js';
 
 const ParamsSchema = z.object({ id: z.string().uuid() });
 
@@ -87,6 +88,13 @@ const ediRoutes: FastifyPluginAsync = async (app) => {
             );
             return { success: true, data: result };
         } catch (err: any) {
+            if (isXsdValidationError(err)) {
+                return reply.status(422).send({
+                    success: false,
+                    error: 'XSD validation failed',
+                    details: err.details,
+                });
+            }
             return reply.status(400).send({ success: false, error: err.message });
         }
     });

@@ -1716,3 +1716,44 @@ export const usageCounters = pgTable('usage_counters', {
 }, (table) => [
     uniqueIndex('uniq_usage_counters_org_period').on(table.organizationId, table.periodStart),
 ]);
+
+// ================================================================
+// МЧД — Машиночитаемые Доверенности (Round: ЭТрН 01.09.2026)
+// ================================================================
+// Реестр МЧД для ЭТрН-подписания. Мы МЧД не выпускаем — клиент получает
+// XML от ФНС/УЦ и загружает к нам; при подписании транспортной накладной
+// мы подбираем активную МЧД по ИНН подписанта (физлица) внутри его
+// организации. См. migration 0029.
+export const mchd = pgTable('mchd', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    /** Идентификатор МЧД от ФНС, например "АА-12345678". Глобально уникален. */
+    mchdNumber: varchar('mchd_number', { length: 64 }).notNull().unique(),
+    // Доверитель (юр-лицо)
+    granterInn: varchar('granter_inn', { length: 12 }).notNull(),
+    granterName: varchar('granter_name', { length: 255 }).notNull(),
+    granterOgrn: varchar('granter_ogrn', { length: 15 }),
+    // Доверенный (физлицо)
+    granteeFullName: varchar('grantee_full_name', { length: 255 }).notNull(),
+    granteeInn: varchar('grantee_inn', { length: 12 }).notNull(),
+    granteePassport: varchar('grantee_passport', { length: 20 }),
+    /** Полномочия (текст-описание: подписывать ЭТрН/ПУД и т.д.). */
+    scope: text('scope').notNull(),
+    issuedAt: timestamp('issued_at', { withTimezone: true }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** 'active' | 'revoked' | 'expired' */
+    status: varchar('status', { length: 20 }).notNull().default('active'),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    revocationReason: text('revocation_reason'),
+    /** Полный XML МЧД от ФНС. Большой — не выбираем по умолчанию в списке. */
+    certificateXml: text('certificate_xml').notNull(),
+    /** SHA256(certificate_xml) для проверки целостности. */
+    certificateXmlHash: varchar('certificate_xml_hash', { length: 64 }).notNull(),
+    uploadedByUserId: uuid('uploaded_by_user_id').references(() => users.id),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_mchd_org_status').on(table.organizationId, table.status),
+    index('idx_mchd_grantee_inn').on(table.granteeInn),
+]);
