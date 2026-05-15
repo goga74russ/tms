@@ -102,10 +102,12 @@ function UserFormModal({
             if (isEdit) {
                 const body: Record<string, unknown> = {
                     fullName: form.fullName,
-                    phone: form.phone || null,
                     roles: form.roles,
                     isActive: form.isActive,
                 };
+                // phone — Zod ждёт string|undefined, не null. Шлём только
+                // если заполнено; пустую строку и не-значение опускаем.
+                if (form.phone) body.phone = form.phone;
                 if (form.password) body.password = form.password;
                 await api.put(`/auth/users/${user!.id}`, body);
             } else {

@@ -346,7 +346,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
     const UserUpdateSchema = z.object({
         fullName: z.string().min(1).optional(),
-        phone: z.string().optional(),
+        // phone — допускаем null (UI отправлял `phone: form.phone || null`,
+        // что валило Zod на 400). После .nullable().optional() оба варианта
+        // (null или отсутствие поля) трактуются как «не менять».
+        phone: z.string().nullable().optional(),
         roles: z.array(z.enum(APP_ROLES)).min(1).optional(),
         isActive: z.boolean().optional(),
         password: z.string().min(6).optional(),
