@@ -120,7 +120,7 @@ export default function ActPrintPage() {
                 </table>
 
                 {/* Итого */}
-                <div className="totals-block">
+                <div className="totals-block no-break">
                     <div className="total-row"><span>Итого без НДС:</span><span>{money(inv.subtotal)} ₽</span></div>
                     <div className="total-row"><span>НДС 20%:</span><span>{money(inv.vatAmount)} ₽</span></div>
                     <div className="total-row-bold"><span>ИТОГО:</span><span>{money(inv.total)} ₽</span></div>
@@ -136,19 +136,21 @@ export default function ActPrintPage() {
                 </div>
 
                 {/* Подписи */}
-                <hr style={{ marginTop: 16 }} />
-                <div className="two-col" style={{ marginTop: 12 }}>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: '9pt' }}>ИСПОЛНИТЕЛЬ:</div>
-                        <div style={{ fontSize: '8pt', color: '#555', marginBottom: 16 }}>{CARRIER.name}</div>
-                        <div className="sig-line" style={{ width: 180 }} />
-                        <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / печать)</div>
-                    </div>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: '9pt' }}>ЗАКАЗЧИК:</div>
-                        <div style={{ fontSize: '8pt', color: '#555', marginBottom: 16 }}>{inv.contractorName || '—'}</div>
-                        <div className="sig-line" style={{ width: 180 }} />
-                        <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / печать)</div>
+                <div className="no-break">
+                    <hr style={{ marginTop: 16 }} />
+                    <div className="two-col" style={{ marginTop: 12 }}>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '9pt' }}>ИСПОЛНИТЕЛЬ:</div>
+                            <div style={{ fontSize: '8pt', color: '#555', marginBottom: 16 }}>{CARRIER.name}</div>
+                            <div className="sig-line" style={{ width: 180 }} />
+                            <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / печать)</div>
+                        </div>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '9pt' }}>ЗАКАЗЧИК:</div>
+                            <div style={{ fontSize: '8pt', color: '#555', marginBottom: 16 }}>{inv.contractorName || '—'}</div>
+                            <div className="sig-line" style={{ width: 180 }} />
+                            <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / печать)</div>
+                        </div>
                     </div>
                 </div>
 

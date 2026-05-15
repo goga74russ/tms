@@ -216,17 +216,19 @@ export default function SignatureRefusalPrintPage() {
                     Настоящий акт фиксирует отказ от подписания указанного транспортного документа. Документ может быть приложен к бумажному досье рейса и использован для ручного закрытия исключения в document queue.
                 </div>
 
-                <hr style={{ marginTop: 16 }} />
-                <div className="two-col" style={{ marginTop: 12 }}>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: '9pt' }}>Представитель перевозчика:</div>
-                        <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
-                        <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / ФИО)</div>
-                    </div>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: '9pt' }}>Сторона, отказавшаяся от подписи:</div>
-                        <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
-                        <div style={{ fontSize: '8pt', color: '#999' }}>(подпись при наличии / ФИО)</div>
+                <div className="no-break">
+                    <hr style={{ marginTop: 16 }} />
+                    <div className="two-col" style={{ marginTop: 12 }}>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '9pt' }}>Представитель перевозчика:</div>
+                            <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
+                            <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / ФИО)</div>
+                        </div>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '9pt' }}>Сторона, отказавшаяся от подписи:</div>
+                            <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
+                            <div style={{ fontSize: '8pt', color: '#999' }}>(подпись при наличии / ФИО)</div>
+                        </div>
                     </div>
                 </div>
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '@/lib/api';
@@ -279,7 +280,12 @@ export default function ClientPortalPage() {
                                         return (
                                             <tr key={order.id} className="hover:bg-blue-50/50 transition-colors">
                                                 <td className="px-4 py-3">
-                                                    <span className="font-mono font-semibold text-blue-700">{order.number}</span>
+                                                    <Link
+                                                        href={`/client/orders/${order.id}`}
+                                                        className="font-mono font-semibold text-blue-700 hover:underline focus:underline focus:outline-none"
+                                                    >
+                                                        {order.number}
+                                                    </Link>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
@@ -312,9 +318,10 @@ export default function ClientPortalPage() {
                             ) : filteredOrders.map(order => {
                                 const st = ORDER_STATUS_LABELS[order.status] || { label: order.status, color: 'bg-neutral-100 text-neutral-600' };
                                 return (
-                                    <div
+                                    <Link
                                         key={order.id}
-                                        className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm"
+                                        href={`/client/orders/${order.id}`}
+                                        className="block rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50/30 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                                     >
                                         <div className="flex items-start justify-between gap-2">
                                             <span className="font-mono text-sm font-semibold text-blue-700">{order.number}</span>
@@ -339,7 +346,7 @@ export default function ClientPortalPage() {
                                                 <span>{new Date(order.createdAt).toLocaleDateString('ru-RU')}</span>
                                             </div>
                                         </div>
-                                    </div>
+                                    </Link>
                                 );
                             })}
                         </div>

@@ -5,7 +5,7 @@ import { Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck, Aler
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { api } from '@/lib/api';
-import { Dialog } from '@/components/ui/dialog';
+import { SideDrawer } from '@/components/ui/side-drawer';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import type { Order } from '../page';
 
@@ -393,8 +393,28 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
             />
         ) : null;
 
+    const footer = (
+        <div className="flex gap-3 justify-end">
+            <button
+                onClick={onClose}
+                disabled={submitting}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors disabled:opacity-50"
+            >
+                Отмена
+            </button>
+            <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="px-5 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl transition-all disabled:opacity-50 flex items-center gap-2"
+            >
+                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {submitting ? 'Создание...' : 'Создать заявку'}
+            </button>
+        </div>
+    );
+
     return (
-        <Dialog open={true} onClose={onClose} title="Новая заявка" size="lg">
+        <SideDrawer open={true} onClose={onClose} title="Новая заявка" width="lg" footer={footer}>
             <div>
                 {draftRestoredAt && (
                     <div className="mb-3 flex items-start gap-2 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-sm text-indigo-800">
@@ -837,25 +857,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         {errors._general}
                     </div>
                 )}
-
-                <div className="mt-4 pt-4 border-t border-neutral-100 flex gap-3 justify-end">
-                    <button
-                        onClick={onClose}
-                        disabled={submitting}
-                        className="px-4 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors disabled:opacity-50"
-                    >
-                        Отмена
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={submitting}
-                        className="px-5 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl transition-all disabled:opacity-50 flex items-center gap-2"
-                    >
-                        {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {submitting ? 'Создание...' : 'Создать заявку'}
-                    </button>
-                </div>
             </div>
-        </Dialog>
+        </SideDrawer>
     );
 }

@@ -101,6 +101,8 @@ interface Repair {
   priority: string;
   source: string;
   assignedTo?: string;
+  assignedToName?: string;
+  category?: string;
   workDescription?: string;
   totalCost: number | string;
   createdAt: string;

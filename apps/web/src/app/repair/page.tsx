@@ -23,6 +23,45 @@ type RepairDraft = {
     tripId?: string;
 };
 
+// Round 5 audit v3: repair category constants.
+// TODO(constants): if a shared constants/categories.ts is added later,
+// re-export from there. Inlined here to avoid a new module right now.
+export type RepairCategory =
+    | 'engine'
+    | 'transmission'
+    | 'brakes'
+    | 'electrical'
+    | 'body'
+    | 'tires'
+    | 'other';
+
+export const REPAIR_CATEGORIES: ReadonlyArray<{ id: RepairCategory; label: string; tone: 'danger' | 'warning' | 'info' | 'brand' | 'success' | 'neutral' }> = [
+    { id: 'engine', label: 'Двигатель', tone: 'danger' },
+    { id: 'transmission', label: 'Трансмиссия', tone: 'warning' },
+    { id: 'brakes', label: 'Тормозная система', tone: 'danger' },
+    { id: 'electrical', label: 'Электрика', tone: 'info' },
+    { id: 'body', label: 'Кузов', tone: 'neutral' },
+    { id: 'tires', label: 'Шины и колёса', tone: 'brand' },
+    { id: 'other', label: 'Прочее', tone: 'neutral' },
+];
+
+export const REPAIR_CATEGORY_LABEL: Record<string, string> = REPAIR_CATEGORIES.reduce(
+    (acc, c) => { acc[c.id] = c.label; return acc; },
+    {} as Record<string, string>,
+);
+
+export const REPAIR_CATEGORY_TONE: Record<string, 'danger' | 'warning' | 'info' | 'brand' | 'success' | 'neutral'> = REPAIR_CATEGORIES.reduce(
+    (acc, c) => { acc[c.id] = c.tone; return acc; },
+    {} as Record<string, 'danger' | 'warning' | 'info' | 'brand' | 'success' | 'neutral'>,
+);
+
+interface MechanicOption {
+    id: string;
+    email: string;
+    fullName: string;
+    roles: string[];
+}
+
 function CreateRepairModal({
     initialDraft,
     onClose,
@@ -34,15 +73,30 @@ function CreateRepairModal({
 }) {
     const { toast } = useToast();
     const [vehicles, setVehicles] = useState<any[]>([]);
+    const [mechanics, setMechanics] = useState<MechanicOption[]>([]);
     const [vehicleId, setVehicleId] = useState(initialDraft?.vehicleId || '');
     const [description, setDescription] = useState(initialDraft?.description || '');
     const [priority, setPriority] = useState(initialDraft?.priority || 'medium');
+    const [assignedTo, setAssignedTo] = useState<string>('');
+    const [category, setCategory] = useState<RepairCategory>('other');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [touched, setTouched] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         api.get<any>('/fleet/vehicles?limit=100').then(r => setVehicles(r.data || [])).catch(() => { });
+        // Load mechanic candidates. /auth/users returns all users; we filter
+        // by role client-side because there's no role= query parameter yet.
+        // TODO(api): add `?role=mechanic,repair_service` filter on /auth/users
+        // to avoid loading the full org user list for this picker.
+        api.get<{ success: boolean; data: MechanicOption[] }>('/auth/users')
+            .then(r => {
+                const list = (r.data || []).filter(u =>
+                    Array.isArray(u.roles) && u.roles.some(role => role === 'mechanic' || role === 'repair_service'),
+                );
+                setMechanics(list);
+            })
+            .catch(() => { });
     }, []);
 
     const errors = useMemo(() => {
@@ -69,11 +123,18 @@ function CreateRepairModal({
         setSubmitting(true);
         setError('');
         try {
+            // Round 5 audit v3: include assignedTo + category in the POST.
+            // If the API/schema does not yet support these fields it will
+            // ignore them silently — we don't block the create either way.
+            // TODO(api): persist `assignedTo` (uuid -> users.id) and
+            // `category` (enum) on the repairs table and surface them on GET.
             const result = await api.post<any>('/repairs', {
                 vehicleId,
                 description,
                 priority,
                 source: initialDraft?.source || 'mechanic',
+                assignedTo: assignedTo || null,
+                category: category || 'other',
             });
             if (result.success) {
                 toast({ variant: 'success', title: 'Заявка на ремонт создана' });
@@ -151,6 +212,36 @@ function CreateRepairModal({
                             <p className="text-xs text-red-500 mt-1">{errors.priority}</p>
                         )}
                     </div>
+                    <div>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Категория неисправности</label>
+                        <select
+                            value={category}
+                            onChange={e => setCategory(e.target.value as RepairCategory)}
+                            className={inputClass('category')}
+                        >
+                            {REPAIR_CATEGORIES.map(c => (
+                                <option key={c.id} value={c.id}>{c.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Ответственный механик</label>
+                        <select
+                            value={assignedTo}
+                            onChange={e => setAssignedTo(e.target.value)}
+                            className={inputClass('assignedTo')}
+                        >
+                            <option value="">Не назначен</option>
+                            {mechanics.map(m => (
+                                <option key={m.id} value={m.id}>
+                                    {m.fullName || m.email}
+                                </option>
+                            ))}
+                        </select>
+                        {mechanics.length === 0 && (
+                            <p className="text-xs text-neutral-400 mt-1">В организации пока нет пользователей с ролью «mechanic» или «repair_service».</p>
+                        )}
+                    </div>
                     {error && <p className="text-sm text-red-600">{error}</p>}
                 <div className="pt-2 border-t border-neutral-100 flex gap-3 justify-end">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
@@ -181,7 +272,7 @@ export default function RepairPage() {
     const [catalogRefreshKey, setCatalogRefreshKey] = useState(0);
     const [initialDraft, setInitialDraft] = useState<RepairDraft | undefined>();
     const [view, setView] = useState<'board' | 'table' | 'list'>('board');
-    const [repairsForTable, setRepairsForTable] = useState<Array<{ id: string; status: string; description: string; priority: string; source: string; vehicleId: string; assignedTo?: string; totalCost: number | string; createdAt: string }>>([]);
+    const [repairsForTable, setRepairsForTable] = useState<Array<{ id: string; status: string; description: string; priority: string; source: string; vehicleId: string; assignedTo?: string; assignedToName?: string; category?: string; totalCost: number | string; createdAt: string }>>([]);
     const [tableLoading, setTableLoading] = useState(false);
 
     useEffect(() => {
@@ -272,10 +363,27 @@ export default function RepairPage() {
             sortable: true,
         },
         {
+            id: 'category',
+            header: 'Категория',
+            accessor: r => r.category ? REPAIR_CATEGORY_LABEL[r.category] || r.category : '',
+            cell: r => {
+                if (!r.category) return <span className="text-xs text-neutral-400">—</span>;
+                const tone = REPAIR_CATEGORY_TONE[r.category] || 'neutral';
+                return <Pill tone={tone}>{REPAIR_CATEGORY_LABEL[r.category] || r.category}</Pill>;
+            },
+            width: '160px',
+            sortable: true,
+        },
+        {
             id: 'assignedTo',
             header: 'Механик',
-            accessor: r => r.assignedTo || '',
-            cell: r => r.assignedTo ? <span className="text-xs text-neutral-600">{r.assignedTo}</span> : <span className="text-xs text-neutral-400">—</span>,
+            accessor: r => r.assignedToName || r.assignedTo || '',
+            cell: r => {
+                const label = r.assignedToName || r.assignedTo;
+                return label
+                    ? <span className="text-xs text-neutral-600">{label}</span>
+                    : <span className="text-xs text-neutral-400">Не назначен</span>;
+            },
             width: '160px',
         },
         {

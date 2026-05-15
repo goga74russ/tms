@@ -46,6 +46,15 @@ export function CopilotChat() {
     const [history, setHistory] = useState<CopilotConversationSummary[]>([]);
     const [historyOpen, setHistoryOpen] = useState(false);
     const scrollRef = useRef<HTMLDivElement | null>(null);
+    const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+    // Autofocus the input as soon as the chat panel mounts — users almost
+    // always open the FAB to type, so a manual click into the textarea is
+    // pure friction. Wrapped in a microtask so the focus survives layout.
+    useEffect(() => {
+        const id = window.setTimeout(() => inputRef.current?.focus(), 0);
+        return () => window.clearTimeout(id);
+    }, []);
 
     const refreshHistory = useCallback(async () => {
         try {
@@ -353,6 +362,7 @@ export function CopilotChat() {
             {/* Input */}
             <form onSubmit={handleSubmit} className="border-t border-neutral-100 p-2 flex items-end gap-2">
                 <textarea
+                    ref={inputRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => {

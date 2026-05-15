@@ -227,17 +227,19 @@ export default function ClaimActPrintPage() {
                     </div>
                 )}
 
-                <hr style={{ marginTop: 16 }} />
-                <div className="two-col" style={{ marginTop: 12 }}>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: '9pt' }}>ОТВЕТСТВЕННЫЙ ТрансПульт:</div>
-                        <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
-                        <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / ФИО)</div>
-                    </div>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: '9pt' }}>СТОРОНА ПРЕТЕНЗИИ:</div>
-                        <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
-                        <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / ФИО)</div>
+                <div className="no-break">
+                    <hr style={{ marginTop: 16 }} />
+                    <div className="two-col" style={{ marginTop: 12 }}>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '9pt' }}>ОТВЕТСТВЕННЫЙ ТрансПульт:</div>
+                            <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
+                            <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / ФИО)</div>
+                        </div>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '9pt' }}>СТОРОНА ПРЕТЕНЗИИ:</div>
+                            <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
+                            <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / ФИО)</div>
+                        </div>
                     </div>
                 </div>
 

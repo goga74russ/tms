@@ -137,17 +137,19 @@ function CancellationActPrintContent() {
                     {trip.notes || 'ТС прибыло на точку подачи, груз или погрузка не были готовы. Акт сформирован для подтверждения основания начисления.'}
                 </div>
 
-                <hr style={{ marginTop: 16 }} />
-                <div className="two-col" style={{ marginTop: 12 }}>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: '9pt' }}>Перевозчик:</div>
-                        <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
-                        <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / ФИО)</div>
-                    </div>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: '9pt' }}>Заказчик / склад:</div>
-                        <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
-                        <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / ФИО)</div>
+                <div className="no-break">
+                    <hr style={{ marginTop: 16 }} />
+                    <div className="two-col" style={{ marginTop: 12 }}>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '9pt' }}>Перевозчик:</div>
+                            <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
+                            <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / ФИО)</div>
+                        </div>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '9pt' }}>Заказчик / склад:</div>
+                            <div className="sig-line" style={{ width: 180, marginTop: 18 }} />
+                            <div style={{ fontSize: '8pt', color: '#999' }}>(подпись / ФИО)</div>
+                        </div>
                     </div>
                 </div>
 

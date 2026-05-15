@@ -8,7 +8,9 @@ import { useEffect, useState } from 'react';
 import { Check, X, ExternalLink, AlertCircle, Sparkles, CreditCard, RefreshCw, CalendarClock, Wallet } from 'lucide-react';
 import { differenceInCalendarDays } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/components/ui/toast';
+import { Dialog } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { api } from '@/lib/api';
 import {
     formatKopecks,
@@ -57,8 +59,44 @@ function formatRuDate(iso: string): string {
     return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+// Round 5 audit v3: payment method UI is a stub until PaymentMethodService lands.
+// Shape we *would* show if the API returned it on Subscription / PaymentRecord.
+// TODO(api): expose `paymentMethod` on Subscription (last4, brand, expMonth, expYear)
+// and on PaymentRecord (method label per row). See billing.ts in @tms/shared.
+interface StubPaymentMethod {
+    last4?: string;
+    brand?: string;
+    expMonth?: number | string;
+    expYear?: number | string;
+}
+
+function readPaymentMethod(sub: SubscriptionWithPlan | null): StubPaymentMethod | null {
+    const raw = (sub?.subscription as unknown as { paymentMethod?: StubPaymentMethod } | null)?.paymentMethod;
+    if (!raw || typeof raw !== 'object') return null;
+    if (!raw.last4 && !raw.brand) return null;
+    return raw;
+}
+
+function readPaymentRecordMethod(record: PaymentRecord): string | null {
+    const raw = (record as unknown as { paymentMethod?: StubPaymentMethod | string }).paymentMethod;
+    if (!raw) return null;
+    if (typeof raw === 'string') return raw;
+    if (raw.brand && raw.last4) return `${raw.brand} •••• ${raw.last4}`;
+    if (raw.last4) return `•••• ${raw.last4}`;
+    if (raw.brand) return raw.brand;
+    return null;
+}
+
+function formatPaymentMethod(pm: StubPaymentMethod): string {
+    const brand = pm.brand || 'Карта';
+    const last4 = pm.last4 ? `•••• ${pm.last4}` : '';
+    const exp = pm.expMonth && pm.expYear
+        ? `, истекает ${String(pm.expMonth).padStart(2, '0')}/${String(pm.expYear).slice(-2)}`
+        : '';
+    return [brand, last4].filter(Boolean).join(' ') + exp;
+}
+
 export default function BillingPage() {
-    const { toast } = useToast();
     const [plans, setPlans] = useState<Plan[] | null>(null);
     const [sub, setSub] = useState<SubscriptionWithPlan | null>(null);
     const [usage, setUsage] = useState<UsageReport | null>(null);
@@ -66,6 +104,7 @@ export default function BillingPage() {
     const [loading, setLoading] = useState(true);
     const [actionPlan, setActionPlan] = useState<PlanId | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [showManagePayment, setShowManagePayment] = useState(false);
 
     const reload = async () => {
         try {
@@ -163,22 +202,15 @@ export default function BillingPage() {
         red: 'bg-rose-50 border-rose-200 text-rose-800',
     };
 
-    const handleManagePayment = () => {
-        // Round 5 audit v2: stub for «manage payment / update card flow».
-        // Real flow (PaymentMethodService + saved cards UI) is on the roadmap;
-        // for now we point the user to ЮKassa's own payment-method UI via
-        // toast action so the user has to consent before we open a new tab.
-        toast({
-            variant: 'info',
-            title: 'Управление платежами',
-            description: 'Реквизиты карты редактируются в личном кабинете ЮKassa.',
-            duration: 8000,
-            action: {
-                label: 'Открыть ЮKassa',
-                onClick: () => window.open('https://yookassa.ru/my/', '_blank', 'noopener,noreferrer'),
-            },
-        });
-    };
+    // Round 5 audit v3: «manage payment / update card flow» is now a Dialog
+    // with two explicit choices instead of a toast action. Once the backend
+    // exposes PaymentMethodService we'll replace «Перейти в ЮKassa» with an
+    // in-app SetupIntent-style flow.
+    // TODO(api): wire to a future POST /billing/payment-methods/setup that
+    // returns a redirect URL for adding a new card without a charge.
+    const handleManagePayment = () => setShowManagePayment(true);
+    const paymentMethod = readPaymentMethod(sub);
+    const hasMethodOnHistory = history.some(p => readPaymentRecordMethod(p));
 
     return (
         <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -257,6 +289,40 @@ export default function BillingPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Round 5 audit v3: saved payment method card.
+                Shown for paid plans only. Until PaymentMethodService is live
+                we surface the stub from subscription.paymentMethod (if the
+                API ever populates it) or a «not attached» state. */}
+            {sub && sub.plan.priceMonthlyKopecks > 0 && (
+                <section className="bg-white border border-neutral-200 rounded-xl p-5">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="flex items-start gap-3 min-w-0">
+                            <div className="shrink-0 w-9 h-9 rounded-lg bg-neutral-100 text-neutral-600 flex items-center justify-center">
+                                <CreditCard className="w-4.5 h-4.5" />
+                            </div>
+                            <div className="min-w-0">
+                                <h3 className="text-sm font-semibold text-neutral-900">Способ оплаты</h3>
+                                {paymentMethod ? (
+                                    <p className="text-sm text-neutral-700 mt-0.5">{formatPaymentMethod(paymentMethod)}</p>
+                                ) : (
+                                    <p className="text-sm text-neutral-500 mt-0.5">
+                                        Способ оплаты не привязан. Привяжете при следующей оплате.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleManagePayment}
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-900 underline-offset-2 hover:underline shrink-0"
+                        >
+                            <Wallet className="w-3.5 h-3.5" />
+                            Обновить способ оплаты
+                        </button>
+                    </div>
+                </section>
             )}
 
             {/* Days-remaining banner for active subscription */}
@@ -360,9 +426,12 @@ export default function BillingPage() {
             <section>
                 <h3 className="text-sm font-semibold text-neutral-700 mb-3 uppercase tracking-wide">История платежей</h3>
                 {history.length === 0 ? (
-                    <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-6 text-center text-sm text-neutral-500">
-                        Платежей пока не было.
-                    </div>
+                    <EmptyState
+                        icon={CreditCard}
+                        title="Платежей пока не было"
+                        description="Платежи появятся после первой оплаты"
+                        tone="brand"
+                    />
                 ) : (
                     <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
                         <table className="w-full text-sm">
@@ -371,44 +440,98 @@ export default function BillingPage() {
                                     <th className="text-left px-4 py-2.5">Дата</th>
                                     <th className="text-left px-4 py-2.5">Сумма</th>
                                     <th className="text-left px-4 py-2.5">Статус</th>
+                                    {hasMethodOnHistory && <th className="text-left px-4 py-2.5">Способ</th>}
                                     <th className="text-left px-4 py-2.5">Чек</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-100">
-                                {history.map((p) => (
-                                    <tr key={p.id} className="hover:bg-neutral-50">
-                                        <td className="px-4 py-2.5 text-neutral-700">
-                                            {new Date(p.createdAt).toLocaleString('ru-RU')}
-                                        </td>
-                                        <td className="px-4 py-2.5 font-medium text-neutral-900">
-                                            {formatKopecks(p.amountKopecks)}
-                                        </td>
-                                        <td className="px-4 py-2.5">
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                                p.status === 'succeeded' ? 'bg-emerald-50 text-emerald-700' :
-                                                p.status === 'failed' ? 'bg-rose-50 text-rose-700' :
-                                                p.status === 'refunded' ? 'bg-amber-50 text-amber-700' :
-                                                'bg-neutral-100 text-neutral-600'
-                                            }`}>
-                                                {STATUS_LABEL[p.status] ?? p.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-2.5">
-                                            {p.receiptUrl ? (
-                                                <a href={p.receiptUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:underline text-xs">
-                                                    Открыть <ExternalLink className="w-3 h-3" />
-                                                </a>
-                                            ) : (
-                                                <span className="text-xs text-neutral-400">—</span>
+                                {history.map((p) => {
+                                    const methodLabel = readPaymentRecordMethod(p);
+                                    return (
+                                        <tr key={p.id} className="hover:bg-neutral-50">
+                                            <td className="px-4 py-2.5 text-neutral-700">
+                                                {new Date(p.createdAt).toLocaleString('ru-RU')}
+                                            </td>
+                                            <td className="px-4 py-2.5 font-medium text-neutral-900">
+                                                {formatKopecks(p.amountKopecks)}
+                                            </td>
+                                            <td className="px-4 py-2.5">
+                                                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                                    p.status === 'succeeded' ? 'bg-emerald-50 text-emerald-700' :
+                                                    p.status === 'failed' ? 'bg-rose-50 text-rose-700' :
+                                                    p.status === 'refunded' ? 'bg-amber-50 text-amber-700' :
+                                                    'bg-neutral-100 text-neutral-600'
+                                                }`}>
+                                                    {STATUS_LABEL[p.status] ?? p.status}
+                                                </span>
+                                            </td>
+                                            {hasMethodOnHistory && (
+                                                <td className="px-4 py-2.5 text-xs text-neutral-600">
+                                                    {methodLabel ?? <span className="text-neutral-400">—</span>}
+                                                </td>
                                             )}
-                                        </td>
-                                    </tr>
-                                ))}
+                                            <td className="px-4 py-2.5">
+                                                {p.receiptUrl ? (
+                                                    <a href={p.receiptUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:underline text-xs">
+                                                        Открыть <ExternalLink className="w-3 h-3" />
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-xs text-neutral-400">—</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
                 )}
             </section>
+
+            {/* Round 5 audit v3: manage-payment dialog (stub).
+                Two explicit user choices replace the previous toast action. */}
+            <Dialog
+                open={showManagePayment}
+                onClose={() => setShowManagePayment(false)}
+                title="Обновить способ оплаты"
+                description="Выберите, как удобнее обновить карту."
+                size="md"
+            >
+                <div className="space-y-3">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            window.open('https://yookassa.ru/my/', '_blank', 'noopener,noreferrer');
+                            setShowManagePayment(false);
+                        }}
+                        className="w-full text-left rounded-xl border border-neutral-200 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors p-4 flex items-start gap-3"
+                    >
+                        <div className="shrink-0 w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                            <ExternalLink className="w-4.5 h-4.5" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-sm font-semibold text-neutral-900">Перейти в личный кабинет ЮKassa</p>
+                            <p className="text-xs text-neutral-500 mt-0.5">Управление сохранёнными картами и реквизитами на стороне платёжной системы.</p>
+                        </div>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowManagePayment(false)}
+                        className="w-full text-left rounded-xl border border-neutral-200 hover:border-emerald-300 hover:bg-emerald-50/40 transition-colors p-4 flex items-start gap-3"
+                    >
+                        <div className="shrink-0 w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                            <CreditCard className="w-4.5 h-4.5" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-sm font-semibold text-neutral-900">Привязать новую карту при следующей оплате</p>
+                            <p className="text-xs text-neutral-500 mt-0.5">При очередном списании вам предложат сохранить новую карту вместо текущей.</p>
+                        </div>
+                    </button>
+                    <div className="pt-2 border-t border-neutral-100 flex justify-end">
+                        <Button variant="outline" onClick={() => setShowManagePayment(false)}>Закрыть</Button>
+                    </div>
+                </div>
+            </Dialog>
         </div>
     );
 }

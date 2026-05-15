@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
         paddingVertical: spacing.sm,
         borderRadius: radius.pill,
     },
-    cameraHint: { color: colors.white, fontSize: 14, fontWeight: '600' },
+    cameraHint: { color: colors.white, fontSize: 16, fontWeight: '600' },
     captureButton: {
         width: 78,
         height: 78,

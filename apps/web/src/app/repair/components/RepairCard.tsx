@@ -2,6 +2,29 @@
 
 import { Camera, User, Wrench } from 'lucide-react';
 
+// Round 5 audit v3: category labels/tones mirror those in repair/page.tsx.
+// Kept local to avoid a circular dep with the page module; if a shared
+// constants file appears later both copies should source from it.
+const REPAIR_CATEGORY_LABEL_LOCAL: Record<string, string> = {
+  engine: 'Двигатель',
+  transmission: 'Трансмиссия',
+  brakes: 'Тормозная система',
+  electrical: 'Электрика',
+  body: 'Кузов',
+  tires: 'Шины и колёса',
+  other: 'Прочее',
+};
+
+const REPAIR_CATEGORY_PILL_LOCAL: Record<string, string> = {
+  engine: 'bg-red-50 text-red-700 border-red-100',
+  transmission: 'bg-amber-50 text-amber-700 border-amber-100',
+  brakes: 'bg-rose-50 text-rose-700 border-rose-100',
+  electrical: 'bg-sky-50 text-sky-700 border-sky-100',
+  body: 'bg-neutral-100 text-neutral-700 border-neutral-200',
+  tires: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+  other: 'bg-neutral-100 text-neutral-600 border-neutral-200',
+};
+
 interface Repair {
   id: string;
   vehicleId: string;
@@ -10,6 +33,8 @@ interface Repair {
   priority: string;
   source: string;
   assignedTo?: string;
+  assignedToName?: string;
+  category?: string;
   totalCost: number | string;
   createdAt: string;
   photoUrls: string[];
@@ -124,6 +149,11 @@ export function RepairCard({ repair }: { repair: Repair }) {
   const parts = repair.partsUsed || [];
   const summary = buildPartsSummary(repair);
 
+  const categoryKey = repair.category || '';
+  const categoryLabel = categoryKey ? (REPAIR_CATEGORY_LABEL_LOCAL[categoryKey] || categoryKey) : null;
+  const categoryPillClass = REPAIR_CATEGORY_PILL_LOCAL[categoryKey] || 'bg-neutral-100 text-neutral-600 border-neutral-200';
+  const assignedLabel = repair.assignedToName || repair.assignedTo;
+
   return (
     <div className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm transition-shadow duration-200 hover:shadow-md">
       <div className="mb-2 flex items-center justify-between">
@@ -134,16 +164,26 @@ export function RepairCard({ repair }: { repair: Repair }) {
         <span className="text-xs text-neutral-400">{sourceLabels[repair.source] || repair.source}</span>
       </div>
 
+      {categoryLabel && (
+        <div className="mb-2">
+          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${categoryPillClass}`}>
+            {categoryLabel}
+          </span>
+        </div>
+      )}
+
       <p className="mb-2 line-clamp-2 text-sm font-medium text-neutral-800">{repair.description}</p>
 
       <div className="flex items-center justify-between text-xs text-neutral-500">
         <div className="flex items-center gap-2">
-          {repair.assignedTo && (
-            <span className="flex items-center gap-1">
-              <User className="h-3 w-3" />
-              {repair.assignedTo}
-            </span>
-          )}
+          <span className="flex items-center gap-1">
+            <User className="h-3 w-3" />
+            {assignedLabel ? (
+              <span className="text-neutral-600">{assignedLabel}</span>
+            ) : (
+              <span className="text-neutral-400">Не назначен</span>
+            )}
+          </span>
           {repair.photoUrls.length > 0 && (
             <span className="flex items-center gap-0.5">
               <Camera className="h-3 w-3" />

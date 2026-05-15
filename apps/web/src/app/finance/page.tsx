@@ -616,20 +616,51 @@ export default function FinanceDashboard() {
         filteredInvoices.some(i => selectedIds.has(i.id)) && !allVisibleSelected;
 
     const handleBulkDownloadPdf = async () => {
-        // No bulk-pdf endpoint exists yet — per-id loop downloading each PDF.
         const ids = Array.from(selectedIds);
-        const targets = invoices.filter(inv => ids.includes(inv.id));
-        if (targets.length === 0) return;
+        if (ids.length === 0) return;
+        if (ids.length > 50) {
+            toast({ variant: 'warning', title: 'Слишком много счетов', description: 'Максимум 50 за один архив. Снимите часть выделения.' });
+            return;
+        }
         setBulkBusy(true);
         try {
-            for (const inv of targets) {
+            const response = await fetch('/api/finance/invoices/bulk-pdf', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids }),
+            });
+            if (!response.ok) {
+                let message = `HTTP ${response.status}`;
                 try {
-                    await downloadPdfAuth(`/api/finance/invoices/${inv.id}/pdf`, `${inv.type}_${inv.number}.pdf`);
-                } catch (err) {
-                    console.error('Bulk PDF download failed for', inv.id, err);
+                    const err = await response.json();
+                    if (err?.error) message = err.error;
+                } catch {
+                    /* response is not JSON */
                 }
+                throw new Error(message);
             }
-            toast({ variant: 'success', title: 'Архив выгружен', description: `Скачано PDF: ${targets.length}` });
+            const skippedHeader = response.headers.get('X-Bulk-Skipped');
+            const skipped = skippedHeader ? Number(skippedHeader) : 0;
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `invoices-${new Date().toISOString().slice(0, 10)}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            const included = ids.length - skipped;
+            toast({
+                variant: skipped > 0 ? 'warning' : 'success',
+                title: skipped > 0 ? 'Архив скачан частично' : 'Архив скачан',
+                description: skipped > 0
+                    ? `В архиве ${included} из ${ids.length} (пропущено: ${skipped})`
+                    : `В архиве счетов: ${included}`,
+            });
+        } catch (err: any) {
+            toast({ variant: 'error', title: 'Ошибка скачивания', description: err?.message ?? 'Не удалось собрать архив' });
         } finally {
             setBulkBusy(false);
         }

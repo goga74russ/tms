@@ -431,6 +431,154 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         }
     );
 
+    // 6.5b POST /finance/invoices/bulk-pdf — Скачать архив PDF одним zip
+    fastify.post<{ Body: { ids: string[] } }>(
+        '/finance/invoices/bulk-pdf',
+        {
+            schema: {
+                tags: ['Финансы'],
+                summary: 'Bulk PDF archive',
+                description: 'Сборка PDF выбранных счетов/актов в один zip-архив. Максимум 50 ID за вызов. RLS: каждый ID проверяется через ensureInvoiceAccess.',
+            },
+            preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')],
+        },
+        async (request, reply) => {
+            try {
+                const body = request.body ?? ({} as { ids?: unknown });
+                const ids = Array.isArray(body.ids) ? body.ids.filter((v): v is string => typeof v === 'string') : [];
+
+                if (ids.length === 0) {
+                    return reply.code(400).send({ success: false, error: 'Список счетов пуст' });
+                }
+                if (ids.length > 50) {
+                    return reply.code(400).send({ success: false, error: 'Максимум 50 счетов за раз' });
+                }
+
+                const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+
+                const { contractors, trips: tripsTable, orders } = await import('../../db/schema.js');
+                const { generateInvoicePdf } = await import('../documents/invoice-pdf.js');
+                const { generateActPdf } = await import('../documents/act-pdf.js');
+                const { buildZip } = await import('../../utils/zip.js');
+
+                type ZipEntryDraft = { name: string; data: Buffer };
+                const entries: ZipEntryDraft[] = [];
+                const skipped: Array<{ id: string; reason: string }> = [];
+                const usedNames = new Set<string>();
+
+                let completed = 0;
+                for (const id of ids) {
+                    const access = await ensureInvoiceAccess(id, user);
+                    if (access.error) {
+                        skipped.push({ id, reason: access.error.body.error });
+                        continue;
+                    }
+                    const { invoice } = access;
+
+                    const [contractor] = invoice.contractorId
+                        ? await db.select().from(contractors).where(eq(contractors.id, invoice.contractorId)).limit(1)
+                        : [null];
+
+                    const pdfTripRows = await db.select({
+                        number: tripsTable.number,
+                        actualCompletionAt: tripsTable.actualCompletionAt,
+                        distanceKm: tripsTable.actualDistanceKm,
+                        loadingAddress: orders.loadingAddress,
+                        unloadingAddress: orders.unloadingAddress,
+                    }).from(invoiceTrips)
+                        .innerJoin(tripsTable, eq(invoiceTrips.tripId, tripsTable.id))
+                        .leftJoin(orders, eq(orders.tripId, tripsTable.id))
+                        .where(eq(invoiceTrips.invoiceId, invoice.id));
+
+                    const tripCount = pdfTripRows.length || 1;
+                    const costPerTrip = Number(invoice.total) / tripCount;
+
+                    let pdfBuffer: Buffer;
+                    if (invoice.type === 'invoice') {
+                        pdfBuffer = await generateInvoicePdf({
+                            number: invoice.number,
+                            date: invoice.createdAt,
+                            contractorName: contractor?.name ?? '—',
+                            contractorInn: contractor?.inn,
+                            contractorKpp: contractor?.kpp,
+                            contractorAddress: contractor?.legalAddress,
+                            items: [{
+                                name: `Транспортные услуги за период ${invoice.periodStart ? new Date(invoice.periodStart).toLocaleDateString('ru-RU') : '—'} — ${invoice.periodEnd ? new Date(invoice.periodEnd).toLocaleDateString('ru-RU') : '—'}`,
+                                qty: pdfTripRows.length || 1,
+                                unit: 'рейс',
+                                price: Number(invoice.subtotal) / (pdfTripRows.length || 1),
+                                amount: Number(invoice.subtotal),
+                            }],
+                            subtotal: Number(invoice.subtotal),
+                            vatAmount: Number(invoice.vatAmount),
+                            total: Number(invoice.total),
+                        });
+                    } else {
+                        const tripRows = pdfTripRows.map((t) => ({
+                            date: t.actualCompletionAt,
+                            tripNumber: t.number,
+                            route: t.loadingAddress && t.unloadingAddress ? `${t.loadingAddress} → ${t.unloadingAddress}` : '—',
+                            distanceKm: t.distanceKm ? Number(t.distanceKm) : null,
+                            amount: costPerTrip,
+                        }));
+                        pdfBuffer = await generateActPdf({
+                            number: invoice.number,
+                            date: invoice.createdAt,
+                            periodStart: invoice.periodStart,
+                            periodEnd: invoice.periodEnd,
+                            contractorName: contractor?.name ?? '—',
+                            contractorInn: contractor?.inn,
+                            contractorKpp: contractor?.kpp,
+                            contractorAddress: contractor?.legalAddress,
+                            trips: tripRows,
+                            subtotal: Number(invoice.subtotal),
+                            vatAmount: Number(invoice.vatAmount),
+                            total: Number(invoice.total),
+                        });
+                    }
+
+                    const typeLabel = invoice.type === 'invoice' ? 'invoice' : 'act';
+                    // Sanitize and dedupe filenames (invoice numbers should already be unique,
+                    // but defend against odd chars and accidental dupes).
+                    const safeNumber = String(invoice.number).replace(/[\\/:*?"<>|]+/g, '_');
+                    let entryName = `${typeLabel}_${safeNumber}.pdf`;
+                    if (usedNames.has(entryName)) {
+                        entryName = `${typeLabel}_${safeNumber}_${invoice.id.slice(0, 8)}.pdf`;
+                    }
+                    usedNames.add(entryName);
+                    entries.push({ name: entryName, data: pdfBuffer });
+
+                    completed += 1;
+                    if (completed % 5 === 0) {
+                        request.log.info({ requested: ids.length, completed, skipped: skipped.length }, 'bulk-pdf progress');
+                    }
+                }
+
+                if (entries.length === 0) {
+                    return reply.code(404).send({
+                        success: false,
+                        error: 'Нет доступных счетов для скачивания',
+                        skipped,
+                    });
+                }
+
+                const zipBuf = buildZip(entries);
+                const today = new Date().toISOString().slice(0, 10);
+                reply.header('Content-Type', 'application/zip');
+                reply.header('Content-Disposition', `attachment; filename="invoices-${today}.zip"`);
+                reply.header('Content-Length', zipBuf.length);
+                if (skipped.length > 0) {
+                    reply.header('X-Bulk-Skipped', String(skipped.length));
+                }
+                request.log.info({ requested: ids.length, included: entries.length, skipped: skipped.length, bytes: zipBuf.length }, 'bulk-pdf done');
+                return reply.send(zipBuf);
+            } catch (error: any) {
+                request.log.error(error);
+                return reply.code(500).send({ success: false, error: error.message });
+            }
+        },
+    );
+
     // 6.6 GET /finance/invoices/:id/upd — УПД PDF
     fastify.get<{ Params: { id: string } }>(
         '/finance/invoices/:id/upd',

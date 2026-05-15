@@ -13,6 +13,12 @@ export default function PrintLayout({ children }: { children: React.ReactNode })
                         body { font-size: 10pt; }
                         .no-print { display: none !important; }
                         .page-break { page-break-before: always; }
+                        .page-break-after { page-break-after: always; break-after: page; }
+                        /* Keep logical document sections together — без этого "Подписи сторон"
+                           или "Финансовая оценка" регулярно рвутся пополам на A4. */
+                        .no-break { page-break-inside: avoid; break-inside: avoid; }
+                        table, tr { page-break-inside: avoid; break-inside: avoid; }
+                        thead { display: table-header-group; }
                         /* ГОСТ Р 6.30-2003: 20mm top/left/right, 25mm bottom (заданы как top right bottom left) */
                         @page { margin: 20mm 20mm 25mm 20mm; size: A4; }
                     }
