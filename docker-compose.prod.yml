@@ -135,6 +135,11 @@ services:
       # эндпоинт /api/signatures/gosklyuch/callback станет открытым каналом
       # инъекции поддельных подписей (см. server.ts boot-check).
       GOSKLYUCH_CALLBACK_SECRET: ${GOSKLYUCH_CALLBACK_SECRET:-}
+      # Demo seed gating (A-P2). По дефолту в production /api/demo/*
+      # возвращает 404, чтобы compromised admin-токен не мог стереть
+      # тенант через cleanupDemoData(). Для пилот-сервера, где демо
+      # нужно, явно опт-инить ALLOW_DEMO_SEED=true в .env.
+      ALLOW_DEMO_SEED: ${ALLOW_DEMO_SEED:-}
       # DaData API key for INN/ОГРН lookup in /onboarding step 1 and
       # /api/dadata/* routes. Empty -> dadata module returns deterministic
       # mock data (good for dev / when DaData is unavailable).
