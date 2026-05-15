@@ -450,18 +450,27 @@ export default function FinanceDashboard() {
         }
     };
 
-    const parseMoneyInput = (value: string) => {
+    const parseMoneyInput = useCallback((value: string) => {
         const parsed = Number(value.replace(',', '.').trim());
         return Number.isFinite(parsed) ? parsed : NaN;
-    };
+    }, []);
 
-    const calculateServiceAmount = (form = serviceForm) => {
+    // Pure, dep-free reducer reused by both the live preview and the form-patch path.
+    const computeServiceAmount = useCallback((form: typeof serviceForm) => {
         const quantity = parseMoneyInput(form.quantity);
         const rate = parseMoneyInput(form.rate);
         const coefficient = parseMoneyInput(form.coefficient);
         if (!Number.isFinite(quantity) || !Number.isFinite(rate) || !Number.isFinite(coefficient)) return NaN;
         return Math.round(quantity * rate * coefficient * 100) / 100;
-    };
+    }, [parseMoneyInput]);
+
+    // Hot path: re-rendered on every keystroke inside the Payment modal "Доп. услуги" tab.
+    // Memoize against serviceForm so we only recompute when q/rate/coefficient change.
+    const currentServiceAmount = useMemo(() => computeServiceAmount(serviceForm), [computeServiceAmount, serviceForm]);
+
+    const calculateServiceAmount = useCallback((form?: typeof serviceForm) => {
+        return form ? computeServiceAmount(form) : currentServiceAmount;
+    }, [computeServiceAmount, currentServiceAmount]);
 
     const handleServiceTypeChange = (serviceType: string) => {
         const rule = SERVICE_RULES[serviceType] || SERVICE_RULES.other;
@@ -983,7 +992,7 @@ export default function FinanceDashboard() {
                                         <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-neutral-700">
                                             <div className="flex items-center justify-between gap-2">
                                                 <span>Расчет: {SERVICE_UNIT_LABELS[SERVICE_RULES[serviceForm.serviceType]?.unit || 'service']}</span>
-                                                <span className="font-semibold">{fmtMoney(calculateServiceAmount() || 0)}</span>
+                                                <span className="font-semibold">{fmtMoney(currentServiceAmount || 0)}</span>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

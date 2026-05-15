@@ -36,11 +36,6 @@ interface KpiData {
     repairsAmount: number | string | null;
     tripsCompleted: number | string | null;
     overdueDebt: number | string | null;
-    ktgPercent: number | string | null;
-    fleetActive: number | string | null;
-    fleetReady: number | string | null;
-    fleetUnavailable: number | string | null;
-    ktgLight: "green" | "yellow" | "red";
     debtorLight: "green" | "yellow" | "red";
     finesLight: "green" | "yellow" | "red";
     topDrivers: { name: string; trips: number; eco: string; score: string }[];

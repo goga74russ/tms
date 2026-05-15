@@ -9,6 +9,7 @@ import {
     View,
 } from 'react-native';
 import { Q } from '@nozbe/watermelondb';
+import NetInfo from '@react-native-community/netinfo';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { database } from '../database';
@@ -82,6 +83,14 @@ export default function TripListScreen({ navigation }: Props) {
     const [overdueTripIds, setOverdueTripIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<FilterKey>('active');
+    const [online, setOnline] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        const unsub = NetInfo.addEventListener((s) => {
+            setOnline(Boolean(s.isConnected && s.isInternetReachable));
+        });
+        return () => unsub();
+    }, []);
 
     useLayoutEffect(() => {
         navigation.setOptions({
@@ -185,6 +194,13 @@ export default function TripListScreen({ navigation }: Props) {
 
     return (
         <View style={styles.container}>
+            {online === false && (
+                <View style={styles.offlineBar} accessibilityRole="alert">
+                    <Text style={styles.offlineBarText}>
+                        Нет соединения. Действия сохраняются локально.
+                    </Text>
+                </View>
+            )}
             <View style={styles.filterRow}>
                 {FILTERS.map((f) => {
                     const active = filter === f.key;
@@ -231,6 +247,22 @@ export default function TripListScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.neutral[50], padding: spacing.lg },
+    offlineBar: {
+        marginHorizontal: -spacing.lg,
+        marginTop: -spacing.lg,
+        marginBottom: spacing.md,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        backgroundColor: colors.danger[600],
+        minHeight: 28,
+        justifyContent: 'center',
+    },
+    offlineBarText: {
+        color: colors.white,
+        fontSize: 14,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
     headerBtn: { paddingHorizontal: spacing.sm, paddingVertical: 4 },
     headerBtnText: { fontSize: 22 },
     filterRow: {

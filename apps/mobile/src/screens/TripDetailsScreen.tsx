@@ -16,6 +16,7 @@ import {
     View,
 } from 'react-native';
 import { Q } from '@nozbe/watermelondb';
+import NetInfo from '@react-native-community/netinfo';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { database } from '../database';
@@ -112,6 +113,14 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
     const [actionInFlight, setActionInFlight] = useState(false);
     const [eta, setEta] = useState<TripEtaData | null>(null);
     const [etaLoaded, setEtaLoaded] = useState(false);
+    const [online, setOnline] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        const unsub = NetInfo.addEventListener((s) => {
+            setOnline(Boolean(s.isConnected && s.isInternetReachable));
+        });
+        return () => unsub();
+    }, []);
 
     const fetchData = useCallback(async () => {
         try {
@@ -329,6 +338,13 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
 
     return (
         <View style={styles.root}>
+            {online === false && (
+                <View style={styles.offlineBar} accessibilityRole="alert">
+                    <Text style={styles.offlineBarText}>
+                        Нет соединения. Действия сохраняются локально.
+                    </Text>
+                </View>
+            )}
             {/* Hero "map" placeholder — solid surface w/ markers; replace w/ react-native-maps when available */}
             <View style={styles.mapHero}>
                 <View style={styles.mapGrid} pointerEvents="none">
@@ -688,6 +704,24 @@ const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.neutral[50] },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.neutral[50] },
     error: { fontSize: 16, color: colors.danger[600] },
+    offlineBar: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        backgroundColor: colors.danger[600],
+        minHeight: 28,
+        justifyContent: 'center',
+    },
+    offlineBarText: {
+        color: colors.white,
+        fontSize: 14,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
 
     // Map hero
     mapHero: {
@@ -813,7 +847,7 @@ const styles = StyleSheet.create({
     exceptionHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
     exceptionType: { fontSize: 11, color: colors.neutral[400] },
     exceptionTitle: { fontSize: 14, fontWeight: '700', color: colors.neutral[900] },
-    exceptionMessage: { fontSize: 12, color: colors.neutral[600], marginTop: 2 },
+    exceptionMessage: { fontSize: 14, color: colors.neutral[600], marginTop: 2, lineHeight: 19 },
     cleanBox: {
         backgroundColor: colors.success[50],
         borderRadius: radius.md,

@@ -49,7 +49,7 @@ export default function LoginScreen() {
                         <View style={styles.logoCircle}>
                             <Text style={styles.logoIcon}>🚛</Text>
                         </View>
-                        <Text style={styles.brand}>TMS</Text>
+                        <Text style={styles.brand}>ТрансПульт</Text>
                         <Text style={styles.tagline}>Управление транспортом</Text>
                     </View>
 
@@ -202,8 +202,9 @@ const styles = StyleSheet.create({
     },
     errorText: {
         color: colors.danger[700],
-        fontSize: 13,
+        fontSize: 15,
         fontWeight: '600',
+        lineHeight: 20,
     },
     footer: {
         marginTop: spacing.lg,

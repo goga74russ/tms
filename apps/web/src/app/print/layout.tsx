@@ -13,7 +13,8 @@ export default function PrintLayout({ children }: { children: React.ReactNode })
                         body { font-size: 10pt; }
                         .no-print { display: none !important; }
                         .page-break { page-break-before: always; }
-                        @page { margin: 15mm; size: A4; }
+                        /* ГОСТ Р 6.30-2003: 20mm top/left/right, 25mm bottom (заданы как top right bottom left) */
+                        @page { margin: 20mm 20mm 25mm 20mm; size: A4; }
                     }
                     @media screen {
                         body { background: #e5e5e5; }

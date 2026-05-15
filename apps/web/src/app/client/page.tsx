@@ -247,111 +247,205 @@ export default function ClientPortalPage() {
                 {loading ? (
                     <div className="p-4"><SkeletonTable rows={6} columns={6} /></div>
                 ) : activeTab === 'orders' ? (
-                    /* Orders Table */
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-neutral-50 text-neutral-500 text-left">
-                                    <th className="px-4 py-3 font-medium">Номер</th>
-                                    <th className="px-4 py-3 font-medium">Статус</th>
-                                    <th className="px-4 py-3 font-medium">Груз</th>
-                                    <th className="px-4 py-3 font-medium">Откуда</th>
-                                    <th className="px-4 py-3 font-medium">Куда</th>
-                                    <th className="px-4 py-3 font-medium">Дата</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-neutral-100">
-                                {filteredOrders.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={6}>
-                                            <div className="p-6">
-                                                <EmptyState
-                                                    icon={Package}
-                                                    title="Заявок пока нет"
-                                                    description="Заявки появятся здесь после оформления."
-                                                />
-                                            </div>
-                                        </td>
+                    <>
+                        {/* Orders Table — desktop */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-neutral-50 text-neutral-500 text-left">
+                                        <th className="px-4 py-3 font-medium">Номер</th>
+                                        <th className="px-4 py-3 font-medium">Статус</th>
+                                        <th className="px-4 py-3 font-medium">Груз</th>
+                                        <th className="px-4 py-3 font-medium">Откуда</th>
+                                        <th className="px-4 py-3 font-medium">Куда</th>
+                                        <th className="px-4 py-3 font-medium">Дата</th>
                                     </tr>
-                                ) : filteredOrders.map(order => {
-                                    const st = ORDER_STATUS_LABELS[order.status] || { label: order.status, color: 'bg-neutral-100 text-neutral-600' };
-                                    return (
-                                        <tr key={order.id} className="hover:bg-blue-50/50 transition-colors">
-                                            <td className="px-4 py-3">
-                                                <span className="font-mono font-semibold text-blue-700">{order.number}</span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
-                                                    {st.label}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-neutral-700 max-w-48 truncate" title={order.cargoDescription || undefined}>{order.cargoDescription || '—'}</td>
-                                            <td className="px-4 py-3 text-neutral-600 text-xs max-w-40 truncate" title={order.loadingAddress || undefined}>{order.loadingAddress || '—'}</td>
-                                            <td className="px-4 py-3 text-neutral-600 text-xs max-w-40 truncate" title={order.unloadingAddress || undefined}>{order.unloadingAddress || '—'}</td>
-                                            <td className="px-4 py-3 text-neutral-500 text-xs">
-                                                {new Date(order.createdAt).toLocaleDateString('ru-RU')}
+                                </thead>
+                                <tbody className="divide-y divide-neutral-100">
+                                    {filteredOrders.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6}>
+                                                <div className="p-6">
+                                                    <EmptyState
+                                                        icon={Package}
+                                                        title="Заявок пока нет"
+                                                        description="Заявки появятся здесь после оформления."
+                                                    />
+                                                </div>
                                             </td>
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                    ) : filteredOrders.map(order => {
+                                        const st = ORDER_STATUS_LABELS[order.status] || { label: order.status, color: 'bg-neutral-100 text-neutral-600' };
+                                        return (
+                                            <tr key={order.id} className="hover:bg-blue-50/50 transition-colors">
+                                                <td className="px-4 py-3">
+                                                    <span className="font-mono font-semibold text-blue-700">{order.number}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
+                                                        {st.label}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-neutral-700 max-w-48 truncate" title={order.cargoDescription || undefined}>{order.cargoDescription || '—'}</td>
+                                                <td className="px-4 py-3 text-neutral-600 text-xs max-w-40 truncate" title={order.loadingAddress || undefined}>{order.loadingAddress || '—'}</td>
+                                                <td className="px-4 py-3 text-neutral-600 text-xs max-w-40 truncate" title={order.unloadingAddress || undefined}>{order.unloadingAddress || '—'}</td>
+                                                <td className="px-4 py-3 text-neutral-500 text-xs">
+                                                    {new Date(order.createdAt).toLocaleDateString('ru-RU')}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Orders Cards — mobile (<768px) */}
+                        <div className="md:hidden p-3 space-y-3">
+                            {filteredOrders.length === 0 ? (
+                                <div className="p-3">
+                                    <EmptyState
+                                        icon={Package}
+                                        title="Заявок пока нет"
+                                        description="Заявки появятся здесь после оформления."
+                                    />
+                                </div>
+                            ) : filteredOrders.map(order => {
+                                const st = ORDER_STATUS_LABELS[order.status] || { label: order.status, color: 'bg-neutral-100 text-neutral-600' };
+                                return (
+                                    <div
+                                        key={order.id}
+                                        className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm"
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <span className="font-mono text-sm font-semibold text-blue-700">{order.number}</span>
+                                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${st.color}`}>
+                                                {st.label}
+                                            </span>
+                                        </div>
+                                        <div className="mt-2 text-sm font-medium text-neutral-900 break-words">
+                                            {order.cargoDescription || '—'}
+                                        </div>
+                                        <div className="mt-2 space-y-1 text-xs text-neutral-600">
+                                            <div className="flex gap-1.5">
+                                                <span className="shrink-0 text-neutral-400">Откуда:</span>
+                                                <span className="break-words">{order.loadingAddress || '—'}</span>
+                                            </div>
+                                            <div className="flex gap-1.5">
+                                                <span className="shrink-0 text-neutral-400">Куда:</span>
+                                                <span className="break-words">{order.unloadingAddress || '—'}</span>
+                                            </div>
+                                            <div className="flex gap-1.5">
+                                                <span className="shrink-0 text-neutral-400">Дата:</span>
+                                                <span>{new Date(order.createdAt).toLocaleDateString('ru-RU')}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
                 ) : (
-                    /* Invoices Table */
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-neutral-50 text-neutral-500 text-left">
-                                    <th className="px-4 py-3 font-medium">Номер</th>
-                                    <th className="px-4 py-3 font-medium">Статус</th>
-                                    <th className="px-4 py-3 font-medium">Сумма</th>
-                                    <th className="px-4 py-3 font-medium">Период</th>
-                                    <th className="px-4 py-3 font-medium">Дата</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-neutral-100">
-                                {filteredInvoices.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={5}>
-                                            <div className="p-6">
-                                                <EmptyState
-                                                    icon={FileText}
-                                                    title="Счетов пока нет"
-                                                    description="Здесь появятся счета по выполненным заявкам."
-                                                />
-                                            </div>
-                                        </td>
+                    <>
+                        {/* Invoices Table — desktop */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-neutral-50 text-neutral-500 text-left">
+                                        <th className="px-4 py-3 font-medium">Номер</th>
+                                        <th className="px-4 py-3 font-medium">Статус</th>
+                                        <th className="px-4 py-3 font-medium">Сумма</th>
+                                        <th className="px-4 py-3 font-medium">Период</th>
+                                        <th className="px-4 py-3 font-medium">Дата</th>
                                     </tr>
-                                ) : filteredInvoices.map(inv => {
-                                    const st = INVOICE_STATUS_LABELS[inv.status] || { label: inv.status, color: 'bg-neutral-100 text-neutral-600' };
-                                    return (
-                                        <tr key={inv.id} className="hover:bg-blue-50/50 transition-colors">
-                                            <td className="px-4 py-3">
-                                                <span className="font-mono font-semibold text-neutral-700">{inv.number}</span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
-                                                    {st.label}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 font-semibold text-neutral-900">
-                                                {formatMoney(inv.totalAmount ?? inv.total ?? 0)}
-                                            </td>
-                                            <td className="px-4 py-3 text-neutral-600 text-xs">
-                                                {inv.periodStart ? new Date(inv.periodStart).toLocaleDateString('ru-RU') : '—'}
-                                                {' — '}
-                                                {inv.periodEnd ? new Date(inv.periodEnd).toLocaleDateString('ru-RU') : '—'}
-                                            </td>
-                                            <td className="px-4 py-3 text-neutral-500 text-xs">
-                                                {new Date(inv.createdAt).toLocaleDateString('ru-RU')}
+                                </thead>
+                                <tbody className="divide-y divide-neutral-100">
+                                    {filteredInvoices.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5}>
+                                                <div className="p-6">
+                                                    <EmptyState
+                                                        icon={FileText}
+                                                        title="Счетов пока нет"
+                                                        description="Здесь появятся счета по выполненным заявкам."
+                                                    />
+                                                </div>
                                             </td>
                                         </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                    ) : filteredInvoices.map(inv => {
+                                        const st = INVOICE_STATUS_LABELS[inv.status] || { label: inv.status, color: 'bg-neutral-100 text-neutral-600' };
+                                        return (
+                                            <tr key={inv.id} className="hover:bg-blue-50/50 transition-colors">
+                                                <td className="px-4 py-3">
+                                                    <span className="font-mono font-semibold text-neutral-700">{inv.number}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
+                                                        {st.label}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 font-semibold text-neutral-900">
+                                                    {formatMoney(inv.totalAmount ?? inv.total ?? 0)}
+                                                </td>
+                                                <td className="px-4 py-3 text-neutral-600 text-xs">
+                                                    {inv.periodStart ? new Date(inv.periodStart).toLocaleDateString('ru-RU') : '—'}
+                                                    {' — '}
+                                                    {inv.periodEnd ? new Date(inv.periodEnd).toLocaleDateString('ru-RU') : '—'}
+                                                </td>
+                                                <td className="px-4 py-3 text-neutral-500 text-xs">
+                                                    {new Date(inv.createdAt).toLocaleDateString('ru-RU')}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Invoices Cards — mobile (<768px) */}
+                        <div className="md:hidden p-3 space-y-3">
+                            {filteredInvoices.length === 0 ? (
+                                <div className="p-3">
+                                    <EmptyState
+                                        icon={FileText}
+                                        title="Счетов пока нет"
+                                        description="Здесь появятся счета по выполненным заявкам."
+                                    />
+                                </div>
+                            ) : filteredInvoices.map(inv => {
+                                const st = INVOICE_STATUS_LABELS[inv.status] || { label: inv.status, color: 'bg-neutral-100 text-neutral-600' };
+                                return (
+                                    <div
+                                        key={inv.id}
+                                        className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm"
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <span className="font-mono text-sm font-semibold text-neutral-700">{inv.number}</span>
+                                            <span className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${st.color}`}>
+                                                {st.label}
+                                            </span>
+                                        </div>
+                                        <div className="mt-2 text-base font-semibold text-neutral-900">
+                                            {formatMoney(inv.totalAmount ?? inv.total ?? 0)}
+                                        </div>
+                                        <div className="mt-2 space-y-1 text-xs text-neutral-600">
+                                            <div className="flex gap-1.5">
+                                                <span className="shrink-0 text-neutral-400">Период:</span>
+                                                <span>
+                                                    {inv.periodStart ? new Date(inv.periodStart).toLocaleDateString('ru-RU') : '—'}
+                                                    {' — '}
+                                                    {inv.periodEnd ? new Date(inv.periodEnd).toLocaleDateString('ru-RU') : '—'}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-1.5">
+                                                <span className="shrink-0 text-neutral-400">Создан:</span>
+                                                <span>{new Date(inv.createdAt).toLocaleDateString('ru-RU')}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
                 )}
             </div>
         </div>
