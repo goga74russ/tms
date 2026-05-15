@@ -112,7 +112,9 @@ export default function MechanicInspectionScreen() {
 
     async function takePicture() {
         if (!cameraRef.current || currentPhotoIndex === null) return;
-        const photo = await cameraRef.current.takePictureAsync();
+        // quality: 0.6 — снижает размер JPEG в ~2-3 раза без видимой потери для фото повреждений/неисправностей.
+        // Критично на EDGE/3G: 5MB фото грузится ~30-60 сек, 1-1.5MB — 6-10 сек.
+        const photo = await cameraRef.current.takePictureAsync({ quality: 0.6 });
         if (photo?.uri) {
             setChecklist((prev) =>
                 prev.map((item, i) => (i === currentPhotoIndex ? { ...item, photoUri: photo.uri } : item))

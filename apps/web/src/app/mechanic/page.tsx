@@ -475,21 +475,21 @@ export default function MechanicPage() {
                         {checklistItems.map((item, idx) => (
                             <div
                                 key={idx}
-                                className={`flex flex-wrap items-center gap-2 px-2.5 py-2 rounded-lg border transition ${item.result === 'ok'
+                                className={`flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 px-2.5 py-2 rounded-lg border transition ${item.result === 'ok'
                                     ? 'border-emerald-200 bg-emerald-50'
                                     : item.result === 'fault'
                                         ? 'border-red-200 bg-red-50'
                                         : 'border-neutral-200 bg-white'
                                     }`}
                             >
-                                <span className="flex-1 text-xs font-medium text-neutral-800 min-w-[140px]">
+                                <span className="text-xs font-medium text-neutral-800 sm:flex-1 sm:min-w-[140px]">
                                     {item.name}
                                 </span>
 
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 flex-wrap">
                                     <button
                                         onClick={() => updateItem(idx, 'result', 'ok')}
-                                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${item.result === 'ok'
+                                        className={`flex-1 sm:flex-none px-2.5 py-1 rounded-md text-xs font-semibold transition ${item.result === 'ok'
                                             ? 'bg-emerald-600 text-white shadow-sm'
                                             : 'bg-neutral-100 text-neutral-500 hover:bg-emerald-100 hover:text-emerald-700'
                                             }`}
@@ -498,7 +498,7 @@ export default function MechanicPage() {
                                     </button>
                                     <button
                                         onClick={() => updateItem(idx, 'result', 'fault')}
-                                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition ${item.result === 'fault'
+                                        className={`flex-1 sm:flex-none px-2.5 py-1 rounded-md text-xs font-semibold transition ${item.result === 'fault'
                                             ? 'bg-red-600 text-white shadow-sm'
                                             : 'bg-neutral-100 text-neutral-500 hover:bg-red-100 hover:text-red-700'
                                             }`}
@@ -513,7 +513,7 @@ export default function MechanicPage() {
                                         placeholder="Комментарий..."
                                         value={item.comment}
                                         onChange={e => updateItem(idx, 'comment', e.target.value)}
-                                        className="w-full mt-1 px-2.5 py-1.5 text-xs border border-red-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-300"
+                                        className="w-full sm:mt-1 px-2.5 py-1.5 text-xs border border-red-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-300"
                                     />
                                 )}
                             </div>

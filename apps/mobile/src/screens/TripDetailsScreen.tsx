@@ -345,6 +345,13 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                     </Text>
                 </View>
             )}
+            {online !== false && offlineQueueSummary.size > 0 && (
+                <View style={styles.syncBar} accessibilityRole="alert">
+                    <Text style={styles.syncBarText}>
+                        Синхронизация: {offlineQueueSummary.size} действ.{offlineQueueSummary.hasRetries ? ' · повторные попытки' : ''}
+                    </Text>
+                </View>
+            )}
             {/* Hero "map" placeholder — solid surface w/ markers; replace w/ react-native-maps when available */}
             <View style={styles.mapHero}>
                 <View style={styles.mapGrid} pointerEvents="none">
@@ -717,6 +724,24 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     offlineBarText: {
+        color: colors.white,
+        fontSize: 14,
+        fontWeight: '700',
+        textAlign: 'center',
+    },
+    syncBar: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 99,
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        backgroundColor: colors.warning[600],
+        minHeight: 28,
+        justifyContent: 'center',
+    },
+    syncBarText: {
         color: colors.white,
         fontSize: 14,
         fontWeight: '700',

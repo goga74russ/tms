@@ -5,8 +5,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, X, ExternalLink, AlertCircle, Sparkles, CreditCard, RefreshCw } from 'lucide-react';
+import { Check, X, ExternalLink, AlertCircle, Sparkles, CreditCard, RefreshCw, CalendarClock, Wallet } from 'lucide-react';
+import { differenceInCalendarDays } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 import {
     formatKopecks,
@@ -51,7 +53,12 @@ function daysUntil(iso: string | null): number | null {
     return Math.ceil(ms / (24 * 60 * 60 * 1000));
 }
 
+function formatRuDate(iso: string): string {
+    return new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 export default function BillingPage() {
+    const { toast } = useToast();
     const [plans, setPlans] = useState<Plan[] | null>(null);
     const [sub, setSub] = useState<SubscriptionWithPlan | null>(null);
     const [usage, setUsage] = useState<UsageReport | null>(null);
@@ -133,6 +140,46 @@ export default function BillingPage() {
     const currentPlanId = sub?.plan.id ?? 'free';
     const trialDays = daysUntil(sub?.subscription?.trialEndsAt ?? null);
 
+    // Days-remaining banner is shown only for an *active* subscription with a known
+    // period end. Trial countdown already lives on the current-plan card, so we
+    // intentionally skip non-active statuses here to avoid double-banners.
+    const isActiveSub = sub?.subscription?.status === 'active';
+    const periodEndIso = sub?.subscription?.currentPeriodEnd ?? null;
+    const daysToPeriodEnd =
+        isActiveSub && periodEndIso
+            ? differenceInCalendarDays(new Date(periodEndIso), new Date())
+            : null;
+    const periodEndTone: 'neutral' | 'amber' | 'red' =
+        daysToPeriodEnd === null
+            ? 'neutral'
+            : daysToPeriodEnd <= 3
+                ? 'red'
+                : daysToPeriodEnd <= 7
+                    ? 'amber'
+                    : 'neutral';
+    const periodEndStyles: Record<typeof periodEndTone, string> = {
+        neutral: 'bg-neutral-50 border-neutral-200 text-neutral-700',
+        amber: 'bg-amber-50 border-amber-200 text-amber-800',
+        red: 'bg-rose-50 border-rose-200 text-rose-800',
+    };
+
+    const handleManagePayment = () => {
+        // Round 5 audit v2: stub for «manage payment / update card flow».
+        // Real flow (PaymentMethodService + saved cards UI) is on the roadmap;
+        // for now we point the user to ЮKassa's own payment-method UI via
+        // toast action so the user has to consent before we open a new tab.
+        toast({
+            variant: 'info',
+            title: 'Управление платежами',
+            description: 'Реквизиты карты редактируются в личном кабинете ЮKassa.',
+            duration: 8000,
+            action: {
+                label: 'Открыть ЮKassa',
+                onClick: () => window.open('https://yookassa.ru/my/', '_blank', 'noopener,noreferrer'),
+            },
+        });
+    };
+
     return (
         <div className="max-w-6xl mx-auto p-6 space-y-6">
             <header className="flex items-center justify-between flex-wrap gap-3">
@@ -191,10 +238,44 @@ export default function BillingPage() {
                             {sub.plan.priceMonthlyKopecks > 0 ? formatKopecks(sub.plan.priceMonthlyKopecks) : 'Бесплатно'}
                             {sub.plan.priceMonthlyKopecks > 0 && <span className="text-sm font-normal text-neutral-500"> / мес</span>}
                         </div>
-                        {sub.subscription && !sub.subscription.cancelAtPeriodEnd && sub.subscription.status === 'active' && (
-                            <button onClick={cancel} className="mt-2 text-xs text-neutral-500 hover:text-rose-600 underline-offset-2 hover:underline">
-                                Отменить продление
-                            </button>
+                        <div className="mt-2 flex items-center gap-3 justify-end flex-wrap">
+                            {sub.subscription?.status === 'active' && sub.plan.priceMonthlyKopecks > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleManagePayment}
+                                    className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-700 hover:text-indigo-900 underline-offset-2 hover:underline"
+                                >
+                                    <Wallet className="w-3.5 h-3.5" />
+                                    Управление платежами
+                                </button>
+                            )}
+                            {sub.subscription && !sub.subscription.cancelAtPeriodEnd && sub.subscription.status === 'active' && (
+                                <button onClick={cancel} className="text-xs text-neutral-500 hover:text-rose-600 underline-offset-2 hover:underline">
+                                    Отменить продление
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Days-remaining banner for active subscription */}
+            {sub && isActiveSub && periodEndIso && daysToPeriodEnd !== null && (
+                <div className={`rounded-lg border px-4 py-3 flex items-center gap-3 ${periodEndStyles[periodEndTone]}`}>
+                    <CalendarClock className="w-4 h-4 shrink-0" />
+                    <div className="text-sm">
+                        {sub.subscription?.cancelAtPeriodEnd ? (
+                            <>
+                                Подписка действует до <strong>{formatRuDate(periodEndIso)}</strong>
+                                {daysToPeriodEnd > 0
+                                    ? <> — осталось <strong>{daysToPeriodEnd}</strong> дн., автопродление отключено.</>
+                                    : <> — продление отключено.</>}
+                            </>
+                        ) : (
+                            <>
+                                Подписка активна до <strong>{formatRuDate(periodEndIso)}</strong>
+                                {daysToPeriodEnd > 0 && <> — через <strong>{daysToPeriodEnd}</strong> дн.</>}
+                            </>
                         )}
                     </div>
                 </div>

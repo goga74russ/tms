@@ -59,7 +59,9 @@ export default function CheckpointScreen({ route, navigation }: Props) {
 
     const takePicture = async () => {
         if (!cameraRef.current) return;
-        const photo = await cameraRef.current.takePictureAsync();
+        // quality: 0.6 — снижает размер JPEG в ~2-3 раза без видимой потери для документов/фото подтверждений.
+        // Критично на EDGE/3G: 5MB фото грузится ~30-60 сек, 1-1.5MB — 6-10 сек.
+        const photo = await cameraRef.current.takePictureAsync({ quality: 0.6 });
         setPhotoUri(photo?.uri || null);
         setStep('photoReview');
     };

@@ -487,6 +487,34 @@ export default function MedicPage() {
                                     max={150}
                                 />
                             </div>
+                            {(() => {
+                                const sys = parseInt(formData.systolicBp);
+                                const dia = parseInt(formData.diastolicBp);
+                                const sysHighCrit = !isNaN(sys) && sys >= 180;
+                                const sysHigh = !isNaN(sys) && sys >= 160 && sys < 180;
+                                const sysLow = !isNaN(sys) && sys < 90 && formData.systolicBp !== '';
+                                const diaHighCrit = !isNaN(dia) && dia >= 110;
+                                const diaHigh = !isNaN(dia) && dia >= 100 && dia < 110;
+                                const diaLow = !isNaN(dia) && dia < 60 && formData.diastolicBp !== '';
+                                const messages: { text: string; critical: boolean }[] = [];
+                                if (sysHighCrit) messages.push({ text: `Сист. АД ${sys} — гипертонический криз, допуск запрещён`, critical: true });
+                                else if (sysHigh) messages.push({ text: `Сист. АД ${sys} — повышено, допуск под вопросом`, critical: false });
+                                else if (sysLow) messages.push({ text: `Сист. АД ${sys} — пониженное, требуется наблюдение`, critical: false });
+                                if (diaHighCrit) messages.push({ text: `Диаст. АД ${dia} — критически высокое, допуск запрещён`, critical: true });
+                                else if (diaHigh) messages.push({ text: `Диаст. АД ${dia} — повышено, допуск под вопросом`, critical: false });
+                                else if (diaLow) messages.push({ text: `Диаст. АД ${dia} — пониженное, требуется наблюдение`, critical: false });
+                                if (messages.length === 0) return null;
+                                return (
+                                    <div className="space-y-0.5">
+                                        {messages.map((m, i) => (
+                                            <div key={i} className={`text-[11px] flex items-start gap-1 ${m.critical ? 'text-red-700' : 'text-amber-700'}`}>
+                                                <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                                                <span>{m.text}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Heart Rate */}
@@ -504,6 +532,22 @@ export default function MedicPage() {
                                 min={30}
                                 max={200}
                             />
+                            {(() => {
+                                const hr = parseInt(formData.heartRate);
+                                if (isNaN(hr) || formData.heartRate === '') return null;
+                                let msg: { text: string; critical: boolean } | null = null;
+                                if (hr >= 120) msg = { text: `Пульс ${hr} — выраженная тахикардия, допуск запрещён`, critical: true };
+                                else if (hr > 100) msg = { text: `Пульс ${hr} — учащённый, оцените состояние`, critical: false };
+                                else if (hr < 50 && hr >= 40) msg = { text: `Пульс ${hr} — редкий, требуется наблюдение`, critical: false };
+                                else if (hr < 40) msg = { text: `Пульс ${hr} — выраженная брадикардия, допуск запрещён`, critical: true };
+                                if (!msg) return null;
+                                return (
+                                    <div className={`text-[11px] flex items-start gap-1 ${msg.critical ? 'text-red-700' : 'text-amber-700'}`}>
+                                        <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                                        <span>{msg.text}</span>
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Temperature */}
@@ -522,6 +566,23 @@ export default function MedicPage() {
                                 min={34}
                                 max={42}
                             />
+                            {(() => {
+                                const t = parseFloat(formData.temperature);
+                                if (isNaN(t) || formData.temperature === '') return null;
+                                let msg: { text: string; critical: boolean } | null = null;
+                                if (t >= 38.0) msg = { text: `Температура ${t.toFixed(1)}°C — высокая, допуск запрещён`, critical: true };
+                                else if (t >= 37.5) msg = { text: `Температура ${t.toFixed(1)}°C — повышена, допуск под вопросом`, critical: false };
+                                else if (t > 37.0 && t < 37.5) msg = { text: `Температура ${t.toFixed(1)}°C — субфебрильная, оцените состояние`, critical: false };
+                                else if (t < 35.5 && t >= 35.0) msg = { text: `Температура ${t.toFixed(1)}°C — понижена, требуется наблюдение`, critical: false };
+                                else if (t < 35.0) msg = { text: `Температура ${t.toFixed(1)}°C — гипотермия, допуск запрещён`, critical: true };
+                                if (!msg) return null;
+                                return (
+                                    <div className={`text-[11px] flex items-start gap-1 ${msg.critical ? 'text-red-700' : 'text-amber-700'}`}>
+                                        <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                                        <span>{msg.text}</span>
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Condition */}
