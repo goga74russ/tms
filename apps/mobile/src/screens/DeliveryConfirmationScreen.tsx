@@ -272,7 +272,7 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
                             <View style={styles.metaRow}>
                                 {evidenceMeta?.capturedAt && (
                                     <Pill
-                                        label={`🕒 ${new Date(evidenceMeta.capturedAt).toLocaleTimeString('ru-RU', {
+                                        label={`${new Date(evidenceMeta.capturedAt).toLocaleTimeString('ru-RU', {
                                             hour: '2-digit',
                                             minute: '2-digit',
                                         })}`}
@@ -280,11 +280,11 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
                                     />
                                 )}
                                 {evidenceMeta?.gpsLat != null && (
-                                    <Pill label="📍 GPS захвачен" tone="success" />
+                                    <Pill label="GPS захвачен" tone="success" />
                                 )}
                             </View>
                             <Button
-                                title="📷 Переснять"
+                                title="Переснять"
                                 variant="secondary"
                                 size="md"
                                 fullWidth
@@ -295,7 +295,6 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
                     ) : (
                         <TouchableOpacity activeOpacity={0.85} onPress={() => void openCamera()}>
                             <View style={styles.photoEmpty}>
-                                <Text style={styles.photoEmptyIcon}>📷</Text>
                                 <Text style={styles.photoEmptyText}>Нажмите, чтобы сделать фото</Text>
                                 <Text style={styles.photoEmptyHint}>до 5 фотографий</Text>
                             </View>
@@ -331,7 +330,7 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
                 </View>
                 {signature && (
                     <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
-                        <Pill label="✓ Подпись сохранена" tone="success" />
+                        <Pill label="Подпись сохранена" tone="success" />
                     </View>
                 )}
                 {renderFooter()}

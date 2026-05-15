@@ -48,7 +48,6 @@ export default function CheckpointScreen({ route, navigation }: Props) {
     if (!permission.granted) {
         return (
             <View style={styles.permissionWrap}>
-                <Text style={styles.permIcon}>📷</Text>
                 <Text style={styles.permTitle}>Доступ к камере</Text>
                 <Text style={styles.permDesc}>
                     Для подтверждения точки маршрута нужно сфотографировать груз или место разгрузки.
@@ -146,7 +145,7 @@ export default function CheckpointScreen({ route, navigation }: Props) {
                 <CameraView style={styles.camera} facing="back" ref={cameraRef}>
                     <SafeAreaView style={styles.cameraOverlay} edges={['top', 'bottom']}>
                         <TouchableOpacity style={styles.cameraClose} onPress={() => setStep('details')}>
-                            <Text style={styles.cameraCloseText}>✕</Text>
+                            <Text style={styles.cameraCloseText}>×</Text>
                         </TouchableOpacity>
                         <View style={styles.cameraHintBox}>
                             <Text style={styles.cameraHint}>Сфотографируйте груз / точку выгрузки</Text>
@@ -253,7 +252,7 @@ export default function CheckpointScreen({ route, navigation }: Props) {
             <Text style={styles.sectionLabel}>Действия</Text>
 
             <Button
-                title="📷  Сфотографировать"
+                title="Сфотографировать"
                 variant="secondary"
                 size="lg"
                 fullWidth
@@ -261,7 +260,7 @@ export default function CheckpointScreen({ route, navigation }: Props) {
                 onPress={() => setStep('camera')}
             />
             <Button
-                title="✅  Я прибыл и подписать"
+                title="Я прибыл и подписать"
                 variant="success"
                 size="lg"
                 fullWidth
@@ -274,7 +273,7 @@ export default function CheckpointScreen({ route, navigation }: Props) {
             {__DEV__ && (
                 <>
                     <Button
-                        title="⏸  Простой / задержка"
+                        title="Простой / задержка"
                         variant="warning"
                         size="lg"
                         fullWidth
@@ -288,7 +287,7 @@ export default function CheckpointScreen({ route, navigation }: Props) {
                         }
                     />
                     <Button
-                        title="❌  Пропустить точку"
+                        title="Пропустить точку"
                         variant="ghost"
                         size="md"
                         fullWidth

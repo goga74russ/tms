@@ -760,7 +760,7 @@ export default function DispatcherPage() {
                 <div className="flex-1 min-w-0 flex flex-col relative">
                     {/* Map controls row */}
                     <div className="absolute top-3 left-3 z-[1000] flex items-center gap-2">
-                        <div className="w-64">
+                        <div className="w-full sm:w-64">
                             <Combobox<CitySearchResult>
                                 placeholder="Перейти к городу..."
                                 icon={<Search className="w-4 h-4" />}
@@ -849,20 +849,20 @@ export default function DispatcherPage() {
                                             <X className="w-3.5 h-3.5" />
                                         </button>
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 text-xs">
                                         <div>
-                                            <p className="text-[10px] uppercase tracking-wide text-neutral-500 mb-0.5">Номер</p>
+                                            <p className="text-xs uppercase tracking-wide text-neutral-500 mb-0.5">Номер</p>
                                             <p className="text-sm font-semibold text-indigo-600 font-mono">{activeTripDetails.number}</p>
                                         </div>
                                         <div>
-                                            <p className="text-[10px] uppercase tracking-wide text-neutral-500 mb-0.5">Статус</p>
+                                            <p className="text-xs uppercase tracking-wide text-neutral-500 mb-0.5">Статус</p>
                                             <div className="flex items-center gap-1.5">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                                                 <p className="text-xs font-medium text-neutral-700">{activeTripDetails.status === 'in_transit' ? 'В пути' : activeTripDetails.status}</p>
                                             </div>
                                         </div>
                                         <div>
-                                            <p className="text-[10px] uppercase tracking-wide text-neutral-500 mb-0.5">Прогресс</p>
+                                            <p className="text-xs uppercase tracking-wide text-neutral-500 mb-0.5">Прогресс</p>
                                             <div className="flex items-center gap-2">
                                                 <div className="flex-1 bg-neutral-100 rounded-full h-1.5">
                                                     <div

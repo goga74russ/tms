@@ -95,7 +95,7 @@ export default function TripListScreen({ navigation }: Props) {
                     accessibilityLabel="Мои часы"
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
-                    <Text style={styles.headerBtnText}>⏱</Text>
+                    <Text style={styles.headerBtnText}>Часы</Text>
                 </TouchableOpacity>
             ),
         });
@@ -175,7 +175,7 @@ export default function TripListScreen({ navigation }: Props) {
 
                     {isOverdue && (
                         <View style={{ marginTop: spacing.md }}>
-                            <Pill label="⏰ Просрочено" tone="danger" />
+                            <Pill label="Просрочено" tone="danger" />
                         </View>
                     )}
                 </Card>
@@ -207,7 +207,6 @@ export default function TripListScreen({ navigation }: Props) {
                 <ActivityIndicator size="large" color={colors.brand[600]} style={{ marginTop: 40 }} />
             ) : visibleTrips.length === 0 ? (
                 <EmptyState
-                    icon="🚚"
                     title={
                         filter === 'active'
                             ? 'Нет активных рейсов'

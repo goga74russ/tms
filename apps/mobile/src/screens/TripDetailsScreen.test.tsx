@@ -84,7 +84,7 @@ describe('TripDetailsScreen', () => {
 
         const { findByText } = renderWithNav(TripDetailsScreen, { params: { tripId: 'trip-abc' } });
 
-        expect(await findByText('🚀 Начать рейс')).toBeTruthy();
+        expect(await findByText('Начать рейс')).toBeTruthy();
     });
 
     it('renders the cockpit summary card with zero blockers by default', async () => {

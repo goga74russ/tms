@@ -60,7 +60,7 @@ describe('MyWaybillScreen', () => {
 
         const { findByText } = renderWithNav(MyWaybillScreen, { params: { tripId: 't-1' } });
 
-        const btn = await findByText('📄 Скачать PDF');
+        const btn = await findByText('Скачать PDF');
         fireEvent.press(btn);
 
         await waitFor(() => expect(getWaybillPdfUrl).toHaveBeenCalledWith('wb-1'));

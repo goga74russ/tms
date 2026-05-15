@@ -118,9 +118,9 @@ export default function TripCompletionScreen({ route, navigation }: Props) {
                     <View style={{ marginTop: spacing.xl }}>
                         <IconTimeline
                             steps={[
-                                { icon: '📋', label: 'Назначен', state: 'done' },
-                                { icon: '📦', label: 'Загрузка', state: 'done' },
-                                { icon: '🚛', label: 'В пути', state: 'done' },
+                                { icon: '1', label: 'Назначен', state: 'done' },
+                                { icon: '2', label: 'Загрузка', state: 'done' },
+                                { icon: '3', label: 'В пути', state: 'done' },
                                 { icon: '✓', label: 'Завершён', state: 'active' },
                             ]}
                         />
@@ -147,9 +147,9 @@ export default function TripCompletionScreen({ route, navigation }: Props) {
                         пока не появятся реальные экраны документов/претензий/помощи. */}
                     {__DEV__ && (
                         <View style={styles.pillRow}>
-                            <Pill label="📄 Документы" tone="neutral" />
-                            <Pill label="⚠ Претензия" tone="neutral" />
-                            <Pill label="❓ Помощь" tone="neutral" />
+                            <Pill label="Документы" tone="neutral" />
+                            <Pill label="Претензия" tone="neutral" />
+                            <Pill label="Помощь" tone="neutral" />
                         </View>
                     )}
 

@@ -54,7 +54,7 @@ describe('MyHoursScreen', () => {
         mockedSummary.mockResolvedValueOnce({ dailyHours: [], weeklyHours: [], breaches: [] });
 
         const { findByText } = renderWithNav(MyHoursScreen);
-        expect(await findByText('⚠ Превышены лимиты РТО')).toBeTruthy();
+        expect(await findByText('Превышены лимиты РТО')).toBeTruthy();
     });
 
     it('renders the daily breakdown rows from summary.dailyHours', async () => {

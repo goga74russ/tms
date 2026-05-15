@@ -267,39 +267,6 @@ export default function LoginPage() {
                     {loading ? 'Вход...' : 'Войти'}
                 </Button>
 
-                {/* Divider */}
-                <div className="relative flex items-center py-1">
-                    <div className="flex-1 border-t border-neutral-200" />
-                    <span className="px-3 text-xs text-neutral-400 uppercase tracking-wider">или</span>
-                    <div className="flex-1 border-t border-neutral-200" />
-                </div>
-
-                {/* Disabled social buttons */}
-                <div className="grid grid-cols-2 gap-3">
-                    <button
-                        type="button"
-                        disabled
-                        className="relative inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-400 text-sm font-medium cursor-not-allowed"
-                    >
-                        <span className="w-4 h-4 rounded-sm bg-gradient-to-br from-red-400 to-amber-400" aria-hidden />
-                        Google
-                        <span className="absolute -top-2 -right-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-neutral-200 text-neutral-600">
-                            Скоро
-                        </span>
-                    </button>
-                    <button
-                        type="button"
-                        disabled
-                        className="relative inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-400 text-sm font-medium cursor-not-allowed"
-                    >
-                        <span className="w-4 h-4 rounded-sm bg-red-500 text-white text-[10px] font-black flex items-center justify-center" aria-hidden>Я</span>
-                        Яндекс
-                        <span className="absolute -top-2 -right-2 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-neutral-200 text-neutral-600">
-                            Скоро
-                        </span>
-                    </button>
-                </div>
-
                 <p className="text-center text-sm text-neutral-600 pt-3 border-t border-neutral-100">
                     Нет аккаунта?{' '}
                     <Link href="/signup" className="text-brand-600 font-semibold hover:underline">

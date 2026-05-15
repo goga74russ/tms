@@ -13,6 +13,37 @@ import { z } from 'zod';
 import { selectAdapter, getDefaultRegistry } from '../providers/index.js';
 import { APP_ROLES } from './rbac.js';
 import { escapeHtml } from '../utils/html.js';
+import { redisConnectionConfig } from '../integrations/redis.js';
+
+// --- Password reset (Redis-backed one-time tokens) ---
+// Lazy ioredis singleton — only constructed when /forgot-password is hit.
+// Avoids paying connection cost in environments where Redis isn't configured
+// at boot time, and matches the pattern used by testRedisConnection().
+let _resetRedis: import('ioredis').Redis | null = null;
+async function getResetRedis(): Promise<import('ioredis').Redis> {
+    if (_resetRedis) return _resetRedis;
+    const { Redis } = await import('ioredis');
+    _resetRedis = new Redis({
+        host: redisConnectionConfig.host,
+        port: redisConnectionConfig.port,
+        password: redisConnectionConfig.password,
+        // Reasonable defaults — these keys are tiny and short-lived (TTL 1h).
+        maxRetriesPerRequest: 2,
+        lazyConnect: false,
+    });
+    return _resetRedis;
+}
+const PWRESET_PREFIX = 'pwreset:';
+const PWRESET_TTL_SECONDS = 3600; // 1 hour
+
+function resolveWebPublicUrl(): string {
+    // Prefer an explicit override; otherwise fall back to the production host.
+    // Used to build the reset link inside the email — must be the user-facing
+    // origin, not the API origin.
+    const explicit = process.env.WEB_PUBLIC_URL;
+    if (explicit) return explicit.replace(/\/+$/, '');
+    return 'https://transpult.ru';
+}
 
 // --- CRITICAL (C-1): No hardcoded fallback. Fail-fast if not set. ---
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -1101,6 +1132,191 @@ export function registerAuthRoutes(app: FastifyInstance) {
         }
 
         return eligibleResponse;
+    });
+
+    // ====================================================================
+    // Password reset flow — Redis-backed, enumeration-safe, one-time token.
+    // POST /forgot-password → if email maps to an active user, store
+    // pwreset:<token> in Redis (TTL 1h) and email the reset link. Always
+    // returns success regardless of whether the address exists.
+    // POST /reset-password  → consume token, hash + persist new password,
+    // delete the Redis key (one-time use).
+    // ====================================================================
+
+    const ForgotPasswordSchema = z.object({
+        email: z.string().email(),
+    });
+
+    const ResetPasswordSchema = z.object({
+        token: z.string().min(20).max(200),
+        password: z.string().min(8),
+    });
+
+    async function sendPasswordResetEmail(
+        email: string,
+        resetUrl: string,
+        organizationId: string | null,
+    ): Promise<void> {
+        // Same adapter pattern as sendVerificationCode — picks the org's
+        // configured email provider or falls back to console mock.
+        const registry = getDefaultRegistry();
+        const adapter = await selectAdapter(registry.email, organizationId ?? '', 'email');
+        const subject = 'ТрансПульт — сброс пароля';
+        // escapeHtml on the URL is paranoid (we built it ourselves), but
+        // mirrors the pattern in sendVerificationCode and is cheap.
+        const safeUrl = escapeHtml(resetUrl);
+        const html = `<p>Здравствуйте!</p>
+            <p>Кто-то запросил сброс пароля для вашей учётной записи ТрансПульт.</p>
+            <p><a href="${safeUrl}" style="display:inline-block;padding:10px 18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">Установить новый пароль</a></p>
+            <p style="font-size:13px;color:#555">Или скопируйте ссылку в браузер:<br><span style="font-family:monospace">${safeUrl}</span></p>
+            <p style="font-size:13px;color:#555">Ссылка действует 1 час. Если вы не запрашивали сброс — просто проигнорируйте письмо, пароль не изменится.</p>`;
+        const text = `Сброс пароля ТрансПульт.\n\nПерейдите по ссылке, чтобы установить новый пароль:\n${resetUrl}\n\nСсылка действует 1 час. Если вы не запрашивали сброс — проигнорируйте письмо.`;
+        await adapter.send(email, subject, html, text);
+    }
+
+    // POST /api/auth/forgot-password — request a reset link.
+    app.post('/api/auth/forgot-password', {
+        schema: {
+            tags: ['Авторизация'],
+            summary: 'Запрос сброса пароля',
+            description: 'Отправляет ссылку для сброса пароля на email (если адрес зарегистрирован). Enumeration-safe: всегда возвращает success. Rate limit: 5/15min.',
+        },
+        config: {
+            rateLimit: {
+                max: 5,
+                timeWindow: '15 minutes',
+            },
+        },
+    }, async (request, reply) => {
+        const parsed = ForgotPasswordSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Ошибка валидации данных',
+                details: parsed.error.flatten(),
+            });
+        }
+        const { email } = parsed.data;
+
+        // Enumeration-safe response — same shape regardless of outcome.
+        const okResponse = {
+            success: true,
+            message: 'Если адрес зарегистрирован, на него отправлена ссылка для сброса пароля.',
+        };
+
+        const [user] = await db
+            .select({
+                id: users.id,
+                isActive: users.isActive,
+                organizationId: users.organizationId,
+            })
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+
+        // Bail silently for missing / disabled accounts. Caller can't
+        // distinguish from a successful send.
+        if (!user || !user.isActive) {
+            return reply.send(okResponse);
+        }
+
+        // 256-bit token, URL-safe (base64url is 43 chars for 32 bytes).
+        const token = randomBytes(32).toString('base64url');
+        try {
+            const redis = await getResetRedis();
+            await redis.set(`${PWRESET_PREFIX}${token}`, user.id, 'EX', PWRESET_TTL_SECONDS);
+        } catch (err) {
+            request.log.error({ err }, 'Failed to persist password reset token to Redis');
+            // Still return success — exposing Redis outages to the caller
+            // would let an attacker probe infrastructure state.
+            return reply.send(okResponse);
+        }
+
+        const resetUrl = `${resolveWebPublicUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+        try {
+            await sendPasswordResetEmail(email, resetUrl, user.organizationId ?? null);
+        } catch (err) {
+            request.log.error({ err }, 'Failed to send password reset email');
+        }
+
+        return reply.send(okResponse);
+    });
+
+    // POST /api/auth/reset-password — consume token, persist new password.
+    app.post('/api/auth/reset-password', {
+        schema: {
+            tags: ['Авторизация'],
+            summary: 'Сброс пароля по токену',
+            description: 'Валидирует одноразовый токен из письма, сохраняет новый пароль (bcrypt), удаляет токен.',
+        },
+        config: {
+            rateLimit: {
+                max: 10,
+                timeWindow: '15 minutes',
+            },
+        },
+    }, async (request, reply) => {
+        const parsed = ResetPasswordSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Ошибка валидации данных',
+                details: parsed.error.flatten(),
+            });
+        }
+        const { token, password } = parsed.data;
+
+        let userId: string | null = null;
+        try {
+            const redis = await getResetRedis();
+            userId = await redis.get(`${PWRESET_PREFIX}${token}`);
+        } catch (err) {
+            request.log.error({ err }, 'Failed to read password reset token from Redis');
+            return reply.status(503).send({
+                success: false,
+                error: 'Сервис временно недоступен. Попробуйте позже.',
+            });
+        }
+
+        if (!userId) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Ссылка недействительна или истекла. Запросите новую.',
+            });
+        }
+
+        // Confirm the user still exists and is active before mutating.
+        const [user] = await db
+            .select({ id: users.id, isActive: users.isActive })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1);
+        if (!user || !user.isActive) {
+            // Clean up the dead token so it can't be retried.
+            try {
+                const redis = await getResetRedis();
+                await redis.del(`${PWRESET_PREFIX}${token}`);
+            } catch { /* best-effort */ }
+            return reply.status(400).send({
+                success: false,
+                error: 'Учётная запись недоступна. Обратитесь к администратору.',
+            });
+        }
+
+        const passwordHash = await hashPassword(password);
+        await db.update(users)
+            .set({ passwordHash, updatedAt: new Date() })
+            .where(eq(users.id, user.id));
+
+        // One-time use — invalidate immediately.
+        try {
+            const redis = await getResetRedis();
+            await redis.del(`${PWRESET_PREFIX}${token}`);
+        } catch (err) {
+            request.log.warn({ err }, 'Failed to delete consumed password reset token');
+        }
+
+        return reply.send({ success: true });
     });
 }
 

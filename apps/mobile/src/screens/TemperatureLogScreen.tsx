@@ -149,7 +149,7 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                 Alert.alert('Сохранено офлайн', 'Замер уйдет на сервер при восстановлении связи.');
             } else if (result.breach) {
                 Alert.alert(
-                    '⚠ Нарушение температуры',
+                    'Нарушение температуры',
                     `Замер ${formatTemp(tempC)} вне SLA (${formatTemp(result.slaMinC)} … ${formatTemp(result.slaMaxC)}). Сообщите диспетчеру.`,
                     [{ text: 'OK' }]
                 );
@@ -244,7 +244,7 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                         <View style={styles.slaHeader}>
                             <Text style={styles.slaLabel}>SLA-диапазон</Text>
                             <Pill
-                                label={breachCount > 0 ? `⚠ Нарушений: ${breachCount}` : '✓ В норме'}
+                                label={breachCount > 0 ? `Нарушений: ${breachCount}` : 'В норме'}
                                 tone={breachCount > 0 ? 'danger' : 'success'}
                             />
                         </View>
@@ -325,12 +325,12 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                         </View>
                         {pushPermission === 'denied' && (
                             <View style={{ marginTop: spacing.sm }}>
-                                <Pill label="🔕 Push отключены" tone="danger" />
+                                <Pill label="Push отключены" tone="danger" />
                             </View>
                         )}
                         {pushPermission === 'granted' && (
                             <View style={{ marginTop: spacing.sm }}>
-                                <Pill label="🔔 Push о нарушениях включены" tone="success" />
+                                <Pill label="Push о нарушениях включены" tone="success" />
                             </View>
                         )}
                     </Card>
@@ -348,7 +348,7 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                         {formatTemp(item.tempC)}
                     </Text>
                     {item.breach && (
-                        <Pill label="⚠" tone="danger" style={{ marginLeft: spacing.sm }} />
+                        <Pill label="Нарушение" tone="danger" style={{ marginLeft: spacing.sm }} />
                     )}
                 </View>
             )}

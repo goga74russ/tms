@@ -31,8 +31,8 @@ describe('CheckpointScreen', () => {
 
         expect(getByText('Подтверждение точки')).toBeTruthy();
         expect(getByText('Заметки / расхождения')).toBeTruthy();
-        expect(getByText('📷  Сфотографировать')).toBeTruthy();
-        expect(getByText('✅  Я прибыл и подписать')).toBeTruthy();
+        expect(getByText('Сфотографировать')).toBeTruthy();
+        expect(getByText('Я прибыл и подписать')).toBeTruthy();
         expect(
             getByPlaceholderText('Опишите состояние груза или расхождения, если они есть')
         ).toBeTruthy();
@@ -49,7 +49,7 @@ describe('CheckpointScreen', () => {
     it('shows the dev-only stub buttons only when __DEV__ is true', () => {
         // __DEV__ is true under jest by default — assert presence.
         const { getByText } = renderWithNav(CheckpointScreen, { params });
-        expect(getByText('⏸  Простой / задержка')).toBeTruthy();
-        expect(getByText('❌  Пропустить точку')).toBeTruthy();
+        expect(getByText('Простой / задержка')).toBeTruthy();
+        expect(getByText('Пропустить точку')).toBeTruthy();
     });
 });

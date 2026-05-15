@@ -53,8 +53,8 @@ export default function TtnPrintPage() {
     return (
         <>
             <div className="print-actions no-print">
-                <button className="print-btn print-btn-primary" onClick={() => window.print()}>🖨 Печать</button>
-                <button className="print-btn print-btn-secondary" onClick={() => window.close()}>✕ Закрыть</button>
+                <button className="print-btn print-btn-primary" onClick={() => window.print()}>Печать</button>
+                <button className="print-btn print-btn-secondary" onClick={() => window.close()}>Закрыть</button>
             </div>
 
             <div className="print-page">

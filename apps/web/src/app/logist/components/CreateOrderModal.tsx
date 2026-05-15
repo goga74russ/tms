@@ -1,10 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Dialog } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import type { Order } from '../page';
+
+const BASIC_ERROR_FIELDS = ['contractorId', 'cargoDescription', 'cargoWeightKg', 'loadingAddress', 'unloadingAddress'] as const;
+const ADVANCED_ERROR_FIELDS = ['temperatureMin', 'temperatureMax', 'adrClass', 'adrUnNumber'] as const;
 
 interface CreateOrderModalProps {
     onClose: () => void;
@@ -256,10 +260,43 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                 : 'border-neutral-200 focus:ring-indigo-500'
         }`;
 
+    const basicErrorCount = useMemo(
+        () => BASIC_ERROR_FIELDS.reduce((acc, key) => acc + (errors[key] ? 1 : 0), 0),
+        [errors],
+    );
+    const advancedErrorCount = useMemo(
+        () => ADVANCED_ERROR_FIELDS.reduce((acc, key) => acc + (errors[key] ? 1 : 0), 0),
+        [errors],
+    );
+
+    const TabBadge = ({ count }: { count: number }) =>
+        count > 0 ? (
+            <span
+                className="ml-1.5 inline-flex h-1.5 w-1.5 rounded-full bg-red-500"
+                aria-label={`${count} ошибок на вкладке`}
+            />
+        ) : null;
+
     return (
         <Dialog open={true} onClose={onClose} title="Новая заявка" size="lg">
             <div>
-                <div className="space-y-5">
+                <Tabs defaultValue="basic" className="space-y-4">
+                    <TabsList>
+                        <TabsTrigger value="basic">
+                            <span className="inline-flex items-center">
+                                Основное
+                                <TabBadge count={basicErrorCount} />
+                            </span>
+                        </TabsTrigger>
+                        <TabsTrigger value="advanced">
+                            <span className="inline-flex items-center">
+                                Расширенное
+                                <TabBadge count={advancedErrorCount} />
+                            </span>
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="basic" className="space-y-5">
                     <div>
                         <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
                             <User className="w-4 h-4 text-neutral-400" />
@@ -350,6 +387,114 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         </div>
                     </div>
 
+                    <div>
+                        <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
+                            <MapPin className="w-4 h-4 text-green-500" />
+                            Погрузка
+                        </label>
+                        <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-2 block">
+                                Частые адреса погрузки
+                            </label>
+                            <select
+                                value={loadingAddressId}
+                                onChange={(e) => applyAddress('loading', e.target.value)}
+                                className={fieldClass()}
+                                disabled={!form.contractorId}
+                            >
+                                <option value="">Выберите частый адрес</option>
+                                {loadingAddresses.length === 0 ? (
+                                    <option value="" disabled>Нет сохраненных адресов погрузки</option>
+                                ) : (
+                                    loadingAddresses.map((address) => (
+                                        <option key={address.id} value={address.id}>
+                                            {address.addressString}
+                                        </option>
+                                    ))
+                                )}
+                            </select>
+                            <p className="mt-2 text-xs text-neutral-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
+                        </div>
+                        <input
+                            type="text"
+                            value={form.loadingAddress}
+                            onChange={(e) => {
+                                resetAddressSelection('loading');
+                                setForm((current) => ({ ...current, loadingAddress: e.target.value }));
+                            }}
+                            className={fieldClass('loadingAddress')}
+                            placeholder="Адрес погрузки"
+                        />
+                        {errors.loadingAddress && <p className="text-xs text-red-500 mt-1">{errors.loadingAddress}</p>}
+                        <div className="mt-2">
+                            <label className="text-xs text-neutral-500 mb-1 block">
+                                <Clock className="w-3 h-3 inline mr-1" />
+                                Дата погрузки
+                            </label>
+                            <input
+                                type="date"
+                                value={form.loadingDate}
+                                onChange={(e) => setForm((current) => ({ ...current, loadingDate: e.target.value }))}
+                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
+                            <MapPin className="w-4 h-4 text-red-500" />
+                            Выгрузка
+                        </label>
+                        <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-2 block">
+                                Частые адреса выгрузки
+                            </label>
+                            <select
+                                value={unloadingAddressId}
+                                onChange={(e) => applyAddress('unloading', e.target.value)}
+                                className={fieldClass()}
+                                disabled={!form.contractorId}
+                            >
+                                <option value="">Выберите частый адрес</option>
+                                {unloadingAddresses.length === 0 ? (
+                                    <option value="" disabled>Нет сохраненных адресов выгрузки</option>
+                                ) : (
+                                    unloadingAddresses.map((address) => (
+                                        <option key={address.id} value={address.id}>
+                                            {address.addressString}
+                                        </option>
+                                    ))
+                                )}
+                            </select>
+                            <p className="mt-2 text-xs text-neutral-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
+                        </div>
+                        <input
+                            type="text"
+                            value={form.unloadingAddress}
+                            onChange={(e) => {
+                                resetAddressSelection('unloading');
+                                setForm((current) => ({ ...current, unloadingAddress: e.target.value }));
+                            }}
+                            className={fieldClass('unloadingAddress')}
+                            placeholder="Адрес выгрузки"
+                        />
+                        {errors.unloadingAddress && <p className="text-xs text-red-500 mt-1">{errors.unloadingAddress}</p>}
+                        <div className="mt-2">
+                            <label className="text-xs text-neutral-500 mb-1 block">
+                                <Clock className="w-3 h-3 inline mr-1" />
+                                Дата выгрузки
+                            </label>
+                            <input
+                                type="date"
+                                value={form.unloadingDate}
+                                onChange={(e) => setForm((current) => ({ ...current, unloadingDate: e.target.value }))}
+                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                    </div>
+                    </TabsContent>
+
+                    <TabsContent value="advanced" className="space-y-5">
                     <div className="flex items-center gap-4">
                         <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
                             <input
@@ -504,112 +649,6 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                     </div>
 
                     <div>
-                        <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
-                            <MapPin className="w-4 h-4 text-green-500" />
-                            Погрузка
-                        </label>
-                        <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3">
-                            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-2 block">
-                                Частые адреса погрузки
-                            </label>
-                            <select
-                                value={loadingAddressId}
-                                onChange={(e) => applyAddress('loading', e.target.value)}
-                                className={fieldClass()}
-                                disabled={!form.contractorId}
-                            >
-                                <option value="">Выберите частый адрес</option>
-                                {loadingAddresses.length === 0 ? (
-                                    <option value="" disabled>Нет сохраненных адресов погрузки</option>
-                                ) : (
-                                    loadingAddresses.map((address) => (
-                                        <option key={address.id} value={address.id}>
-                                            {address.addressString}
-                                        </option>
-                                    ))
-                                )}
-                            </select>
-                            <p className="mt-2 text-xs text-neutral-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
-                        </div>
-                        <input
-                            type="text"
-                            value={form.loadingAddress}
-                            onChange={(e) => {
-                                resetAddressSelection('loading');
-                                setForm((current) => ({ ...current, loadingAddress: e.target.value }));
-                            }}
-                            className={fieldClass('loadingAddress')}
-                            placeholder="Адрес погрузки"
-                        />
-                        {errors.loadingAddress && <p className="text-xs text-red-500 mt-1">{errors.loadingAddress}</p>}
-                        <div className="mt-2">
-                            <label className="text-xs text-neutral-500 mb-1 block">
-                                <Clock className="w-3 h-3 inline mr-1" />
-                                Дата погрузки
-                            </label>
-                            <input
-                                type="date"
-                                value={form.loadingDate}
-                                onChange={(e) => setForm((current) => ({ ...current, loadingDate: e.target.value }))}
-                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
-                            <MapPin className="w-4 h-4 text-red-500" />
-                            Выгрузка
-                        </label>
-                        <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3">
-                            <label className="text-xs font-semibold uppercase tracking-wide text-neutral-500 mb-2 block">
-                                Частые адреса выгрузки
-                            </label>
-                            <select
-                                value={unloadingAddressId}
-                                onChange={(e) => applyAddress('unloading', e.target.value)}
-                                className={fieldClass()}
-                                disabled={!form.contractorId}
-                            >
-                                <option value="">Выберите частый адрес</option>
-                                {unloadingAddresses.length === 0 ? (
-                                    <option value="" disabled>Нет сохраненных адресов выгрузки</option>
-                                ) : (
-                                    unloadingAddresses.map((address) => (
-                                        <option key={address.id} value={address.id}>
-                                            {address.addressString}
-                                        </option>
-                                    ))
-                                )}
-                            </select>
-                            <p className="mt-2 text-xs text-neutral-400">Можно выбрать частый адрес или ввести вручную ниже.</p>
-                        </div>
-                        <input
-                            type="text"
-                            value={form.unloadingAddress}
-                            onChange={(e) => {
-                                resetAddressSelection('unloading');
-                                setForm((current) => ({ ...current, unloadingAddress: e.target.value }));
-                            }}
-                            className={fieldClass('unloadingAddress')}
-                            placeholder="Адрес выгрузки"
-                        />
-                        {errors.unloadingAddress && <p className="text-xs text-red-500 mt-1">{errors.unloadingAddress}</p>}
-                        <div className="mt-2">
-                            <label className="text-xs text-neutral-500 mb-1 block">
-                                <Clock className="w-3 h-3 inline mr-1" />
-                                Дата выгрузки
-                            </label>
-                            <input
-                                type="date"
-                                value={form.unloadingDate}
-                                onChange={(e) => setForm((current) => ({ ...current, unloadingDate: e.target.value }))}
-                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
                         <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Требования к транспорту</label>
                         <textarea
                             value={form.vehicleRequirements}
@@ -643,7 +682,8 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             placeholder="Дополнительная информация..."
                         />
                     </div>
-                </div>
+                    </TabsContent>
+                </Tabs>
 
                 {errors._general && (
                     <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">

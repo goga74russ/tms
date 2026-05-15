@@ -168,7 +168,7 @@ export default function MyWaybillScreen({ route }: Props) {
             </Card>
 
             <Button
-                title="📄 Скачать PDF"
+                title="Скачать PDF"
                 variant="primary"
                 size="lg"
                 fullWidth

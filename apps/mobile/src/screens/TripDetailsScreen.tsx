@@ -347,7 +347,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                 </View>
                 <View style={styles.mapBadge}>
                     <Text style={styles.mapBadgeText}>
-                        📍 {nextPoint ? `${points.indexOf(nextPoint) + 1} / ${points.length}` : `${points.length} точек`}
+                        {nextPoint ? `Точка ${points.indexOf(nextPoint) + 1} из ${points.length}` : `${points.length} точек`}
                     </Text>
                 </View>
             </View>
@@ -468,7 +468,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                         ))
                     ) : (
                         <View style={styles.cleanBox}>
-                            <Text style={styles.cleanText}>✓ Нет открытых замечаний</Text>
+                            <Text style={styles.cleanText}>Нет открытых замечаний</Text>
                         </View>
                     )}
 
@@ -499,11 +499,11 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                                     <Text style={styles.coldTitle}>Холодовая цепь</Text>
                                     <Text style={styles.coldSub}>
                                         {tempBreachCount > 0
-                                            ? `⚠ Нарушений: ${tempBreachCount}`
+                                            ? `Нарушений: ${tempBreachCount}`
                                             : 'Замеры в норме'}
                                     </Text>
                                 </View>
-                                <Text style={styles.chevron}>›</Text>
+                                <Text style={styles.chevron}>{'>'}</Text>
                             </View>
                         </Card>
                     </TouchableOpacity>
@@ -547,7 +547,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                                 {windowLabel && (
                                     <View style={{ marginTop: 4 }}>
                                         <Pill
-                                            label={isOverdue ? `⚠ ${windowLabel}` : `🕒 ${windowLabel}`}
+                                            label={isOverdue ? `Просрочено: ${windowLabel}` : windowLabel}
                                             tone={isOverdue ? 'danger' : 'neutral'}
                                         />
                                     </View>
@@ -581,7 +581,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
 
                 {showWaybillButton && (
                     <Button
-                        title="📄 Путевой лист"
+                        title="Путевой лист"
                         variant="secondary"
                         size="lg"
                         fullWidth
@@ -597,7 +597,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
             <View style={styles.stickyBar}>
                 {canStart && (
                     <Button
-                        title="🚀 Начать рейс"
+                        title="Начать рейс"
                         variant="primary"
                         size="lg"
                         fullWidth
@@ -606,7 +606,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                 )}
                 {canComplete && (
                     <Button
-                        title="🏁 Завершить рейс"
+                        title="Завершить рейс"
                         variant="success"
                         size="lg"
                         fullWidth

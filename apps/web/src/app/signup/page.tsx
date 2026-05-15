@@ -157,7 +157,7 @@ function ShowcaseFrame({ kind }: { kind: 'cockpit' | 'mobile' | 'pricing' }) {
                     </li>
                 ))}
             </ul>
-            <div className="pt-2 text-xs text-neutral-500">Платный план — от 990 ₽/мес за машину</div>
+            <div className="pt-2 text-xs text-neutral-500">Pro — от 4 990 ₽/мес за 30 машин</div>
         </div>
     );
 }

@@ -217,7 +217,6 @@ export default function MechanicInspectionScreen() {
                     <ActivityIndicator size="large" color={colors.brand[600]} style={{ marginTop: spacing.xxxl }} />
                 ) : queue.length === 0 ? (
                     <EmptyState
-                        icon="🔧"
                         title="Нет ТС, ожидающих осмотра"
                         description="Когда диспетчер назначит рейс с предрейсовым техосмотром, он появится здесь."
                         actionLabel="Обновить"
@@ -244,7 +243,7 @@ export default function MechanicInspectionScreen() {
                                     </Text>
                                     {item.trip.plannedDepartureAt && (
                                         <Text style={styles.departureTime}>
-                                            ⏱ Отправление:{' '}
+                                            Отправление:{' '}
                                             {new Date(item.trip.plannedDepartureAt).toLocaleTimeString('ru-RU', {
                                                 hour: '2-digit',
                                                 minute: '2-digit',
@@ -370,7 +369,7 @@ export default function MechanicInspectionScreen() {
                         activeOpacity={0.85}
                     >
                         <Text style={[styles.decisionText, decision === 'approved' && { color: colors.success[700] }]}>
-                            ✓ Допустить
+                            Допустить
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -385,7 +384,7 @@ export default function MechanicInspectionScreen() {
                         activeOpacity={0.85}
                     >
                         <Text style={[styles.decisionText, decision === 'rejected' && { color: colors.danger[700] }]}>
-                            ✕ Не допускать
+                            Не допускать
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -448,7 +447,7 @@ export default function MechanicInspectionScreen() {
                                 activeOpacity={0.85}
                             >
                                 <Text style={[styles.resultText, isOk && { color: colors.success[700], fontWeight: '700' }]}>
-                                    ✓ OK
+                                    OK
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -457,7 +456,7 @@ export default function MechanicInspectionScreen() {
                                 activeOpacity={0.85}
                             >
                                 <Text style={[styles.resultText, isFault && { color: colors.danger[700], fontWeight: '700' }]}>
-                                    ✕ Не ОК
+                                    Не ОК
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -465,7 +464,7 @@ export default function MechanicInspectionScreen() {
                                 onPress={() => openCamera(index)}
                                 activeOpacity={0.85}
                             >
-                                <Text style={styles.photoButtonText}>{item.photoUri ? '📷✓' : '📷'}</Text>
+                                <Text style={styles.photoButtonText}>{item.photoUri ? 'Фото готово' : 'Фото'}</Text>
                             </TouchableOpacity>
                         </View>
                         {isFault && (

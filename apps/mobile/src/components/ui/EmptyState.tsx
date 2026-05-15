@@ -13,7 +13,7 @@ export interface EmptyStateProps {
 }
 
 export function EmptyState({
-    icon = '📭',
+    icon,
     title,
     description,
     actionLabel,
@@ -22,7 +22,7 @@ export function EmptyState({
 }: EmptyStateProps) {
     return (
         <View style={[styles.wrap, style ?? null]}>
-            <Text style={styles.icon}>{icon}</Text>
+            {icon ? <Text style={styles.icon}>{icon}</Text> : null}
             <Text style={styles.title}>{title}</Text>
             {description ? <Text style={styles.desc}>{description}</Text> : null}
             {actionLabel && onAction ? (

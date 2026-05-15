@@ -144,7 +144,7 @@ export default function MyHoursScreen(_props: Props) {
 
             {breach && (
                 <Card style={{ marginTop: spacing.md, backgroundColor: colors.danger[600], borderColor: colors.danger[700] }} elevation="md">
-                    <Text style={styles.breachText}>⚠ Превышены лимиты РТО</Text>
+                    <Text style={styles.breachText}>Превышены лимиты РТО</Text>
                 </Card>
             )}
 

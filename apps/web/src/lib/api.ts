@@ -155,6 +155,14 @@ class ApiClient {
         }>('/auth/me');
     }
 
+    async forgotPassword(email: string) {
+        return this.post<{ success: boolean; message?: string }>('/auth/forgot-password', { email });
+    }
+
+    async resetPassword(token: string, password: string) {
+        return this.post<{ success: boolean }>('/auth/reset-password', { token, password });
+    }
+
     async logout() {
         try {
             await this.post('/auth/logout');
