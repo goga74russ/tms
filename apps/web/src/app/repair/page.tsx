@@ -26,7 +26,7 @@ type RepairDraft = {
 // Round 5 audit v3: repair category constants.
 // TODO(constants): if a shared constants/categories.ts is added later,
 // re-export from there. Inlined here to avoid a new module right now.
-export type RepairCategory =
+type RepairCategory =
     | 'engine'
     | 'transmission'
     | 'brakes'
@@ -35,7 +35,7 @@ export type RepairCategory =
     | 'tires'
     | 'other';
 
-export const REPAIR_CATEGORIES: ReadonlyArray<{ id: RepairCategory; label: string; tone: 'danger' | 'warning' | 'info' | 'brand' | 'success' | 'neutral' }> = [
+const REPAIR_CATEGORIES: ReadonlyArray<{ id: RepairCategory; label: string; tone: 'danger' | 'warning' | 'info' | 'brand' | 'success' | 'neutral' }> = [
     { id: 'engine', label: 'Двигатель', tone: 'danger' },
     { id: 'transmission', label: 'Трансмиссия', tone: 'warning' },
     { id: 'brakes', label: 'Тормозная система', tone: 'danger' },
@@ -45,12 +45,12 @@ export const REPAIR_CATEGORIES: ReadonlyArray<{ id: RepairCategory; label: strin
     { id: 'other', label: 'Прочее', tone: 'neutral' },
 ];
 
-export const REPAIR_CATEGORY_LABEL: Record<string, string> = REPAIR_CATEGORIES.reduce(
+const REPAIR_CATEGORY_LABEL: Record<string, string> = REPAIR_CATEGORIES.reduce(
     (acc, c) => { acc[c.id] = c.label; return acc; },
     {} as Record<string, string>,
 );
 
-export const REPAIR_CATEGORY_TONE: Record<string, 'danger' | 'warning' | 'info' | 'brand' | 'success' | 'neutral'> = REPAIR_CATEGORIES.reduce(
+const REPAIR_CATEGORY_TONE: Record<string, 'danger' | 'warning' | 'info' | 'brand' | 'success' | 'neutral'> = REPAIR_CATEGORIES.reduce(
     (acc, c) => { acc[c.id] = c.tone; return acc; },
     {} as Record<string, 'danger' | 'warning' | 'info' | 'brand' | 'success' | 'neutral'>,
 );
