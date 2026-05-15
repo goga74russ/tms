@@ -81,7 +81,7 @@ export class DiadocEdiProvider implements EdiProvider {
         // GET {DIADOC_API_URL}/V3/GetMessage?boxId=<>&messageId=<externalId>
         // → MessageStatus enum (Sent, Delivered, RecipientSigned, Rejected, …)
         // TODO: map Diadoc MessageStatus → our EdiExternalStatus.
-        return 'sent';
+        throw new Error('Diadoc getStatus() not yet implemented — awaiting credentials.');
     }
 
     async handleCallback(payload: Record<string, unknown>): Promise<EdiCallbackEvent> {

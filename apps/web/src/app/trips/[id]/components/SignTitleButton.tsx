@@ -14,11 +14,24 @@
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Copy, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Loader2, Copy, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
+
+interface MchdCandidate {
+    id: string;
+    mchdNumber: string;
+    granterInn: string;
+    granterName: string;
+    granteeFullName: string;
+    granteeInn: string;
+    issuedAt: string;
+    expiresAt: string;
+    scope: string;
+    status: string;
+}
 
 export type TitleType = 'T01' | 'T02' | 'T05' | 'T06';
 
@@ -78,6 +91,19 @@ export function SignTitleButton({
     const [state, setState] = useState<SignState>({ kind: 'idle' });
     const [copied, setCopied] = useState(false);
 
+    // ---- МЧД selection (юр-связка подписи с доверенностью) ----
+    const [signerInn, setSignerInn] = useState('');
+    const [mchdLookupState, setMchdLookupState] = useState<
+        | { kind: 'empty' }
+        | { kind: 'searching' }
+        | { kind: 'found'; candidates: MchdCandidate[]; selectedId: string | null }
+        | { kind: 'none' }
+        | { kind: 'error'; message: string }
+    >({ kind: 'empty' });
+    const innIsValid = /^\d{10}$|^\d{12}$/.test(signerInn.trim());
+    const selectedMchdId =
+        mchdLookupState.kind === 'found' ? mchdLookupState.selectedId : null;
+
     const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pollDeadlineRef = useRef<number>(0);
 
@@ -90,6 +116,47 @@ export function SignTitleButton({
 
     useEffect(() => () => clearPoll(), [clearPoll]);
 
+    // Debounced lookup МЧД по ИНН подписанта.
+    useEffect(() => {
+        if (!open) return;
+        const inn = signerInn.trim();
+        if (!/^\d{10}$|^\d{12}$/.test(inn)) {
+            setMchdLookupState({ kind: 'empty' });
+            return;
+        }
+        setMchdLookupState({ kind: 'searching' });
+        const handle = setTimeout(async () => {
+            try {
+                const res = await api.get<{
+                    success: boolean;
+                    data?: MchdCandidate | null;
+                    candidates?: MchdCandidate[];
+                }>(`/mchd/find-for-signer?granteeInn=${encodeURIComponent(inn)}`);
+                const payload = (res as any) ?? {};
+                const candidates: MchdCandidate[] = Array.isArray(payload.candidates)
+                    ? payload.candidates
+                    : payload.data
+                        ? [payload.data]
+                        : [];
+                if (candidates.length === 0) {
+                    setMchdLookupState({ kind: 'none' });
+                } else {
+                    setMchdLookupState({
+                        kind: 'found',
+                        candidates,
+                        selectedId: candidates[0]?.id ?? null,
+                    });
+                }
+            } catch (err: any) {
+                setMchdLookupState({
+                    kind: 'error',
+                    message: err?.message || 'Ошибка поиска МЧД',
+                });
+            }
+        }, 400);
+        return () => clearTimeout(handle);
+    }, [signerInn, open]);
+
     const alreadySigned = isSignedState(currentState);
 
     const resetAndClose = useCallback(() => {
@@ -99,6 +166,8 @@ export function SignTitleButton({
         setTimeout(() => {
             setState({ kind: 'idle' });
             setCopied(false);
+            setSignerInn('');
+            setMchdLookupState({ kind: 'empty' });
         }, 200);
     }, [clearPoll]);
 
@@ -161,6 +230,14 @@ export function SignTitleButton({
     }, [clearPoll, poll]);
 
     const handleSubmit = useCallback(async () => {
+        if (!innIsValid) {
+            setState({ kind: 'error', message: 'Укажите корректный ИНН подписанта (10 или 12 цифр)' });
+            return;
+        }
+        if (!selectedMchdId) {
+            setState({ kind: 'error', message: 'Не выбрана МЧД — без действующей доверенности подпись не имеет юридической силы' });
+            return;
+        }
         setState({ kind: 'requesting' });
         try {
             const res = await api.post<{
@@ -169,6 +246,8 @@ export function SignTitleButton({
             }>(`/transport-documents/${transportDocumentId}/sign`, {
                 provider,
                 titleType,
+                mchdId: selectedMchdId,
+                signerInn: signerInn.trim(),
             });
             const data = (res as any)?.data ?? res ?? {};
             setState({
@@ -184,7 +263,7 @@ export function SignTitleButton({
                 message: err?.message || 'Не удалось запустить подписание',
             });
         }
-    }, [transportDocumentId, provider, titleType, startPolling]);
+    }, [transportDocumentId, provider, titleType, signerInn, selectedMchdId, innIsValid, startPolling]);
 
     const handleCopy = useCallback(async () => {
         if (state.kind !== 'awaiting' || !state.deeplink) return;
@@ -225,6 +304,80 @@ export function SignTitleButton({
                 <div className="space-y-4">
                     {state.kind === 'idle' || state.kind === 'requesting' || state.kind === 'error' ? (
                         <>
+                            <fieldset className="space-y-2" disabled={state.kind === 'requesting'}>
+                                <legend className="text-xs font-semibold text-neutral-700 mb-2">
+                                    Подписант и МЧД
+                                </legend>
+                                <label className="block">
+                                    <span className="text-xs text-neutral-600">ИНН подписанта (10 или 12 цифр)</span>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={signerInn}
+                                        onChange={(e) => setSignerInn(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                                        placeholder="500100732259"
+                                        className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
+                                    />
+                                </label>
+                                {mchdLookupState.kind === 'searching' && (
+                                    <div className="text-xs text-neutral-500 flex items-center gap-1.5">
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        Ищу МЧД…
+                                    </div>
+                                )}
+                                {mchdLookupState.kind === 'none' && (
+                                    <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 flex items-start gap-1.5">
+                                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                                        <div>
+                                            Для этого ИНН нет действующей МЧД в реестре. Подпись без МЧД не имеет юр-силы — попросите admin загрузить доверенность через <code>/admin/mchd</code>.
+                                        </div>
+                                    </div>
+                                )}
+                                {mchdLookupState.kind === 'error' && (
+                                    <div className="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-xs text-rose-700">
+                                        {mchdLookupState.message}
+                                    </div>
+                                )}
+                                {mchdLookupState.kind === 'found' && (
+                                    <div className="space-y-1.5">
+                                        {mchdLookupState.candidates.map((c) => (
+                                            <label
+                                                key={c.id}
+                                                className={`flex items-start gap-2 rounded-md border px-2.5 py-2 cursor-pointer text-xs ${mchdLookupState.selectedId === c.id
+                                                    ? 'border-emerald-300 bg-emerald-50/60'
+                                                    : 'border-neutral-200 hover:bg-neutral-50'
+                                                    }`}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name={`mchd-pick-${transportDocumentId}-${titleType}`}
+                                                    checked={mchdLookupState.selectedId === c.id}
+                                                    onChange={() => setMchdLookupState({
+                                                        ...mchdLookupState,
+                                                        selectedId: c.id,
+                                                    })}
+                                                    className="mt-0.5 h-3.5 w-3.5 accent-emerald-600"
+                                                />
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="font-semibold text-neutral-900">
+                                                        МЧД №{c.mchdNumber}
+                                                    </div>
+                                                    <div className="text-neutral-600">
+                                                        {c.granteeFullName} (ИНН {c.granteeInn})
+                                                    </div>
+                                                    <div className="text-neutral-500">
+                                                        Доверитель: {c.granterName} (ИНН {c.granterInn})
+                                                    </div>
+                                                    <div className="text-neutral-500">
+                                                        Действует до {new Date(c.expiresAt).toLocaleDateString('ru-RU')}
+                                                    </div>
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </fieldset>
+
                             <fieldset className="space-y-2" disabled={state.kind === 'requesting'}>
                                 <legend className="text-xs font-semibold text-neutral-700 mb-2">
                                     Провайдер подписи
@@ -273,7 +426,12 @@ export function SignTitleButton({
                                     type="button"
                                     size="sm"
                                     onClick={handleSubmit}
-                                    disabled={state.kind === 'requesting'}
+                                    disabled={state.kind === 'requesting' || !innIsValid || !selectedMchdId}
+                                    title={!innIsValid
+                                        ? 'Укажите ИНН подписанта'
+                                        : !selectedMchdId
+                                            ? 'Выберите МЧД'
+                                            : undefined}
                                 >
                                     {state.kind === 'requesting' && (
                                         <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />

@@ -140,6 +140,16 @@ if (corsOrigins.length === 0) {
     console.warn('⚠️  CORS_ORIGIN has no valid http(s) origins; falling back to http://localhost:3000 (dev only).');
     corsOrigins.push('http://localhost:3000');
 }
+
+// ============================================================
+// Госключ callback secret — production must have it set, иначе
+// эндпоинт принимает любую подпись без HMAC-проверки externalId
+// и становится открытым каналом инъекции поддельных подписей.
+// ============================================================
+if (process.env.NODE_ENV === 'production' && !process.env.GOSKLYUCH_CALLBACK_SECRET) {
+    console.error('❌ FATAL: GOSKLYUCH_CALLBACK_SECRET is required in production. Refusing to start.');
+    process.exit(1);
+}
 await app.register(multipart, {
     limits: {
         fileSize: 15 * 1024 * 1024,

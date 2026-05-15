@@ -49,6 +49,15 @@ const RevokeSchema = z.object({
 
 const FindForSignerSchema = z.object({
     granteeInn: z.string().min(10).max(12),
+    // Опциональные фильтры. Если переданы — сужают выборку:
+    //   granterInn — ИНН доверителя (организации). Должен совпадать
+    //                с ИНН org-владельца документа. Если не передан —
+    //                фильтрация только по grantee+org.
+    //   requiredScope — keyword/подстрока, которая должна встречаться
+    //                   в scope МЧД. Без полного формат-1 матчинга,
+    //                   но отсекает явно нерелевантные доверенности.
+    granterInn: z.string().min(10).max(12).optional(),
+    requiredScope: z.string().min(2).max(255).optional(),
 });
 
 // ---- Helpers ----
@@ -130,22 +139,38 @@ const mchdRoutes: FastifyPluginAsync = async (app) => {
             });
         }
 
+        const conditions = [
+            eq(mchd.organizationId, user.organizationId),
+            eq(mchd.granteeInn, parsed.data.granteeInn),
+            eq(mchd.status, 'active'),
+        ];
+        if (parsed.data.granterInn) {
+            conditions.push(eq(mchd.granterInn, parsed.data.granterInn));
+        }
         const rows = await db
             .select(listColumns)
             .from(mchd)
-            .where(and(
-                eq(mchd.organizationId, user.organizationId),
-                eq(mchd.granteeInn, parsed.data.granteeInn),
-                eq(mchd.status, 'active'),
-            ))
+            .where(and(...conditions))
             .orderBy(desc(mchd.issuedAt))
             .limit(10);
 
-        // Отфильтровать истёкшие на уровне приложения (не помечаем статус
-        // здесь, чтобы не делать UPDATE на read-запросе; крон-задача
-        // переведёт их в 'expired' отдельно).
+        // Отфильтровать истёкшие и ещё-не-действующие на уровне приложения
+        // (не помечаем статус здесь, чтобы не делать UPDATE на read-запросе;
+        // крон-задача переведёт их в 'expired' отдельно). Истёкшие — это
+        // expiresAt <= now. Ещё-не-действующие — issuedAt > now.
         const now = Date.now();
-        const active = rows.filter((r) => new Date(r.expiresAt).getTime() > now);
+        let active = rows.filter((r) => {
+            const expired = new Date(r.expiresAt).getTime() <= now;
+            const notYet = new Date(r.issuedAt).getTime() > now;
+            return !expired && !notYet;
+        });
+
+        // Keyword-фильтр по scope (substring, case-insensitive) — если задан.
+        // Не полный 1-формат-1 матчинг, но отсекает явно нерелевантные.
+        if (parsed.data.requiredScope) {
+            const needle = parsed.data.requiredScope.toLowerCase();
+            active = active.filter((r) => r.scope.toLowerCase().includes(needle));
+        }
 
         return { success: true, data: active[0] ?? null, candidates: active };
     });

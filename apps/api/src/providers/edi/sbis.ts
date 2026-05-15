@@ -51,7 +51,7 @@ export class SbisEdiProvider implements EdiProvider {
 
     async getStatus(_externalId: string): Promise<EdiExternalStatus> {
         // method 'СБИС.ПолучитьСостояние' → 'Принят'/'Отклонен'/'Подписан'
-        return 'sent';
+        throw new Error('SBIS EDI getStatus() not yet implemented — awaiting credentials.');
     }
 
     async handleCallback(payload: Record<string, unknown>): Promise<EdiCallbackEvent> {

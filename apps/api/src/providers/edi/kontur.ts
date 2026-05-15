@@ -52,7 +52,7 @@ export class KonturEdiProvider implements EdiProvider {
 
     async getStatus(_externalId: string): Promise<EdiExternalStatus> {
         // GET {KONTUR_EDI_API_URL}/messages/{externalId}
-        return 'sent';
+        throw new Error('Kontur EDI getStatus() not yet implemented — awaiting credentials.');
     }
 
     async handleCallback(payload: Record<string, unknown>): Promise<EdiCallbackEvent> {
