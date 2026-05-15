@@ -41,7 +41,7 @@ else
 fi
 
 # --- 3. Create project directory ---
-PROJECT_DIR="/opt/tms"
+PROJECT_DIR="${TMS_PROJECT_DIR:-/opt/transpult}"
 if [ ! -d "$PROJECT_DIR" ]; then
     mkdir -p "$PROJECT_DIR"
     echo "рџ“Ѓ Created $PROJECT_DIR"
