@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Search, Building2, Pencil, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { FormField } from '@/components/ui/form-field';
@@ -27,7 +27,17 @@ export function StepInn({ onNext }: Props) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [result, setResult] = useState<DaDataResult | null>(null);
+    const resultRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
+
+    // Auto-scroll the «Компания найдена» card into view once a successful
+    // DaData lookup populates the result. On narrow viewports the result
+    // card can otherwise render below the fold after the user submits.
+    useEffect(() => {
+        if (result) {
+            resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [result]);
 
     const validInn = /^\d{10}(\d{2})?$/.test(inn);
 
@@ -107,7 +117,7 @@ export function StepInn({ onNext }: Props) {
             </div>
 
             {result && (
-                <div className="rounded-xl border-2 border-success-200 bg-success-50/40 p-5 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div ref={resultRef} className="rounded-xl border-2 border-success-200 bg-success-50/40 p-5 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="flex items-start gap-3">
                         <div className="w-9 h-9 rounded-full bg-success-100 flex items-center justify-center shrink-0">
                             <CheckCircle2 className="w-5 h-5 text-success-600" />

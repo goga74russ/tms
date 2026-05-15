@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { Plus, AlertTriangle } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
+import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
 
 interface Fine {
     id: string;
@@ -16,6 +19,17 @@ interface Fine {
     paidAt?: string;
 }
 
+interface VehicleLink {
+    id: string;
+    plateNumber: string;
+}
+
+interface DriverLink {
+    id: string;
+    fullName?: string;
+    name?: string;
+}
+
 function formatDate(d: string) {
     return new Date(d).toLocaleDateString('ru-RU');
 }
@@ -25,26 +39,41 @@ function formatMoney(value: number | string) {
     return amount.toLocaleString('ru-RU') + ' ₽';
 }
 
-const statusConfig: Record<string, { label: string; color: string }> = {
-    new: { label: 'Новый', color: 'bg-amber-100 text-amber-700' },
-    confirmed: { label: 'Подтверждён', color: 'bg-blue-100 text-blue-700' },
-    paid: { label: 'Оплачен', color: 'bg-emerald-100 text-emerald-700' },
-    appealed: { label: 'Обжалован', color: 'bg-purple-100 text-purple-700' },
+const STATUS_LABELS: Record<string, string> = {
+    new: 'Новый',
+    confirmed: 'Подтверждён',
+    paid: 'Оплачен',
+    appealed: 'Обжалован',
+};
+
+const STATUS_TONES: Record<string, PillTone> = {
+    new: 'warning',
+    confirmed: 'info',
+    paid: 'success',
+    appealed: 'brand',
 };
 
 export function FinesTable() {
     const [fines, setFines] = useState<Fine[]>([]);
+    const [vehicles, setVehicles] = useState<VehicleLink[]>([]);
+    const [drivers, setDrivers] = useState<DriverLink[]>([]);
     const [loading, setLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState('');
+    const [filters, setFilters] = useState({ status: '', vehicleId: '' });
 
-    useEffect(() => { loadFines(); }, [statusFilter]);
-
-    async function loadFines() {
+    async function loadData() {
         setLoading(true);
         try {
-            const q = statusFilter ? `&status=${statusFilter}` : '';
-            const result = await api.get<any>(`/fleet/fines?limit=50${q}`);
-            setFines(result.data || []);
+            const query = new URLSearchParams({ limit: '50' });
+            if (filters.status) query.set('status', filters.status);
+            if (filters.vehicleId) query.set('vehicleId', filters.vehicleId);
+            const [finesRes, vehiclesRes, driversRes] = await Promise.all([
+                api.get<any>(`/fleet/fines?${query.toString()}`),
+                api.get<any>('/fleet/vehicles?limit=200'),
+                api.get<any>('/fleet/drivers?limit=200'),
+            ]);
+            setFines(finesRes.data || []);
+            setVehicles(vehiclesRes.data || []);
+            setDrivers(driversRes.data || []);
         } catch (err) {
             console.error('Failed to load fines:', err);
         } finally {
@@ -52,92 +81,173 @@ export function FinesTable() {
         }
     }
 
-    const totalAmount = fines.reduce((sum, fine) => sum + Number(fine.amount), 0);
-    const unpaidCount = fines.filter(f => f.status !== 'paid').length;
+    useEffect(() => {
+        loadData();
+    }, [filters.status, filters.vehicleId]);
+
+    const vehiclePlateById = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const v of vehicles) map.set(v.id, v.plateNumber);
+        return map;
+    }, [vehicles]);
+
+    const driverNameById = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const d of drivers) map.set(d.id, d.fullName || d.name || '');
+        return map;
+    }, [drivers]);
+
+    const totalAmount = useMemo(
+        () => fines.reduce((sum, fine) => sum + Number(fine.amount || 0), 0),
+        [fines],
+    );
+    const unpaidCount = useMemo(
+        () => fines.filter((f) => f.status !== 'paid').length,
+        [fines],
+    );
+
+    const columns: Column<Fine>[] = [
+        {
+            id: 'violationDate',
+            header: 'Дата нарушения',
+            accessor: (r) => r.violationDate,
+            cell: (r) => <span className="text-neutral-600">{formatDate(r.violationDate)}</span>,
+            sortable: true,
+            width: '150px',
+        },
+        {
+            id: 'vehicle',
+            header: 'ТС',
+            accessor: (r) => vehiclePlateById.get(r.vehicleId) || r.vehicleId,
+            cell: (r) => (
+                <span className="font-medium text-neutral-800">
+                    {vehiclePlateById.get(r.vehicleId) || <span className="text-neutral-400">{r.vehicleId}</span>}
+                </span>
+            ),
+            sortable: true,
+            sticky: 'left',
+            minWidth: '120px',
+        },
+        {
+            id: 'driver',
+            header: 'Водитель',
+            accessor: (r) => (r.driverId ? driverNameById.get(r.driverId) || '' : ''),
+            cell: (r) => {
+                if (!r.driverId) return <span className="text-neutral-400">—</span>;
+                const name = driverNameById.get(r.driverId);
+                return <span className="text-neutral-600">{name || <span className="text-neutral-400">—</span>}</span>;
+            },
+            sortable: true,
+            minWidth: '160px',
+        },
+        {
+            id: 'violationType',
+            header: 'Тип нарушения',
+            accessor: (r) => r.violationType,
+            cell: (r) => <span className="font-medium text-neutral-800">{r.violationType}</span>,
+            sortable: true,
+            minWidth: '180px',
+        },
+        {
+            id: 'resolutionNumber',
+            header: 'Номер постановления',
+            accessor: (r) => r.resolutionNumber || '',
+            cell: (r) => r.resolutionNumber
+                ? <span className="text-neutral-500 text-xs">{r.resolutionNumber}</span>
+                : <span className="text-neutral-400">—</span>,
+            monospace: true,
+            minWidth: '180px',
+        },
+        {
+            id: 'amount',
+            header: 'Сумма',
+            accessor: (r) => Number(r.amount || 0),
+            cell: (r) => <span className="font-semibold text-neutral-900">{formatMoney(r.amount)}</span>,
+            sortable: true,
+            align: 'right',
+            width: '130px',
+        },
+        {
+            id: 'status',
+            header: 'Статус',
+            accessor: (r) => STATUS_LABELS[r.status] || r.status,
+            cell: (r) => (
+                <Pill tone={STATUS_TONES[r.status] || 'neutral'}>
+                    {STATUS_LABELS[r.status] || r.status}
+                </Pill>
+            ),
+            sortable: true,
+            width: '140px',
+        },
+        {
+            id: 'paidAt',
+            header: 'Дата оплаты',
+            accessor: (r) => r.paidAt || '',
+            cell: (r) => r.paidAt
+                ? <span className="text-neutral-600">{formatDate(r.paidAt)}</span>
+                : <span className="text-neutral-400">—</span>,
+            sortable: true,
+            width: '130px',
+            hiddenByDefault: true,
+        },
+    ];
 
     return (
-        <div>
-            <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <h3 className="text-sm font-medium text-neutral-700">Штрафы ГИБДД</h3>
-                    <div className="flex items-center gap-2 text-xs">
-                        <span className="px-2 py-1 rounded bg-neutral-100 text-neutral-600">
-                            Всего: {formatMoney(totalAmount)}
-                        </span>
-                        {unpaidCount > 0 && (
-                            <span className="px-2 py-1 rounded bg-amber-100 text-amber-700">
-                                Неоплач.: {unpaidCount}
-                            </span>
-                        )}
-                    </div>
+        <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                    <p className="text-xs uppercase tracking-wide text-neutral-500">Всего штрафов</p>
+                    <p className="mt-1 text-2xl font-bold text-neutral-900">{formatMoney(totalAmount)}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <select
-                        value={statusFilter}
-                        onChange={e => setStatusFilter(e.target.value)}
-                        className="px-3 py-2 rounded-lg border border-neutral-200 text-sm
-                            focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                    >
-                        <option value="">Все статусы</option>
-                        <option value="new">Новый</option>
-                        <option value="confirmed">Подтверждён</option>
-                        <option value="paid">Оплачен</option>
-                        <option value="appealed">Обжалован</option>
-                    </select>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg
-                        text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
-                        <Plus className="w-4 h-4" />
-                        Добавить штраф
-                    </button>
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+                    <p className="text-xs uppercase tracking-wide text-neutral-500">Неоплаченных</p>
+                    <p className="mt-1 text-2xl font-bold text-neutral-900">{unpaidCount}</p>
                 </div>
             </div>
 
-            {loading ? (
-                <div className="flex items-center justify-center py-20">
-                    <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                </div>
-            ) : fines.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
-                    <AlertTriangle className="w-12 h-12 mb-3" />
-                    <p className="text-sm">Штрафы не найдены</p>
-                </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-neutral-50 text-neutral-500 text-left">
-                                <th className="px-4 py-3 font-medium">Дата нарушения</th>
-                                <th className="px-4 py-3 font-medium">Тип нарушения</th>
-                                <th className="px-4 py-3 font-medium">Номер постановления</th>
-                                <th className="px-4 py-3 font-medium text-right">Сумма</th>
-                                <th className="px-4 py-3 font-medium">Статус</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-100">
-                            {fines.map(f => {
-                                const st = statusConfig[f.status] || { label: f.status, color: '' };
-                                return (
-                                    <tr key={f.id} className="hover:bg-neutral-50">
-                                        <td className="px-4 py-3 text-neutral-600">{formatDate(f.violationDate)}</td>
-                                        <td className="px-4 py-3 font-medium text-neutral-800">{f.violationType}</td>
-                                        <td className="px-4 py-3 font-mono text-neutral-500 text-xs">
-                                            {f.resolutionNumber || '—'}
-                                        </td>
-                                        <td className="px-4 py-3 text-right font-semibold text-neutral-900">
-                                            {formatMoney(f.amount)}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${st.color}`}>
-                                                {st.label}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+            <DataTable<Fine>
+                tableId="fleet-fines"
+                data={fines}
+                columns={columns}
+                keyField="id"
+                loading={loading}
+                searchPlaceholder="Поиск по типу, ТС, постановлению…"
+                searchKeys={['vehicle', 'violationType', 'resolutionNumber', 'driver']}
+                filters={[
+                    {
+                        id: 'status',
+                        label: 'Статус',
+                        value: filters.status,
+                        onChange: (value) => setFilters((prev) => ({ ...prev, status: value })),
+                        options: Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label })),
+                    },
+                    {
+                        id: 'vehicleId',
+                        label: 'ТС',
+                        value: filters.vehicleId,
+                        onChange: (value) => setFilters((prev) => ({ ...prev, vehicleId: value })),
+                        options: vehicles.map((v) => ({ value: v.id, label: v.plateNumber })),
+                    },
+                ]}
+                toolbar={
+                    <Button
+                        variant="brand"
+                        leftIcon={<Plus className="w-4 h-4" />}
+                        onClick={() => { /* TODO: модалка добавления штрафа */ }}
+                    >
+                        Добавить штраф
+                    </Button>
+                }
+                emptyState={
+                    <EmptyState
+                        icon={AlertTriangle}
+                        title="Штрафы не найдены"
+                        description="Штрафы ГИБДД будут появляться здесь автоматически или при ручном добавлении."
+                        tone="brand"
+                    />
+                }
+                pageSize={50}
+            />
         </div>
     );
 }

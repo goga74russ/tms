@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import { Plus, ShieldCheck } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
+import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
 
 interface Permit {
     id: string;
@@ -13,6 +16,11 @@ interface Permit {
     validFrom: string;
     validUntil: string;
     isActive: boolean;
+}
+
+interface VehicleLink {
+    id: string;
+    plateNumber: string;
 }
 
 function formatDate(d: string) {
@@ -29,17 +37,33 @@ const zoneLabels: Record<string, string> = {
     city: 'Городская зона',
 };
 
+type Urgency = { tone: PillTone; label: string };
+
+function urgencyForDays(days: number): Urgency {
+    if (days < 0) return { tone: 'danger', label: `Просрочен ${Math.abs(days)} д.` };
+    if (days < 7) return { tone: 'danger', label: `${days} д.` };
+    if (days <= 30) return { tone: 'warning', label: `${days} д.` };
+    return { tone: 'success', label: `${days} д.` };
+}
+
 export function PermitsTable() {
     const [permits, setPermits] = useState<Permit[]>([]);
+    const [vehicles, setVehicles] = useState<VehicleLink[]>([]);
     const [loading, setLoading] = useState(true);
+    const [filters, setFilters] = useState({ vehicleId: '', active: '' });
 
-    useEffect(() => { loadPermits(); }, []);
-
-    async function loadPermits() {
+    async function loadData() {
         setLoading(true);
         try {
-            const result = await api.get<any>('/fleet/permits?limit=50');
-            setPermits(result.data || []);
+            const query = new URLSearchParams({ limit: '50' });
+            if (filters.vehicleId) query.set('vehicleId', filters.vehicleId);
+            if (filters.active) query.set('active', filters.active);
+            const [permitsRes, vehiclesRes] = await Promise.all([
+                api.get<any>(`/fleet/permits?${query.toString()}`),
+                api.get<any>('/fleet/vehicles?limit=200'),
+            ]);
+            setPermits(permitsRes.data || []);
+            setVehicles(vehiclesRes.data || []);
         } catch (err) {
             console.error('Failed to load permits:', err);
         } finally {
@@ -47,72 +71,138 @@ export function PermitsTable() {
         }
     }
 
-    return (
-        <div>
-            <div className="p-4 border-b border-neutral-200 flex items-center justify-between">
-                <h3 className="text-sm font-medium text-neutral-700">Пропуска ({permits.length})</h3>
-                <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg
-                    text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm">
-                    <Plus className="w-4 h-4" />
-                    Добавить пропуск
-                </button>
-            </div>
+    useEffect(() => {
+        loadData();
+    }, [filters.vehicleId, filters.active]);
 
-            {loading ? (
-                <div className="flex items-center justify-center py-20">
-                    <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                </div>
-            ) : permits.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
-                    <ShieldCheck className="w-12 h-12 mb-3" />
-                    <p className="text-sm">Пропуска не найдены</p>
-                </div>
-            ) : (
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-neutral-50 text-neutral-500 text-left">
-                                <th className="px-4 py-3 font-medium">Зона</th>
-                                <th className="px-4 py-3 font-medium">Номер пропуска</th>
-                                <th className="px-4 py-3 font-medium">Действует с</th>
-                                <th className="px-4 py-3 font-medium">Действует до</th>
-                                <th className="px-4 py-3 font-medium">Осталось</th>
-                                <th className="px-4 py-3 font-medium">Статус</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-neutral-100">
-                            {permits.map(p => {
-                                const days = daysUntil(p.validUntil);
-                                const urgency = days < 0 ? 'text-red-700 font-bold' :
-                                    days < 7 ? 'text-red-600' :
-                                        days <= 30 ? 'text-amber-600' : 'text-emerald-600';
-                                return (
-                                    <tr key={p.id} className="hover:bg-neutral-50">
-                                        <td className="px-4 py-3">
-                                            <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs font-medium">
-                                                {zoneLabels[p.zoneType] || p.zoneType}
-                                            </span>
-                                            <span className="ml-2 text-neutral-600">{p.zoneName}</span>
-                                        </td>
-                                        <td className="px-4 py-3 font-mono text-neutral-700">{p.permitNumber}</td>
-                                        <td className="px-4 py-3 text-neutral-600">{formatDate(p.validFrom)}</td>
-                                        <td className="px-4 py-3 text-neutral-600">{formatDate(p.validUntil)}</td>
-                                        <td className={`px-4 py-3 font-medium ${urgency}`}>
-                                            {days < 0 ? `Просрочен ${Math.abs(days)} д.` : `${days} д.`}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium
-                                                ${p.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-500'}`}>
-                                                {p.isActive ? 'Действует' : 'Неактивен'}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-        </div>
+    const vehiclePlateById = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const v of vehicles) map.set(v.id, v.plateNumber);
+        return map;
+    }, [vehicles]);
+
+    const columns: Column<Permit>[] = [
+        {
+            id: 'vehicle',
+            header: 'ТС',
+            accessor: (r) => vehiclePlateById.get(r.vehicleId) || r.vehicleId,
+            cell: (r) => (
+                <span className="font-medium text-neutral-800">
+                    {vehiclePlateById.get(r.vehicleId) || <span className="text-neutral-400">{r.vehicleId}</span>}
+                </span>
+            ),
+            sortable: true,
+            sticky: 'left',
+            minWidth: '120px',
+        },
+        {
+            id: 'zone',
+            header: 'Зона',
+            accessor: (r) => `${zoneLabels[r.zoneType] || r.zoneType} ${r.zoneName}`,
+            cell: (r) => (
+                <span className="flex items-center gap-2">
+                    <Pill tone="brand">{zoneLabels[r.zoneType] || r.zoneType}</Pill>
+                    <span className="text-neutral-600">{r.zoneName}</span>
+                </span>
+            ),
+            sortable: true,
+            minWidth: '200px',
+        },
+        {
+            id: 'permitNumber',
+            header: 'Номер пропуска',
+            accessor: (r) => r.permitNumber,
+            sortable: true,
+            monospace: true,
+            minWidth: '160px',
+        },
+        {
+            id: 'validFrom',
+            header: 'Действует с',
+            accessor: (r) => r.validFrom,
+            cell: (r) => <span className="text-neutral-600">{formatDate(r.validFrom)}</span>,
+            sortable: true,
+            width: '130px',
+        },
+        {
+            id: 'validUntil',
+            header: 'Действует до',
+            accessor: (r) => r.validUntil,
+            cell: (r) => <span className="text-neutral-600">{formatDate(r.validUntil)}</span>,
+            sortable: true,
+            width: '130px',
+        },
+        {
+            id: 'remaining',
+            header: 'Осталось',
+            accessor: (r) => daysUntil(r.validUntil),
+            cell: (r) => {
+                const u = urgencyForDays(daysUntil(r.validUntil));
+                return <Pill tone={u.tone}>{u.label}</Pill>;
+            },
+            sortable: true,
+            width: '140px',
+        },
+        {
+            id: 'isActive',
+            header: 'Статус',
+            accessor: (r) => (r.isActive ? 1 : 0),
+            cell: (r) => (
+                <Pill tone={r.isActive ? 'success' : 'neutral'}>
+                    {r.isActive ? 'Действует' : 'Неактивен'}
+                </Pill>
+            ),
+            sortable: true,
+            width: '120px',
+        },
+    ];
+
+    return (
+        <DataTable<Permit>
+            tableId="fleet-permits"
+            data={permits}
+            columns={columns}
+            keyField="id"
+            loading={loading}
+            searchPlaceholder="Поиск по номеру, зоне, ТС…"
+            searchKeys={['vehicle', 'zone', 'permitNumber']}
+            filters={[
+                {
+                    id: 'vehicleId',
+                    label: 'ТС',
+                    value: filters.vehicleId,
+                    onChange: (value) => setFilters((prev) => ({ ...prev, vehicleId: value })),
+                    options: vehicles.map((v) => ({ value: v.id, label: v.plateNumber })),
+                },
+                {
+                    id: 'active',
+                    label: 'Статус',
+                    value: filters.active,
+                    onChange: (value) => setFilters((prev) => ({ ...prev, active: value })),
+                    options: [
+                        { value: 'true', label: 'Действует' },
+                        { value: 'false', label: 'Неактивен' },
+                    ],
+                },
+            ]}
+            toolbar={
+                <Button
+                    variant="brand"
+                    leftIcon={<Plus className="w-4 h-4" />}
+                    onClick={() => { /* TODO: модалка добавления пропуска */ }}
+                >
+                    Добавить пропуск
+                </Button>
+            }
+            emptyState={
+                <EmptyState
+                    icon={ShieldCheck}
+                    title="Пропуска не найдены"
+                    description="Добавьте пропуск МКАД, ТТК или городской зоны, чтобы планировать маршруты с ограничениями."
+                    tone="brand"
+                />
+            }
+            pageSize={50}
+        />
     );
 }

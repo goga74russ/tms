@@ -213,11 +213,11 @@ export default function BillingPage() {
 
             {/* Current plan card */}
             {sub && (
-                <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-xl p-6 flex flex-wrap items-center justify-between gap-4">
-                    <div>
+                <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-xl p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+                    <div className="min-w-0">
                         <p className="text-xs uppercase tracking-wide text-indigo-700 font-semibold">Текущий тариф</p>
                         <h2 className="text-xl font-bold text-neutral-900 mt-1">{sub.plan.nameRu}</h2>
-                        <div className="flex items-center gap-3 mt-2">
+                        <div className="flex items-center gap-3 mt-2 flex-wrap">
                             {sub.subscription && (
                                 <span className="inline-flex items-center px-2 py-0.5 bg-white border border-indigo-200 text-indigo-700 text-xs rounded-full">
                                     {STATUS_LABEL[sub.subscription.status] ?? sub.subscription.status}
@@ -233,12 +233,12 @@ export default function BillingPage() {
                             )}
                         </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-left md:text-right">
                         <div className="text-2xl font-bold text-neutral-900">
                             {sub.plan.priceMonthlyKopecks > 0 ? formatKopecks(sub.plan.priceMonthlyKopecks) : 'Бесплатно'}
                             {sub.plan.priceMonthlyKopecks > 0 && <span className="text-sm font-normal text-neutral-500"> / мес</span>}
                         </div>
-                        <div className="mt-2 flex items-center gap-3 justify-end flex-wrap">
+                        <div className="mt-2 flex items-center gap-3 md:justify-end flex-wrap">
                             {sub.subscription?.status === 'active' && sub.plan.priceMonthlyKopecks > 0 && (
                                 <button
                                     type="button"

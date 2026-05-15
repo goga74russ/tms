@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Gauge } from 'lucide-react';
+import { Gauge, Plus } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDateTime, toLocalDateTimeInputValue } from './deepFleetShared';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/toast';
+import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
 
 type OdometerRow = {
     id: string;
@@ -15,18 +19,157 @@ type OdometerRow = {
     tripId?: string | null;
 };
 
-export function OdometerHistoryTable() {
-    const [rows, setRows] = useState<OdometerRow[]>([]);
-    const [vehicles, setVehicles] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [filters, setFilters] = useState({ vehicleId: '', source: '' });
+type VehicleLink = { id: string; plateNumber: string };
+
+type DisplayRow = {
+    id: string;
+    record: OdometerRow;
+    vehiclePlate: string;
+    delta?: number;
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+    manual: 'Вручную',
+    gps: 'GPS',
+    waybill: 'Путевой лист',
+    inspection: 'Осмотр',
+};
+
+const SOURCE_TONES: Record<string, PillTone> = {
+    manual: 'neutral',
+    gps: 'success',
+    waybill: 'info',
+    inspection: 'warning',
+};
+
+function AddOdometerModal({
+    open,
+    onClose,
+    onCreated,
+    vehicles,
+}: {
+    open: boolean;
+    onClose: () => void;
+    onCreated: () => void;
+    vehicles: VehicleLink[];
+}) {
+    const { toast } = useToast();
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
     const [form, setForm] = useState({
         vehicleId: '',
         recordedAt: toLocalDateTimeInputValue(),
         valueKm: '',
         source: 'manual',
     });
+
+    useEffect(() => {
+        if (open) {
+            setForm({
+                vehicleId: '',
+                recordedAt: toLocalDateTimeInputValue(),
+                valueKm: '',
+                source: 'manual',
+            });
+            setError('');
+        }
+    }, [open]);
+
+    async function handleSubmit(event: React.FormEvent) {
+        event.preventDefault();
+        if (!form.vehicleId) {
+            setError('Выберите ТС.');
+            return;
+        }
+        if (!form.valueKm) {
+            setError('Укажите показание одометра.');
+            return;
+        }
+        setSubmitting(true);
+        setError('');
+        try {
+            await api.post('/fleet/odometer-readings', {
+                vehicleId: form.vehicleId,
+                recordedAt: new Date(form.recordedAt).toISOString(),
+                valueKm: Number(form.valueKm),
+                source: form.source,
+            });
+            toast({ variant: 'success', title: 'Показание записано' });
+            onCreated();
+            onClose();
+        } catch (err: any) {
+            const msg = err?.message || 'Не удалось записать показание.';
+            setError(msg);
+            toast({ variant: 'error', title: 'Ошибка', description: msg });
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    return (
+        <Dialog open={open} onClose={onClose} title="Записать пробег" size="md">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+                <div className="grid gap-4 md:grid-cols-2">
+                    <label className="space-y-1 text-sm md:col-span-2">
+                        <span className="text-neutral-600">ТС</span>
+                        <select
+                            value={form.vehicleId}
+                            onChange={(e) => setForm((prev) => ({ ...prev, vehicleId: e.target.value }))}
+                            className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                        >
+                            <option value="">Выберите ТС</option>
+                            {vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plateNumber}</option>)}
+                        </select>
+                    </label>
+                    <label className="space-y-1 text-sm">
+                        <span className="text-neutral-600">Дата и время</span>
+                        <input
+                            type="datetime-local"
+                            value={form.recordedAt}
+                            onChange={(e) => setForm((prev) => ({ ...prev, recordedAt: e.target.value }))}
+                            className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                        />
+                    </label>
+                    <label className="space-y-1 text-sm">
+                        <span className="text-neutral-600">Показание, км</span>
+                        <input
+                            type="number"
+                            min="0"
+                            value={form.valueKm}
+                            onChange={(e) => setForm((prev) => ({ ...prev, valueKm: e.target.value }))}
+                            placeholder="0"
+                            className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                        />
+                    </label>
+                    <label className="space-y-1 text-sm md:col-span-2">
+                        <span className="text-neutral-600">Источник</span>
+                        <select
+                            value={form.source}
+                            onChange={(e) => setForm((prev) => ({ ...prev, source: e.target.value }))}
+                            className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                        >
+                            {Object.entries(SOURCE_LABELS).map(([value, label]) => (
+                                <option key={value} value={value}>{label}</option>
+                            ))}
+                        </select>
+                    </label>
+                </div>
+                <div className="flex justify-end gap-3 pt-2 border-t border-neutral-100">
+                    <Button variant="outline" onClick={onClose} disabled={submitting} type="button">Отмена</Button>
+                    <Button variant="brand" isLoading={submitting} type="submit">Записать</Button>
+                </div>
+            </form>
+        </Dialog>
+    );
+}
+
+export function OdometerHistoryTable() {
+    const [rows, setRows] = useState<OdometerRow[]>([]);
+    const [vehicles, setVehicles] = useState<VehicleLink[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [filters, setFilters] = useState({ vehicleId: '', source: '' });
 
     async function loadData() {
         setLoading(true);
@@ -51,124 +194,154 @@ export function OdometerHistoryTable() {
         loadData();
     }, [filters.vehicleId, filters.source]);
 
-    const trends = useMemo(() => {
-        const map = new Map<string, number>();
+    const displayRows = useMemo<DisplayRow[]>(() => {
+        const trendMap = new Map<string, number>();
         for (let index = 0; index < rows.length; index += 1) {
             const current = rows[index];
             const next = rows[index + 1];
             if (next && next.vehicleId === current.vehicleId) {
-                map.set(current.id, current.valueKm - next.valueKm);
+                trendMap.set(current.id, current.valueKm - next.valueKm);
             }
         }
-        return map;
-    }, [rows]);
+        return rows.map((row) => {
+            const vehicle = vehicles.find((item) => item.id === row.vehicleId);
+            return {
+                id: row.id,
+                record: row,
+                vehiclePlate: vehicle?.plateNumber || row.vehicleId,
+                delta: trendMap.get(row.id),
+            };
+        });
+    }, [rows, vehicles]);
 
-    async function handleCreate(event: React.FormEvent) {
-        event.preventDefault();
-        if (!form.vehicleId || !form.valueKm) return;
-        setSaving(true);
-        try {
-            await api.post('/fleet/odometer-readings', {
-                vehicleId: form.vehicleId,
-                recordedAt: new Date(form.recordedAt).toISOString(),
-                valueKm: Number(form.valueKm),
-                source: form.source,
-            });
-            setForm((prev) => ({ ...prev, valueKm: '' }));
-            await loadData();
-        } catch (err) {
-            console.error('Failed to create odometer reading', err);
-        } finally {
-            setSaving(false);
-        }
-    }
+    const hasFilters = !!(filters.vehicleId || filters.source);
 
-    const sourceTone: Record<string, string> = {
-        manual: 'bg-neutral-100 text-neutral-700',
-        gps: 'bg-emerald-100 text-emerald-700',
-        waybill: 'bg-indigo-100 text-indigo-700',
-        inspection: 'bg-amber-100 text-amber-700',
-    };
+    const columns: Column<DisplayRow>[] = [
+        {
+            id: 'recordedAt',
+            header: 'Дата',
+            accessor: (r) => r.record.recordedAt,
+            cell: (r) => <span className="text-neutral-600">{formatDateTime(r.record.recordedAt)}</span>,
+            sortable: true,
+            width: '170px',
+        },
+        {
+            id: 'vehicle',
+            header: 'ТС',
+            accessor: (r) => r.vehiclePlate,
+            cell: (r) => <span className="font-medium text-neutral-800">{r.vehiclePlate}</span>,
+            sortable: true,
+            sticky: 'left',
+            minWidth: '140px',
+        },
+        {
+            id: 'source',
+            header: 'Источник',
+            accessor: (r) => SOURCE_LABELS[r.record.source] ?? r.record.source,
+            cell: (r) => (
+                <Pill tone={SOURCE_TONES[r.record.source] ?? 'neutral'}>
+                    {SOURCE_LABELS[r.record.source] ?? r.record.source}
+                </Pill>
+            ),
+            sortable: true,
+            width: '140px',
+        },
+        {
+            id: 'valueKm',
+            header: 'Пробег',
+            accessor: (r) => Number(r.record.valueKm || 0),
+            cell: (r) => (
+                <span className="text-neutral-700 font-medium">
+                    {Number(r.record.valueKm).toLocaleString('ru-RU')} км
+                </span>
+            ),
+            sortable: true,
+            align: 'right',
+            width: '140px',
+        },
+        {
+            id: 'delta',
+            header: 'Дельта',
+            accessor: (r) => r.delta ?? 0,
+            cell: (r) => (
+                <span className="text-neutral-600">
+                    {r.delta !== undefined ? `+${r.delta.toLocaleString('ru-RU')} км` : <span className="text-neutral-400">—</span>}
+                </span>
+            ),
+            sortable: true,
+            align: 'right',
+            width: '140px',
+        },
+        {
+            id: 'tripId',
+            header: 'Рейс',
+            accessor: (r) => r.record.tripId ?? '',
+            cell: (r) => <span className="text-neutral-600">{r.record.tripId || <span className="text-neutral-400">—</span>}</span>,
+            minWidth: '120px',
+            hiddenByDefault: true,
+        },
+    ];
 
     return (
-        <div className="space-y-4 p-4">
-            <form onSubmit={handleCreate} className="grid gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 md:grid-cols-5">
-                <select value={form.vehicleId} onChange={(e) => setForm((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
-                    <option value="">Выберите ТС</option>
-                    {vehicles.map((vehicle: any) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plateNumber}</option>)}
-                </select>
-                <input type="datetime-local" value={form.recordedAt} onChange={(e) => setForm((prev) => ({ ...prev, recordedAt: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm" />
-                <input type="number" min="0" value={form.valueKm} onChange={(e) => setForm((prev) => ({ ...prev, valueKm: e.target.value }))} placeholder="Показание, км" className="rounded-lg border border-neutral-200 px-3 py-2 text-sm" />
-                <select value={form.source} onChange={(e) => setForm((prev) => ({ ...prev, source: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
-                    <option value="manual">Вручную</option>
-                    <option value="gps">GPS</option>
-                    <option value="waybill">Путевой лист</option>
-                    <option value="inspection">Осмотр</option>
-                </select>
-                <button type="submit" disabled={saving} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
-                    {saving ? 'Сохраняем...' : 'Добавить'}
-                </button>
-            </form>
+        <div>
+            <DataTable<DisplayRow>
+                tableId="fleet-odometer-history"
+                data={displayRows}
+                columns={columns}
+                keyField="id"
+                loading={loading}
+                searchPlaceholder="Поиск по ТС…"
+                searchKeys={['vehicle']}
+                searchPredicate={(r, q) => r.vehiclePlate.toLowerCase().includes(q)}
+                filters={[
+                    {
+                        id: 'vehicleId',
+                        label: 'ТС',
+                        value: filters.vehicleId,
+                        onChange: (value) => setFilters((prev) => ({ ...prev, vehicleId: value })),
+                        options: vehicles.map((v) => ({ value: v.id, label: v.plateNumber })),
+                    },
+                    {
+                        id: 'source',
+                        label: 'Источник',
+                        value: filters.source,
+                        onChange: (value) => setFilters((prev) => ({ ...prev, source: value })),
+                        options: Object.entries(SOURCE_LABELS).map(([value, label]) => ({ value, label })),
+                    },
+                ]}
+                toolbar={
+                    <Button
+                        variant="brand"
+                        leftIcon={<Plus className="w-4 h-4" />}
+                        onClick={() => setShowAddModal(true)}
+                    >
+                        Записать пробег
+                    </Button>
+                }
+                emptyState={
+                    <EmptyState
+                        icon={Gauge}
+                        title={hasFilters ? 'По фильтрам ничего не найдено' : 'История одометра пуста'}
+                        description={hasFilters
+                            ? 'Попробуйте сбросить фильтры.'
+                            : 'Добавьте первое показание, чтобы контролировать пробег и планировать ТО.'}
+                        tone="brand"
+                        action={!hasFilters ? (
+                            <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setShowAddModal(true)}>
+                                Записать пробег
+                            </Button>
+                        ) : undefined}
+                    />
+                }
+                pageSize={50}
+            />
 
-            <div className="flex gap-3">
-                <select value={filters.vehicleId} onChange={(e) => setFilters((prev) => ({ ...prev, vehicleId: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
-                    <option value="">Все ТС</option>
-                    {vehicles.map((vehicle: any) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plateNumber}</option>)}
-                </select>
-                <select value={filters.source} onChange={(e) => setFilters((prev) => ({ ...prev, source: e.target.value }))} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
-                    <option value="">Все источники</option>
-                    <option value="manual">Вручную</option>
-                    <option value="gps">GPS</option>
-                    <option value="waybill">Путевой лист</option>
-                    <option value="inspection">Осмотр</option>
-                </select>
-            </div>
-
-            <div className="overflow-x-auto rounded-xl border border-neutral-200">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="bg-neutral-50 text-left text-neutral-500">
-                            <th className="px-4 py-3 font-medium">Дата</th>
-                            <th className="px-4 py-3 font-medium">ТС</th>
-                            <th className="px-4 py-3 font-medium">Показание</th>
-                            <th className="px-4 py-3 font-medium">Источник</th>
-                            <th className="px-4 py-3 font-medium">Изменение</th>
-                            <th className="px-4 py-3 font-medium">Рейс</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-100">
-                        {loading ? (
-                            <tr><td colSpan={6} className="px-4 py-10 text-center text-neutral-400">Загружаем показания...</td></tr>
-                        ) : rows.length === 0 ? (
-                            <tr>
-                                <td colSpan={6} className="p-4">
-                                    <EmptyState
-                                        icon={Gauge}
-                                        title="История одометра пуста"
-                                        description="Добавьте первое показание через форму выше — для контроля пробега и планирования ТО."
-                                        tone="brand"
-                                    />
-                                </td>
-                            </tr>
-                        ) : rows.map((row) => {
-                            const vehicle = vehicles.find((item) => item.id === row.vehicleId);
-                            const delta = trends.get(row.id);
-                            return (
-                                <tr key={row.id}>
-                                    <td className="px-4 py-3 text-neutral-600">{formatDateTime(row.recordedAt)}</td>
-                                    <td className="px-4 py-3 font-medium text-neutral-800">{vehicle?.plateNumber || row.vehicleId}</td>
-                                    <td className="px-4 py-3 text-neutral-600">{Number(row.valueKm).toLocaleString('ru-RU')} км</td>
-                                    <td className="px-4 py-3">
-                                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${sourceTone[row.source] || 'bg-neutral-100 text-neutral-700'}`}>{row.source}</span>
-                                    </td>
-                                    <td className="px-4 py-3 text-neutral-600">{delta !== undefined ? `+${delta.toLocaleString('ru-RU')} км` : '—'}</td>
-                                    <td className="px-4 py-3 text-neutral-600">{row.tripId || '—'}</td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+            <AddOdometerModal
+                open={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                onCreated={loadData}
+                vehicles={vehicles}
+            />
         </div>
     );
 }

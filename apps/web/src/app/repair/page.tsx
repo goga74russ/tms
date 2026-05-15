@@ -39,14 +39,31 @@ function CreateRepairModal({
     const [priority, setPriority] = useState(initialDraft?.priority || 'medium');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [touched, setTouched] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         api.get<any>('/fleet/vehicles?limit=100').then(r => setVehicles(r.data || [])).catch(() => { });
     }, []);
 
+    const errors = useMemo(() => {
+        const e: Record<string, string> = {};
+        if (!vehicleId) e.vehicleId = 'Выберите ТС';
+        if (!description || description.trim().length < 5) {
+            e.description = 'Опишите неисправность (минимум 5 символов)';
+        }
+        if (!priority) e.priority = 'Укажите приоритет';
+        return e;
+    }, [vehicleId, description, priority]);
+
+    const isValid = Object.keys(errors).length === 0;
+
+    function markTouched(field: string) {
+        setTouched(prev => prev[field] ? prev : { ...prev, [field]: true });
+    }
+
     async function handleSubmit() {
-        if (!vehicleId || !description) {
-            setError('Выберите ТС и опишите неисправность');
+        if (!isValid) {
+            setTouched({ vehicleId: true, description: true, priority: true });
             return;
         }
         setSubmitting(true);
@@ -73,6 +90,13 @@ function CreateRepairModal({
         }
     }
 
+    const inputClass = (field: string) =>
+        `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-colors ${
+            touched[field] && errors[field]
+                ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
+                : 'border-neutral-200 focus:ring-indigo-500/20 focus:border-indigo-500'
+        }`;
+
     return (
         <Dialog open={true} onClose={onClose} title="Новая заявка на ремонт" size="md">
             <div className="space-y-4">
@@ -80,42 +104,57 @@ function CreateRepairModal({
                         <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Транспорт *</label>
                         <select
                             value={vehicleId}
-                            onChange={e => setVehicleId(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            onChange={e => { setVehicleId(e.target.value); markTouched('vehicleId'); }}
+                            onBlur={() => markTouched('vehicleId')}
+                            className={inputClass('vehicleId')}
+                            aria-invalid={touched.vehicleId && !!errors.vehicleId}
                         >
                             <option value="">Выберите ТС</option>
                             {vehicles.map(v => (
                                 <option key={v.id} value={v.id}>{v.plateNumber} — {v.make} {v.model}</option>
                             ))}
                         </select>
+                        {touched.vehicleId && errors.vehicleId && (
+                            <p className="text-xs text-red-500 mt-1">{errors.vehicleId}</p>
+                        )}
                     </div>
                     <div>
                         <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Описание неисправности *</label>
                         <textarea
                             value={description}
-                            onChange={e => setDescription(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                            onChange={e => { setDescription(e.target.value); markTouched('description'); }}
+                            onBlur={() => markTouched('description')}
+                            className={`${inputClass('description')} resize-none`}
                             rows={3}
                             placeholder="Опишите проблему..."
+                            aria-invalid={touched.description && !!errors.description}
                         />
+                        {touched.description && errors.description && (
+                            <p className="text-xs text-red-500 mt-1">{errors.description}</p>
+                        )}
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Приоритет</label>
+                        <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Приоритет *</label>
                         <select
                             value={priority}
-                            onChange={e => setPriority(e.target.value)}
-                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            onChange={e => { setPriority(e.target.value); markTouched('priority'); }}
+                            onBlur={() => markTouched('priority')}
+                            className={inputClass('priority')}
+                            aria-invalid={touched.priority && !!errors.priority}
                         >
                             <option value="low">Низкий</option>
                             <option value="medium">Обычный</option>
                             <option value="high">Высокий</option>
                             <option value="critical">Критический</option>
                         </select>
+                        {touched.priority && errors.priority && (
+                            <p className="text-xs text-red-500 mt-1">{errors.priority}</p>
+                        )}
                     </div>
                     {error && <p className="text-sm text-red-600">{error}</p>}
                 <div className="pt-2 border-t border-neutral-100 flex gap-3 justify-end">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
-                    <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
+                    <Button variant="brand" isLoading={submitting} disabled={!isValid || submitting} onClick={handleSubmit}>
                         Создать
                     </Button>
                 </div>

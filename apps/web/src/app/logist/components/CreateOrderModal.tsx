@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck, AlertTriangle } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck, AlertTriangle, Check, X } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { api } from '@/lib/api';
 import { Dialog } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -9,6 +11,11 @@ import type { Order } from '../page';
 
 const BASIC_ERROR_FIELDS = ['contractorId', 'cargoDescription', 'cargoWeightKg', 'loadingAddress', 'unloadingAddress'] as const;
 const ADVANCED_ERROR_FIELDS = ['temperatureMin', 'temperatureMax', 'adrClass', 'adrUnNumber'] as const;
+
+const DRAFT_STORAGE_KEY = 'transpult.draft.createOrder.v1';
+const DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const DRAFT_DEBOUNCE_MS = 1000;
+const DRAFT_SAVED_INDICATOR_MS = 2000;
 
 interface CreateOrderModalProps {
     onClose: () => void;
@@ -31,6 +38,73 @@ type ConfirmationMode = 'none' | 'optional' | 'required';
 const ADR_CLASSES = ['1', '2', '3', '4.1', '4.2', '4.3', '5.1', '5.2', '6.1', '6.2', '7', '8', '9'];
 const ADR_UN_REGEX = /^UN\d{4}$/;
 
+const EMPTY_FORM = {
+    contractorId: '',
+    cargoDescription: '',
+    cargoWeightKg: '',
+    cargoVolumeM3: '',
+    cargoPlaces: '',
+    multiTierAllowed: false,
+    maxTiers: '1',
+    coldChainRequired: false,
+    temperatureMin: '',
+    temperatureMax: '',
+    loadingType: '',
+    hydraulicLiftRequired: false,
+    loadingAddress: '',
+    loadingLat: '',
+    loadingLon: '',
+    loadingDate: '',
+    unloadingAddress: '',
+    unloadingLat: '',
+    unloadingLon: '',
+    unloadingDate: '',
+    vehicleRequirements: '',
+    notes: '',
+    confirmationMode: 'none' as ConfirmationMode,
+    adrEnabled: false,
+    adrClass: '',
+    adrUnNumber: '',
+};
+
+type FormState = typeof EMPTY_FORM;
+
+interface DraftPayload {
+    data: FormState;
+    savedAt: string;
+}
+
+function readDraft(): DraftPayload | null {
+    if (typeof window === 'undefined') return null;
+    try {
+        const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as DraftPayload;
+        if (!parsed?.savedAt || !parsed?.data) return null;
+        const savedAtMs = new Date(parsed.savedAt).getTime();
+        if (!Number.isFinite(savedAtMs)) return null;
+        if (Date.now() - savedAtMs > DRAFT_TTL_MS) return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
+function clearDraftStorage() {
+    if (typeof window === 'undefined') return;
+    try {
+        window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch {
+        // ignore
+    }
+}
+
+function isFormEmpty(form: FormState): boolean {
+    return (
+        JSON.stringify(form) === JSON.stringify(EMPTY_FORM)
+    );
+}
+
 function sortContractorAddresses(addresses: ContractorAddress[]) {
     return [...addresses].sort((left, right) => {
         if (left.type !== right.type) {
@@ -46,37 +120,77 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
     const [contractorAddresses, setContractorAddresses] = useState<ContractorAddress[]>([]);
     const [loadingAddressId, setLoadingAddressId] = useState('');
     const [unloadingAddressId, setUnloadingAddressId] = useState('');
-    const [form, setForm] = useState({
-        contractorId: '',
-        cargoDescription: '',
-        cargoWeightKg: '',
-        cargoVolumeM3: '',
-        cargoPlaces: '',
-        multiTierAllowed: false,
-        maxTiers: '1',
-        coldChainRequired: false,
-        temperatureMin: '',
-        temperatureMax: '',
-        loadingType: '',
-        hydraulicLiftRequired: false,
-        loadingAddress: '',
-        loadingLat: '',
-        loadingLon: '',
-        loadingDate: '',
-        unloadingAddress: '',
-        unloadingLat: '',
-        unloadingLon: '',
-        unloadingDate: '',
-        vehicleRequirements: '',
-        notes: '',
-        confirmationMode: 'none' as ConfirmationMode,
-        adrEnabled: false,
-        adrClass: '',
-        adrUnNumber: '',
-    });
+
+    // Draft restoration: read once on mount (modal is conditionally mounted by parent).
+    const initialDraftRef = useRef<DraftPayload | null>(null);
+    if (initialDraftRef.current === null) {
+        initialDraftRef.current = readDraft();
+    }
+    const initialDraft = initialDraftRef.current;
+
+    const [form, setForm] = useState<FormState>(() => initialDraft?.data ?? EMPTY_FORM);
+    const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(
+        initialDraft && initialDraft.savedAt ? initialDraft.savedAt : null,
+    );
+    const [draftSavedFlash, setDraftSavedFlash] = useState(false);
 
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [submitting, setSubmitting] = useState(false);
+
+    // Debounced auto-save of form to localStorage. Skip empty form to avoid spamming.
+    const skipNextSaveRef = useRef(true); // skip first effect run (initial mount)
+    useEffect(() => {
+        if (skipNextSaveRef.current) {
+            skipNextSaveRef.current = false;
+            return;
+        }
+        if (typeof window === 'undefined') return;
+        if (isFormEmpty(form)) {
+            // Form back to pristine — clear any stale draft.
+            clearDraftStorage();
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            try {
+                const payload: DraftPayload = {
+                    data: form,
+                    savedAt: new Date().toISOString(),
+                };
+                window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+                setDraftSavedFlash(true);
+            } catch {
+                // ignore quota / privacy errors
+            }
+        }, DRAFT_DEBOUNCE_MS);
+        return () => window.clearTimeout(timer);
+    }, [form]);
+
+    // Hide "Черновик сохранён" indicator after 2s.
+    useEffect(() => {
+        if (!draftSavedFlash) return;
+        const t = window.setTimeout(() => setDraftSavedFlash(false), DRAFT_SAVED_INDICATOR_MS);
+        return () => window.clearTimeout(t);
+    }, [draftSavedFlash]);
+
+    const handleClearDraft = () => {
+        clearDraftStorage();
+        skipNextSaveRef.current = true; // suppress immediate re-save after reset
+        setForm(EMPTY_FORM);
+        setLoadingAddressId('');
+        setUnloadingAddressId('');
+        setErrors({});
+        setDraftRestoredAt(null);
+        setDraftSavedFlash(false);
+    };
+
+    const draftRestoredLabel = useMemo(() => {
+        if (!draftRestoredAt) return null;
+        try {
+            return formatDistanceToNow(new Date(draftRestoredAt), { addSuffix: true, locale: ru });
+        } catch {
+            return null;
+        }
+    }, [draftRestoredAt]);
 
     useEffect(() => {
         api.get<any>('/fleet/contractors?limit=100').then((r) => setContractors(r.data || [])).catch(() => { });
@@ -240,6 +354,8 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
 
             const result = await api.post<any>('/orders', payload);
             if (result.success && result.data) {
+                // Order submitted — the draft is no longer needed.
+                clearDraftStorage();
                 onCreate(result.data);
                 return;
             }
@@ -280,6 +396,37 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
     return (
         <Dialog open={true} onClose={onClose} title="Новая заявка" size="lg">
             <div>
+                {draftRestoredAt && (
+                    <div className="mb-3 flex items-start gap-2 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-sm text-indigo-800">
+                        <Clock className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
+                        <div className="flex-1 min-w-0">
+                            <div className="font-medium">
+                                Восстановлен черновик
+                                {draftRestoredLabel ? <span className="text-indigo-600/80"> · {draftRestoredLabel}</span> : null}
+                            </div>
+                            <div className="text-xs text-indigo-700/80">
+                                Поля заполнены автоматически. Продолжите или очистите черновик.
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleClearDraft}
+                            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors inline-flex items-center gap-1"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                            Очистить черновик
+                        </button>
+                    </div>
+                )}
+                {draftSavedFlash && (
+                    <div
+                        className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 animate-in fade-in duration-200"
+                        aria-live="polite"
+                    >
+                        <Check className="h-3 w-3" />
+                        Черновик сохранён
+                    </div>
+                )}
                 <Tabs defaultValue="basic" className="space-y-4">
                     <TabsList>
                         <TabsTrigger value="basic">

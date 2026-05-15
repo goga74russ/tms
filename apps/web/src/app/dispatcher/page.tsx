@@ -26,6 +26,10 @@ import { CockpitRightPanel } from './components/CockpitRightPanel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog } from '@/components/ui/dialog';
 import { Combobox } from '@/components/ui/Combobox';
+import {
+    localizeExceptionTitle as localizeExceptionTitleImpl,
+    localizeExceptionMessage as localizeExceptionMessageImpl,
+} from './exception-localization';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
@@ -522,94 +526,17 @@ export default function DispatcherPage() {
         info: exceptions.filter(e => e.severity === 'info').length,
     };
 
-    // B-4: Russian labels for blocker/exception titles.
-    const EXCEPTION_TYPE_LABEL_RU: Record<string, string> = {
-        crew_rest: 'План отдыха экипажа',
-        post_trip_return: 'Возврат ТС после рейса',
-        etrn_blocking: 'Блокер ЭТрН: документ обязателен',
-        missing_document: 'Документ блокирует закрытие рейса',
-        document_warning: 'Предупреждение по документам',
-        open_claim: 'Открытая претензия',
-        shipment_discrepancy: 'Расхождение при отгрузке',
-        compatibility: 'Совместимость груза/ТС',
-        breakdown: 'Поломка ТС в рейсе',
-        downtime: 'Простой на точке маршрута',
-        cancellation_after_arrival: 'Отмена после прибытия ТС',
-        route_change: 'Изменение маршрута',
-        resource_replacement: 'Замена ТС/водителя',
-        execution_event: 'Событие исполнения',
-    };
-    const EXCEPTION_TITLE_LABEL_RU: Record<string, string> = {
-        'Crew and rest plan': 'План отдыха экипажа',
-        'Post-trip vehicle return': 'Возврат ТС после рейса',
-        'ETRN blocks trip close': 'Блокер ЭТрН: документ обязателен',
-        'Document blocks trip close': 'Документ блокирует закрытие рейса',
-        'Document warning': 'Предупреждение по документам',
-        'Open claim': 'Открытая претензия',
-        'Trip breakdown': 'Поломка ТС в рейсе',
-        'Route point downtime': 'Простой на точке маршрута',
-        'Cancellation after vehicle arrival': 'Отмена после прибытия ТС',
-        'Trip route changed': 'Изменение маршрута',
-        'Trip resource replaced': 'Замена ТС/водителя',
-        'Trip disruption': 'Нарушение хода рейса',
-        'Trip delay': 'Задержка рейса',
-        'Trip downtime': 'Простой рейса',
-        'Manual correction': 'Ручная корректировка',
-        'Pending photo evidence': 'Ожидается фотофиксация',
-        'Execution event': 'Событие исполнения',
-    };
-
-    const localizeExceptionTitle = useCallback((item: OperationException) => {
-        if (item.type && EXCEPTION_TYPE_LABEL_RU[item.type]) return EXCEPTION_TYPE_LABEL_RU[item.type];
-        if (item.title && EXCEPTION_TITLE_LABEL_RU[item.title]) return EXCEPTION_TITLE_LABEL_RU[item.title];
-        if (item.title?.startsWith('Shipment discrepancy:')) return 'Расхождение при отгрузке';
-        if (item.title?.startsWith('Compatibility:')) return 'Совместимость груза/ТС';
-        return item.title;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // B-22: Russian labels for exception subtitle messages.
-    const localizeExceptionMessage = useCallback((s: string | null | undefined): string | null => {
-        if (!s) return null;
-        const trimmed = s.trim();
-        if (!trimmed) return null;
-        // Exact-match map for known engine-emitted strings
-        const exactMap: Record<string, string> = {
-            'etrn is required but missing': 'ЭТрН обязателен, но отсутствует',
-            'transport_document was rejected': 'Транспортный документ отклонён',
-            'transport_document is pending signature': 'Документ ожидает подпись',
-            'transport_document is missing': 'Транспортный документ не создан',
-            'document is missing': 'Документ отсутствует',
-            'document was rejected': 'Документ отклонён',
-            'document is pending': 'Документ ожидает обработки',
-            'claim is open': 'Претензия открыта',
-            'route point overdue': 'Точка маршрута просрочена',
-            'shipment discrepancy detected': 'Зафиксировано расхождение',
-            'driver med inspection rejected': 'Медосмотр водителя не пройден',
-            'driver license expires soon': 'Истекают права водителя',
-            'vehicle inspection rejected': 'Техосмотр ТС не пройден',
-            'vehicle OSAGO expired': 'ОСАГО истекло',
-            'vehicle not assigned': 'ТС не назначено',
-            'driver not assigned': 'Водитель не назначен',
-            'crew rest violation': 'Нарушение режима труда и отдыха',
-            'trip breakdown reported': 'Зафиксирована поломка ТС',
-            'downtime at route point': 'Простой на точке маршрута',
-            'cancellation after arrival': 'Отмена после прибытия',
-        };
-        const lower = trimmed.toLowerCase();
-        if (exactMap[lower]) return exactMap[lower];
-        // Prefix patterns
-        const prefixMap: Array<[RegExp, string]> = [
-            [/^Bulk\/liquid cargo is assigned to a vehicle/i, 'Налив/насыпь назначены на ТС без подходящего кузова'],
-            [/^Food cargo is combined with hazard(ous)? cargo/i, 'Продовольствие совмещено с опасным грузом'],
-            [/^Vehicle .* is overloaded/i, 'Превышение грузоподъёмности ТС'],
-            [/^Driver .* has no active license/i, 'У водителя нет действующих прав'],
-            [/^Order .* requires cold chain/i, 'Заказ требует холодовой цепи'],
-        ];
-        for (const [re, ru] of prefixMap) if (re.test(trimmed)) return ru;
-        // Heuristic: if string contains only ASCII letters/punctuation, it's likely English engine string — keep as is
-        return trimmed;
-    }, []);
+    // B-4 / B-22: exception localization maps + helpers live in
+    // ./exception-localization.ts. Memoize stable callbacks here so prop
+    // identity stays consistent for downstream components.
+    const localizeExceptionTitle = useCallback(
+        (item: OperationException) => localizeExceptionTitleImpl(item),
+        [],
+    );
+    const localizeExceptionMessage = useCallback(
+        (s: string | null | undefined) => localizeExceptionMessageImpl(s),
+        [],
+    );
 
     const isMojibake = useCallback((s: string | null | undefined): boolean => {
         if (!s) return true;
@@ -766,6 +693,10 @@ export default function DispatcherPage() {
                                 icon={<Search className="w-4 h-4" />}
                                 className="w-full"
                                 minChars={3}
+                                // Nominatim has a strict usage policy + rate
+                                // limits — keep keystrokes throttled so we
+                                // only fire after the user pauses typing.
+                                debounceMs={400}
                                 onSearch={async (q) => {
                                     try {
                                         const res = await fetch(

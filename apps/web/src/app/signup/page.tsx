@@ -164,10 +164,12 @@ function ShowcaseFrame({ kind }: { kind: 'cockpit' | 'mobile' | 'pricing' }) {
 
 function ShowcaseCarousel() {
     const [idx, setIdx] = useState(0);
+    const [autoplayPaused, setAutoplayPaused] = useState(false);
     useEffect(() => {
+        if (autoplayPaused) return;
         const t = setInterval(() => setIdx((i) => (i + 1) % SHOWCASE_FRAMES.length), 4000);
         return () => clearInterval(t);
-    }, []);
+    }, [autoplayPaused]);
     const frame = SHOWCASE_FRAMES[idx];
     return (
         <div className="space-y-5">
@@ -184,7 +186,10 @@ function ShowcaseCarousel() {
                         key={f.kind}
                         type="button"
                         aria-label={`Слайд ${i + 1}`}
-                        onClick={() => setIdx(i)}
+                        onClick={() => {
+                            setIdx(i);
+                            setAutoplayPaused(true);
+                        }}
                         className={`h-1.5 rounded-full transition-all ${i === idx ? 'bg-brand-600 w-6' : 'bg-neutral-300 w-1.5 hover:bg-neutral-400'}`}
                     />
                 ))}
