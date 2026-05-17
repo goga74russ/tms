@@ -50,10 +50,6 @@ class ApiClient {
             ...options?.headers,
         };
 
-        if (!isFormData) {
-            headers['Content-Type'] = 'application/json';
-        }
-
         const requestBody = isFormData
             ? body as FormData
             : body !== undefined
@@ -61,6 +57,14 @@ class ApiClient {
                 : shouldSendJsonBody
                     ? '{}'
                     : undefined;
+
+        // Content-Type только когда реально шлём JSON-тело. Fastify
+        // отвергает `Content-Type: application/json` с пустым body
+        // ошибкой "Body cannot be empty when content-type is set..."
+        // — это ломает DELETE и GET без body.
+        if (!isFormData && requestBody !== undefined) {
+            headers['Content-Type'] = 'application/json';
+        }
 
         const response = await fetch(`${API_BASE}${path}`, {
             method,
