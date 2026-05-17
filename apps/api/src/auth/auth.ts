@@ -313,6 +313,94 @@ export function registerAuthRoutes(app: FastifyInstance) {
         return { success: true, data: { ...user, driverId, isSuperAdmin } };
     });
 
+    // ============================================================
+    // POST /api/auth/me/organization
+    // ------------------------------------------------------------
+    // Создание организации для текущего пользователя, когда он
+    // авторизован, но organizationId=null (например, seed-admin или
+    // legacy-пользователь до multitenancy). После создания:
+    //   • привязываем user.organizationId
+    //   • выписываем новый JWT с organizationId и кладём в cookie
+    //
+    // Это one-way trip: super-admin превращается в tenant-admin своей
+    // организации. Откатить можно только через прямое обновление БД.
+    // ============================================================
+    const CreateMyOrgSchema = z.object({
+        name: z.string().min(1).max(255),
+        inn: z.string().regex(/^\d{10}$|^\d{12}$/).optional(),
+    });
+    app.post('/api/auth/me/organization', {
+        schema: {
+            tags: ['Авторизация'],
+            summary: 'Создать организацию для текущего пользователя',
+            description: 'Доступно только если у пользователя ещё нет organizationId. После создания выписывается новый JWT.',
+        },
+        preHandler: [app.authenticate],
+    }, async (request, reply) => {
+        const actor = request.user as AuthenticatedUser;
+
+        const [me] = await db.select({
+            id: users.id,
+            email: users.email,
+            roles: users.roles,
+            organizationId: users.organizationId,
+        }).from(users).where(eq(users.id, actor.userId)).limit(1);
+
+        if (!me) return reply.status(404).send({ success: false, error: 'Пользователь не найден' });
+        if (me.organizationId) {
+            return reply.status(409).send({
+                success: false,
+                error: 'У пользователя уже есть организация',
+            });
+        }
+
+        const parsed = CreateMyOrgSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Ошибка валидации данных',
+                details: parsed.error.flatten(),
+            });
+        }
+        const { name, inn } = parsed.data;
+
+        // Идемпотентность: если уже есть org с таким ИНН — присоединяем
+        // пользователя к существующей, не создавая дубликат.
+        let orgId: string | null = null;
+        if (inn) {
+            const [existing] = await db.select({ id: organizations.id })
+                .from(organizations).where(eq(organizations.inn, inn)).limit(1);
+            if (existing) orgId = existing.id;
+        }
+        if (!orgId) {
+            const [created] = await db.insert(organizations)
+                .values({ name, inn: inn ?? null })
+                .returning({ id: organizations.id });
+            orgId = created!.id;
+        }
+
+        await db.update(users)
+            .set({ organizationId: orgId, updatedAt: new Date() })
+            .where(eq(users.id, me.id));
+
+        // Перевыпускаем JWT с новым organizationId, чтобы клиент
+        // не отлогинивался и сразу получил доступ к tenant-данным.
+        const token = app.jwt.sign(
+            { userId: me.id, roles: me.roles, organizationId: orgId },
+            { expiresIn: JWT_EXPIRES_IN },
+        );
+        const isSecure = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
+        reply.setCookie(COOKIE_NAME, token, {
+            httpOnly: true,
+            secure: isSecure,
+            sameSite: 'strict',
+            path: '/',
+            maxAge: COOKIE_MAX_AGE,
+        });
+
+        return { success: true, data: { id: orgId, name, inn: inn ?? null } };
+    });
+
     // Short-lived token for WebSocket connections (browser can't send cookies over WS)
     app.get('/api/auth/ws-token', {
         schema: { tags: ['Авторизация'], summary: 'WS токен', description: 'Краткосрочный JWT (5 минут) для WebSocket подключения.' },
