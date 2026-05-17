@@ -401,6 +401,64 @@ export function registerAuthRoutes(app: FastifyInstance) {
         return { success: true, data: { id: orgId, name, inn: inn ?? null } };
     });
 
+    // ============================================================
+    // DELETE /api/auth/me/organization
+    // ------------------------------------------------------------
+    // Обратный путь: admin-пользователь возвращается в super-admin
+    // (organizationId=NULL). Нужен, если случайно создал org через
+    // POST /me/organization и потерял кросс-тенант видимость.
+    // Доступно только при роли admin.
+    //
+    // Внимание: tenant-данные созданные под этой org остаются — это
+    // detach пользователя, не удаление организации.
+    // ============================================================
+    app.delete('/api/auth/me/organization', {
+        schema: {
+            tags: ['Авторизация'],
+            summary: 'Отвязать пользователя от организации (вернуть super-admin)',
+            description: 'Сбрасывает organizationId=NULL для текущего admin-пользователя. Перевыпускает JWT.',
+        },
+        preHandler: [app.authenticate],
+    }, async (request, reply) => {
+        const actor = request.user as AuthenticatedUser;
+        if (!actor.roles.includes('admin')) {
+            return reply.status(403).send({ success: false, error: 'Только admin может становиться super-admin' });
+        }
+
+        const [me] = await db.select({
+            id: users.id,
+            roles: users.roles,
+            organizationId: users.organizationId,
+        }).from(users).where(eq(users.id, actor.userId)).limit(1);
+
+        if (!me) return reply.status(404).send({ success: false, error: 'Пользователь не найден' });
+        if (!me.organizationId) {
+            return reply.status(409).send({
+                success: false,
+                error: 'Пользователь и так не привязан к организации',
+            });
+        }
+
+        await db.update(users)
+            .set({ organizationId: null, updatedAt: new Date() })
+            .where(eq(users.id, me.id));
+
+        const token = app.jwt.sign(
+            { userId: me.id, roles: me.roles, organizationId: undefined },
+            { expiresIn: JWT_EXPIRES_IN },
+        );
+        const isSecure = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
+        reply.setCookie(COOKIE_NAME, token, {
+            httpOnly: true,
+            secure: isSecure,
+            sameSite: 'strict',
+            path: '/',
+            maxAge: COOKIE_MAX_AGE,
+        });
+
+        return { success: true };
+    });
+
     // Short-lived token for WebSocket connections (browser can't send cookies over WS)
     app.get('/api/auth/ws-token', {
         schema: { tags: ['Авторизация'], summary: 'WS токен', description: 'Краткосрочный JWT (5 минут) для WebSocket подключения.' },
