@@ -372,24 +372,51 @@ export function registerAuthRoutes(app: FastifyInstance) {
         }
         const { name, inn } = parsed.data;
 
-        // Идемпотентность: если уже есть org с таким ИНН — присоединяем
-        // пользователя к существующей, не создавая дубликат.
-        let orgId: string | null = null;
-        if (inn) {
-            const [existing] = await db.select({ id: organizations.id })
-                .from(organizations).where(eq(organizations.inn, inn)).limit(1);
-            if (existing) orgId = existing.id;
-        }
-        if (!orgId) {
-            const [created] = await db.insert(organizations)
-                .values({ name, inn: inn ?? null })
-                .returning({ id: organizations.id });
-            orgId = created!.id;
-        }
+        // Защита от race: двойной клик мог пройти оба SELECT/INSERT/UPDATE,
+        // создавая две org-записи (вторая UPDATE перезатирала первую).
+        // Решение: транзакция + UPDATE с WHERE organization_id IS NULL.
+        // Второй параллельный запрос увидит rowCount=0 и упадёт 409.
+        //
+        // Идемпотентность по ИНН: если такая org уже зарегистрирована —
+        // присоединяемся к ней, не создавая дубликат.
+        const orgId = await db.transaction(async (tx) => {
+            let resolvedOrgId: string | null = null;
+            if (inn) {
+                const [existing] = await tx.select({ id: organizations.id })
+                    .from(organizations).where(eq(organizations.inn, inn)).limit(1);
+                if (existing) resolvedOrgId = existing.id;
+            }
+            if (!resolvedOrgId) {
+                const [created] = await tx.insert(organizations)
+                    .values({ name, inn: inn ?? null })
+                    .returning({ id: organizations.id });
+                resolvedOrgId = created!.id;
+            }
 
-        await db.update(users)
-            .set({ organizationId: orgId, updatedAt: new Date() })
-            .where(eq(users.id, me.id));
+            const updated = await tx.update(users)
+                .set({ organizationId: resolvedOrgId, updatedAt: new Date() })
+                .where(and(
+                    eq(users.id, me.id),
+                    isNull(users.organizationId), // race-guard: только если ещё null
+                ))
+                .returning({ id: users.id });
+
+            if (updated.length === 0) {
+                // Параллельный запрос уже привязал пользователя к org.
+                throw new Error('ALREADY_ASSIGNED');
+            }
+            return resolvedOrgId;
+        }).catch((err) => {
+            if (err instanceof Error && err.message === 'ALREADY_ASSIGNED') return null;
+            throw err;
+        });
+
+        if (orgId === null) {
+            return reply.status(409).send({
+                success: false,
+                error: 'Параллельный запрос уже привязал пользователя к организации — обновите страницу',
+            });
+        }
 
         // Перевыпускаем JWT с новым organizationId, чтобы клиент
         // не отлогинивался и сразу получил доступ к tenant-данным.

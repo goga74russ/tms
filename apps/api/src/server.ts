@@ -321,6 +321,8 @@ await app.register(import('./modules/operations/routes.js'), { prefix: '/api' })
 await app.register(import('./modules/documents/routes.js'), { prefix: '/api' });
 // Госключ public callback — mobile app POSTs signed XML back here.
 await app.register(import('./modules/signatures/gosklyuch-callback.js'), { prefix: '/api' });
+// POST /transport-documents/:id/sign + GET /transport-documents/:id (polling)
+await app.register(import('./modules/signatures/sign-endpoint.js'), { prefix: '/api' });
 await app.register(import('./modules/sprint9/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/claims/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/uploads/routes.js'), { prefix: '/api' });
