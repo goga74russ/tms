@@ -29,24 +29,49 @@ const CallbackBodySchema = z.object({
     // signerInn: ИНН подписанта (10-12 цифр) — обычно извлекается
     //            интеграцией из сертификата; если отдан, мы сверим его
     //            с granteeInn выбранной МЧД.
+    // titleType: тип титула (T01/T02/T05/T06) — нужен чтобы UI
+    //            корректно отметил конкретный титул как подписанный.
     //
-    // ВАЖНО: пока эндпоинта POST /transport-documents/:id/sign нет,
-    // mchdId/signerInn принимаются опционально из body. Когда /sign
-    // будет реализован, он будет писать pendingSignatures[externalId]
-    // в metadata документа и связка станет server-side
-    // (callback-body-mchdId перестанет приниматься).
+    // ВАЖНО: эти поля spoof-able из body. В production они ОТКЛЮЧЕНЫ
+    // (см. ниже) — должны прийти из server-side metadata.pendingSignatures,
+    // которая записывается на этапе POST /transport-documents/:id/sign.
+    // Тот эндпоинт пока не реализован; до его готовности в production
+    // подпись через Госключ не привязывается к МЧД.
     mchdId: z.string().uuid().optional(),
     signerInn: z.string().regex(/^\d{10}$|^\d{12}$/, 'ИНН: 10 или 12 цифр').optional(),
+    titleType: z.enum(['T01', 'T02', 'T05', 'T06']).optional(),
 });
 
 /**
  * If externalId encodes an HMAC ("<id>.<hex>"), verify it against the
- * server-side secret. When GOSKLYUCH_CALLBACK_SECRET is unset we skip
- * the check (dev-friendly); in production it should always be set.
+ * server-side secret.
+ *
+ * Поведение по средам:
+ *   • production — server.ts boot-check уже заваливает запуск без
+ *     GOSKLYUCH_CALLBACK_SECRET, поэтому здесь secret гарантированно есть
+ *     и сравнивается строго.
+ *   • dev/test — если secret реально не задан (undefined), пропускаем
+ *     проверку для удобства локальной разработки.
+ *   • staging и любой нестандартный env — если переменная задана пустой
+ *     строкой, это конфигурационная ошибка. Логируем один раз и
+ *     блокируем callback, чтобы случайно открытый канал не стал
+ *     вектором инъекции поддельных подписей.
  */
+let warnedEmptySecret = false;
 function verifyExternalIdHmac(externalId: string): boolean {
-    const secret = process.env.GOSKLYUCH_CALLBACK_SECRET;
-    if (!secret) return true; // no secret configured → skip
+    const rawSecret = process.env.GOSKLYUCH_CALLBACK_SECRET;
+    if (rawSecret === undefined) return true; // переменная не задана — dev fallback
+    if (rawSecret.length === 0) {
+        if (!warnedEmptySecret) {
+            // eslint-disable-next-line no-console
+            console.warn(
+                '⚠️  GOSKLYUCH_CALLBACK_SECRET задан пустой строкой — HMAC отключён и callback заблокирован. Установите непустое значение в .env.',
+            );
+            warnedEmptySecret = true;
+        }
+        return false;
+    }
+    const secret = rawSecret;
     const dot = externalId.lastIndexOf('.');
     if (dot <= 0 || dot === externalId.length - 1) {
         // No signature segment — reject if a secret is configured.
@@ -88,7 +113,24 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
                 details: parsed.error.flatten(),
             });
         }
-        const { externalId, signedXml, signedAt, signerCertificate, mchdId, signerInn } = parsed.data;
+        const parsedBody = parsed.data;
+        const { externalId, signedXml, signedAt, signerCertificate } = parsedBody;
+
+        // B1: в production mchdId/signerInn/titleType из body не
+        // принимаются — они должны прийти из server-side
+        // metadata.pendingSignatures (записанной /sign-эндпоинтом).
+        // До готовности /sign в проде подпись просто сохраняется без
+        // МЧД-связки и UI-флипа конкретного титула.
+        const isProd = process.env.NODE_ENV === 'production';
+        if (isProd && (parsedBody.mchdId || parsedBody.signerInn || parsedBody.titleType)) {
+            request.log.warn(
+                { externalId, hasMchdId: !!parsedBody.mchdId, hasSignerInn: !!parsedBody.signerInn, hasTitleType: !!parsedBody.titleType },
+                'Госключ callback: попытка передать mchdId/signerInn/titleType из body в production — игнорируем',
+            );
+        }
+        const mchdId = isProd ? undefined : parsedBody.mchdId;
+        const signerInn = isProd ? undefined : parsedBody.signerInn;
+        const titleTypeFromBody = isProd ? undefined : parsedBody.titleType;
 
         // HMAC tamper check (no-op if GOSKLYUCH_CALLBACK_SECRET unset).
         if (!verifyExternalIdHmac(externalId)) {
@@ -124,18 +166,29 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
         // На любом несоответствии: severity='error' событие, signatureState
         // не помечается 'signed', документ остаётся в подвешенном состоянии
         // (юр-сила подписи под вопросом до ручной проверки админом).
+        // B2: всегда резолвим organizationId документа через trip.
+        // Если у trip нет organization_id (legacy), отказываем —
+        // публичный callback не должен делать кросс-tenant lookup МЧД.
+        const [tripRow] = await db
+            .select({ organizationId: trips.organizationId })
+            .from(trips)
+            .where(eq(trips.id, row.tripId))
+            .limit(1);
+        const documentOrgId = tripRow?.organizationId ?? null;
+        if (!documentOrgId && mchdId) {
+            request.log.error(
+                { externalId, tripId: row.tripId, mchdId },
+                'Госключ callback: documentOrgId=null — отказываем в МЧД-валидации (legacy trip без organization_id)',
+            );
+            return reply.status(400).send({
+                success: false,
+                error: 'Не удаётся определить организацию документа — МЧД-валидация невозможна',
+            });
+        }
+
         let mchdRecord: { id: string; mchdNumber: string; granteeInn: string; granterInn: string; status: string; issuedAt: Date; expiresAt: Date } | null = null;
         const mchdProblems: string[] = [];
-        if (mchdId) {
-            // transport_documents не имеет прямой колонки organization_id —
-            // org-скоуп выводим через trip.organizationId.
-            const [tripRow] = await db
-                .select({ organizationId: trips.organizationId })
-                .from(trips)
-                .where(eq(trips.id, row.tripId))
-                .limit(1);
-            const documentOrgId = tripRow?.organizationId ?? null;
-
+        if (mchdId && documentOrgId) {
             const [m] = await db
                 .select({
                     id: mchd.id,
@@ -148,11 +201,7 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
                     organizationId: mchd.organizationId,
                 })
                 .from(mchd)
-                .where(
-                    documentOrgId
-                        ? and(eq(mchd.id, mchdId), eq(mchd.organizationId, documentOrgId))
-                        : eq(mchd.id, mchdId),
-                )
+                .where(and(eq(mchd.id, mchdId), eq(mchd.organizationId, documentOrgId)))
                 .limit(1);
 
             if (!m) {
@@ -178,8 +227,23 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             }
         }
 
-        // Append the signed envelope to metadata.signatures[].
+        // Резолвим titleType: приоритет server-side источникам.
+        // 1) metadata.pendingSignatures[externalId] (будущий /sign endpoint)
+        // 2) transport_documents.title_type (если задан при создании)
+        // 3) body.titleType (только в non-prod, как dev-удобство — см. B1)
         const metadata = ((row.metadata as Record<string, unknown> | null) ?? {});
+        const pendingMap = (metadata.pendingSignatures && typeof metadata.pendingSignatures === 'object'
+            ? metadata.pendingSignatures as Record<string, Record<string, unknown>>
+            : {});
+        const pending = pendingMap[externalId] ?? null;
+        const titleType = (
+            (pending && typeof pending.titleType === 'string' ? pending.titleType : null)
+            ?? row.titleType
+            ?? titleTypeFromBody
+            ?? null
+        );
+
+        // Append the signed envelope to metadata.signatures[].
         const existingSignatures = Array.isArray(metadata.signatures)
             ? [...metadata.signatures as Array<Record<string, unknown>>]
             : [];
@@ -196,6 +260,8 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             mchdGranteeInn: mchdRecord?.granteeInn ?? null,
             mchdValid: mchdRecord !== null,
             mchdProblems: mchdProblems.length ? mchdProblems : null,
+            titleType, // нужно UI чтобы отметить конкретный титул подписанным
+            state: mchdProblems.length === 0 ? 'signed' : 'pending_review',
             receivedAt: now.toISOString(),
         };
         existingSignatures.push(signatureEntry);
@@ -203,15 +269,24 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
         // signatureState помечается 'signed' только если МЧД-связка
         // валидна (или не была передана — backward compat до /sign endpoint).
         // Если есть problems — оставляем 'pending_review' для ручной разборки.
+        //
+        // Мерджим с предыдущим state, чтобы не затирать lastSignerRole
+        // и другие поля, записанные ручным путём через
+        // recordTransportDocumentSignature.
+        const prevState = (metadata.signatureState && typeof metadata.signatureState === 'object'
+            ? metadata.signatureState as Record<string, unknown>
+            : {});
         const stateStatus = mchdProblems.length === 0 ? 'signed' : 'pending_review';
         const nextMetadata = {
             ...metadata,
             signatures: existingSignatures,
             signatureState: {
+                ...prevState,
                 status: stateStatus,
                 provider: 'gosklyuch',
                 lastSignedAt: recordedAt.toISOString(),
                 mchdId: mchdRecord?.id ?? null,
+                titleType,
                 problems: mchdProblems.length ? mchdProblems : null,
             },
             gosklyuchCallback: {
@@ -243,6 +318,7 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             payload: {
                 provider: 'gosklyuch',
                 externalId,
+                titleType,
                 signedAt: recordedAt.toISOString(),
                 signerCertificatePresent: Boolean(signerCertificate),
                 signedXmlBytes: signedXml.length,

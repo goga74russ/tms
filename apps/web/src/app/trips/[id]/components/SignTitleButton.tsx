@@ -52,13 +52,21 @@ interface SignTitleButtonProps {
     size?: 'sm' | 'default';
 }
 
-const PROVIDERS: Array<{ id: SignatureProviderId; label: string; hint: string }> = [
+const ALL_PROVIDERS: Array<{ id: SignatureProviderId; label: string; hint: string; devOnly?: boolean }> = [
     { id: 'gosklyuch', label: 'Госключ', hint: 'Подпись через мобильное приложение (физлица, ИП)' },
     { id: 'kontur-sign', label: 'Контур.Подпись', hint: 'Плагин Контура в браузере' },
     { id: 'sbis-sign', label: 'СБИС подпись', hint: 'Плагин СБИС в браузере' },
     { id: 'cadesplugin', label: 'КриптоПро CADES', hint: 'Локальная установка плагина' },
-    { id: 'mock', label: 'Mock (dev)', hint: 'Только для отладки' },
+    { id: 'mock', label: 'Mock (dev)', hint: 'Только для отладки', devOnly: true },
 ];
+
+// Mock-провайдер скрыт в production. Иначе клиент может случайно
+// выбрать его и подписать ЭТрН локально сгенерированной подписью без
+// юр-силы — гарантированная ловушка на пилоте.
+const PROVIDERS = ALL_PROVIDERS.filter((p) => {
+    if (!p.devOnly) return true;
+    return process.env.NODE_ENV !== 'production';
+});
 
 const POLL_INTERVAL_MS = 5_000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;

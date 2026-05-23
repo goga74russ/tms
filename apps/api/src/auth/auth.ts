@@ -333,11 +333,19 @@ export function registerAuthRoutes(app: FastifyInstance) {
         schema: {
             tags: ['Авторизация'],
             summary: 'Создать организацию для текущего пользователя',
-            description: 'Доступно только если у пользователя ещё нет organizationId. После создания выписывается новый JWT.',
+            description: 'Доступно только если у пользователя ещё нет organizationId. После создания выписывается новый JWT. Только admin.',
         },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const actor = request.user as AuthenticatedUser;
+        // Симметрично DELETE-counterpart: orphan-driver не должен иметь
+        // возможности создать org и стать tenant-admin своей. Только admin.
+        if (!actor.roles.includes('admin')) {
+            return reply.status(403).send({
+                success: false,
+                error: 'Только admin может создавать организацию',
+            });
+        }
 
         const [me] = await db.select({
             id: users.id,

@@ -65,15 +65,35 @@ export function detectETrNTitleType(xml: string): ETrNTitleType | null {
 }
 
 /**
- * Декодирует base64-payload, который EdiProvider.sendDocument получает извне.
- * Пробует UTF-8; если в первых ~200 байтах XML-декларации стоит windows-1251,
- * декодирует через iconv-fallback. Возвращает `null`, если контент не похож
- * на XML вообще (например, base64-PDF).
+ * Декодирует payload, который EdiProvider.sendDocument получает извне.
+ *
+ * Принимает ОБА формата:
+ *   • base64 (как из MIME-вложений) — декодируем
+ *   • raw XML (как из in-process pipeline modules/edi/service.ts) —
+ *     возвращаем как есть
+ *
+ * Detection: если строка стартует с `<?xml` или `<Файл` — это уже raw XML.
+ * Иначе пытаемся base64-decode.
+ *
+ * Возвращает `null`, если контент не похож на XML (например, base64-PDF).
  */
-function decodeBase64Xml(base64: string): string | null {
+function decodeBase64Xml(input: string): string | null {
+    // Raw XML на входе — никакого base64-decode не нужно.
+    const trimmed = input.trimStart();
+    if (trimmed.startsWith('<?xml') || trimmed.startsWith('<Файл')) {
+        // Перекодировка windows-1251 если декларация это требует.
+        const declMatch = trimmed.match(/<\?xml[^?]*encoding="([^"]+)"/i);
+        if (declMatch && declMatch[1] && /1251/i.test(declMatch[1])) {
+            // Для raw XML обычно уже UTF-8; здесь just-in-case попытка
+            // декодировать содержимое как windows-1251 байты.
+            return decodeWindows1251(Buffer.from(trimmed, 'latin1'));
+        }
+        return trimmed;
+    }
+
     let buf: Buffer;
     try {
-        buf = Buffer.from(base64, 'base64');
+        buf = Buffer.from(input, 'base64');
     } catch {
         return null;
     }

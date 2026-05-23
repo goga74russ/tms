@@ -16,7 +16,9 @@ import {
     Sparkles,
     Settings,
     ScrollText,
+    FileSignature,
 } from 'lucide-react';
+import { OrganizationSetupBanner } from './components/OrganizationSetupBanner';
 
 type AdminNavItem =
     | { kind: 'link'; name: string; href: string; icon: typeof Users; superAdminOnly?: boolean }
@@ -28,6 +30,7 @@ const adminNav: AdminNavItem[] = [
     { kind: 'link', name: 'Перевозчики', href: '/admin/carriers', icon: Truck },
     { kind: 'link', name: 'Шаблоны ЧЛ', href: '/admin/checklists', icon: ClipboardCheck },
     { kind: 'link', name: 'Тарифы', href: '/admin/tariffs', icon: FileText },
+    { kind: 'link', name: 'МЧД', href: '/admin/mchd', icon: FileSignature },
 
     { kind: 'divider', label: 'Эксплуатация' },
     // Platform-wide cross-tenant views — hidden from tenant admins.
@@ -130,6 +133,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
             {/* Content */}
             <main className="flex-1 p-6 min-w-0">
+                {/* Глобальный баннер: создание/детач организации для admin-пользователей.
+                    Сам компонент решает показываться или нет — рендерит null если
+                    у пользователя есть org и нет роли admin. */}
+                <div className="mb-4">
+                    <OrganizationSetupBanner />
+                </div>
                 {children}
             </main>
         </div>

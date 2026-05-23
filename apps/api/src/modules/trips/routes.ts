@@ -80,11 +80,16 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         const privileged = hasPrivilege(user.roles);
 
-        // H-3: RLS вЂ” drivers can only see their own trips
+        // H-3: RLS — drivers can only see their own trips.
+        // Audit fix: если у user-а только роль driver и НЕТ записи в drivers,
+        // прежний код пропускал RLS-фильтр и возвращал ВСЕ рейсы организации
+        // (utечка кросс-driver). Теперь short-circuit в пустой список,
+        // симметрично client-ветке ниже.
         let rlsDriverId = query.driverId;
         if (!privileged && user.roles.includes('driver')) {
             const myDriverId = await resolveDriverId(user.userId);
-            if (myDriverId) rlsDriverId = myDriverId;
+            if (!myDriverId) return { success: true, data: [], total: 0, page: 1, limit: 20 };
+            rlsDriverId = myDriverId;
         }
 
         // RLS: client can only see trips linked to their orders

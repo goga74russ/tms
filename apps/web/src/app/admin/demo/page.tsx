@@ -14,7 +14,6 @@ import {
     Sparkles, Trash2, CheckCircle2, AlertCircle, Info,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
-import { OrganizationSetupBanner } from '../components/OrganizationSetupBanner';
 
 interface GenerateResult {
     contractorIds: string[];
@@ -103,8 +102,6 @@ export default function AdminDemoPage() {
                 title="Демо-данные"
                 description="Минимальный набор данных для знакомства с системой: 1 контрагент, 2 ТС, 2 водителя, завершённый и активный рейсы, заявка с холодильной цепью."
             />
-
-            <OrganizationSetupBanner />
 
             <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-800 flex gap-3">
                 <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
