@@ -115,22 +115,7 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
         }
         const parsedBody = parsed.data;
         const { externalId, signedXml, signedAt, signerCertificate } = parsedBody;
-
-        // B1: в production mchdId/signerInn/titleType из body не
-        // принимаются — они должны прийти из server-side
-        // metadata.pendingSignatures (записанной /sign-эндпоинтом).
-        // До готовности /sign в проде подпись просто сохраняется без
-        // МЧД-связки и UI-флипа конкретного титула.
         const isProd = process.env.NODE_ENV === 'production';
-        if (isProd && (parsedBody.mchdId || parsedBody.signerInn || parsedBody.titleType)) {
-            request.log.warn(
-                { externalId, hasMchdId: !!parsedBody.mchdId, hasSignerInn: !!parsedBody.signerInn, hasTitleType: !!parsedBody.titleType },
-                'Госключ callback: попытка передать mchdId/signerInn/titleType из body в production — игнорируем',
-            );
-        }
-        const mchdId = isProd ? undefined : parsedBody.mchdId;
-        const signerInn = isProd ? undefined : parsedBody.signerInn;
-        const titleTypeFromBody = isProd ? undefined : parsedBody.titleType;
 
         // HMAC tamper check (no-op if GOSKLYUCH_CALLBACK_SECRET unset).
         if (!verifyExternalIdHmac(externalId)) {
@@ -155,6 +140,32 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
                 error: 'Документ по externalId не найден',
             });
         }
+
+        // ---- Resolve mchdId/signerInn/titleType ----------------------------
+        // D5: server-side metadata.pendingSignatures[externalId] записан
+        // в POST /transport-documents/:id/sign — это trusted источник.
+        // Body-поля — fallback для non-prod (dev/test удобство, см. B1).
+        // В production body игнорируется ВСЕГДА.
+        const rowMetadata = ((row.metadata as Record<string, unknown> | null) ?? {});
+        const pendingMap = (rowMetadata.pendingSignatures && typeof rowMetadata.pendingSignatures === 'object'
+            ? rowMetadata.pendingSignatures as Record<string, Record<string, unknown>>
+            : {});
+        const pending = pendingMap[externalId] ?? null;
+
+        const pendingMchdId = pending && typeof pending.mchdId === 'string' ? pending.mchdId : null;
+        const pendingSignerInn = pending && typeof pending.signerInn === 'string' ? pending.signerInn : null;
+        const pendingTitleType = pending && typeof pending.titleType === 'string' ? pending.titleType : null;
+
+        if (isProd && (parsedBody.mchdId || parsedBody.signerInn || parsedBody.titleType)) {
+            request.log.warn(
+                { externalId, hasMchdId: !!parsedBody.mchdId, hasSignerInn: !!parsedBody.signerInn, hasTitleType: !!parsedBody.titleType },
+                'Госключ callback: body-mchdId/signerInn/titleType в production игнорируются — используются только server-side pendingSignatures',
+            );
+        }
+        // pending (server-side) > body (non-prod only).
+        const mchdId = pendingMchdId ?? (isProd ? undefined : parsedBody.mchdId);
+        const signerInn = pendingSignerInn ?? (isProd ? undefined : parsedBody.signerInn);
+        const titleTypeFromBody = pendingTitleType ?? (isProd ? undefined : parsedBody.titleType);
 
         const now = new Date();
         const recordedAt = signedAt ? new Date(signedAt) : now;
@@ -227,25 +238,20 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             }
         }
 
-        // Резолвим titleType: приоритет server-side источникам.
-        // 1) metadata.pendingSignatures[externalId] (будущий /sign endpoint)
-        // 2) transport_documents.title_type (если задан при создании)
-        // 3) body.titleType (только в non-prod, как dev-удобство — см. B1)
-        const metadata = ((row.metadata as Record<string, unknown> | null) ?? {});
-        const pendingMap = (metadata.pendingSignatures && typeof metadata.pendingSignatures === 'object'
-            ? metadata.pendingSignatures as Record<string, Record<string, unknown>>
-            : {});
-        const pending = pendingMap[externalId] ?? null;
+        // Резолвим финальный titleType: pending (записан /sign) > row.title_type > body.
+        // pending уже учтён в titleTypeFromBody-резолвере выше (D5),
+        // но row.title_type приоритетнее (стабильнее чем pending в случае
+        // расхождения — pending мог быть установлен с неверным titleType).
         const titleType = (
-            (pending && typeof pending.titleType === 'string' ? pending.titleType : null)
-            ?? row.titleType
+            row.titleType
             ?? titleTypeFromBody
             ?? null
         );
 
         // Append the signed envelope to metadata.signatures[].
-        const existingSignatures = Array.isArray(metadata.signatures)
-            ? [...metadata.signatures as Array<Record<string, unknown>>]
+        // rowMetadata уже объявлен выше при резолюции pendingSignatures.
+        const existingSignatures = Array.isArray(rowMetadata.signatures)
+            ? [...rowMetadata.signatures as Array<Record<string, unknown>>]
             : [];
 
         const signatureEntry: Record<string, unknown> = {
@@ -273,13 +279,19 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
         // Мерджим с предыдущим state, чтобы не затирать lastSignerRole
         // и другие поля, записанные ручным путём через
         // recordTransportDocumentSignature.
-        const prevState = (metadata.signatureState && typeof metadata.signatureState === 'object'
-            ? metadata.signatureState as Record<string, unknown>
+        const prevState = (rowMetadata.signatureState && typeof rowMetadata.signatureState === 'object'
+            ? rowMetadata.signatureState as Record<string, unknown>
             : {});
         const stateStatus = mchdProblems.length === 0 ? 'signed' : 'pending_review';
+        // После успешной подписи pendingSignatures[externalId] нужно
+        // снять — он своё дело сделал и больше не trusted-источник.
+        const remainingPending: Record<string, unknown> = { ...pendingMap };
+        delete remainingPending[externalId];
+
         const nextMetadata = {
-            ...metadata,
+            ...rowMetadata,
             signatures: existingSignatures,
+            pendingSignatures: Object.keys(remainingPending).length > 0 ? remainingPending : undefined,
             signatureState: {
                 ...prevState,
                 status: stateStatus,

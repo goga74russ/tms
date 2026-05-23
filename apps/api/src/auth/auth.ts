@@ -504,8 +504,27 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!payload.roles.some((role) => allowedRoles.includes(role))) {
             return reply.status(403).send({ success: false, error: 'Нет доступа к GPS-данным' });
         }
+
+        // Re-read organizationId from DB instead of trusting the (potentially
+        // stale) cookie JWT. После DELETE /me/organization открытая WS-вкладка
+        // держала старый orgId в payload и получала кросс-tenant сообщения.
+        // Source of truth — БД, не JWT.
+        const [fresh] = await db.select({
+            organizationId: users.organizationId,
+            roles: users.roles,
+            isActive: users.isActive,
+        }).from(users).where(eq(users.id, payload.userId)).limit(1);
+
+        if (!fresh || !fresh.isActive) {
+            return reply.status(401).send({ success: false, error: 'Пользователь не найден или деактивирован' });
+        }
+
         const token = app.jwt.sign(
-            { userId: payload.userId, roles: payload.roles, organizationId: payload.organizationId },
+            {
+                userId: payload.userId,
+                roles: fresh.roles,
+                organizationId: fresh.organizationId ?? undefined,
+            },
             { expiresIn: '5m' },
         );
         return { success: true, token };
@@ -521,8 +540,14 @@ export function registerAuthRoutes(app: FastifyInstance) {
         email: z.string().email(),
         password: z.string().min(6),
         fullName: z.string().min(1),
-        phone: z.string().optional(),
+        // Симметрично UpdateSchema: допускаем null чтобы внешние клиенты
+        // могли явно отправлять «нет телефона» без 400.
+        phone: z.string().nullable().optional(),
         roles: z.array(z.enum(APP_ROLES)).min(1),
+        // Super-admin (actor.organizationId=null) обязан указать target org
+        // явно — иначе будет создан orphan super-admin (см. fix ниже).
+        // Tenant-admin это поле игнорирует — используется его собственная org.
+        organizationId: z.string().uuid().optional(),
     });
 
     const UserUpdateSchema = z.object({
@@ -598,6 +623,41 @@ export function registerAuthRoutes(app: FastifyInstance) {
         }
         const body = parseResult.data;
 
+        // ============================================================
+        // Защита от orphan super-admin (audit P0 D1):
+        // Прежде `organizationId: actor.organizationId ?? undefined`
+        // молча создавал пользователя без org, если actor — super-admin.
+        // Новый user становился вторым super-admin → каскадная компромет.
+        //
+        // Новые правила:
+        //   • Tenant-admin: organizationId всегда берётся от actor,
+        //     body.organizationId игнорируется (он не вправе создавать
+        //     в чужой org).
+        //   • Super-admin: ОБЯЗАН передать body.organizationId.
+        //   • Запрет lateral super-admin: создание admin-роли без
+        //     organizationId блокируется в любом случае.
+        // ============================================================
+        let targetOrgId: string | null = null;
+        if (actor.organizationId) {
+            targetOrgId = actor.organizationId;
+        } else {
+            // actor — super-admin
+            if (!body.organizationId) {
+                return reply.status(400).send({
+                    success: false,
+                    error: 'Super-admin обязан указать organizationId в теле запроса',
+                });
+            }
+            targetOrgId = body.organizationId;
+        }
+
+        if (!targetOrgId && body.roles.includes('admin')) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Нельзя создать admin-пользователя без организации (lateral super-admin запрещён)',
+            });
+        }
+
         // Check duplicate email
         const [existing] = await db.select({ id: users.id })
             .from(users).where(eq(users.email, body.email)).limit(1);
@@ -610,9 +670,9 @@ export function registerAuthRoutes(app: FastifyInstance) {
             email: body.email,
             passwordHash,
             fullName: body.fullName,
-            phone: body.phone,
+            phone: body.phone ?? null,
             roles: body.roles,
-            organizationId: actor.organizationId ?? undefined,
+            organizationId: targetOrgId,
         }).returning({
             id: users.id,
             email: users.email,

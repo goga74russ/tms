@@ -101,9 +101,18 @@ const mchdRoutes: FastifyPluginAsync = async (app) => {
             description: 'Список Машиночитаемых Доверенностей текущей организации. Без полного XML — для деталей используйте GET /mchd/:id.',
         },
         preHandler: [app.authenticate],
-    }, async (request) => {
+    }, async (request, reply) => {
         const user = request.user as AuthUser;
-        if (!user.organizationId) return { success: true, data: [] };
+        // Раньше super-admin без org получал тихий [] и считал что реестр
+        // пустой / данные потерялись (та же UX-ловушка что закрыли
+        // OrganizationSetupBanner-ом). Возвращаем 400 с понятным сообщением.
+        if (!user.organizationId) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Super-admin без организации не работает с реестром МЧД. Создайте организацию через POST /api/auth/me/organization или зайдите как tenant-admin.',
+                code: 'SUPER_ADMIN_NO_ORG',
+            });
+        }
 
         const rows = await db
             .select(listColumns)
