@@ -92,9 +92,16 @@ type TitleTypeT = typeof TITLE_TYPES[number];
 const PROVIDER_IDS = ['gosklyuch', 'kontur-sign', 'sbis-sign', 'cadesplugin', 'mock'] as const;
 type ProviderId = typeof PROVIDER_IDS[number];
 
+// 7.20: signerRole — кто именно подписывает (грузоотправитель/перевозчик/
+// получатель/экспедитор). Без него UI не может показать «T05 подписал
+// грузополучатель Иванов по МЧД 7». Mapping ролей соответствует
+// recordTransportDocumentSignature в trips/transport-documents-store.
+const SIGNER_ROLES = ['shipper', 'carrier', 'consignee', 'forwarder'] as const;
+
 const SignBodySchema = z.object({
     provider: z.enum(PROVIDER_IDS),
     titleType: z.enum(TITLE_TYPES),
+    signerRole: z.enum(SIGNER_ROLES).optional(),
     mchdId: z.string().uuid().optional(),
     signerInn: z.string().regex(/^\d{10}$|^\d{12}$/, 'ИНН: 10 или 12 цифр').optional(),
 });
@@ -109,7 +116,11 @@ const ParamsSchema = z.object({
  */
 function buildFallbackDeeplink(provider: ProviderId, externalId: string): string | undefined {
     if (provider === 'gosklyuch') {
-        return `gosuslugi://signdoc?externalId=${encodeURIComponent(externalId)}`;
+        // 7.19: реальная схема Госключа — `gosuslugiv://signature?externalId=...`.
+        // Старое `gosuslugi://signdoc?...` было выдуманным и не открывало
+        // приложение на устройстве клиента. Та же схема использована в
+        // providers/signature/gosklyuch.ts (GOSKLYUCH_DEEPLINK_SCHEME).
+        return `gosuslugiv://signature?externalId=${encodeURIComponent(externalId)}`;
     }
     // browser-plugin провайдеры (kontur-sign / sbis-sign / cadesplugin) не используют deeplink —
     // UI вызывает плагин локально по externalId.
@@ -149,7 +160,7 @@ const signRoutes: FastifyPluginAsync = async (app) => {
         }
 
         const { id } = paramsParsed.data;
-        const { provider, titleType, mchdId, signerInn } = bodyParsed.data;
+        const { provider, titleType, mchdId, signerInn, signerRole } = bodyParsed.data;
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
 
         // ---- 1. Найти документ ----
@@ -277,6 +288,7 @@ const signRoutes: FastifyPluginAsync = async (app) => {
                     titleType,
                     mchdId: mchdId ?? null,
                     signerInn: signerInn ?? null,
+                    signerRole: signerRole ?? null,
                     provider,
                     signerUserId: user.userId,
                     requestedAt: requestedAtIso,

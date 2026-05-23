@@ -372,26 +372,32 @@ export function registerAuthRoutes(app: FastifyInstance) {
         }
         const { name, inn } = parsed.data;
 
-        // Защита от race: двойной клик мог пройти оба SELECT/INSERT/UPDATE,
-        // создавая две org-записи (вторая UPDATE перезатирала первую).
-        // Решение: транзакция + UPDATE с WHERE organization_id IS NULL.
-        // Второй параллельный запрос увидит rowCount=0 и упадёт 409.
+        // 7.18 SECURITY: self-service join существующей org по INN запрещён.
+        // ИНН — публичная информация (ЕГРЮЛ), и старая «идемпотентность»
+        // позволяла любому admin-аккаунту присоединиться к чужой
+        // организации (получив доступ ко всем рейсам/документам/МЧД).
+        // Теперь дубликат ИНН → 409. Чтобы присоединиться к существующей
+        // org, нужно приглашение от её admin'а (future: invite flow).
         //
-        // Идемпотентность по ИНН: если такая org уже зарегистрирована —
-        // присоединяемся к ней, не создавая дубликат.
+        // Race-guard: транзакция + UPDATE с WHERE organization_id IS NULL.
+        // Второй параллельный запрос упадёт rowCount=0 → 409.
+        if (inn) {
+            const [existing] = await db.select({ id: organizations.id })
+                .from(organizations).where(eq(organizations.inn, inn)).limit(1);
+            if (existing) {
+                return reply.status(409).send({
+                    success: false,
+                    error: 'Организация с таким ИНН уже зарегистрирована в системе. Чтобы присоединиться, попросите её admin\'а пригласить вас.',
+                    code: 'ORG_INN_TAKEN',
+                });
+            }
+        }
+
         const orgId = await db.transaction(async (tx) => {
-            let resolvedOrgId: string | null = null;
-            if (inn) {
-                const [existing] = await tx.select({ id: organizations.id })
-                    .from(organizations).where(eq(organizations.inn, inn)).limit(1);
-                if (existing) resolvedOrgId = existing.id;
-            }
-            if (!resolvedOrgId) {
-                const [created] = await tx.insert(organizations)
-                    .values({ name, inn: inn ?? null })
-                    .returning({ id: organizations.id });
-                resolvedOrgId = created!.id;
-            }
+            const [created] = await tx.insert(organizations)
+                .values({ name, inn: inn ?? null })
+                .returning({ id: organizations.id });
+            const resolvedOrgId = created!.id;
 
             const updated = await tx.update(users)
                 .set({ organizationId: resolvedOrgId, updatedAt: new Date() })
@@ -403,6 +409,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
             if (updated.length === 0) {
                 // Параллельный запрос уже привязал пользователя к org.
+                // Транзакция откатится — созданная org не сохранится.
                 throw new Error('ALREADY_ASSIGNED');
             }
             return resolvedOrgId;

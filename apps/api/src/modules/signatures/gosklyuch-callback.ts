@@ -155,6 +155,9 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
         const pendingMchdId = pending && typeof pending.mchdId === 'string' ? pending.mchdId : null;
         const pendingSignerInn = pending && typeof pending.signerInn === 'string' ? pending.signerInn : null;
         const pendingTitleType = pending && typeof pending.titleType === 'string' ? pending.titleType : null;
+        // 7.20: signerRole тоже копируется из pending — UI узнает «T05 подписал
+        // грузополучатель», а не просто «подписан».
+        const pendingSignerRole = pending && typeof pending.signerRole === 'string' ? pending.signerRole : null;
 
         if (isProd && (parsedBody.mchdId || parsedBody.signerInn || parsedBody.titleType)) {
             request.log.warn(
@@ -261,6 +264,7 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             signedAt: recordedAt.toISOString(),
             signerCertificate: signerCertificate ?? null,
             signerInn: signerInn ?? null,
+            signerRole: pendingSignerRole, // 7.20: «грузополучатель/перевозчик/…»
             mchdId: mchdRecord?.id ?? mchdId ?? null,
             mchdNumber: mchdRecord?.mchdNumber ?? null,
             mchdGranteeInn: mchdRecord?.granteeInn ?? null,
@@ -299,6 +303,9 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
                 lastSignedAt: recordedAt.toISOString(),
                 mchdId: mchdRecord?.id ?? null,
                 titleType,
+                // 7.20: lastSignerRole — приоритет pending (из /sign), иначе
+                // оставляем значение из prevState (manual flow).
+                lastSignerRole: pendingSignerRole ?? prevState.lastSignerRole ?? null,
                 problems: mchdProblems.length ? mchdProblems : null,
             },
             gosklyuchCallback: {
@@ -331,6 +338,7 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
                 provider: 'gosklyuch',
                 externalId,
                 titleType,
+                signerRole: pendingSignerRole,
                 signedAt: recordedAt.toISOString(),
                 signerCertificatePresent: Boolean(signerCertificate),
                 signedXmlBytes: signedXml.length,
