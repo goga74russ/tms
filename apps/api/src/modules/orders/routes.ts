@@ -329,7 +329,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             });
         }
 
-        const order = await updateOrder(id, parseResult.data);
+        const order = await updateOrder(id, parseResult.data, user.organizationId ?? null);
         if (!order) {
             return reply.status(404).send({ success: false, error: 'Заявка не найдена' });
         }

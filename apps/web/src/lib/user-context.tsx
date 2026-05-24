@@ -65,11 +65,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const logout = useCallback(async () => {
         await api.logout();
         setUser(null);
+        // B4.2: оповещаем остальные вкладки через BroadcastChannel.
+        // Без этого: пользователь разлогинился в табе А, таб Б продолжает
+        // показывать UI как «авторизован», следующий запрос даёт 401.
+        try { new BroadcastChannel('tms-auth').postMessage('logout'); } catch { /* no-op в SSR */ }
     }, []);
 
     useEffect(() => {
         fetchUser();
     }, [fetchUser]);
+
+    // B4.2: слушаем broadcasts от других вкладок — снимаем user если они разлогинились.
+    useEffect(() => {
+        if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+        const ch = new BroadcastChannel('tms-auth');
+        ch.onmessage = (e) => {
+            if (e.data === 'logout') setUser(null);
+        };
+        return () => ch.close();
+    }, []);
 
     const value = useMemo<UserContextValue>(
         () => ({ user, loading, error, refetch: fetchUser, logout }),

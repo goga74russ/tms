@@ -74,6 +74,21 @@ class ApiClient {
         });
 
         if (!response.ok) {
+            // B4.1: 401 → редирект на /login. Прежде пользователь видел
+            // «Ошибка запроса (HTTP 401)» как обычный toast и не понимал,
+            // что сессия истекла. На /auth/me 401 уже ожидаем как
+            // unauthenticated probe, не редиректим (его обрабатывает UserContext).
+            if (response.status === 401 && typeof window !== 'undefined') {
+                const isMe = path.startsWith('/auth/me');
+                if (!isMe) {
+                    // BroadcastChannel оповестит остальные вкладки (см. user-context).
+                    try { new BroadcastChannel('tms-auth').postMessage('logout'); } catch { /* no-op */ }
+                    // Полный навигационный переход — снимает SPA-state и оставшиеся cookies.
+                    window.location.href = '/login';
+                    // Возвращаем неразрешённый промис, чтобы caller не дёргал .then на устаревший response.
+                    return new Promise<T>(() => { /* navigating away */ });
+                }
+            }
             const error = await response.json().catch(() => ({ error: 'Ошибка запроса' }));
             throw new Error(translateApiError(error, response.status));
         }

@@ -25,7 +25,11 @@ interface Contractor {
 }
 
 function csvCell(value: unknown): string {
-    const s = value === null || value === undefined ? '' : String(value);
+    let s = value === null || value === undefined ? '' : String(value);
+    // B4.4: formula-injection guard — см. trips/page.tsx:csvCell.
+    if (s.length > 0 && /^[=+\-@\t\r]/.test(s)) {
+        s = "'" + s;
+    }
     if (/[",;\n\r]/.test(s)) {
         return `"${s.replace(/"/g, '""')}"`;
     }

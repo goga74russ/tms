@@ -232,10 +232,21 @@ export async function getOrderById(id: string) {
     return order ?? null;
 }
 
+/**
+ * B3.4: defense-in-depth org-scope в WHERE. Изначально assertOrderAccess
+ * на роуте достаточно (он отбрасывает чужой order до updateOrder), но
+ * паттерн без org-guard в WHERE — единственный анти-паттерн среди
+ * fleet-сервисов (updateVehicle/updateDriver/updateContractor его имеют).
+ * Передаём organizationId опционально, чтобы caller-ы постепенно мигрировали.
+ */
 export async function updateOrder(
     id: string,
     updates: Partial<CreateOrderInput>,
+    actorOrganizationId?: string | null,
 ) {
+    const whereClause = actorOrganizationId
+        ? and(eq(orders.id, id), eq(orders.organizationId, actorOrganizationId))
+        : eq(orders.id, id);
     const [order] = await db
         .update(orders)
         .set({
@@ -248,7 +259,7 @@ export async function updateOrder(
             unloadingWindowEnd: updates.unloadingWindowEnd ? new Date(updates.unloadingWindowEnd) : undefined,
             updatedAt: new Date(),
         })
-        .where(eq(orders.id, id))
+        .where(whereClause)
         .returning();
 
     return order ?? null;

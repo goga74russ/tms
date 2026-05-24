@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm';
 import { requireAbility } from '../../auth/rbac.js';
-import { assertIncidentAccess, assertVehicleAccess, assertWaybillAccess, resolveDriverId } from '../../auth/guards.js';
+import { assertIncidentAccess, assertVehicleAccess, assertDriverAccess, assertTripAccess, assertWaybillAccess, resolveDriverId } from '../../auth/guards.js';
 import { db } from '../../db/connection.js';
 import {
     incidents,
@@ -179,11 +179,19 @@ export default async function sprint9Routes(app: FastifyInstance) {
         schema: { tags: ['Рейсы'], summary: 'Создать инцидент', description: 'Создание инцидента с привязкой к ТС/водителю/рейсу.' },
         preHandler: [app.authenticate, requireAbility('create', 'Incident')],
     }, async (request, reply) => {
-        const user = request.user as { userId: string; roles: string[] };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
         const parsed = incidentCreateSchema.safeParse(request.body);
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
+
+        // B3.3: org-scope для каждого FK. Прежний код не проверял, что
+        // vehicleId/driverId/tripId принадлежат той же организации, что
+        // и actor — tenant-admin Org-A мог создать incident, ссылающийся
+        // на ТС/рейс Org-B (cross-tenant referencing).
+        if (parsed.data.vehicleId) await assertVehicleAccess(parsed.data.vehicleId, user);
+        if (parsed.data.driverId) await assertDriverAccess(parsed.data.driverId, user);
+        if (parsed.data.tripId) await assertTripAccess(parsed.data.tripId, user);
 
         const [created] = await db.insert(incidents).values({
             ...parsed.data,
@@ -199,11 +207,18 @@ export default async function sprint9Routes(app: FastifyInstance) {
         preHandler: [app.authenticate, requireAbility('update', 'Incident')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
-        await assertIncidentAccess(id, request.user as { userId: string; roles: string[]; organizationId?: string | null });
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        await assertIncidentAccess(id, user);
         const parsed = incidentCreateSchema.partial().safeParse(request.body);
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
         }
+
+        // B3.3: re-check FK-org-scope если caller пытается перепривязать
+        // incident на чужие vehicle/driver/trip через PUT.
+        if (parsed.data.vehicleId) await assertVehicleAccess(parsed.data.vehicleId, user);
+        if (parsed.data.driverId) await assertDriverAccess(parsed.data.driverId, user);
+        if (parsed.data.tripId) await assertTripAccess(parsed.data.tripId, user);
 
         const [updated] = await db.update(incidents).set({
             ...parsed.data,

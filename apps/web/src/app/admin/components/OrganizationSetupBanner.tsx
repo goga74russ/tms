@@ -198,7 +198,7 @@ export function OrganizationSetupBanner() {
                                         ИНН должен содержать 10 (юр.лицо) или 12 (ИП) цифр
                                     </span>
                                 )}
-                                <span className="text-xs text-amber-700 mt-1 block">
+                                <span className="text-xs text-amber-800 mt-1 block">
                                     Если ИНН уже зарегистрирован, форма вернёт ошибку — для
                                     присоединения к существующей организации попросите её admin’а
                                     отправить вам приглашение.
@@ -228,7 +228,7 @@ export function OrganizationSetupBanner() {
                                     Отмена
                                 </Button>
                             </div>
-                            <p className="text-xs text-amber-700">
+                            <p className="text-xs text-amber-800">
                                 После создания вы потеряете super-admin привилегии (доступ к
                                 кросс-тенант видам) и станете admin своей организации.
                             </p>

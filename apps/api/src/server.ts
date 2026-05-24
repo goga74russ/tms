@@ -47,6 +47,10 @@ const app = Fastify({
             paths: [
                 'req.headers.authorization',
                 'req.headers.cookie',
+                // B5.2: webhook-secret заголовки от провайдеров (ЮKassa, Госключ, …)
+                'req.headers["x-api-key"]',
+                'req.headers["x-webhook-signature"]',
+                'req.headers["x-yookassa-signature"]',
                 'res.headers["set-cookie"]',
                 'req.body.password',
                 'req.body.passwordHash',
@@ -55,6 +59,15 @@ const app = Fastify({
                 'req.body.apiKey',
                 'req.body.token',
                 'req.body.tempPassword',
+                // B5.2: 6-значные verification codes (signup, password-reset) —
+                // не должны попадать в logs (account-takeover risk).
+                'req.body.code',
+                'req.body.verificationCode',
+                'req.body.refreshToken',
+                // B5.2: signedXml в Госключ callback — большой и содержит подпись.
+                'req.body.signature',
+                'req.body.signedXml',
+                'req.body.signerCertificate',
                 'request.body.password',
                 'request.body.credentials',
                 'response.body.token',

@@ -1177,48 +1177,56 @@ export function registerAuthRoutes(app: FastifyInstance) {
             });
         }
 
-        let organizationId: string;
-        let userId: string;
-
-        if (existing) {
-            // Reuse the unverified record — let the user retry signup with
-            // the same email (e.g. they lost the code).
-            userId = existing.id;
-            organizationId = existing.organizationId!;
-            const passwordHash = await hashPassword(password);
-            await db.update(users)
-                .set({ passwordHash, fullName, phone, updatedAt: new Date() })
-                .where(eq(users.id, userId));
-            if (companyName) {
-                await db.update(organizations)
-                    .set({ name: companyName })
-                    .where(eq(organizations.id, organizationId));
-            }
-        } else {
-            // Fresh signup: create organization + admin user.
-            const [org] = await db.insert(organizations).values({
-                name: companyName ?? `Компания (${email})`,
-            }).returning({ id: organizations.id });
-            organizationId = org!.id;
-
-            const passwordHash = await hashPassword(password);
-            const [user] = await db.insert(users).values({
-                email,
-                passwordHash,
-                fullName,
-                phone,
-                roles: ['admin'],
-                isActive: false,
-                organizationId,
-            }).returning({ id: users.id });
-            userId = user!.id;
-        }
-
-        // Generate fresh code, invalidate any older outstanding ones.
+        // B3.2: signup-pipeline в транзакции. Раньше sequential await:
+        // если INSERT users / emailVerifications падал, INSERT organizations
+        // оставался orphan. На concurrent signup с одинаковым email
+        // (race на unique-constraint) могли создаться две org-записи.
+        //
+        // TODO(security P0-3): «reuse the unverified record» — анонимный
+        // POST /signup переписывает passwordHash любого user-а с
+        // emailVerifiedAt=null. Закрыть отдельным policy-fix-ом (отказывать
+        // если existing user, или ограничить first-24h окном).
         const code = generateCode();
         const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MIN * 60_000);
-        await db.insert(emailVerifications).values({
-            email, code, expiresAt,
+
+        const { organizationId, userId } = await db.transaction(async (tx) => {
+            let orgId: string;
+            let uid: string;
+
+            if (existing) {
+                uid = existing.id;
+                orgId = existing.organizationId!;
+                const passwordHash = await hashPassword(password);
+                await tx.update(users)
+                    .set({ passwordHash, fullName, phone, updatedAt: new Date() })
+                    .where(eq(users.id, uid));
+                if (companyName) {
+                    await tx.update(organizations)
+                        .set({ name: companyName })
+                        .where(eq(organizations.id, orgId));
+                }
+            } else {
+                const [org] = await tx.insert(organizations).values({
+                    name: companyName ?? `Компания (${email})`,
+                }).returning({ id: organizations.id });
+                orgId = org!.id;
+
+                const passwordHash = await hashPassword(password);
+                const [user] = await tx.insert(users).values({
+                    email,
+                    passwordHash,
+                    fullName,
+                    phone,
+                    roles: ['admin'],
+                    isActive: false,
+                    organizationId: orgId,
+                }).returning({ id: users.id });
+                uid = user!.id;
+            }
+
+            await tx.insert(emailVerifications).values({ email, code, expiresAt });
+
+            return { organizationId: orgId, userId: uid };
         });
 
         try {

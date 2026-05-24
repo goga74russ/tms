@@ -314,39 +314,45 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             },
         };
 
-        await db.update(transportDocuments)
-            .set({
-                metadata: nextMetadata,
-                providerStatus: mchdProblems.length === 0 ? 'signed:gosklyuch' : 'pending_review:gosklyuch',
-                updatedAt: now,
-            })
-            .where(eq(transportDocuments.id, row.id));
+        // B3.1: оборачиваем UPDATE+INSERT в транзакцию. Прежний код
+        // делал sequential await — если INSERT events падал, документ
+        // оставался помеченным `signed:gosklyuch` без audit-record'а
+        // подписи. Теперь либо оба применяются, либо ничего.
+        await db.transaction(async (tx) => {
+            await tx.update(transportDocuments)
+                .set({
+                    metadata: nextMetadata,
+                    providerStatus: mchdProblems.length === 0 ? 'signed:gosklyuch' : 'pending_review:gosklyuch',
+                    updatedAt: now,
+                })
+                .where(eq(transportDocuments.id, row.id));
 
-        await db.insert(transportDocumentEvents).values({
-            documentId: row.id,
-            eventType: 'signature_recorded',
-            title: mchdProblems.length === 0
-                ? 'Госключ: signed envelope received'
-                : 'Госключ: подпись принята, но МЧД-связка требует проверки',
-            fromStatus: row.status,
-            toStatus: row.status,
-            severity: mchdProblems.length === 0 ? 'info' : 'critical',
-            message: mchdProblems.length === 0
-                ? 'Signed XML delivered by Госключ callback'
-                : `МЧД-проблемы: ${mchdProblems.join('; ')}`,
-            payload: {
-                provider: 'gosklyuch',
-                externalId,
-                titleType,
-                signerRole: pendingSignerRole,
-                signedAt: recordedAt.toISOString(),
-                signerCertificatePresent: Boolean(signerCertificate),
-                signedXmlBytes: signedXml.length,
-                mchdId: mchdRecord?.id ?? mchdId ?? null,
-                mchdNumber: mchdRecord?.mchdNumber ?? null,
-                signerInn: signerInn ?? null,
-                mchdProblems: mchdProblems.length ? mchdProblems : null,
-            },
+            await tx.insert(transportDocumentEvents).values({
+                documentId: row.id,
+                eventType: 'signature_recorded',
+                title: mchdProblems.length === 0
+                    ? 'Госключ: signed envelope received'
+                    : 'Госключ: подпись принята, но МЧД-связка требует проверки',
+                fromStatus: row.status,
+                toStatus: row.status,
+                severity: mchdProblems.length === 0 ? 'info' : 'critical',
+                message: mchdProblems.length === 0
+                    ? 'Signed XML delivered by Госключ callback'
+                    : `МЧД-проблемы: ${mchdProblems.join('; ')}`,
+                payload: {
+                    provider: 'gosklyuch',
+                    externalId,
+                    titleType,
+                    signerRole: pendingSignerRole,
+                    signedAt: recordedAt.toISOString(),
+                    signerCertificatePresent: Boolean(signerCertificate),
+                    signedXmlBytes: signedXml.length,
+                    mchdId: mchdRecord?.id ?? mchdId ?? null,
+                    mchdNumber: mchdRecord?.mchdNumber ?? null,
+                    signerInn: signerInn ?? null,
+                    mchdProblems: mchdProblems.length ? mchdProblems : null,
+                },
+            });
         });
 
         if (mchdProblems.length > 0) {
