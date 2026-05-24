@@ -13,6 +13,9 @@ Dockerfile*
 .agent
 .agents
 docs
+# DPA texts are required by api Dockerfile (COPY docs/legal/dpa/).
+!docs/legal/dpa
+!docs/legal/dpa/**
 **/playwright.config.ts
 **/e2e
 **/*.tsbuildinfo
