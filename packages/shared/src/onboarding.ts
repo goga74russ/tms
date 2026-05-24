@@ -42,7 +42,12 @@ export type ProviderName =
     | 'gazpromneft'
     | 'autocode'
     | 'fssp'
+    // C4.5: gibdd → переименован в gis_gmp («Государственная инф. система ГМП»).
+    // У ГИБДД нет публичного API для юр-лиц — Jurist флаг. Старое имя
+    // сохранено как deprecated alias на 1-2 quarter для backward-compat
+    // с существующими provider_credentials записями.
     | 'gibdd'
+    | 'gis_gmp'
     | 'crpt'
     | 'yookassa'
     | 'tinkoff'

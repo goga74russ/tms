@@ -46,7 +46,8 @@ const PROVIDER_LABEL_RU: Record<string, string> = {
     gazpromneft: 'Газпромнефть',
     autocode: 'Автокод',
     fssp: 'ФССП',
-    gibdd: 'ГИБДД',
+    gibdd: 'ГИБДД (устарел)',
+    gis_gmp: 'ГИС ГМП (штрафы)',
     crpt: 'Честный знак',
     mock: 'Mock (тест)',
 };
@@ -71,21 +72,66 @@ function providerLabel(name: ProviderName | string): string {
     return PROVIDER_LABEL_RU[name as string] ?? String(name);
 }
 
-const PROVIDER_CATALOG: Array<{
+// Каталог провайдеров для UI. Согласован с Jurist'ом 2026-05-24.
+//
+// MVP (видимы по дефолту, 6 провайдеров):
+//   • signature: gosklyuch, kontur_sign
+//   • edi:       diadoc (через него — ГИС ЭПД, ФЗ-140)
+//   • telematics: wialon
+//   • payment:   yookassa
+//   • email:     mailru_smtp
+//
+// «Расширенные» (под expand-toggle, отмечены meta='extended'):
+//   • signature: sbis_sign, cadesplugin
+//   • edi:       sbis
+//   • telematics: omnicomm, glonasssoft
+//
+// Скрыто из видимого UI (НО enum'ы оставлены в @tms/shared!):
+//   • edi: kontur (путаница с Диадоком — Контур.ЭДО ≠ Диадок; Jurist флаг)
+//   • payment: tinkoff, cloudpayments (мы как vendor — один PSP)
+//   • email: console (dev-only), unisender (после маркетинг-согласия)
+//   • fuel_card: все 3 (после 01.09.2026, не блокирует ЭТрН-compliance)
+//   • fines: все 3 (после 01.09, gibdd → переименован в gis_gmp)
+//   • marking: crpt (только если первый пилот из маркируемых)
+//
+// Причина «удалить из UI, оставить в enum»: provider_credentials строки
+// уже могут существовать в БД у клиентов на demo-стенде. Если убрать
+// enum — теряется audit trail (152-ФЗ ст. 18.1).
+type CatalogEntry = {
     type: ProviderType;
     title: string;
     description: string;
     options: ProviderName[];
-}> = [
-    { type: 'signature', title: 'Электронная подпись', description: 'Госключ / Контур / СБИС / КриптоПро', options: ['gosklyuch', 'kontur_sign', 'sbis_sign', 'cadesplugin'] },
-    { type: 'edi', title: 'ЭДО', description: 'Контур.Диадок / СБИС / Калуга Астрал / Такском', options: ['diadoc', 'sbis', 'kontur', 'kaluga_astral', 'taxcom'] },
-    { type: 'telematics', title: 'Телематика (GPS)', description: 'Wialon / Omnicomm / GlonassSoft', options: ['wialon', 'omnicomm', 'glonasssoft'] },
-    { type: 'fuel_card', title: 'Топливные карты', description: 'Лукойл / Роснефть / Газпромнефть', options: ['lukoil', 'rosneft', 'gazpromneft'] },
-    { type: 'fines', title: 'Штрафы ГИБДД', description: 'Автокод / ФССП / ГИБДД', options: ['autocode', 'fssp', 'gibdd'] },
-    { type: 'marking', title: 'Маркировка (ЧЗ)', description: 'Честный знак / ЦРПТ', options: ['crpt'] },
-    { type: 'payment', title: 'Платежи', description: 'ЮKassa / Tinkoff / CloudPayments', options: ['yookassa', 'tinkoff', 'cloudpayments'] },
-    { type: 'email', title: 'Почтовый шлюз', description: 'SMTP (Mail.ru) / Unisender', options: ['mailru_smtp', 'unisender', 'console'] },
+    /** 'mvp' — видим всегда; 'extended' — под expand-toggle. */
+    visibility: 'mvp' | 'extended';
+};
+
+const PROVIDER_CATALOG: CatalogEntry[] = [
+    // MVP
+    { type: 'signature', title: 'Электронная подпись', description: 'Госключ для водителей + облачная КЭП юр-лица (Контур.Подпись)', options: ['gosklyuch', 'kontur_sign'], visibility: 'mvp' },
+    { type: 'edi', title: 'ЭДО', description: 'Контур.Диадок — через него документы попадают в ГИС ЭПД (Минтранс, ФЗ-140)', options: ['diadoc'], visibility: 'mvp' },
+    { type: 'telematics', title: 'Телематика (GPS)', description: 'Wialon — GPS-трекинг, доказательство маршрута, контроль РТО (ст. 11.23 КоАП)', options: ['wialon'], visibility: 'mvp' },
+    { type: 'payment', title: 'Платежи', description: 'ЮKassa — приём подписки от клиентов TMS', options: ['yookassa'], visibility: 'mvp' },
+    { type: 'email', title: 'Почтовый шлюз', description: 'SMTP Mail.ru — транзакционные email (верификация, уведомления)', options: ['mailru_smtp'], visibility: 'mvp' },
+
+    // Расширенные — по запросу, активируются после первых пилотов
+    { type: 'signature', title: 'Электронная подпись (расширенные)', description: 'СБИС.Подпись / КриптоПро CADES — для клиентов с СБИС-экосистемой или существующими КЭП-токенами', options: ['sbis_sign', 'cadesplugin'], visibility: 'extended' },
+    { type: 'edi', title: 'ЭДО (расширенные)', description: 'СБИС — recommended-secondary, если бухгалтерия клиента в СБИС', options: ['sbis'], visibility: 'extended' },
+    { type: 'telematics', title: 'Телематика (расширенные)', description: 'Omnicomm / GLONASSsoft — нативная интеграция с уже установленным оборудованием', options: ['omnicomm', 'glonasssoft'], visibility: 'extended' },
 ];
+
+// Известные deprecated provider_name значения, на которые могут ссылаться
+// исторические credentials в БД (был активен на demo-стенде, в каталоге
+// больше не предлагается). Рисуем red badge «deprecated» если такая
+// запись встретится в данных от API.
+const DEPRECATED_PROVIDERS: Record<string, { reason: string; migrateTo?: string }> = {
+    kontur: { reason: 'Контур.ЭДО — другой продукт, не Диадок. Юр-риск введения в заблуждение.', migrateTo: 'diadoc' },
+    tinkoff: { reason: 'Дубль ЮKassa, один PSP в MVP.' },
+    cloudpayments: { reason: 'Дубль ЮKassa, один PSP в MVP.' },
+    gibdd: { reason: 'У ГИБДД нет публичного API для юр-лиц. Используйте gis_gmp.', migrateTo: 'gis_gmp' },
+    unisender: { reason: 'После маркетинг-согласия (38-ФЗ + 152-ФЗ).' },
+    console: { reason: 'Только для dev-окружения.' },
+};
 
 type StatusFilter = 'all' | 'connected' | 'disconnected' | 'error';
 
@@ -100,6 +146,9 @@ export default function AdminIntegrationsPage() {
     const [search, setSearch] = useState('');
     const [activeType, setActiveType] = useState<ProviderType | 'all'>('all');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    // C4.1: toggle для показа extended-провайдеров. По дефолту скрыты,
+    // чтобы новый клиент не путался в 30+ кнопках.
+    const [showExtended, setShowExtended] = useState(false);
 
     const refresh = useCallback(async () => {
         try {
@@ -168,6 +217,9 @@ export default function AdminIntegrationsPage() {
     const visibleCatalog = useMemo(() => {
         const q = search.trim().toLowerCase();
         return PROVIDER_CATALOG
+            // Visibility-фильтр: extended показываем только если включён toggle
+            // или явно выбрана конкретная категория (activeType !== 'all').
+            .filter((cat) => cat.visibility === 'mvp' || showExtended || activeType !== 'all')
             .filter((cat) => activeType === 'all' || cat.type === activeType)
             .map((cat) => {
                 const options = cat.options.filter((name) => {
@@ -187,7 +239,14 @@ export default function AdminIntegrationsPage() {
                 return { ...cat, options };
             })
             .filter((cat) => cat.options.length > 0);
-    }, [activeType, search, statusFilter, findRow]);
+    }, [activeType, search, statusFilter, findRow, showExtended]);
+
+    // C4.2: deprecated credentials — historical записи из БД для имён,
+    // которые мы удалили из каталога. Показываем с red badge «deprecated».
+    const deprecatedRows = useMemo(
+        () => rows.filter((r) => DEPRECATED_PROVIDERS[String(r.providerName)] !== undefined),
+        [rows],
+    );
 
     const filtersActive = search.trim() || activeType !== 'all' || statusFilter !== 'all';
     const resetFilters = () => {
@@ -269,14 +328,30 @@ export default function AdminIntegrationsPage() {
                 <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-neutral-100">
                     <Filter className="w-3.5 h-3.5 text-neutral-400 mr-1" />
                     <CategoryPill active={activeType === 'all'} onClick={() => setActiveType('all')} label="Все категории" />
-                    {PROVIDER_CATALOG.map((cat) => (
-                        <CategoryPill
-                            key={cat.type}
-                            active={activeType === cat.type}
-                            onClick={() => setActiveType(cat.type)}
-                            label={cat.title}
+                    {Array.from(new Set(PROVIDER_CATALOG.filter(c => c.visibility === 'mvp' || showExtended).map(c => c.type))).map((catType) => {
+                        const firstCat = PROVIDER_CATALOG.find(c => c.type === catType);
+                        if (!firstCat) return null;
+                        // Берём «базовое» имя категории (без «(расширенные)»)
+                        const baseTitle = firstCat.title.replace(/\s*\(расширенные\)/i, '');
+                        return (
+                            <CategoryPill
+                                key={catType}
+                                active={activeType === catType}
+                                onClick={() => setActiveType(catType)}
+                                label={baseTitle}
+                            />
+                        );
+                    })}
+                    {/* C4.1: toggle показа extended-провайдеров */}
+                    <label className="ml-auto inline-flex items-center gap-1.5 text-xs text-neutral-600 cursor-pointer select-none">
+                        <input
+                            type="checkbox"
+                            checked={showExtended}
+                            onChange={(e) => setShowExtended(e.target.checked)}
+                            className="w-3.5 h-3.5 accent-brand-600"
                         />
-                    ))}
+                        Показать расширенные
+                    </label>
                 </div>
             </div>
 
@@ -298,8 +373,8 @@ export default function AdminIntegrationsPage() {
                 </div>
             ) : (
                 <div className="space-y-6">
-                    {visibleCatalog.map((cat) => (
-                        <section key={cat.type}>
+                    {visibleCatalog.map((cat, idx) => (
+                        <section key={`${cat.type}-${cat.visibility}-${idx}`}>
                             <div className="flex items-baseline gap-2 mb-2">
                                 <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">{cat.title}</h2>
                                 <span className="text-[11px] text-neutral-400">·</span>
@@ -321,6 +396,32 @@ export default function AdminIntegrationsPage() {
                             </div>
                         </section>
                     ))}
+
+                    {/* C4.2: Deprecated section — отображается только если в БД
+                        реально есть записи на удалённые из каталога имена. */}
+                    {deprecatedRows.length > 0 && (
+                        <section>
+                            <div className="flex items-baseline gap-2 mb-2">
+                                <h2 className="text-sm font-semibold uppercase tracking-wide text-red-700">Устаревшие интеграции</h2>
+                                <span className="text-[11px] text-neutral-400">·</span>
+                                <span className="text-xs text-neutral-500">Эти провайдеры больше не предлагаются. Существующие подключения остаются — мигрируйте на актуальный аналог.</span>
+                            </div>
+                            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                {deprecatedRows.map((row) => {
+                                    const info = DEPRECATED_PROVIDERS[String(row.providerName)];
+                                    if (!info) return null;
+                                    return (
+                                        <DeprecatedProviderCard
+                                            key={row.id}
+                                            row={row}
+                                            reason={info.reason}
+                                            migrateTo={info.migrateTo ? providerLabel(info.migrateTo as ProviderName) : undefined}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    )}
                 </div>
             )}
 
@@ -423,6 +524,45 @@ function ProviderCard({
                         Тест
                     </button>
                 )}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * C4.2: карточка для исторической записи credentials на провайдере,
+ * который мы убрали из каталога. Red badge, причина, рекомендация по
+ * миграции. Кнопок «Подключить»/«Тест» нет — это read-only history.
+ */
+function DeprecatedProviderCard({
+    row,
+    reason,
+    migrateTo,
+}: {
+    row: CredentialRow;
+    reason: string;
+    migrateTo?: string;
+}) {
+    return (
+        <div className="rounded-xl border border-red-300 bg-red-50/40 p-4">
+            <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-red-100 border border-red-200 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-neutral-900 truncate leading-tight">{providerLabel(row.providerName)}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                            Устарел
+                        </span>
+                    </div>
+                    <div className="mt-1 text-[11px] text-red-700">{reason}</div>
+                    {migrateTo && (
+                        <div className="mt-1.5 text-[11px] text-neutral-700">
+                            Рекомендуется перейти на: <strong>{migrateTo}</strong>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
