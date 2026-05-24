@@ -80,15 +80,37 @@ export async function getWaybillById(id: string): Promise<WaybillSummary> {
 }
 
 /**
- * Build a PDF URL for the waybill. Token is appended as a query parameter so
- * that Linking.openURL can hand off to the system browser/PDF viewer.
+ * B6.1: PDF URL + Authorization header — без token-в-URL.
  *
- * TODO: when expo-file-system / expo-sharing are added to deps, switch to
- * downloadAsync + Sharing.shareAsync and pass the auth header instead of
- * leaking the token in the URL.
+ * Раньше: URL с `?token=<JWT>` передавался в Linking.openURL → токен утекал
+ * в Referer, share-sheet, системные логи, browser-history. Теперь возвращаем
+ * чистый URL + headers, которые caller передаёт в WebView source.
+ *
+ * WebView (react-native-webview) выполняет first GET с этими headers, дальше
+ * ресурсы по cookie-jar (которой у нас нет — endpoint stateless).
+ *
+ * Если когда-нибудь будут добавлены expo-file-system + expo-sharing —
+ * можно перейти на скачивание в кэш + системный viewer.
  */
-export async function getWaybillPdfUrl(id: string): Promise<string> {
+export interface WaybillPdfRequest {
+    url: string;
+    headers: { Authorization: string };
+}
+
+export async function getWaybillPdfRequest(id: string): Promise<WaybillPdfRequest> {
     const token = await getToken();
     if (!token) throw new Error('Not authenticated');
-    return `${API_URL}/waybills/${encodeURIComponent(id)}/pdf?token=${encodeURIComponent(token)}`;
+    return {
+        url: `${API_URL}/waybills/${encodeURIComponent(id)}/pdf`,
+        headers: { Authorization: `Bearer ${token}` },
+    };
+}
+
+/**
+ * @deprecated B6.1 — оставлено для обратной совместимости тестов.
+ * Используйте getWaybillPdfRequest + WebView.source.headers.
+ */
+export async function getWaybillPdfUrl(id: string): Promise<string> {
+    const req = await getWaybillPdfRequest(id);
+    return req.url;
 }

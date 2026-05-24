@@ -957,7 +957,8 @@ export const events = pgTable('events', {
     // A-P0-12: tenant scoping. Backfilled from author's org in migration 0027.
     // Nullable for now — old rows where the author was deleted may have no
     // org. App-side queries filter `IS NOT NULL` + match request.orgId.
-    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    // B7.1 (migration 0030): RESTRICT — audit trail (152-ФЗ) не стирается с org.
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'restrict' }),
     authorId: uuid('author_id').notNull().references(() => users.id),
     authorRole: varchar('author_role', { length: 30 }).notNull(),
     eventType: varchar('event_type', { length: 100 }).notNull(),
@@ -1449,7 +1450,8 @@ export const temperatureReadings = pgTable('temperature_readings', {
     // A-P2: explicit per-row tenancy. Backfilled in migration 0028 from
     // the trip's organization_id. Stays nullable until a follow-up
     // verifies no orphan rows; service-layer inserts always set it.
-    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    // B7.1 (migration 0030): RESTRICT — cold-chain compliance retention.
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'restrict' }),
     recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
     tempC: numeric('temp_c', { precision: 5, scale: 2 }).$type<number>().notNull(),
     sensorId: text('sensor_id'),
@@ -1595,7 +1597,8 @@ export const emailVerifications = pgTable('email_verifications', {
 // при отсутствии креденшелов используется mock-адаптер.
 export const osagoChecks = pgTable('osago_checks', {
     id: uuid('id').primaryKey().defaultRandom(),
-    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    // B7.1 (migration 0030): RESTRICT — страховая история.
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'restrict' }),
     vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id, { onDelete: 'cascade' }),
     checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
     valid: boolean('valid').notNull(),
@@ -1611,7 +1614,8 @@ export const osagoChecks = pgTable('osago_checks', {
 
 export const markingVerifications = pgTable('marking_verifications', {
     id: uuid('id').primaryKey().defaultRandom(),
-    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    // B7.1 (migration 0030): RESTRICT.
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'restrict' }),
     lotId: uuid('lot_id').references(() => shipmentLots.id, { onDelete: 'set null' }),
     code: text('code').notNull(),
     verifiedAt: timestamp('verified_at', { withTimezone: true }).notNull().defaultNow(),
@@ -1629,7 +1633,8 @@ export const markingVerifications = pgTable('marking_verifications', {
 
 export const tachographUploads = pgTable('tachograph_uploads', {
     id: uuid('id').primaryKey().defaultRandom(),
-    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }),
+    // B7.1 (migration 0030): RESTRICT — Минтранс хранение.
+    organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'restrict' }),
     driverId: uuid('driver_id').references(() => drivers.id, { onDelete: 'set null' }),
     driverCardNumber: varchar('driver_card_number', { length: 32 }),
     vehicleVin: varchar('vehicle_vin', { length: 17 }),
@@ -1665,7 +1670,8 @@ export const plans = pgTable('plans', {
 
 export const subscriptions = pgTable('subscriptions', {
     id: uuid('id').primaryKey().defaultRandom(),
-    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    // B7.1 (migration 0030): RESTRICT — биллинг history.
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'restrict' }),
     planId: text('plan_id').notNull().references(() => plans.id),
     // 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled'
     status: text('status').notNull().default('trial'),
@@ -1726,7 +1732,8 @@ export const usageCounters = pgTable('usage_counters', {
 // организации. См. migration 0029.
 export const mchd = pgTable('mchd', {
     id: uuid('id').primaryKey().defaultRandom(),
-    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    // B7.1 (migration 0030): RESTRICT — юр-сила подписей, нельзя стирать.
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'restrict' }),
     /** Идентификатор МЧД от ФНС, например "АА-12345678". Глобально уникален. */
     mchdNumber: varchar('mchd_number', { length: 64 }).notNull().unique(),
     // Доверитель (юр-лицо)

@@ -21,10 +21,23 @@ export default function LoginScreen() {
     const { login } = useAuth();
 
     const handleLogin = async () => {
+        // B6.3: pre-submit validation. Без проверки опечатки давали 400
+        // round-trip; на тонком интернете в полях это лишние 2-3 секунды
+        // и трафик. Email regex — намеренно простой (HTML5-стиль),
+        // пароль — длина ≥ 6 (минимум сервера).
+        const trimmedEmail = email.trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+            setError('Введите корректный email');
+            return;
+        }
+        if (password.length < 6) {
+            setError('Пароль должен быть не короче 6 символов');
+            return;
+        }
         try {
             setLoading(true);
             setError('');
-            await login(email, password);
+            await login(trimmedEmail, password);
         } catch (err: any) {
             setError(err?.message || 'Не удалось войти');
         } finally {

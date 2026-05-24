@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { DeviceEventEmitter } from 'react-native';
 import { getToken, login as apiLogin, logout as apiLogout, getMe, AuthError } from '../api/auth';
+import { AUTH_LOGOUT_EVENT } from '../api/client';
 import { syncDatabase } from '../api/sync';
 import { database } from '../database';
 import { normalizeUser } from '../utils/auth';
@@ -87,6 +89,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setToken(null);
     };
+
+    // B6.2: подписка на централизованный auth-logout event от api/client.ts.
+    // Любой authFetch с 401 испускает событие, водитель видит login-screen
+    // без необходимости ждать следующего ручного запроса.
+    const logoutRef = useRef(logout);
+    logoutRef.current = logout;
+    useEffect(() => {
+        const sub = DeviceEventEmitter.addListener(AUTH_LOGOUT_EVENT, () => {
+            void logoutRef.current();
+        });
+        return () => sub.remove();
+    }, []);
 
     return (
         <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>

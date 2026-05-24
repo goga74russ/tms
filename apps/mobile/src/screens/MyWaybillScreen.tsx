@@ -2,15 +2,17 @@ import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
-    Linking,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { getWaybillByTripId, getWaybillPdfUrl, WaybillSummary } from '../api/waybills';
+import { getWaybillByTripId, getWaybillPdfRequest, WaybillSummary, WaybillPdfRequest } from '../api/waybills';
 import { Button, Card, KeyValueRow, Pill, PillTone } from '../components/ui';
 import { colors, spacing, typography } from '../theme/tokens';
 
@@ -39,6 +41,9 @@ export default function MyWaybillScreen({ route }: Props) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [pdfLoading, setPdfLoading] = useState(false);
+    // B6.1: PDF открывается inline в WebView с Authorization header,
+    // без token-в-URL (раньше Linking.openURL утекал JWT через Referer / share-sheet / logs).
+    const [pdfRequest, setPdfRequest] = useState<WaybillPdfRequest | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -65,15 +70,10 @@ export default function MyWaybillScreen({ route }: Props) {
         if (!waybill) return;
         setPdfLoading(true);
         try {
-            const url = await getWaybillPdfUrl(waybill.id);
-            const supported = await Linking.canOpenURL(url);
-            if (!supported) {
-                Alert.alert('Ошибка', 'Не удалось открыть PDF в системе.');
-                return;
-            }
-            await Linking.openURL(url);
+            const req = await getWaybillPdfRequest(waybill.id);
+            setPdfRequest(req);
         } catch (e: any) {
-            Alert.alert('Ошибка', e?.message || 'Не удалось открыть PDF.');
+            Alert.alert('Ошибка', e?.message || 'Не удалось получить PDF.');
         } finally {
             setPdfLoading(false);
         }
@@ -176,6 +176,32 @@ export default function MyWaybillScreen({ route }: Props) {
                 isLoading={pdfLoading}
                 style={{ marginTop: spacing.lg }}
             />
+
+            {/* B6.1: PDF inline в WebView. Authorization header вместо ?token=. */}
+            <Modal
+                visible={pdfRequest !== null}
+                animationType="slide"
+                onRequestClose={() => setPdfRequest(null)}
+            >
+                <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Путевой лист (PDF)</Text>
+                    <TouchableOpacity onPress={() => setPdfRequest(null)} accessibilityLabel="Закрыть">
+                        <Text style={styles.modalClose}>Закрыть</Text>
+                    </TouchableOpacity>
+                </View>
+                {pdfRequest && (
+                    <WebView
+                        source={{ uri: pdfRequest.url, headers: pdfRequest.headers }}
+                        style={{ flex: 1 }}
+                        startInLoadingState
+                        renderLoading={() => (
+                            <View style={styles.center}>
+                                <ActivityIndicator size="large" color={colors.brand[600]} />
+                            </View>
+                        )}
+                    />
+                )}
+            </Modal>
         </ScrollView>
     );
 }
@@ -196,4 +222,16 @@ const styles = StyleSheet.create({
         marginBottom: spacing.sm,
     },
     bodyText: { fontSize: 15, color: colors.neutral[900], fontWeight: '600' },
+    modalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+        backgroundColor: colors.neutral[100],
+        borderBottomWidth: 1,
+        borderBottomColor: colors.neutral[200],
+    },
+    modalTitle: { ...typography.captionBold, color: colors.neutral[900] },
+    modalClose: { ...typography.captionBold, color: colors.brand[700] },
 });
