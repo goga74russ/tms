@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { PageHeader } from '@/components/ui/page-header';
+import { DpaStepModal } from './DpaStepModal';
 
 interface CredentialRow {
     id: string;
@@ -142,6 +143,11 @@ export default function AdminIntegrationsPage() {
     const [error, setError] = useState<string | null>(null);
     const [info, setInfo] = useState<string | null>(null);
     const [modal, setModal] = useState<{ type: ProviderType; name: ProviderName } | null>(null);
+    // E7: DPA-step перед CredentialModal. Когда пользователь жмёт «Подключить»,
+    // мы сначала проверяем accepted ли уже DPA текущей версии. Если нет —
+    // показываем DPA-модал, иначе сразу CredentialModal.
+    const [pendingConnect, setPendingConnect] = useState<{ type: ProviderType; name: ProviderName } | null>(null);
+    const [dpaModal, setDpaModal] = useState<{ type: ProviderType; name: ProviderName } | null>(null);
 
     const [search, setSearch] = useState('');
     const [activeType, setActiveType] = useState<ProviderType | 'all'>('all');
@@ -201,6 +207,31 @@ export default function AdminIntegrationsPage() {
             await refresh();
         }
     };
+
+    // E7: открытие подключения — сначала проверяем accepted DPA, если нет —
+    // открываем DPA-step, иначе сразу CredentialModal. На ошибке загрузки
+    // acceptance — fallback на CredentialModal (не блокируем подключение).
+    async function handleConnect(type: ProviderType, name: ProviderName) {
+        setPendingConnect({ type, name });
+        try {
+            const res = await api.get<{
+                success: boolean;
+                data?: { accepted: boolean; requiresAcceptance: boolean };
+            }>(`/dpa/${encodeURIComponent(String(name))}/acceptance`);
+            const accepted = res?.data?.accepted ?? true;
+            if (!accepted) {
+                setDpaModal({ type, name });
+                setPendingConnect(null);
+                return;
+            }
+        } catch {
+            // 404 DPA-not-found или сетевой сбой — не блокируем подключение,
+            // сразу открываем CredentialModal. На пилоте — не все провайдеры
+            // имеют DPA-файл, для них acceptance-check вернёт 404.
+        }
+        setModal({ type, name });
+        setPendingConnect(null);
+    }
 
     // Aggregate counts for the header strip.
     const counts = useMemo(() => {
@@ -388,7 +419,7 @@ export default function AdminIntegrationsPage() {
                                             key={name}
                                             name={name}
                                             row={row}
-                                            onConnect={() => setModal({ type: cat.type, name })}
+                                            onConnect={() => handleConnect(cat.type, name)}
                                             onTest={row ? () => test(row.id) : undefined}
                                         />
                                     );
@@ -425,6 +456,20 @@ export default function AdminIntegrationsPage() {
                 </div>
             )}
 
+            {/* E7: DPA-step modal (показывается перед CredentialModal). */}
+            {dpaModal && (
+                <DpaStepModal
+                    providerId={String(dpaModal.name)}
+                    onClose={() => setDpaModal(null)}
+                    onAccepted={() => {
+                        // accept прошёл — открываем CredentialModal.
+                        const next = dpaModal;
+                        setDpaModal(null);
+                        setModal(next);
+                    }}
+                />
+            )}
+
             {modal && (
                 <CredentialModal
                     type={modal.type}
@@ -432,6 +477,16 @@ export default function AdminIntegrationsPage() {
                     onClose={() => setModal(null)}
                     onSaved={() => { setModal(null); refresh(); }}
                 />
+            )}
+
+            {/* Loading indicator пока проверяем acceptance */}
+            {pendingConnect && (
+                <div className="fixed inset-0 z-40 flex items-center justify-center bg-neutral-900/20 pointer-events-none">
+                    <div className="rounded-lg bg-white px-4 py-3 shadow-lg flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
+                        <span className="text-sm text-neutral-700">Проверка согласия…</span>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -1764,3 +1764,31 @@ export const mchd = pgTable('mchd', {
     index('idx_mchd_org_status').on(table.organizationId, table.status),
     index('idx_mchd_grantee_inn').on(table.granteeInn),
 ]);
+
+// ============================================================
+// DPA Acceptances (Data Processing Acceptances) — 152-ФЗ ст. 9
+// ============================================================
+// Запись о согласии user'а на обработку ПДн через конкретного провайдера
+// (Контур.Диадок, Wialon, Госключ, ...). Текст согласия живёт в
+// docs/legal/dpa/<provider_id>.md, на момент accept фиксируем version
+// + sha256(content). Миграция 0032.
+export const dpaAcceptances = pgTable('dpa_acceptances', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'restrict' }),
+    /** ProviderName enum string (e.g. 'diadoc', 'wialon'). */
+    providerId: varchar('provider_id', { length: 50 }).notNull(),
+    /** Semver принятой версии из YAML frontmatter ('1.0', '1.1', '2.0', ...). */
+    version: varchar('version', { length: 20 }).notNull(),
+    /** SHA-256 от полного содержимого markdown-файла на момент accept (64 hex). */
+    contentHash: varchar('content_hash', { length: 64 }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('uq_dpa_acceptances_user_org_provider_version')
+        .on(table.userId, table.organizationId, table.providerId, table.version),
+    index('idx_dpa_acceptances_user_org_provider')
+        .on(table.userId, table.organizationId, table.providerId),
+    index('idx_dpa_acceptances_org_accepted_at')
+        .on(table.organizationId, sql`${table.acceptedAt} DESC`),
+]);

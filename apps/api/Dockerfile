@@ -22,6 +22,8 @@ RUN pnpm install --prod=false --frozen-lockfile
 # Copy source
 COPY packages/shared/ ./packages/shared/
 COPY apps/api/ ./apps/api/
+# DPA-тексты (152-ФЗ согласия) — рантайм-ассеты, читаются apps/api/src/modules/dpa/loader.ts.
+COPY docs/legal/dpa/ ./docs/legal/dpa/
 
 # Build shared first, then api
 RUN pnpm --filter @tms/shared exec tsc -p tsconfig.json
@@ -44,6 +46,8 @@ RUN pnpm install --prod --frozen-lockfile
 # Copy build output
 COPY --from=builder /app/packages/shared/ ./packages/shared/
 COPY --from=builder /app/apps/api/dist/ ./apps/api/dist/
+# DPA-тексты — runtime-resource, читаются по относительному пути.
+COPY --from=builder /app/docs/legal/dpa/ ./docs/legal/dpa/
 
 # Non-root user
 RUN addgroup -S tms && adduser -S tms -G tms

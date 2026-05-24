@@ -358,6 +358,8 @@ await app.register(import('./modules/billing/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/compliance/routes.js'), { prefix: '/api' });
 // ЭТрН 01.09.2026: МЧД (Машиночитаемые Доверенности) — реестр для подписания
 await app.register(import('./modules/mchd/routes.js'), { prefix: '/api' });
+// DPA (Data Processing Acceptances) — 152-ФЗ ст. 9 согласия per-provider
+await app.register(import('./modules/dpa/routes.js'), { prefix: '/api' });
 // Round 3B: D8 demo data generator + D10 audit log
 await app.register(import('./modules/demo/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/audit/routes.js'), { prefix: '/api' });
