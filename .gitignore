@@ -22,3 +22,6 @@ apps/mobile/.expo/
 
 # Domain-checker script outputs — one-off artifacts, not source.
 domain-report*.md
+
+# TypeScript incremental build artefacts — never source-of-truth.
+**/*.tsbuildinfo

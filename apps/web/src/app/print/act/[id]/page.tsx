@@ -14,11 +14,15 @@ function money(n: number | string | null | undefined) {
     return Number(n).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Реквизиты перевозчика — берутся из NEXT_PUBLIC_CARRIER_* env.
+// Если не заданы — печатаем «НЕ УСТАНОВЛЕНО», чтобы было сразу видно,
+// что прод-окружение не сконфигурировано. Раньше fallback был на тестовые
+// 7701234567 / 770101001, что попадало в реальные печатные документы.
 const CARRIER = {
-    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'ООО «ТМС Логистик»',
-    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? '7701234567',
-    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? '770101001',
-    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'г. Москва, ул. Транспортная, д. 1',
+    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'НЕ УСТАНОВЛЕНО',
+    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? 'НЕ УСТАНОВЛЕНО',
+    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? 'НЕ УСТАНОВЛЕНО',
+    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'НЕ УСТАНОВЛЕНО',
 };
 
 export default function ActPrintPage() {

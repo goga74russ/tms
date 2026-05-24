@@ -61,11 +61,12 @@ type Dossier = {
     } | null;
 };
 
+// Carrier requisites — env-driven; 'НЕ УСТАНОВЛЕНО' fallback signals misconfig.
 const CARRIER = {
-    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'ООО "ТМС Логистика"',
-    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? '7701234567',
-    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? '770101001',
-    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'г. Москва, ул. Транспортная, д. 1',
+    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'НЕ УСТАНОВЛЕНО',
+    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? 'НЕ УСТАНОВЛЕНО',
+    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? 'НЕ УСТАНОВЛЕНО',
+    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'НЕ УСТАНОВЛЕНО',
 };
 
 const DOCUMENT_LABELS: Record<string, string> = {

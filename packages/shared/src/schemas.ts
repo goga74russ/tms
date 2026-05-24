@@ -175,6 +175,27 @@ export const DriverCreateSchema = DriverSchema.omit({
     id: true, createdAt: true, updatedAt: true,
 });
 
+// Update DTO — явный список полей. Не .partial() от Create:
+//   • userId — driver-transplant vector (пересадка driver-записи на чужого
+//     user-а даёт ему cross-driver видимость рейсов через RLS-резолвер).
+//   • personalDataConsent / personalDataConsentDate — write-once, фиксируются
+//     при сборе согласия (152-ФЗ), переписывать через PUT нельзя.
+// Всё остальное (ВУ, медсправка, доверенность, fuelCardNumber, isActive,
+// контакты) — модифицируемо.
+export const DriverUpdateSchema = z.object({
+    fullName: z.string().optional(),
+    birthDate: z.string().optional(),
+    snils: z.string().optional(),
+    licenseNumber: z.string().optional(),
+    licenseCategories: z.array(z.string()).optional(),
+    licenseExpiry: z.string().optional(),
+    medCertificateExpiry: z.string().optional(),
+    powerOfAttorneyNumber: z.string().optional(),
+    powerOfAttorneyExpiry: z.string().optional(),
+    fuelCardNumber: z.string().optional(),
+    isActive: z.boolean().optional(),
+}).strict();
+
 // ================================================================
 // Заявка (§3.1, §4.1)
 // ================================================================
@@ -234,7 +255,48 @@ export const OrderCreateSchema = OrderSchema.omit({
     createdAt: true, updatedAt: true,
 });
 
-export const OrderUpdateSchema = OrderCreateSchema.partial();
+// Update DTO — explicit allowed-fields, не .partial() от Create.
+// .partial() от Create включал contractorId/createdBy → mass-assignment vector:
+// tenant-admin после IDOR-check мог через PUT /orders/:id переписать
+// FK на чужого контрагента или подменить автора (audit forgery).
+// Поэтому Update строится явно, БЕЗ contractorId/contractId/createdBy/
+// confirmationMode/tripId/status. Эти поля меняются отдельными workflows
+// (assignment, status-transition, confirmation-mode setter).
+export const OrderUpdateSchema = z.object({
+    // Груз
+    cargoDescription: z.string().optional(),
+    cargoWeightKg: z.number().positive().optional(),
+    cargoVolumeM3: z.number().positive().optional(),
+    cargoPlaces: z.number().int().positive().optional(),
+    cargoType: z.string().optional(),
+    multiTierAllowed: z.boolean().optional(),
+    maxTiers: z.number().int().min(1).max(3).optional(),
+    // Температурный режим
+    temperatureMin: z.number().optional(),
+    temperatureMax: z.number().optional(),
+    coldChainRequired: z.boolean().optional(),
+    temperatureMinC: z.number().optional(),
+    temperatureMaxC: z.number().optional(),
+    // Тип загрузки
+    loadingType: z.enum(['rear', 'side', 'top']).optional(),
+    hydraulicLiftRequired: z.boolean().optional(),
+    // Адреса
+    loadingAddress: z.string().optional(),
+    loadingLat: z.number().optional(),
+    loadingLon: z.number().optional(),
+    loadingDate: dateStr.optional(),
+    loadingWindowStart: dateStr.optional(),
+    loadingWindowEnd: dateStr.optional(),
+    unloadingAddress: z.string().optional(),
+    unloadingLat: z.number().optional(),
+    unloadingLon: z.number().optional(),
+    unloadingDate: dateStr.optional(),
+    unloadingWindowStart: dateStr.optional(),
+    unloadingWindowEnd: dateStr.optional(),
+    // Требования
+    vehicleRequirements: z.string().optional(),
+    notes: z.string().optional(),
+}).strict();
 
 // ================================================================
 // Рейс (§3.2, §4.1)

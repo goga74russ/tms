@@ -8,7 +8,7 @@ import { requireAbility } from '../../auth/rbac.js';
 import { assertDriverAccess, assertTripAccess, assertVehicleAccess, resolveDriverId } from '../../auth/guards.js';
 import * as fleetService from './service.js';
 import {
-    VehicleCreateSchema, DriverCreateSchema, ContractorCreateSchema,
+    VehicleCreateSchema, DriverCreateSchema, DriverUpdateSchema, ContractorCreateSchema,
     PermitCreateSchema, PermitUpdateSchema, FineCreateSchema, FineUpdateSchema,
     PRIVILEGED_ROLES, hasPrivilege,
     FuelRecordCreateSchema, OdometerReadingCreateSchema,
@@ -203,7 +203,11 @@ export default async function fleetRoutes(app: FastifyInstance) {
         try {
             const { id } = request.params as { id: string };
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
-            const parsed = DriverCreateSchema.partial().safeParse(request.body);
+            // DriverUpdateSchema — whitelist без userId / personalDataConsent
+            // (mass-assignment защита: ре-стамп userId = driver-transplant
+            // на чужого юзера → RLS-leak; personalDataConsent — write-once
+            // по 152-ФЗ).
+            const parsed = DriverUpdateSchema.safeParse(request.body);
             if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
             const driver = await fleetService.updateDriver(id, parsed.data as z.infer<typeof DriverCreateSchema>, user);
             const myDriverId = user.roles.includes('driver') ? await resolveDriverId(user.userId) : null;
