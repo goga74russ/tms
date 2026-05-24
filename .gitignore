@@ -25,3 +25,6 @@ domain-report*.md
 
 # TypeScript incremental build artefacts — never source-of-truth.
 **/*.tsbuildinfo
+
+# Playwright per-role storage state (F2) — created on each `pnpm test:e2e` run.
+apps/web/tests/.auth/

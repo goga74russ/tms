@@ -5,7 +5,7 @@ import 'dotenv/config';
 import { eq } from 'drizzle-orm';
 import { db, sql } from './connection.js';
 import {
-    users, contractors, contracts, vehicles, drivers, orders, trips, tripOrders,
+    users, organizations, contractors, contracts, vehicles, drivers, orders, trips, tripOrders,
     routePoints, waybills, techInspections, medInspections, repairRequests,
     fines, invoices, invoiceTrips, permits, tariffs, trailers, incidents, claims,
     tachographRecords, checklistTemplates, restrictionZones, events,
@@ -35,61 +35,88 @@ async function seedDemo() {
     await sql.unsafe(APPEND_ONLY_TRIGGER_SQL);
 
     // ================================================================
+    // 0) ORGANIZATIONS (F1 — для cross-org-leak тестов нужно 2 org)
+    // ================================================================
+    console.log('  → Organizations...');
+    const [orgA] = await db.insert(organizations).values({
+        name: 'ООО «ТрансПульт Демо» (Org-A)',
+        inn: '7700000001',
+        kpp: '770001001',
+        ogrn: '1027700000001',
+        legalAddress: 'г. Москва, ул. Тверская, 1',
+    }).returning();
+    const [orgB] = await db.insert(organizations).values({
+        name: 'ИП Тестов А.А. (Org-B)',
+        inn: '770000000002',
+        legalAddress: 'г. Санкт-Петербург, Невский пр-т, 2',
+    }).returning();
+
+    // ================================================================
     // 1) USERS — включая суперпользователя со всеми ролями
     // ================================================================
-    console.log('  → Users...');
+    console.log('  → Users (Org-A)...');
     await db.insert(users).values({
         id: '00000000-0000-0000-0000-000000000000',
         email: 'system@tms.internal',
         passwordHash,
         fullName: 'Система (BullMQ)',
         roles: ['admin'],
+        // system-user — без org, кросс-tenant операционный
     }).onConflictDoNothing();
 
-    // ★ СУПЕРПОЛЬЗОВАТЕЛЬ со всеми ролями
+    // ★ СУПЕРПОЛЬЗОВАТЕЛЬ — БЕЗ org (super-admin) для кросс-tenant аудита
     const [superUser] = await db.insert(users).values({
         email: 'super@tms.local',
         passwordHash,
         fullName: 'Суперпользователь',
         roles: ['admin', 'logist', 'dispatcher', 'manager', 'mechanic', 'medic', 'repair_service', 'accountant', 'driver'],
+        // organizationId не задан — super-admin (см. isSuperAdmin = admin && !org)
     }).returning();
 
     const [admin] = await db.insert(users).values({
         email: 'admin@tms.local', passwordHash, fullName: 'Администратор', roles: ['admin'],
+        organizationId: orgA.id,
     }).returning();
 
     const [logist] = await db.insert(users).values({
         email: 'logist@tms.local', passwordHash, fullName: 'Иванов Пётр Сергеевич', roles: ['logist'],
+        organizationId: orgA.id,
     }).returning();
 
     const [dispatcher] = await db.insert(users).values({
         email: 'dispatcher@tms.local', passwordHash, fullName: 'Сидорова Мария Александровна', roles: ['dispatcher'],
+        organizationId: orgA.id,
     }).returning();
 
     const [mechanic] = await db.insert(users).values({
         email: 'mechanic@tms.local', passwordHash, fullName: 'Козлов Андрей Иванович', roles: ['mechanic'],
+        organizationId: orgA.id,
     }).returning();
 
     const [medic] = await db.insert(users).values({
         email: 'medic@tms.local', passwordHash, fullName: 'Белова Елена Викторовна', roles: ['medic'],
+        organizationId: orgA.id,
     }).returning();
 
     const [manager] = await db.insert(users).values({
         email: 'manager@tms.local', passwordHash, fullName: 'Петров Алексей Павлович', roles: ['manager'],
+        organizationId: orgA.id,
     }).returning();
 
     const [accountant] = await db.insert(users).values({
         email: 'accountant@tms.local', passwordHash, fullName: 'Кузнецова Ольга Дмитриевна', roles: ['accountant'],
+        organizationId: orgA.id,
     }).returning();
 
     const [repairUser] = await db.insert(users).values({
         email: 'repair@tms.local', passwordHash, fullName: 'Смирнов Дмитрий Анатольевич', roles: ['repair_service'],
+        organizationId: orgA.id,
     }).returning();
 
     const driverUsers = await db.insert(users).values([
-        { email: 'driver1@tms.local', passwordHash, fullName: 'Морозов Сергей Николаевич', roles: ['driver'] },
-        { email: 'driver2@tms.local', passwordHash, fullName: 'Волков Артём Дмитриевич', roles: ['driver'] },
-        { email: 'driver3@tms.local', passwordHash, fullName: 'Соколов Игорь Петрович', roles: ['driver'] },
+        { email: 'driver1@tms.local', passwordHash, fullName: 'Морозов Сергей Николаевич', roles: ['driver'], organizationId: orgA.id },
+        { email: 'driver2@tms.local', passwordHash, fullName: 'Волков Артём Дмитриевич', roles: ['driver'], organizationId: orgA.id },
+        { email: 'driver3@tms.local', passwordHash, fullName: 'Соколов Игорь Петрович', roles: ['driver'], organizationId: orgA.id },
     ]).returning();
 
     // ================================================================
@@ -99,16 +126,19 @@ async function seedDemo() {
     const [client1] = await db.insert(contractors).values({
         name: 'ООО "Строй Альянс"', inn: '7701234567', kpp: '770101001',
         legalAddress: 'г. Москва, ул. Ленина, 1', phone: '+7 (495) 123-45-67', email: 'info@stroyalliance.ru',
+        organizationId: orgA.id,
     }).returning();
 
     const [client2] = await db.insert(contractors).values({
         name: 'ООО "ПродТорг"', inn: '7709876543', kpp: '770901001',
         legalAddress: 'г. Москва, ул. Тверская, 15', phone: '+7 (495) 987-65-43', email: 'orders@prodtorg.ru',
+        organizationId: orgA.id,
     }).returning();
 
     const [client3] = await db.insert(contractors).values({
         name: 'ИП Никитин А.С.', inn: '771234567890',
         legalAddress: 'г. Москва, ул. Мира, 42', phone: '+7 (926) 555-11-22',
+        organizationId: orgA.id,
     }).returning();
 
     // ================================================================
@@ -152,11 +182,11 @@ async function seedDemo() {
     // ================================================================
     console.log('  → Vehicles...');
     const vehicleRows = await db.insert(vehicles).values([
-        { plateNumber: 'А123БВ77', vin: 'XTA21700080000001', make: 'ГАЗ', model: 'ГАЗон NEXT', year: 2023, bodyType: 'тент', payloadCapacityKg: 5000, payloadVolumeM3: 22, fuelTankLiters: 120, fuelNormPer100Km: 18, currentOdometerKm: 45230, techInspectionExpiry: new Date('2026-09-15'), osagoExpiry: new Date('2026-11-20') },
-        { plateNumber: 'В456ГД50', vin: 'XTA21700080000002', make: 'КАМАЗ', model: '65207', year: 2022, bodyType: 'борт', payloadCapacityKg: 15000, payloadVolumeM3: 45, fuelTankLiters: 350, fuelNormPer100Km: 32, currentOdometerKm: 128400, techInspectionExpiry: new Date('2026-06-01'), osagoExpiry: new Date('2026-08-15') },
-        { plateNumber: 'Е789ЖЗ99', vin: 'XTA21700080000003', make: 'MAN', model: 'TGX 18.510', year: 2024, bodyType: 'рефрижератор', payloadCapacityKg: 20000, payloadVolumeM3: 86, fuelTankLiters: 400, fuelNormPer100Km: 28, currentOdometerKm: 12750, techInspectionExpiry: new Date('2027-01-10'), osagoExpiry: new Date('2027-03-20') },
-        { plateNumber: 'К012ЛМ77', vin: 'XTA21700080000004', make: 'Hyundai', model: 'HD78', year: 2023, bodyType: 'фургон', payloadCapacityKg: 4500, payloadVolumeM3: 18, fuelTankLiters: 100, fuelNormPer100Km: 14, currentOdometerKm: 67890, status: 'maintenance', techInspectionExpiry: new Date('2026-04-10'), osagoExpiry: new Date('2026-07-05') },
-        { plateNumber: 'Н345ОП50', vin: 'XTA21700080000005', make: 'ISUZU', model: 'ELF 7.5', year: 2024, bodyType: 'тент', payloadCapacityKg: 4200, payloadVolumeM3: 20, fuelTankLiters: 100, fuelNormPer100Km: 13, currentOdometerKm: 5430, techInspectionExpiry: new Date('2027-05-01'), osagoExpiry: new Date('2027-06-15') },
+        { plateNumber: 'А123БВ77', vin: 'XTA21700080000001', make: 'ГАЗ', model: 'ГАЗон NEXT', year: 2023, bodyType: 'тент', payloadCapacityKg: 5000, payloadVolumeM3: 22, fuelTankLiters: 120, fuelNormPer100Km: 18, currentOdometerKm: 45230, techInspectionExpiry: new Date('2026-09-15'), osagoExpiry: new Date('2026-11-20'), organizationId: orgA.id },
+        { plateNumber: 'В456ГД50', vin: 'XTA21700080000002', make: 'КАМАЗ', model: '65207', year: 2022, bodyType: 'борт', payloadCapacityKg: 15000, payloadVolumeM3: 45, fuelTankLiters: 350, fuelNormPer100Km: 32, currentOdometerKm: 128400, techInspectionExpiry: new Date('2026-06-01'), osagoExpiry: new Date('2026-08-15'), organizationId: orgA.id },
+        { plateNumber: 'Е789ЖЗ99', vin: 'XTA21700080000003', make: 'MAN', model: 'TGX 18.510', year: 2024, bodyType: 'рефрижератор', payloadCapacityKg: 20000, payloadVolumeM3: 86, fuelTankLiters: 400, fuelNormPer100Km: 28, currentOdometerKm: 12750, techInspectionExpiry: new Date('2027-01-10'), osagoExpiry: new Date('2027-03-20'), organizationId: orgA.id },
+        { plateNumber: 'К012ЛМ77', vin: 'XTA21700080000004', make: 'Hyundai', model: 'HD78', year: 2023, bodyType: 'фургон', payloadCapacityKg: 4500, payloadVolumeM3: 18, fuelTankLiters: 100, fuelNormPer100Km: 14, currentOdometerKm: 67890, status: 'maintenance', techInspectionExpiry: new Date('2026-04-10'), osagoExpiry: new Date('2026-07-05'), organizationId: orgA.id },
+        { plateNumber: 'Н345ОП50', vin: 'XTA21700080000005', make: 'ISUZU', model: 'ELF 7.5', year: 2024, bodyType: 'тент', payloadCapacityKg: 4200, payloadVolumeM3: 20, fuelTankLiters: 100, fuelNormPer100Km: 13, currentOdometerKm: 5430, techInspectionExpiry: new Date('2027-05-01'), osagoExpiry: new Date('2027-06-15'), organizationId: orgA.id },
     ]).returning();
 
     // ================================================================
@@ -164,9 +194,9 @@ async function seedDemo() {
     // ================================================================
     console.log('  → Trailers...');
     const trailerRows = await db.insert(trailers).values([
-        { plateNumber: 'АП1234 77', type: 'tent', make: 'СЗАП', model: '83053', year: 2022, payloadCapacityKg: 20000, payloadVolumeM3: 82, currentVehicleId: vehicleRows[1].id },
-        { plateNumber: 'АП5678 50', type: 'refrigerator', make: 'Krone', model: 'Cool Liner', year: 2023, payloadCapacityKg: 22000, payloadVolumeM3: 90, currentVehicleId: vehicleRows[2].id },
-        { plateNumber: 'АП9012 99', type: 'flatbed', make: 'Wielton', model: 'NS 34', year: 2021, payloadCapacityKg: 28000 },
+        { plateNumber: 'АП1234 77', type: 'tent', make: 'СЗАП', model: '83053', year: 2022, payloadCapacityKg: 20000, payloadVolumeM3: 82, currentVehicleId: vehicleRows[1].id, organizationId: orgA.id },
+        { plateNumber: 'АП5678 50', type: 'refrigerator', make: 'Krone', model: 'Cool Liner', year: 2023, payloadCapacityKg: 22000, payloadVolumeM3: 90, currentVehicleId: vehicleRows[2].id, organizationId: orgA.id },
+        { plateNumber: 'АП9012 99', type: 'flatbed', make: 'Wielton', model: 'NS 34', year: 2021, payloadCapacityKg: 28000, organizationId: orgA.id },
     ]).returning();
 
     // ================================================================
@@ -180,6 +210,7 @@ async function seedDemo() {
             licenseCategories: ['B', 'C', 'CE'], licenseExpiry: new Date('2028-03-15'),
             medCertificateExpiry: new Date('2027-01-10'), snils: '123-456-789 01',
             personalDataConsent: true, personalDataConsentDate: new Date('2026-01-01'),
+            organizationId: orgA.id,
         },
         {
             userId: driverUsers[1].id, fullName: 'Волков Артём Дмитриевич',
@@ -187,6 +218,7 @@ async function seedDemo() {
             licenseCategories: ['B', 'C'], licenseExpiry: new Date('2029-07-22'),
             medCertificateExpiry: new Date('2027-06-01'), snils: '987-654-321 09',
             personalDataConsent: true, personalDataConsentDate: new Date('2026-01-01'),
+            organizationId: orgA.id,
         },
         {
             userId: driverUsers[2].id, fullName: 'Соколов Игорь Петрович',
@@ -194,6 +226,7 @@ async function seedDemo() {
             licenseCategories: ['B', 'C', 'CE', 'D'], licenseExpiry: new Date('2027-11-03'),
             medCertificateExpiry: new Date('2026-12-01'), snils: '456-789-012 34',
             personalDataConsent: true, personalDataConsentDate: new Date('2026-01-01'),
+            organizationId: orgA.id,
         },
     ]).returning();
 
@@ -210,7 +243,7 @@ async function seedDemo() {
             loadingDate: new Date('2026-03-22T08:00:00Z'),
             unloadingAddress: 'г. Тула, ул. Промышленная, 12', unloadingLat: 54.1961, unloadingLon: 37.6182,
             unloadingDate: new Date('2026-03-22T14:00:00Z'),
-            createdBy: logist.id,
+            createdBy: logist.id, organizationId: orgA.id,
         },
         {
             number: 'ORD-2026-0002', contractorId: client2.id, contractId: contract2.id,
@@ -221,7 +254,7 @@ async function seedDemo() {
             unloadingAddress: 'г. Рязань, ул. Новая, 80', unloadingLat: 54.6296, unloadingLon: 39.7421,
             unloadingDate: new Date('2026-03-23T12:00:00Z'),
             confirmationMode: 'required',
-            createdBy: logist.id,
+            createdBy: logist.id, organizationId: orgA.id,
         },
         {
             number: 'ORD-2026-0003', contractorId: client1.id, contractId: contract1.id,
@@ -231,7 +264,7 @@ async function seedDemo() {
             loadingDate: new Date('2026-03-20T07:00:00Z'),
             unloadingAddress: 'г. Серпухов, ул. Ворошилова, 28', unloadingLat: 54.9159, unloadingLon: 37.4046,
             unloadingDate: new Date('2026-03-20T13:00:00Z'),
-            createdBy: logist.id,
+            createdBy: logist.id, organizationId: orgA.id,
         },
         {
             number: 'ORD-2026-0004', contractorId: client3.id, contractId: contract3.id,
@@ -241,7 +274,7 @@ async function seedDemo() {
             loadingDate: new Date('2026-03-25T09:00:00Z'),
             unloadingAddress: 'г. Москва, Ленинский пр-т, 119', unloadingLat: 55.6614, unloadingLon: 37.5059,
             unloadingDate: new Date('2026-03-25T15:00:00Z'),
-            createdBy: logist.id,
+            createdBy: logist.id, organizationId: orgA.id,
         },
         {
             number: 'ORD-2026-0005', contractorId: client2.id, contractId: contract2.id,
@@ -251,7 +284,7 @@ async function seedDemo() {
             loadingDate: new Date('2026-03-24T07:00:00Z'),
             unloadingAddress: 'г. Калуга, ул. Московская, 234', unloadingLat: 54.5293, unloadingLon: 36.2754,
             unloadingDate: new Date('2026-03-24T15:00:00Z'),
-            createdBy: dispatcher.id,
+            createdBy: dispatcher.id, organizationId: orgA.id,
         },
     ]).returning();
 
@@ -271,7 +304,7 @@ async function seedDemo() {
             odometerStart: 45000, odometerEnd: 45115,
             fuelStart: 80, fuelEnd: 50,
             originalDocumentsReceived: true,
-            createdBy: dispatcher.id,
+            createdBy: dispatcher.id, organizationId: orgA.id,
         },
         // Trip 2: In transit — с заявкой ORD-0002
         {
@@ -281,7 +314,7 @@ async function seedDemo() {
             plannedDepartureAt: new Date('2026-03-23T06:00:00Z'),
             actualDepartureAt: new Date('2026-03-23T06:10:00Z'),
             odometerStart: 12750, fuelStart: 320,
-            createdBy: dispatcher.id,
+            createdBy: dispatcher.id, organizationId: orgA.id,
         },
         // Trip 3: Assigned — с заявкой ORD-0001
         {
@@ -289,7 +322,7 @@ async function seedDemo() {
             vehicleId: vehicleRows[1].id, trailerId: trailerRows[0].id, driverId: driverRows[2].id,
             plannedDistanceKm: 180,
             plannedDepartureAt: new Date('2026-03-22T08:00:00Z'),
-            createdBy: dispatcher.id,
+            createdBy: dispatcher.id, organizationId: orgA.id,
         },
         // Trip 4: Planning — для ORD-0005
         {
@@ -297,7 +330,7 @@ async function seedDemo() {
             vehicleId: vehicleRows[4].id, driverId: driverRows[0].id,
             plannedDistanceKm: 190,
             plannedDepartureAt: new Date('2026-03-24T07:00:00Z'),
-            createdBy: dispatcher.id,
+            createdBy: dispatcher.id, organizationId: orgA.id,
         },
         // Trip 5: Billed (завершён + выставлен счёт)
         {
@@ -310,7 +343,7 @@ async function seedDemo() {
             odometerStart: 44850, odometerEnd: 44938,
             fuelStart: 100, fuelEnd: 72,
             originalDocumentsReceived: true,
-            createdBy: dispatcher.id,
+            createdBy: dispatcher.id, organizationId: orgA.id,
         },
     ]).returning();
 
@@ -560,7 +593,8 @@ async function seedDemo() {
     // 16) INVOICES
     // ================================================================
     console.log('  → Invoices...');
-    const invoiceRows = await db.insert(invoices).values([
+    // invoices: scope via contractor (нет колонки organization_id).
+    const invoiceSeed: typeof invoices.$inferInsert[] = [
         {
             number: 'СЧ-2026-001', contractorId: client1.id, contractId: contract1.id,
             type: 'invoice', status: 'paid', tripIds: [tripRows[4].id],
@@ -580,7 +614,8 @@ async function seedDemo() {
             subtotal: 5175, vatAmount: 1035, total: 6210,
             periodStart: new Date('2026-03-20'), periodEnd: new Date('2026-03-20'),
         },
-    ]).returning();
+    ];
+    const invoiceRows = await db.insert(invoices).values(invoiceSeed).returning();
 
     await db.insert(invoiceTrips).values([
         { invoiceId: invoiceRows[0].id, tripId: tripRows[4].id },
@@ -591,13 +626,14 @@ async function seedDemo() {
     // 17) INCIDENTS
     // ================================================================
     console.log('  → Incidents...');
-    await db.insert(incidents).values([
+    const incidentSeed: typeof incidents.$inferInsert[] = [
         {
             type: 'tech_inspection', severity: 'medium', status: 'open',
             description: 'Неисправность шины и указателя поворота (Hyundai HD78 К012ЛМ77)',
             vehicleId: vehicleRows[3].id, techInspectionId: techInspRows[2].id,
             blocksRelease: true, createdBy: mechanic.id,
             createdAt: new Date('2026-03-22T06:30:00Z'),
+            // incidents: нет колонки organization_id — scope via vehicle/driver/trip.
         },
         {
             type: 'med_inspection', severity: 'low', status: 'resolved',
@@ -614,8 +650,10 @@ async function seedDemo() {
             vehicleId: vehicleRows[2].id, driverId: driverRows[1].id, tripId: tripRows[1].id,
             blocksRelease: false, createdBy: dispatcher.id,
             createdAt: new Date('2026-03-23T08:30:00Z'),
+            // scope via vehicle/driver/trip
         },
-    ]);
+    ];
+    await db.insert(incidents).values(incidentSeed);
 
     // ================================================================
     // 18) CLAIMS
@@ -627,6 +665,7 @@ async function seedDemo() {
             type: 'delay', status: 'open', amount: '3000',
             description: 'Опоздание на выгрузку на 1.5 часа, простой крана на стройплощадке.',
             createdBy: logist.id,
+            // claims не имеет колонки organization_id — scope via contractorId.
         },
         {
             contractorId: client2.id, type: 'damage', status: 'resolved',
@@ -724,12 +763,78 @@ async function seedDemo() {
     // ================================================================
     console.log('  → Events...');
     await db.insert(events).values([
-        { authorId: dispatcher.id, authorRole: 'dispatcher', eventType: 'trip.created', entityType: 'trip', entityId: tripRows[0].id, data: { number: 'TR-2026-0001' }, timestamp: new Date('2026-03-20T06:00:00Z') },
-        { authorId: dispatcher.id, authorRole: 'dispatcher', eventType: 'trip.status_changed', entityType: 'trip', entityId: tripRows[0].id, data: { from: 'planning', to: 'completed' }, timestamp: new Date('2026-03-20T14:30:00Z') },
-        { authorId: mechanic.id, authorRole: 'mechanic', eventType: 'inspection.completed', entityType: 'tech_inspection', entityId: techInspRows[0].id, data: { decision: 'approved', vehiclePlate: 'А123БВ77' }, timestamp: new Date('2026-03-20T06:30:00Z') },
-        { authorId: medic.id, authorRole: 'medic', eventType: 'inspection.completed', entityType: 'med_inspection', entityId: medInspRows[0].id, data: { decision: 'approved', driverName: 'Морозов С.Н.' }, timestamp: new Date('2026-03-20T06:15:00Z') },
-        { authorId: logist.id, authorRole: 'logist', eventType: 'order.created', entityType: 'order', entityId: orderRows[0].id, data: { number: 'ORD-2026-0001' }, timestamp: new Date('2026-03-22T07:00:00Z') },
+        { authorId: dispatcher.id, authorRole: 'dispatcher', eventType: 'trip.created', entityType: 'trip', entityId: tripRows[0].id, data: { number: 'TR-2026-0001' }, timestamp: new Date('2026-03-20T06:00:00Z'), organizationId: orgA.id },
+        { authorId: dispatcher.id, authorRole: 'dispatcher', eventType: 'trip.status_changed', entityType: 'trip', entityId: tripRows[0].id, data: { from: 'planning', to: 'completed' }, timestamp: new Date('2026-03-20T14:30:00Z'), organizationId: orgA.id },
+        { authorId: mechanic.id, authorRole: 'mechanic', eventType: 'inspection.completed', entityType: 'tech_inspection', entityId: techInspRows[0].id, data: { decision: 'approved', vehiclePlate: 'А123БВ77' }, timestamp: new Date('2026-03-20T06:30:00Z'), organizationId: orgA.id },
+        { authorId: medic.id, authorRole: 'medic', eventType: 'inspection.completed', entityType: 'med_inspection', entityId: medInspRows[0].id, data: { decision: 'approved', driverName: 'Морозов С.Н.' }, timestamp: new Date('2026-03-20T06:15:00Z'), organizationId: orgA.id },
+        { authorId: logist.id, authorRole: 'logist', eventType: 'order.created', entityType: 'order', entityId: orderRows[0].id, data: { number: 'ORD-2026-0001' }, timestamp: new Date('2026-03-22T07:00:00Z'), organizationId: orgA.id },
     ]);
+
+    // ================================================================
+    // 24) Org-B — минимальный набор для cross-org-leak QA-тестов (F1)
+    // ================================================================
+    // Без второй организации тесты на multi-tenancy (driver leak, IDOR,
+    // updateOrder mass-assignment FK, etc) невозможны — все данные в одной
+    // org и не дают подтверждения изоляции. Создаём admin/logist/driver +
+    // 1 contractor + 1 vehicle + 1 driver + 1 order + 1 trip.
+    console.log('  → Org-B (test tenant for cross-org-leak tests)...');
+    const [adminB] = await db.insert(users).values({
+        email: 'admin@org-b.local', passwordHash, fullName: 'Admin Org-B', roles: ['admin'],
+        organizationId: orgB.id,
+    }).returning();
+    const [logistB] = await db.insert(users).values({
+        email: 'logist@org-b.local', passwordHash, fullName: 'Logist Org-B', roles: ['logist'],
+        organizationId: orgB.id,
+    }).returning();
+    const [dispatcherB] = await db.insert(users).values({
+        email: 'dispatcher@org-b.local', passwordHash, fullName: 'Dispatcher Org-B', roles: ['dispatcher'],
+        organizationId: orgB.id,
+    }).returning();
+    const [driverUserB] = await db.insert(users).values({
+        email: 'driver@org-b.local', passwordHash, fullName: 'Driver Org-B', roles: ['driver'],
+        organizationId: orgB.id,
+    }).returning();
+
+    const [contractorB] = await db.insert(contractors).values({
+        name: 'ООО «Контрагент Org-B»', inn: '7800000003', kpp: '780001001',
+        legalAddress: 'г. Санкт-Петербург, Малая Конюшенная, 5',
+        organizationId: orgB.id,
+    }).returning();
+    const [contractB] = await db.insert(contracts).values({
+        contractorId: contractorB.id, number: 'ДГ-B-2026/001',
+        startDate: new Date('2026-01-01'), endDate: new Date('2026-12-31'),
+    }).returning();
+    const [vehicleB] = await db.insert(vehicles).values({
+        plateNumber: 'X777YZ78', vin: 'XTA21700099900001', make: 'Volvo', model: 'FH16', year: 2024,
+        bodyType: 'тент', payloadCapacityKg: 20000, payloadVolumeM3: 85, fuelTankLiters: 600,
+        fuelNormPer100Km: 30, currentOdometerKm: 1500,
+        techInspectionExpiry: new Date('2027-12-31'), osagoExpiry: new Date('2027-12-31'),
+        organizationId: orgB.id,
+    }).returning();
+    const [driverB] = await db.insert(drivers).values({
+        userId: driverUserB.id, fullName: 'Driver Org-B', birthDate: new Date('1988-04-04'),
+        licenseNumber: '7800000003', licenseCategories: ['B', 'C', 'CE'],
+        licenseExpiry: new Date('2029-04-04'), snils: '111-111-111 11',
+        personalDataConsent: true, personalDataConsentDate: new Date('2026-01-01'),
+        organizationId: orgB.id,
+    }).returning();
+    const [orderB] = await db.insert(orders).values({
+        number: 'ORD-B-2026-0001', contractorId: contractorB.id, contractId: contractB.id,
+        status: 'confirmed', cargoDescription: 'Груз Org-B (тестовый)', cargoWeightKg: 5000,
+        loadingAddress: 'г. Санкт-Петербург, склад A',
+        loadingDate: new Date('2026-04-01T08:00:00Z'),
+        unloadingAddress: 'г. Санкт-Петербург, склад B',
+        unloadingDate: new Date('2026-04-01T15:00:00Z'),
+        createdBy: logistB.id, organizationId: orgB.id,
+    }).returning();
+    const [tripB] = await db.insert(trips).values({
+        number: 'TR-B-2026-0001', status: 'planning',
+        vehicleId: vehicleB.id, driverId: driverB.id,
+        plannedDistanceKm: 50,
+        plannedDepartureAt: new Date('2026-04-01T08:00:00Z'),
+        createdBy: dispatcherB.id, organizationId: orgB.id,
+    }).returning();
+    await db.insert(tripOrders).values({ tripId: tripB.id, orderId: orderB.id });
 
     // ================================================================
     // DONE
@@ -738,21 +843,27 @@ async function seedDemo() {
     console.log('✅ FULL demo seed completed!');
     console.log('');
     console.log(`📋 Аккаунты (пароль: ${seedPassword}):`);
-    console.log('   ★ super@tms.local      — СУПЕРПОЛЬЗОВАТЕЛЬ (все роли)');
-    console.log('   admin@tms.local       — Администратор');
-    console.log('   logist@tms.local      — Логист');
-    console.log('   dispatcher@tms.local  — Диспетчер');
-    console.log('   mechanic@tms.local    — Механик');
-    console.log('   medic@tms.local       — Медик');
-    console.log('   manager@tms.local     — Руководитель');
-    console.log('   accountant@tms.local  — Бухгалтер');
-    console.log('   repair@tms.local      — Ремонтная служба');
-    console.log('   driver1/2/3@tms.local — Водители');
+    console.log('   ★ super@tms.local      — СУПЕРПОЛЬЗОВАТЕЛЬ (org=NULL, кросс-tenant)');
+    console.log('   admin@tms.local       — Администратор (Org-A)');
+    console.log('   logist@tms.local      — Логист (Org-A)');
+    console.log('   dispatcher@tms.local  — Диспетчер (Org-A)');
+    console.log('   mechanic@tms.local    — Механик (Org-A)');
+    console.log('   medic@tms.local       — Медик (Org-A)');
+    console.log('   manager@tms.local     — Руководитель (Org-A)');
+    console.log('   accountant@tms.local  — Бухгалтер (Org-A)');
+    console.log('   repair@tms.local      — Ремонтная служба (Org-A)');
+    console.log('   driver1/2/3@tms.local — Водители (Org-A)');
     console.log('');
-    console.log('📊 Данные:');
-    console.log('   5 заявок, 5 рейсов, 3 путевых листа, 3 техосмотра, 3 медосмотра');
-    console.log('   3 ремонта, 3 штрафа, 3 пропуска, 3 счёта, 3 тарифа');
-    console.log('   3 прицепа, 3 инцидента, 2 претензии, 4 тахографа');
+    console.log('   ★ Org-B (для cross-org-leak тестов):');
+    console.log('   admin@org-b.local       — Admin Org-B');
+    console.log('   logist@org-b.local      — Logist Org-B');
+    console.log('   dispatcher@org-b.local  — Dispatcher Org-B');
+    console.log('   driver@org-b.local      — Driver Org-B');
+    console.log('');
+    console.log('📊 Org-A: 5 заявок, 5 рейсов, 3 путевых листа, 3 техосмотра, 3 медосмотра,');
+    console.log('         3 ремонта, 3 штрафа, 3 пропуска, 3 счёта, 3 тарифа,');
+    console.log('         3 прицепа, 3 инцидента, 2 претензии, 4 тахографа.');
+    console.log('📊 Org-B: 1 contractor, 1 vehicle, 1 driver, 1 order, 1 trip.');
 
     await sql.end();
     process.exit(0);

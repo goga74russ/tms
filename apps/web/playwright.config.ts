@@ -30,9 +30,57 @@ export default defineConfig({
     },
 
     projects: [
+        // F2: один раз логинит все роли и сохраняет storage state в
+        // tests/.auth/<role>.json. Все остальные projects зависят от него.
+        {
+            name: 'setup',
+            testMatch: /auth\.setup\.ts/,
+        },
+        // Базовый happy-path и любые тесты, которые сами делают login.
         {
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
+            dependencies: ['setup'],
+        },
+        // Per-role projects — тесты под этой ролью видят готовое
+        // storage state. Тест-файл может сам делать test.use({ storageState })
+        // если нужно прыгать между ролями, но базовый use на проекте
+        // удобнее для multi-role smoke-набора.
+        //
+        // Имена ролей синхронны с fixtures/auth.ts:ROLE_USERS.role.
+        // testMatch покрывает spec'и в tests/e2e/role/<role>/ —
+        // эту папку команда QA создаёт по мере необходимости.
+        {
+            name: 'role-admin',
+            use: { ...devices['Desktop Chrome'], storageState: 'tests/.auth/admin.json' },
+            testMatch: /e2e\/role\/admin\/.*\.spec\.ts/,
+            dependencies: ['setup'],
+        },
+        {
+            name: 'role-driver',
+            use: { ...devices['Desktop Chrome'], storageState: 'tests/.auth/driver1.json' },
+            testMatch: /e2e\/role\/driver\/.*\.spec\.ts/,
+            dependencies: ['setup'],
+        },
+        {
+            name: 'role-dispatcher',
+            use: { ...devices['Desktop Chrome'], storageState: 'tests/.auth/dispatcher.json' },
+            testMatch: /e2e\/role\/dispatcher\/.*\.spec\.ts/,
+            dependencies: ['setup'],
+        },
+        {
+            name: 'role-logist',
+            use: { ...devices['Desktop Chrome'], storageState: 'tests/.auth/logist.json' },
+            testMatch: /e2e\/role\/logist\/.*\.spec\.ts/,
+            dependencies: ['setup'],
+        },
+        // Cross-org-leak: открытие как admin@org-b и проверка, что Org-A
+        // данные не видны. Тесты живут в tests/e2e/cross-org/.
+        {
+            name: 'cross-org',
+            use: { ...devices['Desktop Chrome'], storageState: 'tests/.auth/admin_org_b.json' },
+            testMatch: /e2e\/cross-org\/.*\.spec\.ts/,
+            dependencies: ['setup'],
         },
     ],
 
