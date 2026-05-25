@@ -42,7 +42,35 @@ interface DrawerOrder {
     customerPrice?: number | null;
     customerPriceCurrency?: string | null;
     customerPriceIncludesVat?: boolean | null;
+    // N3 (Этап 5) — связанные счета (только для manager+/accountant/admin).
+    invoiceLinks?: Array<{
+        invoiceId: string;
+        number: string;
+        type: string;
+        status: string;
+        allocatedAmount: number;
+        total: number;
+    }> | null;
 }
+
+const INVOICE_TYPE_LABEL: Record<string, string> = {
+    payment: 'Счёт на оплату',
+    advance: 'Авансовый',
+    sf: 'СФ',
+    upd: 'УПД',
+    corrective_sf: 'Корректировочный СФ',
+    corrective_upd: 'Корректировочный УПД',
+    act: 'Акт',
+};
+
+const INVOICE_STATUS_LABEL: Record<string, string> = {
+    draft: 'Черновик',
+    issued: 'Выпущен',
+    paid_partial: 'Частично оплачен',
+    paid_full: 'Оплачен',
+    cancelled: 'Аннулирован',
+    corrected: 'Скорректирован',
+};
 
 const STATUS_LABEL: Record<string, string> = {
     draft: 'Черновик',
@@ -253,6 +281,53 @@ export function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClo
                                                 открыть досье
                                             </Link>
                                         </div>
+                                    </div>
+                                </section>
+                            )}
+
+                            {/* N3 (Этап 5) — связанные счета. Видны только manager+/accountant/admin
+                                (backend подаёт invoiceLinks=null для прочих ролей). */}
+                            {order.invoiceLinks && order.invoiceLinks.length > 0 && (
+                                <section>
+                                    <h3 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">
+                                        Связанные счета
+                                    </h3>
+                                    <div className="space-y-1.5">
+                                        {order.invoiceLinks.map((link) => (
+                                            <div
+                                                key={link.invoiceId}
+                                                className="rounded-lg border border-neutral-200 bg-white px-3 py-2 flex items-center justify-between gap-2"
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="text-sm font-medium text-neutral-900">
+                                                        {link.number}
+                                                    </div>
+                                                    <div className="text-xs text-neutral-500">
+                                                        {INVOICE_TYPE_LABEL[link.type] ?? link.type}
+                                                        {' · '}
+                                                        <span className="text-neutral-700">
+                                                            {INVOICE_STATUS_LABEL[link.status] ?? link.status}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="shrink-0 text-right">
+                                                    <div className="text-sm font-semibold text-emerald-700">
+                                                        {new Intl.NumberFormat('ru-RU', {
+                                                            style: 'currency',
+                                                            currency: 'RUB',
+                                                            maximumFractionDigits: 0,
+                                                        }).format(link.allocatedAmount)}
+                                                    </div>
+                                                    <div className="text-[10px] text-neutral-500">
+                                                        в счёте: {new Intl.NumberFormat('ru-RU', {
+                                                            style: 'currency',
+                                                            currency: 'RUB',
+                                                            maximumFractionDigits: 0,
+                                                        }).format(link.total)}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </section>
                             )}

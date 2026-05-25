@@ -949,6 +949,48 @@ export default function FinanceDashboard() {
                             )}
                         </div>
 
+                        {/* N2 (Этап 5) — раздел «Связанные заявки» через invoice_orders junction.
+                            Spec §3 «basis_text» + §10 «invoice_orders с allocated_amount». */}
+                        {Array.isArray((selectedInvoice as any).orders) && (selectedInvoice as any).orders.length > 0 && (
+                            <div className="border-t border-neutral-200 pt-4">
+                                <p className="text-sm font-medium text-neutral-700 mb-3">Связанные заявки:</p>
+                                <div className="space-y-1.5">
+                                    {((selectedInvoice as any).orders as Array<{ id: string; number: string; status: string; cargoDescription: string; loadingAddress: string; unloadingAddress: string; allocatedAmount: number }>).map((row) => (
+                                        <div key={row.id} className="rounded-lg border border-neutral-200 bg-neutral-50/50 px-3 py-2 flex items-start justify-between gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-sm font-medium text-neutral-900 truncate">
+                                                    {row.number}
+                                                    <span className="text-[10px] text-neutral-500 ml-2">{row.status}</span>
+                                                </div>
+                                                <div className="text-xs text-neutral-600 truncate">
+                                                    {row.cargoDescription}
+                                                </div>
+                                                <div className="text-[11px] text-neutral-500 truncate">
+                                                    {row.loadingAddress?.split(',')[0]} → {row.unloadingAddress?.split(',')[0]}
+                                                </div>
+                                            </div>
+                                            <div className="shrink-0 text-right">
+                                                <div className="text-sm font-semibold text-emerald-700">
+                                                    {new Intl.NumberFormat('ru-RU', {
+                                                        style: 'currency',
+                                                        currency: 'RUB',
+                                                        maximumFractionDigits: 0,
+                                                    }).format(row.allocatedAmount)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-2 text-[11px] text-neutral-500">
+                                    Σ allocated_amount = {new Intl.NumberFormat('ru-RU', {
+                                        style: 'currency',
+                                        currency: 'RUB',
+                                        maximumFractionDigits: 0,
+                                    }).format(((selectedInvoice as any).orders as Array<{ allocatedAmount: number }>).reduce((s, r) => s + r.allocatedAmount, 0))}
+                                </div>
+                            </div>
+                        )}
+
                         {financeActionResult && (
                             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
                                 {financeActionResult}

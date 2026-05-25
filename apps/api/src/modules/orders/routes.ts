@@ -235,10 +235,41 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
         const canViewFinance = user.roles.includes('manager')
             || user.roles.includes('accountant')
             || user.roles.includes('admin');
-        const filteredOrder = canViewFinance ? order : {
+
+        // N1 (Этап 5) — связанные счета через invoice_orders.
+        // Видны только тем кто имеет финансовый доступ.
+        let invoiceLinks: Array<{
+            invoiceId: string; number: string; type: string; status: string;
+            allocatedAmount: number; total: number;
+        }> | null = null;
+        if (canViewFinance) {
+            const { invoiceOrders: invoiceOrdersTbl, invoices } = await import('../../db/schema.js');
+            const links = await db.select({
+                invoiceId: invoices.id,
+                number: invoices.number,
+                type: invoices.type,
+                status: invoices.status,
+                allocatedAmount: invoiceOrdersTbl.allocatedAmount,
+                total: invoices.total,
+            })
+                .from(invoiceOrdersTbl)
+                .innerJoin(invoices, eq(invoiceOrdersTbl.invoiceId, invoices.id))
+                .where(eq(invoiceOrdersTbl.orderId, id));
+            invoiceLinks = links.map((r) => ({
+                invoiceId: r.invoiceId,
+                number: r.number,
+                type: r.type,
+                status: r.status,
+                allocatedAmount: Number(r.allocatedAmount),
+                total: Number(r.total),
+            }));
+        }
+
+        const filteredOrder = canViewFinance ? { ...order, invoiceLinks } : {
             ...order,
             customerPrice: null,
             customerPriceIncludesVat: false,
+            invoiceLinks: null,
         };
 
         return { success: true, data: filteredOrder };

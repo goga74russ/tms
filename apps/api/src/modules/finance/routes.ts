@@ -478,6 +478,21 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                     amount: costPerTrip,
                 }));
 
+                // N1 (Этап 5) — invoice_orders junction (новая связь по spec §3).
+                const { invoiceOrders: invoiceOrdersTbl } = await import('../../db/schema.js');
+                const orderRows = await db.select({
+                    orderId: orders.id,
+                    orderNumber: orders.number,
+                    orderStatus: orders.status,
+                    cargoDescription: orders.cargoDescription,
+                    loadingAddress: orders.loadingAddress,
+                    unloadingAddress: orders.unloadingAddress,
+                    allocatedAmount: invoiceOrdersTbl.allocatedAmount,
+                    allocatedVat: invoiceOrdersTbl.allocatedVat,
+                }).from(invoiceOrdersTbl)
+                    .innerJoin(orders, eq(invoiceOrdersTbl.orderId, orders.id))
+                    .where(eq(invoiceOrdersTbl.invoiceId, invoice.id));
+
                 return {
                     success: true,
                     data: {
@@ -487,6 +502,17 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         contractorKpp: contractor?.kpp ?? null,
                         contractorAddress: contractor?.legalAddress ?? null,
                         tripRows,
+                        // N1 — новый раздел: связанные заявки с allocated amount
+                        orders: orderRows.map((r) => ({
+                            id: r.orderId,
+                            number: r.orderNumber,
+                            status: r.orderStatus,
+                            cargoDescription: r.cargoDescription,
+                            loadingAddress: r.loadingAddress,
+                            unloadingAddress: r.unloadingAddress,
+                            allocatedAmount: Number(r.allocatedAmount),
+                            allocatedVat: r.allocatedVat != null ? Number(r.allocatedVat) : null,
+                        })),
                     },
                 };
             } catch (error: any) {
