@@ -7,6 +7,7 @@ import { assertOrderAccess, AccessDeniedError, EntityNotFoundError } from '../..
 import {
     createOrder,
     getOrders,
+    getOrdersList,
     getOrderById,
     updateOrder,
     changeOrderStatus,
@@ -82,6 +83,49 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             dateFrom: query.dateFrom,
             dateTo: query.dateTo,
             search: query.search,
+            page: query.page ? parseInt(query.page, 10) : undefined,
+            limit: query.limit ? parseInt(query.limit, 10) : undefined,
+            organizationId: user.organizationId,
+        });
+
+        return { success: true, ...result };
+    });
+
+    // --- GET /orders/list — denormalized list for /orders page (table view) ---
+    // H1: возвращает orders + contractor + assigned trip за один запрос.
+    // Используется новой страницей /orders (table view для logist/dispatcher/manager/accountant).
+    // Org-scoping обязательный + RLS для driver/client (через тот же паттерн что и /orders).
+    app.get('/orders/list', {
+        schema: { tags: ['Заявки'], summary: 'Список заявок (denormalized)', description: 'Заявки с прикреплённым контрагентом и назначенным рейсом. Поиск по номеру, адресам и имени контрагента.' },
+        preHandler: [app.authenticate, requireAbility('read', 'Order')],
+    }, async (request) => {
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const query = request.query as {
+            status?: string;
+            contractorId?: string;
+            dateFrom?: string;
+            dateTo?: string;
+            search?: string;
+            hasTrip?: string;
+            page?: string;
+            limit?: string;
+        };
+
+        let rlsContractorId = query.contractorId;
+        if (!hasPrivilege(user.roles) && user.roles.includes('client')) {
+            const myContractorId = await resolveContractorId(user.userId);
+            if (myContractorId) rlsContractorId = myContractorId;
+        }
+        // Note: driver-RLS у этого endpoint'а отсутствует намеренно — таблица /orders
+        // не предназначена для driver-роли (у них своя мобильная страница рейсов).
+
+        const result = await getOrdersList({
+            status: query.status,
+            contractorId: rlsContractorId,
+            dateFrom: query.dateFrom,
+            dateTo: query.dateTo,
+            search: query.search,
+            hasTrip: query.hasTrip === 'true' ? true : query.hasTrip === 'false' ? false : undefined,
             page: query.page ? parseInt(query.page, 10) : undefined,
             limit: query.limit ? parseInt(query.limit, 10) : undefined,
             organizationId: user.organizationId,

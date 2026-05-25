@@ -22,8 +22,15 @@ import { test, expect, type Page } from '@playwright/test';
 // failure in one stage does not block the others from running.
 // ============================================================
 
+// GAP-003 fix: пароль читаем из той же ENV, что и seed-demo.ts (SEED_PASSWORD)
+// — единая точка истины, fallback demo1234 убран (M-5).
+const SEED_PASSWORD =
+    process.env.E2E_SEED_PASSWORD ?? process.env.E2E_SUPER_PASSWORD ?? process.env.SEED_PASSWORD;
+if (!SEED_PASSWORD) {
+    throw new Error('E2E_SEED_PASSWORD / SEED_PASSWORD не задана — см. tests/fixtures/auth.ts');
+}
 const SUPER_EMAIL = process.env.E2E_SUPER_EMAIL ?? 'super@tms.local';
-const SUPER_PASSWORD = process.env.E2E_SUPER_PASSWORD ?? 'demo1234';
+const SUPER_PASSWORD = SEED_PASSWORD;
 const DISPATCHER_EMAIL = process.env.E2E_DISPATCHER_EMAIL ?? 'dispatcher@tms.local';
 const DISPATCHER_PASSWORD = process.env.E2E_DISPATCHER_PASSWORD ?? SUPER_PASSWORD;
 
@@ -133,15 +140,24 @@ test.describe('TMS happy path — Phase 1', () => {
         }
 
         // ---- Trigger temperature mock-tick via API ----
-        // The cold-chain module exposes a tick endpoint used by E2E.
-        // We don't fail the test if the endpoint name has shifted —
-        // the goal is "did the chain advance," not "this exact route."
-        const tickResponse = await request
-            .post('/api/cold-chain/mock-tick', { failOnStatusCode: false })
+        // Cold-chain tick is per-trip: POST /api/trips/:tripId/temperature-mock-tick.
+        // QA report 2026-05-24 нашёл: предыдущий путь /api/cold-chain/mock-tick
+        // не зарегистрирован — endpoint реально живёт в trips модуле.
+        // Только для рейсов с cold-chain заявкой; иначе тик не имеет смысла.
+        const tripsListResponse = await request
+            .get('/api/trips?status=in_transit&limit=1', { failOnStatusCode: false })
             .catch(() => null);
-        if (tickResponse) {
-            // Accept any 2xx/4xx — we just want to know we reached the API.
-            expect(tickResponse.status()).toBeLessThan(500);
+        const activeTripId = tripsListResponse?.ok()
+            ? ((await tripsListResponse.json().catch(() => null))?.data?.[0]?.id as string | undefined)
+            : undefined;
+        if (activeTripId) {
+            const tickResponse = await request
+                .post(`/api/trips/${activeTripId}/temperature-mock-tick`, { failOnStatusCode: false })
+                .catch(() => null);
+            if (tickResponse) {
+                // 200 (cold-chain тик принят) или 400 (рейс без cold-chain — ожидаемо).
+                expect(tickResponse.status()).toBeLessThan(500);
+            }
         }
 
         // ---- Finish the trip ----

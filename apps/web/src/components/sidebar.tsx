@@ -20,7 +20,11 @@ import { useUser } from '@/lib/user-context';
 // 'driver' sees nothing (mobile only).
 const navigation = [
     { name: 'Главная', href: '/', icon: Home },
-    { name: 'Заявки', href: '/logist', icon: ClipboardList, roles: ['logist', 'dispatcher'] },
+    // H5 — общая страница заявок (table view) для ролей с доступом к Order.
+    // /logist остаётся как рабочий канбан логиста (см. BUG-DISP-001 и Desing-обсуждение
+    // /orders A vs /logist B). Это две разные mental models: data view vs workflow board.
+    { name: 'Заявки', href: '/orders', icon: ClipboardList, roles: ['logist', 'dispatcher', 'manager', 'accountant'] },
+    { name: 'Канбан логиста', href: '/logist', icon: ClipboardList, roles: ['logist'] },
     { name: 'Диспетчерская', href: '/dispatcher', icon: Map, roles: ['dispatcher'] },
     { name: 'Рейсы', href: '/trips', icon: Map, roles: ['logist', 'dispatcher'] },
     { name: 'Техосмотр', href: '/mechanic', icon: Wrench, roles: ['mechanic'] },

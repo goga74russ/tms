@@ -162,6 +162,137 @@ export async function createOrder(
     throw new Error('Не удалось сгенерировать уникальный номер заявки');
 }
 
+// ============================================================
+// H1 — getOrdersList: denormalized list with contractor + trip
+//
+// Отдельный читающий метод для общей страницы /orders (table view
+// под logist / dispatcher / manager / accountant). Возвращает
+// денормализованные данные (имя контрагента, номер рейса), чтобы
+// фронту не делать N+1 fetch'ей.
+//
+// Поиск работает по: orders.number, orders.loadingAddress,
+// orders.unloadingAddress, contractors.name (case-insensitive).
+// Чувствительность к RBAC обеспечивается отдельно на роуте через
+// requireAbility('read', 'Order') + organizationId scope.
+// ============================================================
+export interface OrdersListFilters {
+    status?: string;
+    contractorId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+    organizationId?: string | null;
+    hasTrip?: boolean;
+}
+
+export interface OrderListRow {
+    id: string;
+    number: string;
+    status: string;
+    cargoDescription: string;
+    cargoWeightKg: number;
+    cargoVolumeM3: number | null;
+    loadingAddress: string;
+    loadingDate: Date | null;
+    unloadingAddress: string;
+    unloadingDate: Date | null;
+    coldChainRequired: boolean;
+    createdAt: Date;
+    contractor: { id: string; name: string; inn: string | null } | null;
+    trip: { id: string; number: string; status: string } | null;
+}
+
+export async function getOrdersList(filters: OrdersListFilters): Promise<{
+    data: OrderListRow[];
+    total: number;
+    page: number;
+    limit: number;
+}> {
+    const page = filters.page ?? 1;
+    const limit = Math.min(filters.limit ?? 25, 100);
+    const offset = (page - 1) * limit;
+
+    const conditions = [];
+    if (filters.status) conditions.push(eq(orders.status, filters.status as any));
+    if (filters.contractorId) conditions.push(eq(orders.contractorId, filters.contractorId));
+    if (filters.dateFrom) conditions.push(gte(orders.createdAt, new Date(filters.dateFrom)));
+    if (filters.dateTo) conditions.push(lte(orders.createdAt, new Date(filters.dateTo)));
+    if (filters.search) {
+        const pat = containsLikePattern(filters.search);
+        conditions.push(
+            sql`(${orders.number} ILIKE ${pat}
+                OR ${orders.loadingAddress} ILIKE ${pat}
+                OR ${orders.unloadingAddress} ILIKE ${pat}
+                OR ${contractors.name} ILIKE ${pat})`,
+        );
+    }
+    if (filters.organizationId) conditions.push(eq(orders.organizationId, filters.organizationId));
+    if (filters.hasTrip === true) conditions.push(sql`${orders.tripId} IS NOT NULL`);
+    if (filters.hasTrip === false) conditions.push(sql`${orders.tripId} IS NULL`);
+
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [rows, countResult] = await Promise.all([
+        db.select({
+            id: orders.id,
+            number: orders.number,
+            status: orders.status,
+            cargoDescription: orders.cargoDescription,
+            cargoWeightKg: orders.cargoWeightKg,
+            cargoVolumeM3: orders.cargoVolumeM3,
+            loadingAddress: orders.loadingAddress,
+            loadingDate: orders.loadingDate,
+            unloadingAddress: orders.unloadingAddress,
+            unloadingDate: orders.unloadingDate,
+            coldChainRequired: orders.coldChainRequired,
+            createdAt: orders.createdAt,
+            contractorId: contractors.id,
+            contractorName: contractors.name,
+            contractorInn: contractors.inn,
+            tripId: trips.id,
+            tripNumber: trips.number,
+            tripStatus: trips.status,
+        })
+            .from(orders)
+            .leftJoin(contractors, eq(orders.contractorId, contractors.id))
+            .leftJoin(trips, eq(orders.tripId, trips.id))
+            .where(where)
+            .orderBy(desc(orders.createdAt))
+            .limit(limit)
+            .offset(offset),
+        db.select({ count: sql<number>`count(*)::int` })
+            .from(orders)
+            .leftJoin(contractors, eq(orders.contractorId, contractors.id))
+            .where(where),
+    ]);
+
+    const data: OrderListRow[] = rows.map((r) => ({
+        id: r.id,
+        number: r.number,
+        status: r.status,
+        cargoDescription: r.cargoDescription,
+        cargoWeightKg: r.cargoWeightKg,
+        cargoVolumeM3: r.cargoVolumeM3,
+        loadingAddress: r.loadingAddress,
+        loadingDate: r.loadingDate,
+        unloadingAddress: r.unloadingAddress,
+        unloadingDate: r.unloadingDate,
+        coldChainRequired: r.coldChainRequired,
+        createdAt: r.createdAt,
+        contractor: r.contractorId
+            ? { id: r.contractorId, name: r.contractorName ?? '', inn: r.contractorInn ?? null }
+            : null,
+        trip: r.tripId
+            ? { id: r.tripId, number: r.tripNumber ?? '', status: r.tripStatus ?? '' }
+            : null,
+    }));
+
+    const total = countResult[0]?.count ?? 0;
+    return { data, total, page, limit };
+}
+
 export async function getOrders(filters: OrderFilters) {
     const page = filters.page ?? 1;
     const limit = Math.min(filters.limit ?? 20, 100); // M-11: cap at 100

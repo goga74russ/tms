@@ -5,6 +5,7 @@ import { db } from '../../db/connection.js';
 import {
     trips, orders, routePoints, vehicles, drivers, permits, incidents, tripOrders, waybills, trailers, contractors,
     deliveryConfirmations, tachographRecords,
+    shipmentLots, tripLotAssignments,
 } from '../../db/schema.js';
 import { eq, and, desc, sql, gte, lte, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
@@ -1174,7 +1175,7 @@ async function linkOrdersToTripTx(
 
         await tx.insert(tripOrders).values({ tripId, orderId }).onConflictDoNothing();
 
-        await tx.insert(routePoints).values({
+        const [loadingPoint] = await tx.insert(routePoints).values({
             tripId,
             orderId,
             type: 'loading',
@@ -1185,9 +1186,9 @@ async function linkOrdersToTripTx(
             lon: order.loadingLon,
             windowStart: order.loadingWindowStart,
             windowEnd: order.loadingWindowEnd,
-        });
+        }).returning({ id: routePoints.id });
 
-        await tx.insert(routePoints).values({
+        const [unloadingPoint] = await tx.insert(routePoints).values({
             tripId,
             orderId,
             type: 'unloading',
@@ -1198,6 +1199,50 @@ async function linkOrdersToTripTx(
             lon: order.unloadingLon,
             windowStart: order.unloadingWindowStart,
             windowEnd: order.unloadingWindowEnd,
+        }).returning({ id: routePoints.id });
+
+        // G1 — Auto-create shipment_lot + trip_lot_assignment.
+        // Без этой связки legacy logist-flow создаёт рейсы, которые невозможно
+        // завершить через POST /trips/:id/shipment-facts (требует tripLotAssignmentId).
+        // 1 заявка → 1 lot (sequence=1), 1 trip с N заявками → N assignments.
+        // QA report 2026-05-24, GAP-LOT-SETUP.
+        const lotOrgId = order.organizationId ?? author.organizationId ?? null;
+        const [lot] = await tx.insert(shipmentLots).values({
+            organizationId: lotOrgId,
+            orderId,
+            sequence: 1,
+            status: 'planned',
+            plannedWeightKg: order.cargoWeightKg,
+            plannedVolumeM3: order.cargoVolumeM3,
+            plannedPlaces: order.cargoPlaces,
+            remainingWeightKg: order.cargoWeightKg,
+            remainingVolumeM3: order.cargoVolumeM3,
+            remainingPlaces: order.cargoPlaces,
+            cargoDescription: order.cargoDescription,
+            cargoType: order.cargoType,
+            loadingAddress: order.loadingAddress,
+            loadingDate: order.loadingDate,
+            loadingWindowStart: order.loadingWindowStart,
+            loadingWindowEnd: order.loadingWindowEnd,
+            unloadingAddress: order.unloadingAddress,
+            unloadingDate: order.unloadingDate,
+            unloadingWindowStart: order.unloadingWindowStart,
+            unloadingWindowEnd: order.unloadingWindowEnd,
+            createdBy: author.userId,
+        }).returning({ id: shipmentLots.id });
+
+        await tx.insert(tripLotAssignments).values({
+            organizationId: lotOrgId,
+            tripId,
+            orderId,
+            shipmentLotId: lot.id,
+            assignedWeightKg: order.cargoWeightKg,
+            assignedVolumeM3: order.cargoVolumeM3,
+            assignedPlaces: order.cargoPlaces,
+            status: 'planned',
+            loadingRoutePointId: loadingPoint.id,
+            unloadingRoutePointId: unloadingPoint.id,
+            createdBy: author.userId,
         });
 
         await recordEvent({
@@ -1206,7 +1251,7 @@ async function linkOrdersToTripTx(
             eventType: 'order.assigned',
             entityType: 'order',
             entityId: orderId,
-            data: { tripId },
+            data: { tripId, shipmentLotId: lot.id },
         }, tx);
     }
 }
