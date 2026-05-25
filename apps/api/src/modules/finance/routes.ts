@@ -5,6 +5,21 @@ import { tarificationService } from './tarification.service.js';
 import { financeService } from './finance.service.js';
 import { evaluateTariffRule } from './tariff-rules.service.js';
 import { InvoiceCreateSchema, FuelAnalysisQuerySchema, Export1CQuerySchema, AdjustmentCreateSchema } from './schemas.js';
+import {
+    InvoiceCreateSchema as InvoiceWorkflowCreateSchema,
+    InvoiceIssueSchema,
+    InvoiceCorrectionCreateSchema,
+    InvoicePaymentSchema,
+    InvoiceCancelSchema,
+} from '@tms/shared';
+import {
+    createDraftInvoice,
+    issueDraftInvoice,
+    createCorrection,
+    registerPayment,
+    cancelInvoice,
+    InvoiceWorkflowError,
+} from './invoice-workflow.service.js';
 import { db } from '../../db/connection.js';
 import { invoices, invoiceTrips, invoiceAdjustments, contractors as contractorsTable, organizations } from '../../db/schema.js';
 import { z } from 'zod';
@@ -268,6 +283,130 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         }
     );
 
+    // ============================================================
+    // M (Этап 3) — Invoice workflow per invoice-spec.md
+    // ============================================================
+
+    function handleWorkflowError(reply: any, err: unknown) {
+        if (err instanceof InvoiceWorkflowError) {
+            return reply.code(err.httpStatus).send({
+                success: false,
+                error: err.message,
+                code: err.code,
+            });
+        }
+        return reply.code(500).send({ success: false, error: (err as Error).message });
+    }
+
+    // 4a. POST /finance/invoices/draft — создать draft invoice (новый workflow)
+    fastify.post(
+        '/finance/invoices/draft',
+        { schema: { tags: ['Финансы'], summary: 'Создать черновик счёта (новый workflow)' }, preHandler: [fastify.authenticate, requireAbility('manage', 'Invoice')] },
+        async (request, reply) => {
+            try {
+                const parsed = InvoiceWorkflowCreateSchema.safeParse(request.body);
+                if (!parsed.success) return reply.code(422).send({ success: false, error: parsed.error.flatten() });
+                const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+                const result = await createDraftInvoice(parsed.data, {
+                    userId: user.userId,
+                    role: user.roles[0],
+                    organizationId: user.organizationId,
+                });
+                return reply.code(201).send({ success: true, data: result });
+            } catch (err) {
+                return handleWorkflowError(reply, err);
+            }
+        }
+    );
+
+    // 4b. POST /finance/invoices/:id/issue — выпуск (draft → issued)
+    fastify.post<{ Params: { id: string } }>(
+        '/finance/invoices/:id/issue',
+        { schema: { tags: ['Финансы'], summary: 'Выпустить счёт (draft → issued)' }, preHandler: [fastify.authenticate, requireAbility('manage', 'Invoice')] },
+        async (request, reply) => {
+            try {
+                const parsed = InvoiceIssueSchema.safeParse(request.body);
+                if (!parsed.success) return reply.code(422).send({ success: false, error: parsed.error.flatten() });
+                const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+                const result = await issueDraftInvoice(request.params.id, parsed.data, {
+                    userId: user.userId,
+                    role: user.roles[0],
+                    organizationId: user.organizationId,
+                });
+                return { success: true, data: result };
+            } catch (err) {
+                return handleWorkflowError(reply, err);
+            }
+        }
+    );
+
+    // 4c. POST /finance/invoices/:id/corrections — выпуск КСФ/ИСФ
+    fastify.post<{ Params: { id: string } }>(
+        '/finance/invoices/:id/corrections',
+        { schema: { tags: ['Финансы'], summary: 'Выпустить корректировочный СФ или ИСФ' }, preHandler: [fastify.authenticate, requireAbility('manage', 'Invoice')] },
+        async (request, reply) => {
+            try {
+                const parsed = InvoiceCorrectionCreateSchema.safeParse({
+                    ...(request.body as object),
+                    relatedInvoiceId: request.params.id,
+                });
+                if (!parsed.success) return reply.code(422).send({ success: false, error: parsed.error.flatten() });
+                const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+                const result = await createCorrection(parsed.data, {
+                    userId: user.userId,
+                    role: user.roles[0],
+                    organizationId: user.organizationId,
+                });
+                return reply.code(201).send({ success: true, data: result });
+            } catch (err) {
+                return handleWorkflowError(reply, err);
+            }
+        }
+    );
+
+    // 4d. POST /finance/invoices/:id/register-payment — регистрация платежа
+    // (renamed from /payments to avoid conflict with existing legacy endpoint).
+    fastify.post<{ Params: { id: string } }>(
+        '/finance/invoices/:id/register-payment',
+        { schema: { tags: ['Финансы'], summary: 'Регистрация оплаты счёта' }, preHandler: [fastify.authenticate, requireAbility('manage', 'Invoice')] },
+        async (request, reply) => {
+            try {
+                const parsed = InvoicePaymentSchema.safeParse(request.body);
+                if (!parsed.success) return reply.code(422).send({ success: false, error: parsed.error.flatten() });
+                const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+                const result = await registerPayment(request.params.id, parsed.data, {
+                    userId: user.userId,
+                    role: user.roles[0],
+                    organizationId: user.organizationId,
+                });
+                return { success: true, data: result };
+            } catch (err) {
+                return handleWorkflowError(reply, err);
+            }
+        }
+    );
+
+    // 4e. POST /finance/invoices/:id/cancel
+    fastify.post<{ Params: { id: string } }>(
+        '/finance/invoices/:id/cancel',
+        { schema: { tags: ['Финансы'], summary: 'Отменить счёт' }, preHandler: [fastify.authenticate, requireAbility('manage', 'Invoice')] },
+        async (request, reply) => {
+            try {
+                const parsed = InvoiceCancelSchema.safeParse(request.body);
+                if (!parsed.success) return reply.code(422).send({ success: false, error: parsed.error.flatten() });
+                const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+                const result = await cancelInvoice(request.params.id, parsed.data, {
+                    userId: user.userId,
+                    role: user.roles[0],
+                    organizationId: user.organizationId,
+                });
+                return { success: true, data: result };
+            } catch (err) {
+                return handleWorkflowError(reply, err);
+            }
+        }
+    );
+
     // 5. GET /finance/fuel-analysis — План-факт ГСМ
     fastify.get(
         '/finance/fuel-analysis',
@@ -401,7 +540,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
 
                 let pdfBuffer: Buffer;
 
-                if (invoice.type === 'invoice') {
+                if (invoice.type === 'payment') {
                     const { generateInvoicePdf } = await import('../documents/invoice-pdf.js');
                     pdfBuffer = await generateInvoicePdf({
                         number: invoice.number,
@@ -440,7 +579,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                     });
                 }
 
-                const typeLabel = invoice.type === 'invoice' ? 'invoice' : 'act';
+                const typeLabel = invoice.type === 'payment' ? 'invoice' : 'act';
                 reply.header('Content-Type', 'application/pdf');
                 reply.header('Content-Disposition', `attachment; filename="${typeLabel}_${invoice.number}.pdf"`);
                 reply.header('Content-Length', pdfBuffer.length);
@@ -515,7 +654,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                     const costPerTrip = Number(invoice.total) / tripCount;
 
                     let pdfBuffer: Buffer;
-                    if (invoice.type === 'invoice') {
+                    if (invoice.type === 'payment') {
                         pdfBuffer = await generateInvoicePdf({
                             number: invoice.number,
                             date: invoice.createdAt,
@@ -558,7 +697,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         });
                     }
 
-                    const typeLabel = invoice.type === 'invoice' ? 'invoice' : 'act';
+                    const typeLabel = invoice.type === 'payment' ? 'invoice' : 'act';
                     // Sanitize and dedupe filenames (invoice numbers should already be unique,
                     // but defend against odd chars and accidental dupes).
                     const safeNumber = String(invoice.number).replace(/[\\/:*?"<>|]+/g, '_');

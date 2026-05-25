@@ -127,8 +127,33 @@ export const tariffTypeEnum = pgEnum('tariff_type', [
     'per_km', 'per_ton', 'per_hour', 'fixed_route', 'combined',
 ]);
 
+// M (Этап 3, миграция 0036) — обновлённый FSM per invoice-spec.md §2.
+// Старый enum ('draft','sent','paid','overdue','cancelled') заменён через
+// ALTER TABLE USING с маппингом: sent→issued, paid→paid_full, overdue→issued.
 export const invoiceStatusEnum = pgEnum('invoice_status', [
-    'draft', 'sent', 'paid', 'overdue', 'cancelled',
+    'draft',
+    'issued',
+    'paid_partial',
+    'paid_full',
+    'cancelled',
+    'corrected',
+]);
+
+// M — invoice_type enum (spec §1).
+export const invoiceTypeEnum = pgEnum('invoice_type', [
+    'payment',
+    'advance',
+    'sf',
+    'upd',
+    'corrective_sf',
+    'corrective_upd',
+    'act',
+]);
+
+// M — correction_kind enum (spec §5): adjustment = КСФ, replacement = ИСФ.
+export const invoiceCorrectionKindEnum = pgEnum('invoice_correction_kind', [
+    'adjustment',
+    'replacement',
 ]);
 
 export const restrictionZoneTypeEnum = pgEnum('restriction_zone_type', [
@@ -867,10 +892,15 @@ export const fines = pgTable('fines', {
 export const invoices = pgTable('invoices', {
     id: uuid('id').primaryKey().defaultRandom(),
     number: varchar('number', { length: 50 }).notNull().unique(),
+    // contractor_id остался для backward compat (legacy). Новая модель
+    // использует payer_id / payee_id (spec §3) — направление документа
+    // определяется через них, не через тип.
     contractorId: uuid('contractor_id').notNull().references(() => contractors.id),
     contractId: uuid('contract_id').references(() => contracts.id),
-    type: varchar('type', { length: 20 }).notNull(), // invoice, act, upd
+    // M — invoice_type теперь ENUM (spec §1).
+    type: invoiceTypeEnum('type').notNull(),
     status: invoiceStatusEnum('status').notNull().default('draft'),
+    // tripIds оставлен для backward compat. Новые связки через invoice_orders.
     tripIds: jsonb('trip_ids').$type<string[]>().notNull().default([]),
     subtotal: numeric('subtotal', { precision: 12, scale: 2 }).$type<number>().notNull(),
     vatAmount: numeric('vat_amount', { precision: 12, scale: 2 }).$type<number>().notNull(),
@@ -879,6 +909,22 @@ export const invoices = pgTable('invoices', {
     periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
     paidAt: timestamp('paid_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    // M (Этап 3, миграция 0036) — новые поля per invoice-spec.md §3.
+    payerId: uuid('payer_id').references(() => contractors.id),
+    payeeId: uuid('payee_id').references(() => contractors.id),
+    payeeOrganizationId: uuid('payee_organization_id').references(() => organizations.id),
+    basisText: text('basis_text'),
+    vatRate: numeric('vat_rate', { precision: 4, scale: 2 }).$type<number>(),
+    includesVat: boolean('includes_vat').notNull().default(false),
+    currency: varchar('currency', { length: 3 }).notNull().default('RUB'),
+    issuedAt: timestamp('issued_at', { withTimezone: true }),
+    paidAmount: numeric('paid_amount', { precision: 12, scale: 2 }).$type<number>().notNull().default(0),
+    correctionKind: invoiceCorrectionKindEnum('correction_kind'),
+    relatedInvoiceId: uuid('related_invoice_id'),
+    correctionReason: text('correction_reason'),
+    correctionBasisArtifactId: uuid('correction_basis_artifact_id'),
+    hasCorrections: boolean('has_corrections').notNull().default(false),
+    cancellationReason: text('cancellation_reason'),
 }, (table) => [
     uniqueIndex('idx_invoices_number').on(table.number),
     index('idx_invoices_contractor').on(table.contractorId),
@@ -886,6 +932,37 @@ export const invoices = pgTable('invoices', {
     index('idx_invoices_created_at').on(table.createdAt),
     index('idx_invoices_status_created').on(table.status, table.createdAt),
     index('idx_invoices_contractor_period').on(table.contractorId, table.periodStart, table.periodEnd),
+]);
+
+// M (Этап 3) — junction для связки счёт ↔ заявка с allocated_amount.
+// CHECK Σ allocated_amount = invoice.total — DEFERRED trigger в БД.
+export const invoiceOrders = pgTable('invoice_orders', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    invoiceId: uuid('invoice_id').notNull().references(() => invoices.id, { onDelete: 'cascade' }),
+    orderId: uuid('order_id').notNull().references(() => orders.id),
+    allocatedAmount: numeric('allocated_amount', { precision: 12, scale: 2 }).$type<number>().notNull(),
+    allocatedVat: numeric('allocated_vat', { precision: 12, scale: 2 }).$type<number>(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    uniqueIndex('idx_invoice_orders_unique').on(table.invoiceId, table.orderId),
+    index('idx_invoice_orders_invoice').on(table.invoiceId),
+    index('idx_invoice_orders_order').on(table.orderId),
+]);
+
+// M (Этап 3) — audit-trail per spec §8. Auto-fill через DB-trigger.
+export const invoiceHistory = pgTable('invoice_history', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    invoiceId: uuid('invoice_id').notNull().references(() => invoices.id),
+    operation: varchar('operation', { length: 20 }).notNull(),
+    fieldName: varchar('field_name', { length: 64 }),
+    previousValue: jsonb('previous_value'),
+    newValue: jsonb('new_value'),
+    changedByUserId: uuid('changed_by_user_id').references(() => users.id),
+    changeReason: text('change_reason'),
+    changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_invoice_history_invoice').on(table.invoiceId, table.changedAt),
+    index('idx_invoice_history_operation').on(table.operation),
 ]);
 
 // ================================================================

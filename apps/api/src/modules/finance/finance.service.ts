@@ -357,11 +357,14 @@ export class FinanceService {
                     : undefined,
             ));
 
+        // M (Этап 3) — 'overdue' больше не статус, это computed: issued + paid<total + due_date<now.
+        // Пока упрощённо: считаем как 'issued' с paid_amount < total. Полная логика — Этап 5.
         const overdueInvoices = await db.select({ total: sql<number>`coalesce(sum(${invoices.total}), 0)` })
             .from(invoices)
             .innerJoin(contractors, eq(invoices.contractorId, contractors.id))
             .where(and(
-                eq(invoices.status, 'overdue'),
+                eq(invoices.status, 'issued'),
+                sql`${invoices.paidAmount} < ${invoices.total}`,
                 organizationId ? eq(contractors.organizationId, organizationId) : undefined,
             ));
 
@@ -583,8 +586,11 @@ export class FinanceService {
         const paidAmount = paymentRows.reduce((sum, row) => sum + num((row.data as Record<string, unknown>)?.amount), 0);
         const remainingAmount = Math.max(num(invoice.total) - paidAmount, 0);
 
-        if (remainingAmount === 0 && invoice.status !== 'paid') {
-            await db.update(invoices).set({ status: 'paid' }).where(eq(invoices.id, invoiceId));
+        // M (Этап 3) — 'paid' → 'paid_full'. FSM: issued/paid_partial → paid_full когда полностью оплачено.
+        if (remainingAmount === 0 && invoice.status !== 'paid_full') {
+            await db.update(invoices).set({ status: 'paid_full', paidAmount: num(invoice.total) }).where(eq(invoices.id, invoiceId));
+        } else if (paidAmount > 0 && remainingAmount > 0 && invoice.status === 'issued') {
+            await db.update(invoices).set({ status: 'paid_partial', paidAmount }).where(eq(invoices.id, invoiceId));
         }
 
         return {
@@ -593,7 +599,7 @@ export class FinanceService {
             invoiceTotal: num(invoice.total),
             paidAmount,
             remainingAmount,
-            status: remainingAmount === 0 ? 'paid' : invoice.status,
+            status: remainingAmount === 0 ? 'paid_full' : (paidAmount > 0 ? 'paid_partial' : invoice.status),
         };
     }
 
@@ -882,7 +888,7 @@ export class FinanceService {
                     number,
                     contractorId,
                     contractId,
-                    type: 'invoice',
+                    type: 'payment',
                     status: 'draft',
                     subtotal: cost.subtotal,
                     vatAmount: cost.vatAmount,
@@ -1019,7 +1025,7 @@ export class FinanceService {
                             number,
                             contractorId: bucket.contractorId,
                             contractId: bucket.contractId,
-                            type: 'invoice',
+                            type: 'payment',
                             status: 'draft',
                             subtotal,
                             vatAmount: vat,

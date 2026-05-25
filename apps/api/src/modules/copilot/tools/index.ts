@@ -335,7 +335,8 @@ const listPendingInvoicesTool: CopilotTool<z.infer<typeof ListPendingInvoicesInp
             .from(invoices)
             .innerJoin(contractors, eq(invoices.contractorId, contractors.id))
             .where(and(
-                inArray(invoices.status, ['sent', 'overdue']),
+                // M (Этап 3) — 'sent'/'overdue' → 'issued'/'paid_partial' (overdue computed).
+                inArray(invoices.status, ['issued', 'paid_partial']),
                 ctx.organizationId ? eq(contractors.organizationId, ctx.organizationId) : undefined,
             ))
             .orderBy(desc(invoices.createdAt))

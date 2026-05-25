@@ -597,14 +597,14 @@ async function seedDemo() {
     const invoiceSeed: typeof invoices.$inferInsert[] = [
         {
             number: 'СЧ-2026-001', contractorId: client1.id, contractId: contract1.id,
-            type: 'invoice', status: 'paid', tripIds: [tripRows[4].id],
+            type: 'payment', status: 'paid_full', tripIds: [tripRows[4].id],
             subtotal: 8250, vatAmount: 1650, total: 9900,
             periodStart: new Date('2026-03-18'), periodEnd: new Date('2026-03-18'),
             paidAt: new Date('2026-03-22T14:00:00Z'),
         },
         {
             number: 'СЧ-2026-002', contractorId: client2.id, contractId: contract2.id,
-            type: 'invoice', status: 'sent', tripIds: [],
+            type: 'payment', status: 'issued', tripIds: [],
             subtotal: 25000, vatAmount: 5000, total: 30000,
             periodStart: new Date('2026-03-23'), periodEnd: new Date('2026-03-23'),
         },

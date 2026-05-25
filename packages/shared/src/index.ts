@@ -6,3 +6,4 @@ export * from './onboarding.js';
 export * from './billing.js';
 export * from './compliance.js';
 export * from './mchd.js';
+export * from './invoice-fsm.js';

@@ -8,7 +8,7 @@ import { buildCommerceMLXml, type InvoiceExportRow } from './xml-export.service.
 const baseInv = (over: Partial<InvoiceExportRow> = {}): InvoiceExportRow => ({
     id: 'inv-1',
     number: 'INV-2026-00001',
-    type: 'invoice',
+    type: 'payment',
     status: 'sent',
     subtotal: 1000,
     vatAmount: 200,
