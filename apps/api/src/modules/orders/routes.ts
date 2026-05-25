@@ -131,6 +131,20 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             organizationId: user.organizationId,
         });
 
+        // K3 RBAC — финансовые поля видят только manager+/accountant/admin.
+        // Logist/dispatcher вводят свою цену, но в списке её не получают
+        // (commercial-info защита).
+        const canViewFinance = user.roles.includes('manager')
+            || user.roles.includes('accountant')
+            || user.roles.includes('admin');
+        if (!canViewFinance) {
+            result.data = result.data.map((r) => ({
+                ...r,
+                customerPrice: null,
+                customerPriceIncludesVat: false,
+            }));
+        }
+
         return { success: true, ...result };
     });
 
@@ -217,7 +231,17 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             return reply.status(404).send({ success: false, error: 'Заявка не найдена' });
         }
 
-        return { success: true, data: order };
+        // K3 RBAC — финансовые поля только manager+/accountant/admin.
+        const canViewFinance = user.roles.includes('manager')
+            || user.roles.includes('accountant')
+            || user.roles.includes('admin');
+        const filteredOrder = canViewFinance ? order : {
+            ...order,
+            customerPrice: null,
+            customerPriceIncludesVat: false,
+        };
+
+        return { success: true, data: filteredOrder };
     });
 
     // --- GET /orders/:id/ttn — Download ТТН as PDF ---
@@ -373,7 +397,10 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             });
         }
 
-        const order = await updateOrder(id, parseResult.data, user.organizationId ?? null);
+        const order = await updateOrder(id, parseResult.data, user.organizationId ?? null, {
+            userId: user.userId,
+            role: user.roles[0],
+        });
         if (!order) {
             return reply.status(404).send({ success: false, error: 'Заявка не найдена' });
         }

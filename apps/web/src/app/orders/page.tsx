@@ -55,6 +55,10 @@ export interface OrderListRow {
     createdAt: string;
     contractor: { id: string; name: string; inn: string | null } | null;
     trip: { id: string; number: string; status: string } | null;
+    // K7 — pricing (backend фильтрует RBAC: null если caller не manager+)
+    customerPrice: number | null;
+    customerPriceCurrency: string;
+    customerPriceIncludesVat: boolean;
 }
 
 // ----- Status helpers -----
@@ -315,16 +319,34 @@ export default function OrdersPage() {
             },
         ];
 
-        // Финансовые колонки (manager / accountant / admin) — пока placeholder,
-        // полная агрегация (cost / margin / payment_status) — отдельная история
-        // про tariff snapshot + invoices, требует backend join'ов. См. backlog.
+        // K7 (Этап 2) — финансовая колонка для manager+/accountant/admin.
+        // Backend сам фильтрует customer_price=null для не-finance ролей.
         if (showFinanceCols) {
             cols.push({
-                id: 'finance',
-                header: 'Финансы',
-                accessor: () => '',
-                cell: () => <span className="text-neutral-400 text-xs italic">в разработке</span>,
-                excludeFromSearch: true,
+                id: 'customerPrice',
+                header: 'Стоимость',
+                accessor: (r) => r.customerPrice ?? 0,
+                cell: (r) => {
+                    if (r.customerPrice == null) {
+                        return <span className="text-neutral-400 text-xs italic">—</span>;
+                    }
+                    const formatted = new Intl.NumberFormat('ru-RU', {
+                        style: 'currency',
+                        currency: r.customerPriceCurrency || 'RUB',
+                        maximumFractionDigits: 0,
+                    }).format(r.customerPrice);
+                    return (
+                        <div className="text-right">
+                            <div className="text-sm font-medium text-emerald-700">{formatted}</div>
+                            <div className="text-[10px] text-neutral-500">
+                                {r.customerPriceIncludesVat ? 'с НДС' : 'без НДС'}
+                            </div>
+                        </div>
+                    );
+                },
+                sortable: true,
+                align: 'right',
+                monospace: true,
             });
         }
 

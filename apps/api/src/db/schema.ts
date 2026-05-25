@@ -408,6 +408,12 @@ export const orders = pgTable('orders', {
     consigneeContractorId: uuid('consignee_contractor_id').references(() => contractors.id),
     // Multitenancy (Sprint 14)
     organizationId: uuid('organization_id').references(() => organizations.id),
+    // K1 (Этап 2, миграция 0034) — стоимость от заказчика.
+    // Видна manager+/accountant/admin. Logist может вводить через UI.
+    // includes_vat default UI зависит от org.tax_regime.
+    customerPrice: numeric('customer_price', { precision: 12, scale: 2 }).$type<number>(),
+    customerPriceCurrency: varchar('customer_price_currency', { length: 3 }).notNull().default('RUB'),
+    customerPriceIncludesVat: boolean('customer_price_includes_vat').notNull().default(false),
     createdBy: uuid('created_by').notNull().references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -443,6 +449,12 @@ export const trips = pgTable('trips', {
     organizationId: uuid('organization_id').references(() => organizations.id),
     // Wave 4: рейс выполняется субподрядчиком-перевозчиком.
     carrierContractorId: uuid('carrier_contractor_id').references(() => contractors.id, { onDelete: 'set null' }),
+    // K1 (Этап 2, миграция 0034) — себестоимость рейса.
+    // Видна manager+/accountant/admin. Dispatcher может вводить.
+    // Маржа = Σ(orders.customerPrice) − carrierCost (считается на лету).
+    carrierCost: numeric('carrier_cost', { precision: 12, scale: 2 }).$type<number>(),
+    carrierCostCurrency: varchar('carrier_cost_currency', { length: 3 }).notNull().default('RUB'),
+    carrierCostIncludesVat: boolean('carrier_cost_includes_vat').notNull().default(false),
     createdBy: uuid('created_by').notNull().references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

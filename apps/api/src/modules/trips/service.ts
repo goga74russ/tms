@@ -62,6 +62,10 @@ export interface CreateTripInput {
     notes?: string;
     createdBy: string;
     orderIds?: string[]; // заявки для объединения в рейс
+    // K1 (Этап 2) — себестоимость рейса
+    carrierCost?: number;
+    carrierCostCurrency?: string;
+    carrierCostIncludesVat?: boolean;
 }
 
 export interface TripFilters {
@@ -391,6 +395,10 @@ export async function createTrip(
                 ? new Date(input.plannedDepartureAt) : undefined,
             notes: input.notes,
             organizationId: author.organizationId ?? undefined,
+            // K1 (Этап 2) — pricing
+            carrierCost: input.carrierCost,
+            carrierCostCurrency: input.carrierCostCurrency ?? 'RUB',
+            carrierCostIncludesVat: input.carrierCostIncludesVat ?? false,
             createdBy: input.createdBy,
         }).returning();
 
@@ -563,7 +571,16 @@ export async function getTransportDossier(id: string) {
 export async function updateTrip(
     id: string,
     updates: Partial<Omit<CreateTripInput, 'createdBy' | 'orderIds'>>,
+    author?: { userId: string; role: string },
 ) {
+    // K1 — фиксируем previous carrierCost для audit при изменении.
+    let previousCarrierCost: number | null = null;
+    if (updates.carrierCost !== undefined && author) {
+        const [prev] = await db.select({ carrierCost: trips.carrierCost })
+            .from(trips).where(eq(trips.id, id)).limit(1);
+        previousCarrierCost = prev?.carrierCost ?? null;
+    }
+
     const [trip] = await db
         .update(trips)
         .set({
@@ -574,6 +591,23 @@ export async function updateTrip(
         })
         .where(eq(trips.id, id))
         .returning();
+
+    // K1 — audit-event для изменения carrier cost.
+    if (trip && updates.carrierCost !== undefined && author && previousCarrierCost !== updates.carrierCost) {
+        await recordEvent({
+            authorId: author.userId,
+            authorRole: author.role,
+            eventType: 'trip.carrier_cost_changed',
+            entityType: 'trip',
+            entityId: trip.id,
+            data: {
+                oldValue: previousCarrierCost,
+                newValue: updates.carrierCost ?? null,
+                currency: trip.carrierCostCurrency,
+                includesVat: trip.carrierCostIncludesVat,
+            },
+        });
+    }
 
     await refreshTransportDocumentsForTrip(id);
     return trip ?? null;

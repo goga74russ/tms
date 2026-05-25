@@ -72,6 +72,10 @@ export interface CreateOrderInput {
     unloadingWindowEnd?: string;
     vehicleRequirements?: string;
     notes?: string;
+    // K1 (Этап 2) — стоимость от заказчика
+    customerPrice?: number;
+    customerPriceCurrency?: string;
+    customerPriceIncludesVat?: boolean;
     confirmationMode?: 'none' | 'optional' | 'required';
     createdBy: string;
 }
@@ -135,6 +139,10 @@ export async function createOrder(
                     vehicleRequirements: input.vehicleRequirements,
                     notes: input.notes,
                     confirmationMode: input.confirmationMode,
+                    // K1 (Этап 2) — pricing
+                    customerPrice: input.customerPrice,
+                    customerPriceCurrency: input.customerPriceCurrency ?? 'RUB',
+                    customerPriceIncludesVat: input.customerPriceIncludesVat ?? false,
                     createdBy: input.createdBy,
                     organizationId: input.organizationId ?? author.organizationId ?? null,
                 }).returning();
@@ -144,7 +152,13 @@ export async function createOrder(
                     eventType: 'order.created',
                     entityType: 'order',
                     entityId: created.id,
-                    data: { number: created.number, status: created.status, contractorId: created.contractorId },
+                    data: {
+                        number: created.number,
+                        status: created.status,
+                        contractorId: created.contractorId,
+                        // K1 — фиксируем что цена была проставлена при создании
+                        customerPriceSet: input.customerPrice != null,
+                    },
                 }, tx);
 
                 return created;
@@ -202,6 +216,11 @@ export interface OrderListRow {
     createdAt: Date;
     contractor: { id: string; name: string; inn: string | null } | null;
     trip: { id: string; number: string; status: string } | null;
+    // K1 (Этап 2) — pricing fields. Backend всегда select'ит из БД; route handler
+    // фильтрует по RBAC (manager+/accountant/admin) до отправки клиенту.
+    customerPrice: number | null;
+    customerPriceCurrency: string;
+    customerPriceIncludesVat: boolean;
 }
 
 export async function getOrdersList(filters: OrdersListFilters): Promise<{
@@ -254,6 +273,10 @@ export async function getOrdersList(filters: OrdersListFilters): Promise<{
             tripId: trips.id,
             tripNumber: trips.number,
             tripStatus: trips.status,
+            // K1 (Этап 2) — pricing fields (RBAC применяется на route)
+            customerPrice: orders.customerPrice,
+            customerPriceCurrency: orders.customerPriceCurrency,
+            customerPriceIncludesVat: orders.customerPriceIncludesVat,
         })
             .from(orders)
             .leftJoin(contractors, eq(orders.contractorId, contractors.id))
@@ -287,6 +310,9 @@ export async function getOrdersList(filters: OrdersListFilters): Promise<{
         trip: r.tripId
             ? { id: r.tripId, number: r.tripNumber ?? '', status: r.tripStatus ?? '' }
             : null,
+        customerPrice: r.customerPrice,
+        customerPriceCurrency: r.customerPriceCurrency ?? 'RUB',
+        customerPriceIncludesVat: r.customerPriceIncludesVat ?? false,
     }));
 
     const total = countResult[0]?.count ?? 0;
@@ -374,10 +400,20 @@ export async function updateOrder(
     id: string,
     updates: Partial<CreateOrderInput>,
     actorOrganizationId?: string | null,
+    author?: { userId: string; role: string },
 ) {
     const whereClause = actorOrganizationId
         ? and(eq(orders.id, id), eq(orders.organizationId, actorOrganizationId))
         : eq(orders.id, id);
+
+    // K1 — для аудита изменения customer_price нужно знать предыдущее значение.
+    let previousCustomerPrice: number | null = null;
+    if (updates.customerPrice !== undefined && author) {
+        const [prev] = await db.select({ customerPrice: orders.customerPrice })
+            .from(orders).where(whereClause).limit(1);
+        previousCustomerPrice = prev?.customerPrice ?? null;
+    }
+
     const [order] = await db
         .update(orders)
         .set({
@@ -392,6 +428,23 @@ export async function updateOrder(
         })
         .where(whereClause)
         .returning();
+
+    // K1 — audit-event для изменения цены (коммерческое событие).
+    if (order && updates.customerPrice !== undefined && author && previousCustomerPrice !== updates.customerPrice) {
+        await recordEvent({
+            authorId: author.userId,
+            authorRole: author.role,
+            eventType: 'order.customer_price_changed',
+            entityType: 'order',
+            entityId: order.id,
+            data: {
+                oldValue: previousCustomerPrice,
+                newValue: updates.customerPrice ?? null,
+                currency: order.customerPriceCurrency,
+                includesVat: order.customerPriceIncludesVat,
+            },
+        });
+    }
 
     return order ?? null;
 }

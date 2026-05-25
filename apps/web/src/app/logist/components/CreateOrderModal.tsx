@@ -5,6 +5,7 @@ import { Package, MapPin, Clock, User, Loader2, Thermometer, Layers, Truck, Aler
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { api } from '@/lib/api';
+import { useUser } from '@/lib/user-context';
 import { SideDrawer } from '@/components/ui/side-drawer';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import type { Order } from '../page';
@@ -65,6 +66,9 @@ const EMPTY_FORM = {
     adrEnabled: false,
     adrClass: '',
     adrUnNumber: '',
+    // K5 (Этап 2) — стоимость от заказчика
+    customerPrice: '',
+    customerPriceIncludesVat: false,
 };
 
 type FormState = typeof EMPTY_FORM;
@@ -136,6 +140,19 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
 
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [submitting, setSubmitting] = useState(false);
+
+    // K5 — VAT-чекбокс default по tax_regime. osno/usn_with_vat → с НДС.
+    const { user } = useUser();
+    useEffect(() => {
+        const regime = user?.organization?.taxRegime;
+        if (!regime) return;
+        const vatByDefault = regime === 'osno' || regime === 'usn_with_vat';
+        setForm((current) => (
+            current.customerPriceIncludesVat === false && vatByDefault
+                ? { ...current, customerPriceIncludesVat: true }
+                : current
+        ));
+    }, [user?.organization?.taxRegime]);
 
     // Debounced auto-save of form to localStorage. Skip empty form to avoid spamming.
     const skipNextSaveRef = useRef(true); // skip first effect run (initial mount)
@@ -350,6 +367,9 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                 confirmationMode: form.confirmationMode,
                 adrClass: form.adrEnabled ? form.adrClass : undefined,
                 adrUnNumber: form.adrEnabled ? form.adrUnNumber : undefined,
+                // K5 (Этап 2) — стоимость от заказчика
+                customerPrice: form.customerPrice ? parseFloat(form.customerPrice) : undefined,
+                customerPriceIncludesVat: form.customerPriceIncludesVat,
             };
 
             const result = await api.post<any>('/orders', payload);
@@ -837,6 +857,37 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             <option value="optional">Желательно</option>
                             <option value="required">Обязательно</option>
                         </select>
+                    </div>
+
+                    {/* K5 (Этап 2) — стоимость от заказчика. Logist вводит,
+                        видна accountant+/manager+/admin после сохранения. */}
+                    <div className="rounded-lg border border-neutral-200 bg-neutral-50/40 p-3 space-y-2">
+                        <div>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">
+                                Стоимость от заказчика, ₽
+                            </label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={form.customerPrice}
+                                onChange={(e) => setForm((current) => ({ ...current, customerPrice: e.target.value }))}
+                                placeholder="например, 35000"
+                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <p className="text-[11px] text-neutral-500 mt-1">
+                                Сумма, которую вы выставите заказчику. Видна бухгалтеру/руководителю.
+                            </p>
+                        </div>
+                        <label className="flex items-center gap-2 text-sm text-neutral-700">
+                            <input
+                                type="checkbox"
+                                checked={form.customerPriceIncludesVat}
+                                onChange={(e) => setForm((current) => ({ ...current, customerPriceIncludesVat: e.target.checked }))}
+                                className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            Цена включает НДС
+                        </label>
                     </div>
 
                     <div>

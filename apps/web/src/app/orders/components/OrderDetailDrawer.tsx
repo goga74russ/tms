@@ -38,6 +38,10 @@ interface DrawerOrder {
     contractorId: string;
     createdAt: string;
     updatedAt: string;
+    // K7 — backend подаёт customerPrice=null для не-manager+ ролей.
+    customerPrice?: number | null;
+    customerPriceCurrency?: string | null;
+    customerPriceIncludesVat?: boolean | null;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -249,6 +253,28 @@ export function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClo
                                                 открыть досье
                                             </Link>
                                         </div>
+                                    </div>
+                                </section>
+                            )}
+
+                            {/* K7 — Финансовая секция. customerPrice=null означает либо
+                                цена реально не задана, либо backend срезал RBAC. Для
+                                role>=manager (видит цену) при null покажем «не задана»;
+                                для логиста/диспетчера секция вообще не показывается. */}
+                            {order.customerPrice != null && (
+                                <section className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-3">
+                                    <h3 className="text-xs uppercase tracking-wider text-emerald-800 mb-2 font-semibold">
+                                        Стоимость от заказчика
+                                    </h3>
+                                    <div className="text-2xl font-bold text-emerald-900">
+                                        {new Intl.NumberFormat('ru-RU', {
+                                            style: 'currency',
+                                            currency: order.customerPriceCurrency || 'RUB',
+                                            maximumFractionDigits: 2,
+                                        }).format(order.customerPrice)}
+                                    </div>
+                                    <div className="text-xs text-emerald-700 mt-0.5">
+                                        {order.customerPriceIncludesVat ? 'цена с НДС' : 'цена без НДС'}
                                     </div>
                                 </section>
                             )}

@@ -35,6 +35,7 @@ import { recordEvent } from '../../events/journal.js';
 import { z } from 'zod';
 import { getTripLoadPlan } from '../operational-core/service.js';
 import { computeVolumeCheckFromIds, computeTripVolumeCheck, formatOverflowMessage } from './volume.js';
+import { computeTripMargin } from './margin.js';
 import { registerTripCompatibilityRoutes } from '../operational-core/compatibility-routes.js';
 import { assignLotToTrip, captureShipmentFact } from '../operational-core/write-service.js';
 import { registerExecutionRoutes } from '../operational-core/execution-routes.js';
@@ -216,7 +217,24 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             return reply.status(404).send({ success: false, error: 'Рейс не найден' });
         }
 
-        return { success: true, data: trip };
+        // K4 RBAC — финансовые поля + margin видят только manager+/accountant/admin.
+        const canViewFinance = user.roles.includes('manager')
+            || user.roles.includes('accountant')
+            || user.roles.includes('admin');
+        if (!canViewFinance) {
+            return {
+                success: true,
+                data: {
+                    ...trip,
+                    carrierCost: null,
+                    carrierCostIncludesVat: false,
+                },
+            };
+        }
+
+        // Для финансовых ролей — дополнительно прикладываем margin расчёт.
+        const margin = await computeTripMargin(id);
+        return { success: true, data: { ...trip, margin } };
     });
 
     // --- POST /trips вЂ” create ---
@@ -312,7 +330,10 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         if (parseResult.data.driverId) await assertDriverAccess(parseResult.data.driverId, user);
         if (parseResult.data.trailerId) await assertTrailerAccess(parseResult.data.trailerId, user);
 
-        const trip = await updateTrip(id, parseResult.data);
+        const trip = await updateTrip(id, parseResult.data, {
+            userId: user.userId,
+            role: user.roles[0],
+        });
         if (!trip) {
             return reply.status(404).send({ success: false, error: 'Рейс не найден' });
         }

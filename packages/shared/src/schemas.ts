@@ -244,6 +244,10 @@ export const OrderSchema = z.object({
     tripId: uuid.optional(),
     // Sprint 13: Режим подтверждения доставки
     confirmationMode: z.nativeEnum(ConfirmationMode).default('none'),
+    // K1 (Этап 2) — стоимость от заказчика. Видна manager+/accountant/admin.
+    customerPrice: z.number().nonnegative().optional(),
+    customerPriceCurrency: z.string().length(3).default('RUB'),
+    customerPriceIncludesVat: z.boolean().default(false),
     createdBy: uuid,
     createdAt: dateStr,
     updatedAt: dateStr,
@@ -296,6 +300,11 @@ export const OrderUpdateSchema = z.object({
     // Требования
     vehicleRequirements: z.string().optional(),
     notes: z.string().optional(),
+    // K1 (Этап 2) — цена. Logist/admin может менять. Backend дополнительно
+    // ограничит RBAC: logist не может выставить цену без явной роли.
+    customerPrice: z.number().nonnegative().optional(),
+    customerPriceCurrency: z.string().length(3).optional(),
+    customerPriceIncludesVat: z.boolean().optional(),
 }).strict();
 
 // ================================================================
@@ -322,6 +331,10 @@ export const TripSchema = z.object({
     fuelEnd: z.number().optional(),
     notes: z.string().optional(),
     originalDocumentsReceived: z.boolean().optional(),
+    // K1 (Этап 2) — себестоимость рейса. Видна manager+/accountant/admin.
+    carrierCost: z.number().nonnegative().optional(),
+    carrierCostCurrency: z.string().length(3).default('RUB'),
+    carrierCostIncludesVat: z.boolean().default(false),
     createdBy: uuid,
     createdAt: dateStr,
     updatedAt: dateStr,
