@@ -54,6 +54,34 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
     const [unloadingFrom, setUnloadingFrom] = useState('');
     const [unloadingTo, setUnloadingTo] = useState('');
     const [adrWarnings, setAdrWarnings] = useState<string[]>([]);
+    const [volumeCheck, setVolumeCheck] = useState<{
+        capacityVolumeM3: number | null;
+        requiredVolumeM3: number;
+        overflow: boolean;
+        overflowAmount: number;
+        skipReason: 'no_vehicle' | 'no_capacity_data' | null;
+        ordersChecked: number;
+        ordersSkipped: number;
+    } | null>(null);
+
+    // I5 — volume preview (кубы): при выборе ТС+заявки запрашиваем расчёт.
+    // Endpoint /api/trips/volume-preview — без побочных эффектов, чисто для индикатора.
+    useEffect(() => {
+        if (!selectedOrder || !selectedVehicle?.id) {
+            setVolumeCheck(null);
+            return;
+        }
+        const params = new URLSearchParams();
+        params.set('vehicleId', selectedVehicle.id);
+        params.set('orderIds', selectedOrder);
+        let cancelled = false;
+        api.get<{ success: boolean; data: typeof volumeCheck }>(
+            `/trips/volume-preview?${params.toString()}`,
+        )
+            .then((res) => { if (!cancelled) setVolumeCheck(res?.data ?? null); })
+            .catch(() => { if (!cancelled) setVolumeCheck(null); });
+        return () => { cancelled = true; };
+    }, [selectedOrder, selectedVehicle?.id]);
 
     // ADR validation: when both order and vehicle/driver picked, fetch warnings
     useEffect(() => {
@@ -175,6 +203,46 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
             )}
 
             <div className="flex-1 overflow-y-auto p-3 space-y-4">
+                {/* ============= Volume capacity indicator (I5) ============= */}
+                {volumeCheck && (() => {
+                    const { capacityVolumeM3: cap, requiredVolumeM3: req, overflow, overflowAmount, skipReason } = volumeCheck;
+                    if (skipReason === 'no_capacity_data') {
+                        return (
+                            <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+                                Объём не проверен — у ТС не указана вместимость.
+                            </div>
+                        );
+                    }
+                    if (cap == null) return null;
+                    const pct = cap > 0 ? Math.round((req / cap) * 100) : 0;
+                    let tone: 'green' | 'yellow' | 'red' = 'green';
+                    if (overflow) tone = 'red';
+                    else if (pct >= 90) tone = 'yellow';
+                    const toneClass = {
+                        green: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+                        yellow: 'border-amber-200 bg-amber-50 text-amber-800',
+                        red: 'border-red-200 bg-red-50 text-red-800',
+                    }[tone];
+                    return (
+                        <div className={`rounded-xl border px-3 py-2 ${toneClass}`}>
+                            <div className="flex items-center justify-between text-xs font-semibold">
+                                <span>Загрузка по объёму</span>
+                                <span>{req} / {cap} м³ ({pct}%)</span>
+                            </div>
+                            {overflow && (
+                                <p className="mt-1 text-[11px] font-medium">
+                                    Перегруз: +{overflowAmount} м³. Назначение будет заблокировано.
+                                </p>
+                            )}
+                            {volumeCheck.ordersSkipped > 0 && (
+                                <p className="mt-1 text-[10px] opacity-75">
+                                    Заявок без указанного объёма: {volumeCheck.ordersSkipped} — не учтены.
+                                </p>
+                            )}
+                        </div>
+                    );
+                })()}
+
                 {/* ============= ADR validation warnings ============= */}
                 {adrWarnings.length > 0 && (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">

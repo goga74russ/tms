@@ -34,6 +34,7 @@ import { eq } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import { z } from 'zod';
 import { getTripLoadPlan } from '../operational-core/service.js';
+import { computeVolumeCheckFromIds, computeTripVolumeCheck, formatOverflowMessage } from './volume.js';
 import { registerTripCompatibilityRoutes } from '../operational-core/compatibility-routes.js';
 import { assignLotToTrip, captureShipmentFact } from '../operational-core/write-service.js';
 import { registerExecutionRoutes } from '../operational-core/execution-routes.js';
@@ -119,6 +120,20 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
     });
 
     // --- GET /trips/available-vehicles ---
+    // --- GET /trips/volume-preview — превью проверки кубов (для индикатора в /dispatcher) ---
+    // I5 — UI dispatcher вызывает этот endpoint перед "Назначить" чтобы показать
+    // цветовой индикатор «Загрузка X/Y м³». Без побочных эффектов.
+    app.get('/trips/volume-preview', {
+        schema: { tags: ['Рейсы'], summary: 'Предпросмотр проверки кубов' },
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
+    }, async (request, reply) => {
+        const q = request.query as { vehicleId?: string; trailerId?: string; orderIds?: string };
+        if (!q.vehicleId) return reply.status(400).send({ success: false, error: 'vehicleId обязателен' });
+        const orderIds = (q.orderIds ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+        const check = await computeVolumeCheckFromIds(q.vehicleId, q.trailerId ?? null, orderIds);
+        return { success: true, data: check };
+    });
+
     app.get('/trips/available-vehicles', {
         schema: { tags: ['Рейсы'], summary: 'Доступные ТС', description: 'Список ТС со статусом available для назначения на рейс.' },
         preHandler: [app.authenticate, requireAbility('read', 'Vehicle')],
@@ -233,12 +248,45 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
                 await assertOrderAccess(orderId, user);
             }
 
+            // I3 — volume check (кубы). Считаем до создания trip; если перегруз
+            // без явного forceOverflow — отказываем. С forceOverflow=true создаём
+            // и журналируем override. NULL capacity / NULL volume = skip.
+            const forceOverflow = (body as any).forceOverflow === true;
+            const volumeCheck = await computeVolumeCheckFromIds(
+                parsed.data.vehicleId ?? null,
+                parsed.data.trailerId ?? null,
+                orderIds ?? [],
+            );
+            if (volumeCheck.overflow && !forceOverflow) {
+                return reply.status(400).send({
+                    success: false,
+                    error: formatOverflowMessage(volumeCheck),
+                    data: { volumeCheck },
+                });
+            }
+
             const trip = await createTrip(
                 { ...(parsed.data as z.infer<typeof TripCreateSchema>), orderIds },
                 { userId: user.userId, role: user.roles[0], organizationId: user.organizationId },
             );
 
-            return reply.status(201).send({ success: true, data: trip });
+            if (volumeCheck.overflow && forceOverflow) {
+                await recordEvent({
+                    authorId: user.userId,
+                    authorRole: user.roles[0] ?? 'dispatcher',
+                    eventType: 'trip.volume_overflow_overridden',
+                    entityType: 'trip',
+                    entityId: trip.id,
+                    data: {
+                        capacityVolumeM3: volumeCheck.capacityVolumeM3,
+                        requiredVolumeM3: volumeCheck.requiredVolumeM3,
+                        overflowAmount: volumeCheck.overflowAmount,
+                        ordersChecked: volumeCheck.ordersChecked,
+                    },
+                });
+            }
+
+            return reply.status(201).send({ success: true, data: trip, volumeCheck });
         } catch (err: any) {
             return reply.status(400).send({ success: false, error: err.message });
         }
@@ -293,11 +341,47 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             await assertDriverAccess(body.driverId, user);
             if (body.trailerId) await assertTrailerAccess(body.trailerId, user);
 
+            // I3 — volume check на assign. Используем existing trip orders.
+            const forceOverflow = (body as any).forceOverflow === true;
+            const orderIdsForCheck = (
+                await db.select({ orderId: orders.id })
+                    .from(orders)
+                    .where(eq(orders.tripId, id))
+            ).map((r) => r.orderId);
+            const volumeCheck = await computeVolumeCheckFromIds(
+                body.vehicleId,
+                body.trailerId ?? null,
+                orderIdsForCheck,
+            );
+            if (volumeCheck.overflow && !forceOverflow) {
+                return reply.status(400).send({
+                    success: false,
+                    error: formatOverflowMessage(volumeCheck),
+                    data: { volumeCheck },
+                });
+            }
+
             const result = await assignTrip(id, body.vehicleId, body.driverId, {
                 userId: user.userId,
                 role: user.roles[0],
                 organizationId: user.organizationId,
             }, body.trailerId);
+
+            if (volumeCheck.overflow && forceOverflow) {
+                await recordEvent({
+                    authorId: user.userId,
+                    authorRole: user.roles[0] ?? 'dispatcher',
+                    eventType: 'trip.volume_overflow_overridden',
+                    entityType: 'trip',
+                    entityId: id,
+                    data: {
+                        action: 'assign',
+                        capacityVolumeM3: volumeCheck.capacityVolumeM3,
+                        requiredVolumeM3: volumeCheck.requiredVolumeM3,
+                        overflowAmount: volumeCheck.overflowAmount,
+                    },
+                });
+            }
 
             const hardBlocks = result.warnings.filter(w => w.type === 'hard');
             if (hardBlocks.length > 0) {
@@ -312,6 +396,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
                 success: true,
                 data: result.trip,
                 warnings: result.warnings.filter(w => w.type === 'soft'),
+                volumeCheck,
             };
         } catch (err: any) {
             return reply.status(400).send({ success: false, error: err.message });
