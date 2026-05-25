@@ -19,6 +19,7 @@ import {
     FileSignature,
 } from 'lucide-react';
 import { OrganizationSetupBanner } from './components/OrganizationSetupBanner';
+import { TaxRegimeBanner } from './components/TaxRegimeBanner';
 
 type AdminNavItem =
     | { kind: 'link'; name: string; href: string; icon: typeof Users; superAdminOnly?: boolean }
@@ -136,8 +137,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {/* Глобальный баннер: создание/детач организации для admin-пользователей.
                     Сам компонент решает показываться или нет — рендерит null если
                     у пользователя есть org и нет роли admin. */}
-                <div className="mb-4">
+                <div className="mb-4 space-y-3">
                     <OrganizationSetupBanner />
+                    <TaxRegimeBanner />
                 </div>
                 {children}
             </main>

@@ -14,6 +14,7 @@ import { selectAdapter, getDefaultRegistry } from '../providers/index.js';
 import { APP_ROLES } from './rbac.js';
 import { escapeHtml } from '../utils/html.js';
 import { redisConnectionConfig } from '../integrations/redis.js';
+import { recordEvent } from '../events/journal.js';
 
 // --- Password reset (Redis-backed one-time tokens) ---
 // Lazy ioredis singleton — only constructed when /forgot-password is hit.
@@ -310,7 +311,20 @@ export function registerAuthRoutes(app: FastifyInstance) {
             && (user!.roles as string[]).includes('admin')
             && !user?.organizationId;
 
-        return { success: true, data: { ...user, driverId, isSuperAdmin } };
+        // J1 — подтягиваем компактное представление организации (включая
+        // tax_regime) — фронт читает это для banner и /admin/settings.
+        let organization: { id: string; name: string; inn: string | null; taxRegime: string } | null = null;
+        if (user?.organizationId) {
+            const [org] = await db.select({
+                id: organizations.id,
+                name: organizations.name,
+                inn: organizations.inn,
+                taxRegime: organizations.taxRegime,
+            }).from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
+            organization = org ?? null;
+        }
+
+        return { success: true, data: { ...user, driverId, isSuperAdmin, organization } };
     });
 
     // ============================================================
@@ -441,6 +455,105 @@ export function registerAuthRoutes(app: FastifyInstance) {
         });
 
         return { success: true, data: { id: orgId, name, inn: inn ?? null } };
+    });
+
+    // ============================================================
+    // PATCH /api/auth/me/organization
+    // ------------------------------------------------------------
+    // J1.3 (Jurist Этап 1) — частичное обновление полей организации
+    // текущего пользователя. Сейчас покрывает только tax_regime
+    // (критичное юр-поле), но endpoint спроектирован под расширение.
+    //
+    // RBAC: только admin. tax_regime — критическое событие, изменение
+    // логируется в events с severity=warning. Не разрешаем ставить
+    // 'unspecified' обратно (это temporary default, не пользовательский
+    // выбор) — было бы попыткой "размагнититься" от tax_regime.
+    // ============================================================
+    app.patch('/api/auth/me/organization', {
+        schema: {
+            tags: ['Авторизация'],
+            summary: 'Обновить реквизиты организации (tax_regime и т.п.)',
+            description: 'Частичное обновление организации. Только admin. tax_regime изменение логируется в events.',
+        },
+        preHandler: [app.authenticate],
+    }, async (request, reply) => {
+        const actor = request.user as AuthenticatedUser;
+        if (!actor.roles.includes('admin')) {
+            return reply.status(403).send({ success: false, error: 'Только admin может менять реквизиты организации' });
+        }
+
+        const [me] = await db.select({
+            id: users.id,
+            roles: users.roles,
+            organizationId: users.organizationId,
+        }).from(users).where(eq(users.id, actor.userId)).limit(1);
+
+        if (!me) return reply.status(404).send({ success: false, error: 'Пользователь не найден' });
+        if (!me.organizationId) {
+            return reply.status(409).send({
+                success: false,
+                error: 'У пользователя нет организации — нечего обновлять',
+            });
+        }
+
+        const TaxRegimeSchema = z.enum([
+            'osno', 'usn_income', 'usn_income_expense', 'usn_with_vat',
+            'ausn', 'patent', 'npd',
+            // 'unspecified' намеренно исключён — пользователь не может
+            // вернуться к необъявленному состоянию. Это temporary default
+            // только для существующих организаций до явного выбора.
+        ]);
+        const PatchOrgSchema = z.object({
+            taxRegime: TaxRegimeSchema.optional(),
+        });
+        const parsed = PatchOrgSchema.safeParse(request.body);
+        if (!parsed.success) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Ошибка валидации данных',
+                details: parsed.error.flatten(),
+            });
+        }
+
+        if (parsed.data.taxRegime === undefined) {
+            return reply.status(400).send({ success: false, error: 'Нечего обновлять — передайте taxRegime' });
+        }
+
+        // Считаем текущее значение чтобы залогировать дельту в audit.
+        const [currentOrg] = await db.select({
+            id: organizations.id,
+            taxRegime: organizations.taxRegime,
+        }).from(organizations).where(eq(organizations.id, me.organizationId)).limit(1);
+        if (!currentOrg) return reply.status(404).send({ success: false, error: 'Организация не найдена' });
+
+        const oldValue = currentOrg.taxRegime;
+        const newValue = parsed.data.taxRegime;
+
+        if (oldValue === newValue) {
+            return { success: true, data: { id: currentOrg.id, taxRegime: newValue, changed: false } };
+        }
+
+        await db.update(organizations)
+            .set({ taxRegime: newValue })
+            .where(eq(organizations.id, currentOrg.id));
+
+        // Критическое юр-событие — severity=warning.
+        // Реальные смены режима происходят раз в год (с нового
+        // налогового периода). Подозрительно если часто.
+        await recordEvent({
+            authorId: actor.userId,
+            authorRole: actor.roles[0] ?? 'admin',
+            eventType: 'organization.tax_regime_changed',
+            entityType: 'organization',
+            entityId: currentOrg.id,
+            data: {
+                oldValue,
+                newValue,
+                severity: 'warning',
+            },
+        });
+
+        return { success: true, data: { id: currentOrg.id, taxRegime: newValue, changed: true, previousValue: oldValue } };
     });
 
     // ============================================================

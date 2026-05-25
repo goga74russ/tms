@@ -19,6 +19,15 @@ export interface CurrentUser {
     /** Convenience flag derived server-side: role=admin AND no organizationId.
      *  Frontend uses this to hide cross-tenant admin views from tenant admins. */
     isSuperAdmin?: boolean;
+    /** J1 — компактное представление организации с tax_regime.
+     *  Null если пользователь super-admin (organizationId null). */
+    organization?: {
+        id: string;
+        name: string;
+        inn: string | null;
+        taxRegime: 'osno' | 'usn_income' | 'usn_income_expense' | 'usn_with_vat'
+            | 'ausn' | 'patent' | 'npd' | 'unspecified';
+    } | null;
 }
 
 interface UserContextValue {

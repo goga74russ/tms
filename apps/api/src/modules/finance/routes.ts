@@ -6,7 +6,7 @@ import { financeService } from './finance.service.js';
 import { evaluateTariffRule } from './tariff-rules.service.js';
 import { InvoiceCreateSchema, FuelAnalysisQuerySchema, Export1CQuerySchema, AdjustmentCreateSchema } from './schemas.js';
 import { db } from '../../db/connection.js';
-import { invoices, invoiceTrips, invoiceAdjustments, contractors as contractorsTable } from '../../db/schema.js';
+import { invoices, invoiceTrips, invoiceAdjustments, contractors as contractorsTable, organizations } from '../../db/schema.js';
 import { z } from 'zod';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { PRIVILEGED_ROLES, hasPrivilege } from '@tms/shared';
@@ -232,6 +232,25 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const access = await ensureInvoiceAccess(request.params.id, request.user as { userId: string; roles: string[]; organizationId?: string });
                 if (access.error) {
                     return reply.code(access.error.status).send(access.error.body);
+                }
+
+                // J1.6 — guard выпуска счёта: tax_regime обязателен.
+                // Любой переход из draft → не-draft означает выпуск
+                // (sent/issued) — это юр-публикация документа. Без явного
+                // налогового режима логика НДС/типа документа некорректна.
+                if (parseResult.data.status !== 'draft') {
+                    const userOrgId = (request.user as { organizationId?: string }).organizationId;
+                    if (userOrgId) {
+                        const [org] = await db.select({ taxRegime: organizations.taxRegime })
+                            .from(organizations).where(eq(organizations.id, userOrgId)).limit(1);
+                        if (org?.taxRegime === 'unspecified') {
+                            return reply.code(412).send({
+                                success: false,
+                                error: 'Заполните налоговый режим организации перед выпуском счёта',
+                                code: 'TAX_REGIME_REQUIRED',
+                            });
+                        }
+                    }
                 }
 
                 const updated = await financeService.updateInvoiceStatus(

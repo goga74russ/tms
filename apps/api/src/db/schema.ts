@@ -148,6 +148,21 @@ export const maintenanceStatusEnum = pgEnum('maintenance_status', ['planned', 'o
 // ================================================================
 // Organizations (Multitenancy — Sprint 14)
 // ================================================================
+// J1 — налоговый режим (Jurist Этап 1, миграция 0033).
+// 'unspecified' — обязательный default до явного выбора режима. Любая
+// бизнес-логика выпуска счетов проверяет tax_regime !== 'unspecified'.
+// 'usn_with_vat' — новая категория с 244-ФЗ от 12.07.2024 (УСН >60M ₽ с НДС).
+export const taxRegimeEnum = pgEnum('tax_regime', [
+    'osno',
+    'usn_income',
+    'usn_income_expense',
+    'usn_with_vat',
+    'ausn',
+    'patent',
+    'npd',
+    'unspecified',
+]);
+
 export const organizations = pgTable('organizations', {
     id: uuid('id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 500 }).notNull(),
@@ -165,6 +180,9 @@ export const organizations = pgTable('organizations', {
     bankAccount: text('bank_account'),
     // Round 2A: when true, ADR validation failures block trip assignment.
     adrStrictMode: boolean('adr_strict_mode').notNull().default(false),
+    // J1 (Jurist Этап 1, миграция 0033) — налоговый режим. От него зависит логика
+    // НДС и выпуска СФ. 'unspecified' блокирует выпуск счетов до явного выбора.
+    taxRegime: taxRegimeEnum('tax_regime').notNull().default('unspecified'),
 });
 
 // ================================================================

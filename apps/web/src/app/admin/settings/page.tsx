@@ -8,7 +8,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
 import { PageHeader } from '@/components/ui/page-header';
 import { api } from '@/lib/api';
-import { Settings, Info, Database, Fuel, Briefcase, Wrench } from 'lucide-react';
+import { useUser } from '@/lib/user-context';
+import { Settings, Info, Database, Fuel, Briefcase, Wrench, Scale, AlertTriangle } from 'lucide-react';
+
+// J1 — налоговые режимы и их человеческие подписи.
+const TAX_REGIME_LABELS: Record<string, string> = {
+    osno: 'ОСНО — общая система (с НДС 20/10/0%)',
+    usn_income: 'УСН доходы 6% (без НДС)',
+    usn_income_expense: 'УСН доходы−расходы 15% (без НДС)',
+    usn_with_vat: 'УСН с НДС (244-ФЗ, доход >60M ₽)',
+    ausn: 'АУСН — автоматизированная УСН (без НДС)',
+    patent: 'Патент (только ИП, без НДС)',
+    npd: 'НПД — самозанятые (до 2.4M ₽/год)',
+};
+const TAX_REGIME_OPTIONS = Object.entries(TAX_REGIME_LABELS).map(([value, label]) => ({ value, label }));
 
 type CostModelResponse = {
     fuelPricePerLiter: { value: number; source: string; description: string; updatedAt: string | null };
@@ -89,6 +102,9 @@ export default function AdminSettingsPage() {
             <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
                 {/* Main column */}
                 <div className="space-y-5">
+                    {/* J1 — Налоговый режим (фундамент для счетов и НДС) */}
+                    <TaxRegimeCard />
+
                     <SectionCard
                         icon={Fuel}
                         title="Топливо"
@@ -225,6 +241,106 @@ function SectionCard({
                 </div>
                 <div className="space-y-2 pl-12">
                     {children}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+// J1 — Карточка налогового режима. Юр-обоснование в invoice-spec.md (Jurist).
+// Логика: пока taxRegime='unspecified' — yellow warning + блок «выберите».
+// Изменение — PATCH /api/auth/me/organization → refetch user → banner исчезает.
+function TaxRegimeCard() {
+    const { user, refetch } = useUser();
+    const { toast } = useToast();
+    const currentRegime = user?.organization?.taxRegime ?? 'unspecified';
+    const [value, setValue] = useState<string>(currentRegime === 'unspecified' ? '' : currentRegime);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        // Подцепить значение когда user подгружается асинхронно.
+        if (user?.organization?.taxRegime && user.organization.taxRegime !== 'unspecified') {
+            setValue(user.organization.taxRegime);
+        }
+    }, [user?.organization?.taxRegime]);
+
+    const isUnspecified = currentRegime === 'unspecified';
+    const canSave = value && value !== currentRegime && !saving;
+
+    const save = async () => {
+        if (!canSave) return;
+        setSaving(true);
+        try {
+            await api.patch('/auth/me/organization', { taxRegime: value });
+            toast({
+                variant: 'success',
+                title: 'Налоговый режим сохранён',
+                description: 'Это критическое юр-событие — записано в журнал.',
+            });
+            await refetch();
+        } catch (e: any) {
+            toast({ variant: 'error', title: 'Не удалось сохранить', description: e?.message ?? 'Неизвестная ошибка' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <Card className={isUnspecified ? 'border-amber-300 bg-amber-50/40' : undefined}>
+            <CardContent className="p-5 space-y-4">
+                <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                        isUnspecified ? 'bg-amber-100 text-amber-700' : 'bg-neutral-100 text-neutral-600'
+                    }`}>
+                        <Scale className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h2 className="text-base font-semibold text-neutral-900">Налоговый режим</h2>
+                        <p className="text-xs text-neutral-500 mt-0.5 leading-relaxed">
+                            От этого зависит порядок выставления счетов, НДС и счетов-фактур.
+                            Изменения — критическое событие, фиксируется в журнале.
+                        </p>
+                    </div>
+                </div>
+
+                {isUnspecified && (
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-100/60 px-3 py-2 text-xs text-amber-900">
+                        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                        <div>
+                            <strong>Не выбран.</strong> Выпуск счетов и СФ заблокирован до явного выбора режима.
+                            После выбора вернуться к «не задан» через UI нельзя.
+                        </div>
+                    </div>
+                )}
+
+                <div className="space-y-2 pl-12">
+                    <label className="text-xs font-medium text-neutral-700 block">Режим организации</label>
+                    <select
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                        className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
+                    >
+                        <option value="">— Выберите режим —</option>
+                        {TAX_REGIME_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                    </select>
+                    <div className="flex items-center gap-3 pt-2">
+                        <Button
+                            variant="brand"
+                            size="sm"
+                            isLoading={saving}
+                            disabled={!canSave}
+                            onClick={save}
+                        >
+                            Сохранить режим
+                        </Button>
+                        {!isUnspecified && value === currentRegime && (
+                            <span className="text-xs text-emerald-600">
+                                Текущий режим: {TAX_REGIME_LABELS[currentRegime] ?? currentRegime}
+                            </span>
+                        )}
+                    </div>
                 </div>
             </CardContent>
         </Card>
