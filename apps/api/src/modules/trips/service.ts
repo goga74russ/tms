@@ -62,10 +62,14 @@ export interface CreateTripInput {
     notes?: string;
     createdBy: string;
     orderIds?: string[]; // заявки для объединения в рейс
-    // K1 (Этап 2) — себестоимость рейса
+    // K1 (Этап 2) — DEPRECATED, оставлено для backward compat
     carrierCost?: number;
     carrierCostCurrency?: string;
     carrierCostIncludesVat?: boolean;
+    // L1 (Carriers-0) — режим выполнения + раздельный учёт
+    executionMode?: 'own' | 'subcontract';
+    ownCostEstimate?: number;
+    subcontractorCost?: number;
 }
 
 export interface TripFilters {
@@ -395,10 +399,14 @@ export async function createTrip(
                 ? new Date(input.plannedDepartureAt) : undefined,
             notes: input.notes,
             organizationId: author.organizationId ?? undefined,
-            // K1 (Этап 2) — pricing
+            // K1 (Этап 2) — legacy carrier_cost (backward compat)
             carrierCost: input.carrierCost,
             carrierCostCurrency: input.carrierCostCurrency ?? 'RUB',
             carrierCostIncludesVat: input.carrierCostIncludesVat ?? false,
+            // L1 (Carriers-0) — dual cost. CHECK constraint в БД проверяет XOR.
+            executionMode: input.executionMode ?? 'own',
+            ownCostEstimate: input.executionMode !== 'subcontract' ? input.ownCostEstimate : undefined,
+            subcontractorCost: input.executionMode === 'subcontract' ? input.subcontractorCost : undefined,
             createdBy: input.createdBy,
         }).returning();
 

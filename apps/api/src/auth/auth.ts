@@ -311,15 +311,21 @@ export function registerAuthRoutes(app: FastifyInstance) {
             && (user!.roles as string[]).includes('admin')
             && !user?.organizationId;
 
-        // J1 — подтягиваем компактное представление организации (включая
-        // tax_regime) — фронт читает это для banner и /admin/settings.
-        let organization: { id: string; name: string; inn: string | null; taxRegime: string } | null = null;
+        // J1 + L4 — подтягиваем компактное представление организации (tax_regime + usnVatRate).
+        let organization: {
+            id: string;
+            name: string;
+            inn: string | null;
+            taxRegime: string;
+            usnVatRate: number | null;
+        } | null = null;
         if (user?.organizationId) {
             const [org] = await db.select({
                 id: organizations.id,
                 name: organizations.name,
                 inn: organizations.inn,
                 taxRegime: organizations.taxRegime,
+                usnVatRate: organizations.usnVatRate,
             }).from(organizations).where(eq(organizations.id, user.organizationId)).limit(1);
             organization = org ?? null;
         }
@@ -503,8 +509,11 @@ export function registerAuthRoutes(app: FastifyInstance) {
             // вернуться к необъявленному состоянию. Это temporary default
             // только для существующих организаций до явного выбора.
         ]);
+        // L4 (Этап 1.1) — usn_vat_rate допустимые значения: 5, 7, 20.
+        const UsnVatRateSchema = z.union([z.literal(5), z.literal(7), z.literal(20)]);
         const PatchOrgSchema = z.object({
             taxRegime: TaxRegimeSchema.optional(),
+            usnVatRate: UsnVatRateSchema.nullable().optional(),
         });
         const parsed = PatchOrgSchema.safeParse(request.body);
         if (!parsed.success) {
@@ -515,31 +524,54 @@ export function registerAuthRoutes(app: FastifyInstance) {
             });
         }
 
-        if (parsed.data.taxRegime === undefined) {
-            return reply.status(400).send({ success: false, error: 'Нечего обновлять — передайте taxRegime' });
+        if (parsed.data.taxRegime === undefined && parsed.data.usnVatRate === undefined) {
+            return reply.status(400).send({ success: false, error: 'Нечего обновлять — передайте taxRegime или usnVatRate' });
         }
 
         // Считаем текущее значение чтобы залогировать дельту в audit.
         const [currentOrg] = await db.select({
             id: organizations.id,
             taxRegime: organizations.taxRegime,
+            usnVatRate: organizations.usnVatRate,
         }).from(organizations).where(eq(organizations.id, me.organizationId)).limit(1);
         if (!currentOrg) return reply.status(404).send({ success: false, error: 'Организация не найдена' });
 
-        const oldValue = currentOrg.taxRegime;
-        const newValue = parsed.data.taxRegime;
+        const newRegime = parsed.data.taxRegime ?? currentOrg.taxRegime;
+        const newUsnRate = parsed.data.usnVatRate !== undefined ? parsed.data.usnVatRate : currentOrg.usnVatRate;
 
-        if (oldValue === newValue) {
-            return { success: true, data: { id: currentOrg.id, taxRegime: newValue, changed: false } };
+        // L4 — кросс-валидация: usn_vat_rate допустим только при usn_with_vat.
+        if (newUsnRate != null && newRegime !== 'usn_with_vat') {
+            return reply.status(422).send({
+                success: false,
+                error: 'usnVatRate допустим только при tax_regime=usn_with_vat',
+                code: 'USN_VAT_RATE_REGIME_MISMATCH',
+            });
+        }
+        // Если переключаемся на usn_with_vat без явной ставки — требуем её.
+        if (newRegime === 'usn_with_vat' && newUsnRate == null) {
+            return reply.status(422).send({
+                success: false,
+                error: 'При выборе режима usn_with_vat нужно явно указать ставку НДС (5, 7 или 20)',
+                code: 'USN_VAT_RATE_REQUIRED',
+            });
+        }
+
+        const updates: { taxRegime?: typeof newRegime; usnVatRate?: number | null } = {};
+        if (parsed.data.taxRegime !== undefined && parsed.data.taxRegime !== currentOrg.taxRegime) {
+            updates.taxRegime = parsed.data.taxRegime;
+        }
+        if (newUsnRate !== currentOrg.usnVatRate) {
+            updates.usnVatRate = newUsnRate;
+        }
+        if (Object.keys(updates).length === 0) {
+            return { success: true, data: { id: currentOrg.id, taxRegime: newRegime, usnVatRate: newUsnRate, changed: false } };
         }
 
         await db.update(organizations)
-            .set({ taxRegime: newValue })
+            .set(updates)
             .where(eq(organizations.id, currentOrg.id));
 
         // Критическое юр-событие — severity=warning.
-        // Реальные смены режима происходят раз в год (с нового
-        // налогового периода). Подозрительно если часто.
         await recordEvent({
             authorId: actor.userId,
             authorRole: actor.roles[0] ?? 'admin',
@@ -547,13 +579,15 @@ export function registerAuthRoutes(app: FastifyInstance) {
             entityType: 'organization',
             entityId: currentOrg.id,
             data: {
-                oldValue,
-                newValue,
+                oldRegime: currentOrg.taxRegime,
+                newRegime,
+                oldUsnRate: currentOrg.usnVatRate,
+                newUsnRate,
                 severity: 'warning',
             },
         });
 
-        return { success: true, data: { id: currentOrg.id, taxRegime: newValue, changed: true, previousValue: oldValue } };
+        return { success: true, data: { id: currentOrg.id, taxRegime: newRegime, usnVatRate: newUsnRate, changed: true } };
     });
 
     // ============================================================

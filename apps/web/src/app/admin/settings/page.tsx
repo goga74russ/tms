@@ -247,31 +247,43 @@ function SectionCard({
     );
 }
 
-// J1 — Карточка налогового режима. Юр-обоснование в invoice-spec.md (Jurist).
-// Логика: пока taxRegime='unspecified' — yellow warning + блок «выберите».
-// Изменение — PATCH /api/auth/me/organization → refetch user → banner исчезает.
+// J1 + L4 — Карточка налогового режима. Юр-обоснование в invoice-spec.md (Jurist).
+// L4 — при выборе usn_with_vat появляется обязательный select ставки НДС (5/7/20).
 function TaxRegimeCard() {
     const { user, refetch } = useUser();
     const { toast } = useToast();
     const currentRegime = user?.organization?.taxRegime ?? 'unspecified';
+    const currentUsnRate = user?.organization?.usnVatRate ?? null;
     const [value, setValue] = useState<string>(currentRegime === 'unspecified' ? '' : currentRegime);
+    const [usnRate, setUsnRate] = useState<string>(currentUsnRate != null ? String(currentUsnRate) : '');
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        // Подцепить значение когда user подгружается асинхронно.
         if (user?.organization?.taxRegime && user.organization.taxRegime !== 'unspecified') {
             setValue(user.organization.taxRegime);
         }
-    }, [user?.organization?.taxRegime]);
+        if (user?.organization?.usnVatRate != null) {
+            setUsnRate(String(user.organization.usnVatRate));
+        }
+    }, [user?.organization?.taxRegime, user?.organization?.usnVatRate]);
 
     const isUnspecified = currentRegime === 'unspecified';
-    const canSave = value && value !== currentRegime && !saving;
+    const showUsnRate = value === 'usn_with_vat';
+    const usnRateMissing = showUsnRate && !usnRate;
+    const regimeChanged = value && value !== currentRegime;
+    const usnRateChanged = showUsnRate && Number(usnRate) !== currentUsnRate;
+    const canSave = value && !usnRateMissing && (regimeChanged || usnRateChanged) && !saving;
 
     const save = async () => {
         if (!canSave) return;
         setSaving(true);
         try {
-            await api.patch('/auth/me/organization', { taxRegime: value });
+            const body: Record<string, unknown> = {};
+            if (regimeChanged) body.taxRegime = value;
+            if (showUsnRate) body.usnVatRate = Number(usnRate);
+            // Если режим меняется на не-usn_with_vat, явно стираем ставку.
+            if (!showUsnRate && currentUsnRate != null) body.usnVatRate = null;
+            await api.patch('/auth/me/organization', body);
             toast({
                 variant: 'success',
                 title: 'Налоговый режим сохранён',
@@ -325,6 +337,29 @@ function TaxRegimeCard() {
                             <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
                     </select>
+
+                    {/* L4 — ставка НДС для usn_with_vat (244-ФЗ 2024) */}
+                    {showUsnRate && (
+                        <>
+                            <label className="text-xs font-medium text-neutral-700 block pt-2">
+                                Ставка НДС (244-ФЗ)
+                            </label>
+                            <select
+                                value={usnRate}
+                                onChange={(e) => setUsnRate(e.target.value)}
+                                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400"
+                            >
+                                <option value="">— Выберите ставку —</option>
+                                <option value="5">5%</option>
+                                <option value="7">7%</option>
+                                <option value="20">20% (общая)</option>
+                            </select>
+                            <p className="text-[11px] text-amber-700">
+                                Выбор ставки фиксируется в учётной политике. Менять можно только с нового налогового периода (1 января).
+                            </p>
+                        </>
+                    )}
+
                     <div className="flex items-center gap-3 pt-2">
                         <Button
                             variant="brand"
@@ -335,9 +370,10 @@ function TaxRegimeCard() {
                         >
                             Сохранить режим
                         </Button>
-                        {!isUnspecified && value === currentRegime && (
+                        {!isUnspecified && value === currentRegime && !usnRateChanged && (
                             <span className="text-xs text-emerald-600">
                                 Текущий режим: {TAX_REGIME_LABELS[currentRegime] ?? currentRegime}
+                                {currentUsnRate != null && ` · НДС ${currentUsnRate}%`}
                             </span>
                         )}
                     </div>

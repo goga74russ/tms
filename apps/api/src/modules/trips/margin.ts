@@ -23,12 +23,19 @@ export interface TripMargin {
     costCurrency: string;
     ordersWithoutPrice: number;
     ordersChecked: number;
+    /** L1 — указывает откуда взяли cost: 'own' | 'subcontract' | 'legacy_carrier_cost'. */
+    costSource?: 'own' | 'subcontract' | 'legacy_carrier_cost' | null;
+    executionMode?: 'own' | 'subcontract' | null;
 }
 
 export async function computeTripMargin(tripId: string): Promise<TripMargin> {
     const [trip] = await db.select({
         carrierCost: trips.carrierCost,
         carrierCostCurrency: trips.carrierCostCurrency,
+        // L1 — новые dual-cost поля. cost = subcontractor_cost ?? own_cost_estimate ?? carrier_cost (legacy).
+        ownCostEstimate: trips.ownCostEstimate,
+        subcontractorCost: trips.subcontractorCost,
+        executionMode: trips.executionMode,
     })
         .from(trips)
         .where(eq(trips.id, tripId))
@@ -65,9 +72,21 @@ export async function computeTripMargin(tripId: string): Promise<TripMargin> {
         }
     }
 
-    const cost = trip.carrierCost ?? null;
+    // L1 (Carriers-0) — fallback chain: новые поля приоритетнее legacy carrier_cost.
+    // execution_mode='own' → own_cost_estimate; ='subcontract' → subcontractor_cost.
+    // carrier_cost остаётся только для legacy trips (миграция 0035 backfill'ила
+    // existing carrier_cost → own_cost_estimate, поэтому fallback редко срабатывает).
+    const cost = trip.subcontractorCost ?? trip.ownCostEstimate ?? trip.carrierCost ?? null;
     const finalRevenue = hasAnyPrice ? round2(revenue) : null;
     const margin = (finalRevenue != null && cost != null) ? round2(finalRevenue - cost) : null;
+
+    const costSource = trip.subcontractorCost != null
+        ? 'subcontract' as const
+        : trip.ownCostEstimate != null
+            ? 'own' as const
+            : trip.carrierCost != null
+                ? 'legacy_carrier_cost' as const
+                : null;
 
     return {
         revenue: finalRevenue,
@@ -77,6 +96,8 @@ export async function computeTripMargin(tripId: string): Promise<TripMargin> {
         costCurrency: trip.carrierCostCurrency ?? 'RUB',
         ordersWithoutPrice,
         ordersChecked: orderRows.length - ordersWithoutPrice,
+        costSource,
+        executionMode: trip.executionMode ?? null,
     };
 }
 

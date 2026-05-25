@@ -50,9 +50,11 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
     const [selectedVehicle, setSelectedVehicle] = useState('');
     const [selectedDriver, setSelectedDriver] = useState('');
     const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
-    // K6 (Этап 2) — стоимость перевозчика
-    const [carrierCost, setCarrierCost] = useState('');
-    const [carrierCostIncludesVat, setCarrierCostIncludesVat] = useState(false);
+    // L5 (Carriers-0) — режим выполнения + раздельная стоимость
+    const [executionMode, setExecutionMode] = useState<'own' | 'subcontract'>('own');
+    const [ownCostEstimate, setOwnCostEstimate] = useState('');
+    const [subcontractorCost, setSubcontractorCost] = useState('');
+    const [costIncludesVat, setCostIncludesVat] = useState(false);
 
     // Load available vehicles, drivers, and confirmed orders
     useEffect(() => {
@@ -134,11 +136,18 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
         setWarnings([]);
 
         try {
-            // 1. Create trip with linked orders + K6 (carrier_cost если задан)
-            const createPayload: Record<string, unknown> = { orderIds: selectedOrders };
-            if (carrierCost) {
-                createPayload.carrierCost = parseFloat(carrierCost);
-                createPayload.carrierCostIncludesVat = carrierCostIncludesVat;
+            // 1. Create trip with linked orders + L5 (dual cost от execution_mode).
+            const createPayload: Record<string, unknown> = {
+                orderIds: selectedOrders,
+                executionMode,
+            };
+            if (executionMode === 'own' && ownCostEstimate) {
+                createPayload.ownCostEstimate = parseFloat(ownCostEstimate);
+                createPayload.carrierCostIncludesVat = costIncludesVat;
+            }
+            if (executionMode === 'subcontract' && subcontractorCost) {
+                createPayload.subcontractorCost = parseFloat(subcontractorCost);
+                createPayload.carrierCostIncludesVat = costIncludesVat;
             }
             const createData = await api.post('/trips', createPayload);
             if (!createData.success) {
@@ -235,30 +244,83 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                 )}
                             </div>
 
-                            {/* K6 (Этап 2) — Стоимость перевозчика. Видна manager+/accountant/admin. */}
-                            <div className="rounded-lg border border-neutral-200 bg-neutral-50/40 p-3 space-y-2">
+                            {/* L5 (Carriers-0) — Режим рейса + раздельная стоимость. */}
+                            <div className="rounded-lg border border-neutral-200 bg-neutral-50/40 p-3 space-y-3">
                                 <div>
-                                    <label className="text-sm font-semibold text-neutral-700 mb-1.5 block">
-                                        Стоимость перевозчика, ₽
+                                    <label className="text-sm font-semibold text-neutral-700 mb-2 block">
+                                        Режим рейса
                                     </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        value={carrierCost}
-                                        onChange={(e) => setCarrierCost(e.target.value)}
-                                        placeholder="например, 28000"
-                                        className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                    <p className="text-[11px] text-neutral-500 mt-1">
-                                        Сколько нам стоит этот рейс (оплата субподрядчику или внутренняя стоимость).
-                                    </p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setExecutionMode('own')}
+                                            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                                                executionMode === 'own'
+                                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                                    : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50'
+                                            }`}
+                                        >
+                                            Свой парк
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setExecutionMode('subcontract')}
+                                            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                                                executionMode === 'subcontract'
+                                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                                    : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50'
+                                            }`}
+                                        >
+                                            Наёмный перевозчик
+                                        </button>
+                                    </div>
                                 </div>
+
+                                {executionMode === 'own' && (
+                                    <div>
+                                        <label className="text-sm font-semibold text-neutral-700 mb-1.5 block">
+                                            Внутренняя себестоимость, ₽
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={ownCostEstimate}
+                                            onChange={(e) => setOwnCostEstimate(e.target.value)}
+                                            placeholder="топливо + з/п + амортизация"
+                                            className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        />
+                                        <p className="text-[11px] text-neutral-500 mt-1">
+                                            Расчётная себестоимость рейса для своего парка.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {executionMode === 'subcontract' && (
+                                    <div>
+                                        <label className="text-sm font-semibold text-neutral-700 mb-1.5 block">
+                                            Стоимость подрядчика, ₽
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={subcontractorCost}
+                                            onChange={(e) => setSubcontractorCost(e.target.value)}
+                                            placeholder="сумма счёта от перевозчика"
+                                            className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        />
+                                        <p className="text-[11px] text-neutral-500 mt-1">
+                                            Сколько мы заплатим субподрядчику по его счёту.
+                                        </p>
+                                    </div>
+                                )}
+
                                 <label className="flex items-center gap-2 text-sm text-neutral-700">
                                     <input
                                         type="checkbox"
-                                        checked={carrierCostIncludesVat}
-                                        onChange={(e) => setCarrierCostIncludesVat(e.target.checked)}
+                                        checked={costIncludesVat}
+                                        onChange={(e) => setCostIncludesVat(e.target.checked)}
                                         className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
                                     />
                                     Стоимость с НДС

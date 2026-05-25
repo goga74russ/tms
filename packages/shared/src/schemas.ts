@@ -331,10 +331,15 @@ export const TripSchema = z.object({
     fuelEnd: z.number().optional(),
     notes: z.string().optional(),
     originalDocumentsReceived: z.boolean().optional(),
-    // K1 (Этап 2) — себестоимость рейса. Видна manager+/accountant/admin.
+    // K1 (Этап 2) — DEPRECATED, оставлено для backward compat (миграция 0035).
+    // Использовать ownCostEstimate / subcontractorCost через executionMode.
     carrierCost: z.number().nonnegative().optional(),
     carrierCostCurrency: z.string().length(3).default('RUB'),
     carrierCostIncludesVat: z.boolean().default(false),
+    // L1 (Carriers-0, миграция 0035) — режим выполнения + раздельный учёт.
+    executionMode: z.enum(['own', 'subcontract']).default('own'),
+    ownCostEstimate: z.number().nonnegative().optional(),
+    subcontractorCost: z.number().nonnegative().optional(),
     createdBy: uuid,
     createdAt: dateStr,
     updatedAt: dateStr,

@@ -244,7 +244,9 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         const [org] = await db.select({ taxRegime: organizations.taxRegime })
                             .from(organizations).where(eq(organizations.id, userOrgId)).limit(1);
                         if (org?.taxRegime === 'unspecified') {
-                            return reply.code(412).send({
+                            // L3 — invoice-spec.md §4 говорит 422 (Unprocessable Entity).
+                            // 412 (Precondition Failed) был неточным для бизнес-валидации.
+                            return reply.code(422).send({
                                 success: false,
                                 error: 'Заполните налоговый режим организации перед выпуском счёта',
                                 code: 'TAX_REGIME_REQUIRED',

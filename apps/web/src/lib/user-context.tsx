@@ -27,6 +27,7 @@ export interface CurrentUser {
         inn: string | null;
         taxRegime: 'osno' | 'usn_income' | 'usn_income_expense' | 'usn_with_vat'
             | 'ausn' | 'patent' | 'npd' | 'unspecified';
+        usnVatRate?: number | null;
     } | null;
 }
 

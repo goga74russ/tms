@@ -217,7 +217,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             return reply.status(404).send({ success: false, error: 'Рейс не найден' });
         }
 
-        // K4 RBAC — финансовые поля + margin видят только manager+/accountant/admin.
+        // K4 + L3 RBAC — все cost-поля и margin видят только manager+/accountant/admin.
         const canViewFinance = user.roles.includes('manager')
             || user.roles.includes('accountant')
             || user.roles.includes('admin');
@@ -228,6 +228,9 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
                     ...trip,
                     carrierCost: null,
                     carrierCostIncludesVat: false,
+                    // L1 dual cost — тоже скрываем для не-finance ролей
+                    ownCostEstimate: null,
+                    subcontractorCost: null,
                 },
             };
         }

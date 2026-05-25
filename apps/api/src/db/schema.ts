@@ -66,6 +66,11 @@ export const tripLotAssignmentStatusEnum = pgEnum('trip_lot_assignment_status', 
     'planned', 'loaded', 'in_transit', 'delivered', 'short', 'damaged', 'returned', 'cancelled',
 ]);
 
+// L1 (Этап 1.1 + Carriers-0, миграция 0035) — режим выполнения рейса.
+// 'own' = свой парк (учёт через own_cost_estimate), 'subcontract' = наёмный
+// (учёт через subcontractor_cost). Поля cost взаимоисключающие (XOR-CHECK).
+export const tripExecutionModeEnum = pgEnum('trip_execution_mode', ['own', 'subcontract']);
+
 export const shipmentFactTypeEnum = pgEnum('shipment_fact_type', [
     'loading', 'unloading', 'return', 'correction', 'discrepancy',
 ]);
@@ -183,6 +188,9 @@ export const organizations = pgTable('organizations', {
     // J1 (Jurist Этап 1, миграция 0033) — налоговый режим. От него зависит логика
     // НДС и выпуска СФ. 'unspecified' блокирует выпуск счетов до явного выбора.
     taxRegime: taxRegimeEnum('tax_regime').notNull().default('unspecified'),
+    // L1 (Этап 1.1, миграция 0035) — ставка НДС для usn_with_vat (244-ФЗ 2024).
+    // Допустимые значения 5/7/20 (CHECK на уровне БД). NULL для прочих режимов.
+    usnVatRate: numeric('usn_vat_rate', { precision: 4, scale: 2 }).$type<number>(),
 });
 
 // ================================================================
@@ -311,6 +319,9 @@ export const vehicles = pgTable('vehicles', {
     totalFuelConsumedL: doublePrecision('total_fuel_consumed_l').notNull().default(0),
     lastOdometerKm: doublePrecision('last_odometer_km'),
     lastOdometerUpdatedAt: timestamp('last_odometer_updated_at', { withTimezone: true }),
+    // L1 (Carriers-0, миграция 0035) — если ТС принадлежит подрядчику.
+    // NULL = свой парк. NOT NULL = наёмное ТС.
+    ownerContractorId: uuid('owner_contractor_id').references(() => contractors.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -347,6 +358,9 @@ export const drivers = pgTable('drivers', {
     isActive: boolean('is_active').notNull().default(true),
     // Multitenancy (Sprint 14)
     organizationId: uuid('organization_id').references(() => organizations.id),
+    // L1 (Carriers-0, миграция 0035) — если водитель работает на стороннюю
+    // организацию (подрядчик). NULL = наш сотрудник.
+    employerContractorId: uuid('employer_contractor_id').references(() => contractors.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -449,12 +463,17 @@ export const trips = pgTable('trips', {
     organizationId: uuid('organization_id').references(() => organizations.id),
     // Wave 4: рейс выполняется субподрядчиком-перевозчиком.
     carrierContractorId: uuid('carrier_contractor_id').references(() => contractors.id, { onDelete: 'set null' }),
-    // K1 (Этап 2, миграция 0034) — себестоимость рейса.
-    // Видна manager+/accountant/admin. Dispatcher может вводить.
-    // Маржа = Σ(orders.customerPrice) − carrierCost (считается на лету).
+    // K1 (Этап 2, миграция 0034) — себестоимость рейса (LEGACY).
+    // DEPRECATED: с L1 (миграция 0035) используются own_cost_estimate / subcontractor_cost
+    // в зависимости от execution_mode. Это поле остаётся для backward compat
+    // до полной миграции UI/API, удаление запланировано в 004x.
     carrierCost: numeric('carrier_cost', { precision: 12, scale: 2 }).$type<number>(),
     carrierCostCurrency: varchar('carrier_cost_currency', { length: 3 }).notNull().default('RUB'),
     carrierCostIncludesVat: boolean('carrier_cost_includes_vat').notNull().default(false),
+    // L1 (миграция 0035) — режим выполнения рейса + раздельный учёт стоимости.
+    executionMode: tripExecutionModeEnum('execution_mode').notNull().default('own'),
+    ownCostEstimate: numeric('own_cost_estimate', { precision: 12, scale: 2 }).$type<number>(),
+    subcontractorCost: numeric('subcontractor_cost', { precision: 12, scale: 2 }).$type<number>(),
     createdBy: uuid('created_by').notNull().references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
