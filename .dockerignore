@@ -16,6 +16,10 @@ docs
 # DPA texts are required by api Dockerfile (COPY docs/legal/dpa/).
 !docs/legal/dpa
 !docs/legal/dpa/**
+# Privacy/Terms — rendered by web Dockerfile /legal pages at build time
+# (W2: drift fix — single source of truth in docs/legal/*.md).
+!docs/legal/privacy-policy.md
+!docs/legal/terms-of-service.md
 **/playwright.config.ts
 **/e2e
 **/*.tsbuildinfo

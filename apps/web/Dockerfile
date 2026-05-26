@@ -22,6 +22,12 @@ RUN pnpm install --prod=false --frozen-lockfile
 COPY packages/shared/ ./packages/shared/
 COPY apps/web/ ./apps/web/
 
+# Legal docs are rendered by /legal/privacy and /legal/terms pages
+# at Next.js build time (fs.readFileSync in Server Components).
+# .dockerignore exempts these two files from the global `*.md` rule.
+COPY docs/legal/privacy-policy.md ./docs/legal/privacy-policy.md
+COPY docs/legal/terms-of-service.md ./docs/legal/terms-of-service.md
+
 # Build shared, then web
 RUN pnpm --filter @tms/shared exec tsc -p tsconfig.json
 
