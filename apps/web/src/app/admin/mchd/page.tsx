@@ -228,6 +228,12 @@ function CreateMchdModal({ open, onClose, onSuccess }: CreateModalProps) {
                     <legend className="px-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
                         Поверенный (физ. лицо)
                     </legend>
+                    {/* T-13 (W3): подсказка про КЭП-связку per Jurist J-1. */}
+                    <p className="text-xs text-neutral-500 leading-relaxed">
+                        ИНН и СНИЛС поверенного должны совпадать с теми, что в его{' '}
+                        <strong>личной КЭП физлица</strong> (выдана коммерческим УЦ).
+                        Только в этой паре МЧД подписывает документы от имени организации.
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Input
                             type="text"
@@ -716,6 +722,25 @@ export default function AdminMchdPage() {
                     </Button>
                 }
             />
+
+            {/* T-13 (W3): юр-пояснение модели КЭП per Jurist J-1 (docs/legal/etrn/08).
+                С 01.09.2023 (ФЗ-476) «КЭП сотрудника организации» больше не выпускаются.
+                Сотрудник подписывает личной КЭП физлица + МЧД от организации. ЕИО (ИП,
+                директор) — КЭП юрлица напрямую, без МЧД. */}
+            <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 leading-relaxed">
+                <p>
+                    <strong>Как работает МЧД:</strong> доверенность дополняет{' '}
+                    <strong>личную КЭП физлица</strong> сотрудника — без действующей КЭП
+                    МЧД не подписывает ничего. Сотрудник получает КЭП в коммерческом
+                    удостоверяющем центре (Контур, СберКорус, Тензор и др.), организация
+                    выдаёт МЧД через nalog.gov.ru.
+                </p>
+                <p className="mt-2">
+                    <strong>Руководителю (ЕИО) МЧД не нужна</strong> — он подписывает
+                    напрямую КЭП юрлица (бесплатно через УЦ ФНС). Это применимо к ИП
+                    и генеральному директору ООО.
+                </p>
+            </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Stat label="Всего" value={items.length} icon={FileSignature} tone="neutral" />

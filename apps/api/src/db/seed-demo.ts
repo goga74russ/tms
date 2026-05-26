@@ -9,8 +9,9 @@ import {
     routePoints, waybills, techInspections, medInspections, repairRequests,
     fines, invoices, invoiceTrips, permits, tariffs, trailers, incidents, claims,
     tachographRecords, checklistTemplates, restrictionZones, events,
-    deliveryConfirmations, documentReturns,
+    deliveryConfirmations, documentReturns, mchd,
 } from './schema.js';
+import crypto from 'node:crypto';
 import { hashPassword } from '../auth/auth.js';
 import { APPEND_ONLY_TRIGGER_SQL } from './triggers.js';
 
@@ -756,6 +757,61 @@ async function seedDemo() {
     await db.insert(restrictionZones).values([
         { name: 'МКАД', type: 'mkad', geoJson: { type: 'Polygon', coordinates: [] } },
         { name: 'ТТК', type: 'ttk', geoJson: { type: 'Polygon', coordinates: [] } },
+    ]);
+
+    // ================================================================
+    // 22.5) МЧД (Машиночитаемые Доверенности) — T-13 W3
+    // ================================================================
+    // 1 active + 1 expired для демонстрации обоих статусов в /admin/mchd.
+    // granter = Org-A (наша демо-организация), grantee = логист (Иванов).
+    // certificate_xml — placeholder XML с подписью ФНС. Реальная МЧД
+    // подгружается через UI оператором; здесь — только для пилотной
+    // демонстрации flow + smoke test'ов.
+    console.log('  → МЧД (реестр для подписания ЭТрН)...');
+    // orgA.inn и orgA.ogrn nullable в schema, но в seed мы их задаём явно —
+    // assert через `??` чтобы TS не ругался и runtime был защищён от багов
+    // в будущих сидах.
+    const orgAInn = orgA.inn ?? '7700000001';
+    const orgAOgrn = orgA.ogrn ?? '1027700000001';
+    const mchdXmlActive = '<?xml version="1.0" encoding="UTF-8"?>\n<МЧД><Номер>МЧД-2026-000001</Номер><Доверитель ИНН="' + orgAInn + '" ОГРН="' + orgAOgrn + '"/><Поверенный ФИО="Иванов Иван Иванович" ИНН="500100732259"/><Полномочия>Подписание ЭТрН (Титулы 2, 6), универсального передаточного документа (УПД), счетов-фактур, заказ-нарядов, актов оказанных услуг.</Полномочия><СрокДействия С="2026-01-01" По="2027-01-01"/></МЧД>';
+    const mchdXmlExpired = '<?xml version="1.0" encoding="UTF-8"?>\n<МЧД><Номер>МЧД-2025-000042</Номер><Доверитель ИНН="' + orgAInn + '" ОГРН="' + orgAOgrn + '"/><Поверенный ФИО="Петров Пётр Петрович" ИНН="500100888312"/><Полномочия>Подписание ЭТрН и УПД (исторический пример — срок истёк).</Полномочия><СрокДействия С="2025-01-01" По="2025-12-31"/></МЧД>';
+    await db.insert(mchd).values([
+        {
+            organizationId: orgA.id,
+            mchdNumber: 'МЧД-2026-000001',
+            granterInn: orgAInn,
+            granterName: orgA.name,
+            granterOgrn: orgAOgrn,
+            granteeFullName: 'Иванов Иван Иванович',
+            granteeInn: '500100732259',
+            granteePassport: '4509 123456',
+            scope: 'Подписание ЭТрН (Титулы 2, 6), УПД, счетов-фактур, заказ-нарядов, актов оказанных услуг от имени Организации в связке с личной КЭП физлица поверенного.',
+            issuedAt: new Date('2026-01-01T09:00:00Z'),
+            expiresAt: new Date('2027-01-01T00:00:00Z'),
+            status: 'active',
+            certificateXml: mchdXmlActive,
+            certificateXmlHash: crypto.createHash('sha256').update(mchdXmlActive).digest('hex'),
+            uploadedByUserId: admin.id,
+            notes: 'Демо-МЧД (пилот). Реальный документ загружается через /admin/mchd → Добавить.',
+        },
+        {
+            organizationId: orgA.id,
+            mchdNumber: 'МЧД-2025-000042',
+            granterInn: orgAInn,
+            granterName: orgA.name,
+            granterOgrn: orgAOgrn,
+            granteeFullName: 'Петров Пётр Петрович',
+            granteeInn: '500100888312',
+            granteePassport: '4509 765432',
+            scope: 'Подписание ЭТрН и УПД. Исторический пример — для демонстрации статуса "Истёкшие" в UI.',
+            issuedAt: new Date('2025-01-01T09:00:00Z'),
+            expiresAt: new Date('2025-12-31T23:59:59Z'),
+            status: 'expired',
+            certificateXml: mchdXmlExpired,
+            certificateXmlHash: crypto.createHash('sha256').update(mchdXmlExpired).digest('hex'),
+            uploadedByUserId: admin.id,
+            notes: 'Истёкшая МЧД (демо). Используется для проверки UI-фильтров и баннеров «истекает скоро».',
+        },
     ]);
 
     // ================================================================
