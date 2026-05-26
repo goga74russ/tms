@@ -133,7 +133,7 @@
 | ~~T-10~~ | ~~Missing FK indexes — миграция 0037~~ | 30min | ✅ **W1 done** (f0ed26a + applied in prod) |
 | ~~T-11~~ | ~~Full test suite~~ | 1h | ✅ **W1 done** (baseline: 705+199 tests, 8 skip с FIXME) |
 | ~~T-12~~ | ~~Email-провайдер (Unisender real impl + 15 тестов)~~ | 1 день | ✅ **W2 done** (ac3c5d1) |
-| T-13 | МЧД UI — создать/прикрепить через UI | 2 дня | 🟡 W3 — **90% уже реализовано** (admin/mchd page 836 LOC + SignTitleButton МЧД-integration). Осталась проверка соответствия J-1 (КЭП-модель). |
+| ~~T-13~~ | ~~МЧД UI alignment с J-1 + seed demo~~ | 4-6h | ✅ **W3 done** (2502963) |
 
 ### 🟧 P1 — после пилота, но до коммерческого релиза
 
