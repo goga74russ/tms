@@ -30,6 +30,7 @@ import { mockPaymentProvider } from './payment/mock.js';
 import { YookassaPaymentProvider } from './payment/yookassa.js';
 import { consoleEmailProvider } from './email/console.js';
 import { SmtpEmailProvider } from './email/smtp.js';
+import { UnisenderEmailProvider } from './email/unisender.js';
 import { mockOsagoProvider } from './osago/mock.js';
 import { rsaOsagoProvider } from './osago/rsa.js';
 import type { OsagoProvider } from './osago/interface.js';
@@ -73,6 +74,7 @@ const realAdapterFactories = new Map<string, AdapterFactory>([
     // Email
     ['email:mailru_smtp', (c) => new SmtpEmailProvider(c as any)],
     ['email:smtp', (c) => new SmtpEmailProvider(c as any)],
+    ['email:unisender', (c) => new UnisenderEmailProvider(c as any)],
 ]);
 
 /**
@@ -144,6 +146,14 @@ export function getDefaultRegistry(): ProviderRegistry {
     const emailAdapters: EmailProvider[] = [consoleEmailProvider];
     if (process.env.SMTP_HOST) {
         emailAdapters.push(new SmtpEmailProvider());
+    }
+    // T-12 (W2): Unisender встаёт в default registry если задан полный
+    // комплект env-переменных (UNISENDER_API_KEY + UNISENDER_FROM_EMAIL +
+    // UNISENDER_LIST_ID). selectAdapter() ставит его впереди console но
+    // позади per-org credentials, поэтому org может его переопределить.
+    const unisender = UnisenderEmailProvider.fromEnv();
+    if (unisender) {
+        emailAdapters.push(unisender);
     }
     cachedRegistry = {
         signature: [mockSignatureProvider],
