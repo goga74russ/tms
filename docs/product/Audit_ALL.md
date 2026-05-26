@@ -1,9 +1,9 @@
-# Объединённый аудит TMS-prod — обновлено 2026-05-26 (поздний вечер)
+# Объединённый аудит TMS-prod — обновлено 2026-05-26 (ночь)
 
 **Источники:** PM (продуктовый), TransPult (технический), Jurist (юридический).
-**HEAD:** `8ac3cc7` (после W1 + Jurist sync + W2 partial: T-12, T-5).
+**HEAD:** `e971441` (после W2 partial + drift fix, deployed in prod).
 **До 01.09.2026:** 97 календарных дней.
-**Последнее обновление:** W2 partial — T-12 (Unisender) + T-5 (DPA-step UI в onboarding). T-13/T-9/T-7 ожидают свежей сессии.
+**Последнее обновление:** W2 partial задеплоено в прод. /legal страницы рендерят Jurist'овский markdown (single source of truth). W3 стартует.
 
 ---
 
@@ -44,8 +44,9 @@
 | **O** (371329d) | PDF-шаблоны СФ/УПД/КСФ/ИСФ по ПП РФ 1137 |
 | **W1 Sprint** (f0ed26a → 7e23006) | AI flag · FK indexes 0037 · PII redact · bulk-pdf N+1 · Wialon banner · deploy.sh + deploy.ps1 |
 | **W2 partial** (ac3c5d1 + 8ac3cc7) | **T-12** Unisender real (15 unit-тестов) · **T-5** DPA-step gate в StepEdi+StepSignature |
+| **W2 drift fix** (e971441) | /legal/{privacy,terms} читают .md → MarkdownView · markdown-parser server-safe · Dockerfile COPY · .dockerignore exceptions |
 
-**Накопительно за сессию: 16 коммитов, 5 миграций (0033-0037), 0 откатов, 4 деплоя в проде.**
+**Накопительно за сессию: 17 коммитов, 5 миграций (0033-0037), 0 откатов, 5 деплоев в проде. Прод на `e971441`.**
 
 ### Jurist — за неделю с deep-audit 23.05 + W1 (вечер 26.05)
 
@@ -223,14 +224,15 @@ Jurist J-8 (Acceptance M+O)
 | — | docs/product/sprint-w1-acceptance.md | 3273dd5 |
 | — | scripts/deploy.sh + deploy.ps1 | 9201c94, 7e23006 |
 
-### ✅ W2 partial закрыт
+### ✅ W2 закрыт
 
 | # | Задача | Коммит | Что внутри |
 |---|---|---|---|
-| T-12 | Unisender real impl | ac3c5d1 | Реальный fetch к api.unisender.com, 15 unit-тестов, env-фабрика, registry wiring, form-urlencoded body, error mapping (transport vs API) |
-| T-5 | DPA-step gate в онбординге | 8ac3cc7 | Helper `lib/dpa.ts` (fail-open). StepEdi: persistChoice вынесен, submit → DPA-check → DpaStepModal → onAccepted. StepSignature: то же. |
+| T-12 | Unisender real impl | ac3c5d1 | Реальный fetch к api.unisender.com, 15 unit-тестов, env-фабрика, registry wiring, form-urlencoded body, error mapping |
+| T-5 | DPA-step gate в онбординге | 8ac3cc7 | Helper `lib/dpa.ts` (fail-open). StepEdi + StepSignature: DPA-check перед persistChoice |
+| — | Drift fix /legal страниц | e971441 | MarkdownView client + markdown-parser server-safe. Privacy/Terms pages теперь Server Components: fs.readFileSync .md → MarkdownView. Dockerfile COPY + .dockerignore exceptions. Verified на проде: v1.2/v1.1 контент рендерится. |
 
-### W3 Sprint — приоритеты (ожидание твоей команды)
+### W3 Sprint — стартую сейчас
 
 | # | Задача | Часов | Почему важно |
 |---|---|---|---|
@@ -243,7 +245,7 @@ Jurist J-8 (Acceptance M+O)
 | T-4 | Alerting pending_review | 4h | После DevOps coord |
 | T-48 | docs/architecture/migrations.md | 30min | Правило BEGIN/COMMIT (по ревью партнёра) |
 
-**Итого моя зона на W3: ~30 часов.**
+**Итого моя зона на W3: ~30 часов.** Стартую с T-13.
 
 ---
 
@@ -303,12 +305,13 @@ Jurist J-8 (Acceptance M+O)
   - ✅ Jurist: J-1, J-2, J-7, J-8 (вечером 26.05)
   - 🔴 Founder: F-1 (старт ООО), F-4 (PoL probes) — **не стартовали**
 
-- **~~Неделя 2 (02.06-08.06)~~ — W2 факт:**
-  - ✅ TransPult: T-12 (Unisender real), T-5 (DPA-step в онбординге)
+- **~~Неделя 2 (02.06-08.06)~~ — W2 факт + deployed:**
+  - ✅ TransPult: T-12 (Unisender real), T-5 (DPA-step в онбординге), drift fix /legal pages
+  - ✅ Deploy в прод: e971441 — Jurist v1.2 PP и v1.1 ToS теперь видны на transpult.ru/legal/*
   - 🔴 Founder: F-1 — **не стартовал** (главный блокер календаря)
   - 🟡 Jurist: ждёт сигнал на W3 (J-5 ООО prep, J-4 внутренние доки)
 
-- **Неделя 3 (09.06-15.06) — W3:**
+- **Неделя 3 (09.06-15.06) — W3 (старт сейчас):**
   - Founder: F-1 (если не сделано), F-3 (УСН выбор), F-4 (PoL probes)
   - Jurist: J-5 (ООО prep — приоритет, разблокирует F-1), J-4, J-6
   - TransPult: T-13 (МЧД доводка), T-9 (invoice tests), T-7 (RBAC sweep)
@@ -328,24 +331,24 @@ Jurist J-8 (Acceptance M+O)
 
 ## §10 Метрики (обновлено после W1)
 
-| Метрика | До W1 | После W1 | После Jurist sync | После W2 partial |
-|---|---|---|---|---|
-| Готовность к платящему клиенту (юр) | ~40% | ~45% | ~55% | **~60%** |
-| P0 deep-audit закрыто | 4/12 (33%) | 4/12 | 8/12 | **9/12 (75%)** |
-| P0 TransPult из списка | 0/13 | 6/13 | 6/13 | **8/13 (62%)** |
-| P0 Jurist из списка | 0/7 | 0/7 | 4/7 | 4/7 |
-| Тестов в проекте | 904 | 904 | 904 | **919** (+15 Unisender) |
-| Тестов в мобильном | 0 | 0 | 0 | 0 |
-| Миграций в проде | 36 | 37 | 37 | 37 |
-| Real-провайдеров работает | 0 / 28 | 0 / 28 | 0 / 28 | **1 / 28** (Unisender) |
-| Mocks в проде | 4 | 4 | 4 | 4 |
-| Commits в main за сессию | 8 | 13 | 14 | **16** (+2 W2) |
-| Rollback'ов | 0 | 0 | 0 | 0 |
-| Deploy infra | manual | scripts/deploy.{sh,ps1} | — | — |
-| Юр-документы (markdown) | 6 | 6 | 17 | 17 |
-| ToS версия | 1.0 | 1.0 | 1.1 | 1.1 |
-| Privacy Policy версия | 1.1 | 1.1 | 1.2 | 1.2 |
-| Email providers | console only | console only | console only | **console + SMTP (env) + Unisender (env)** |
+| Метрика | До W1 | После W1 | Jurist sync | W2 partial | **W2 deployed** |
+|---|---|---|---|---|---|
+| Готовность к платящему клиенту (юр) | ~40% | ~45% | ~55% | ~60% | **~62%** |
+| P0 deep-audit закрыто | 4/12 (33%) | 4/12 | 8/12 | 9/12 | **9/12 (75%)** |
+| P0 TransPult из списка | 0/13 | 6/13 | 6/13 | 8/13 | **8/13 (62%)** |
+| P0 Jurist из списка | 0/7 | 0/7 | 4/7 | 4/7 | 4/7 |
+| Тестов в проекте | 904 | 904 | 904 | 919 | **919** |
+| Тестов в мобильном | 0 | 0 | 0 | 0 | 0 |
+| Миграций в проде | 36 | 37 | 37 | 37 | **37** |
+| Real-провайдеров работает | 0 / 28 | 0 / 28 | 0 / 28 | 1 / 28 | **1 / 28** |
+| Commits в main за сессию | 8 | 13 | 14 | 16 | **17** |
+| Deploy'ев в проде | 4 | **4** | 4 | 4 | **5** (e971441) |
+| Rollback'ов | 0 | 0 | 0 | 0 | 0 |
+| Юр-документы (markdown) | 6 | 6 | 17 | 17 | 17 |
+| ToS версия | 1.0 (hardcoded) | 1.0 | 1.1 (.md) | 1.1 | **1.1 на проде** |
+| Privacy Policy версия | 1.1 (hardcoded) | 1.1 | 1.2 (.md) | 1.2 | **1.2 на проде** |
+| /legal pages source of truth | hardcoded JSX | hardcoded | drift | drift | **single (md)** |
+| Email providers | console only | console only | console only | console+SMTP+Unisender | **same в проде** |
 
 **bulk-pdf queries (50 invoices):** было ~150 → стало 3-4
 **FK indexes coverage:** было 5 hot FK без индексов → стало 0
