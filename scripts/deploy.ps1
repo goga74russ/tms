@@ -4,7 +4,7 @@
 # Usage:
 #   pwsh scripts/deploy.ps1
 #   pwsh scripts/deploy.ps1 -Key C:\Users\me\.ssh\custom_key
-#   pwsh scripts/deploy.ps1 -Host 135.106.152.23 -User transpult
+#   pwsh scripts/deploy.ps1 -RemoteHost 135.106.152.23 -User transpult
 #
 # What it does:
 #   1. Validates the SSH key path locally
@@ -19,7 +19,7 @@
 
 param(
     [string]$Key  = "$env:USERPROFILE\.ssh\transpult_ed25519",
-    [string]$Host = '135.106.152.23',
+    [string]$RemoteHost = '135.106.152.23',
     [string]$User = 'transpult',
     [string]$ProjectDir = '/opt/transpult'
 )
@@ -31,14 +31,14 @@ if (-not (Test-Path -LiteralPath $Key)) {
     exit 1
 }
 
-Write-Host "Triggering prod deploy on $User@$Host ..." -ForegroundColor Cyan
+Write-Host "Triggering prod deploy on $User@$RemoteHost ..." -ForegroundColor Cyan
 Write-Host "Key       : $Key"
 Write-Host "ProjectDir: $ProjectDir"
 Write-Host ""
 
 # Single quoted argument forwards to remote sh -c → it picks up bash via shebang.
 # We invoke the remote script directly; everything lives in version control.
-& ssh -i $Key "$User@$Host" "cd $ProjectDir && bash scripts/deploy.sh"
+& ssh -i $Key "$User@$RemoteHost" "cd $ProjectDir && bash scripts/deploy.sh"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Remote deploy.sh exited with code $LASTEXITCODE"
