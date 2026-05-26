@@ -347,7 +347,15 @@ await app.register(import('./modules/adr/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/edi/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/scoring/routes.js'), { prefix: '/api' });
 // Phase 7: AI dispatcher co-pilot MVP
-await app.register(import('./modules/copilot/routes.js'), { prefix: '/api' });
+// Hidden behind AI_COPILOT_ENABLED feature flag (default OFF).
+// Rationale: AI calls Anthropic with PII; until Jurist J-3 (AI DPA) is signed
+// off and partner explicitly enables, endpoints must not exist → Fastify 404.
+if (process.env.AI_COPILOT_ENABLED === 'true') {
+    await app.register(import('./modules/copilot/routes.js'), { prefix: '/api' });
+    app.log.info('[copilot] AI_COPILOT_ENABLED=true → routes registered');
+} else {
+    app.log.info('[copilot] AI_COPILOT_ENABLED!=true → routes NOT registered (404)');
+}
 // Round 1C: provider framework — credential management
 await app.register(import('./modules/integrations/credentials/routes.js'), { prefix: '/api' });
 // Round 1B: self-serve signup + onboarding wizard

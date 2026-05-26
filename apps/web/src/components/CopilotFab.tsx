@@ -20,6 +20,10 @@ interface CopilotFabProps {
  * legacy selector) so the existing tour step continues to point at the
  * AI co-pilot affordance.
  */
+// Build-time env flag — default OFF until Jurist J-3 (AI DPA) signed.
+// Set NEXT_PUBLIC_AI_COPILOT_ENABLED=true in apps/web/.env to re-enable.
+const AI_COPILOT_BUILD_ENABLED = process.env.NEXT_PUBLIC_AI_COPILOT_ENABLED === 'true';
+
 export function CopilotFab({ enabled }: CopilotFabProps) {
     const [open, setOpen] = useState(false);
 
@@ -33,6 +37,8 @@ export function CopilotFab({ enabled }: CopilotFabProps) {
         return () => window.removeEventListener('keydown', onKey);
     }, [open]);
 
+    // Hard kill-switch: skip entirely if build env disables the feature.
+    if (!AI_COPILOT_BUILD_ENABLED) return null;
     if (!enabled) return null;
 
     return (
