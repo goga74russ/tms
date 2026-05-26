@@ -1,9 +1,9 @@
-# Объединённый аудит TMS-prod — обновлено 2026-05-26 (ночь)
+# Объединённый аудит TMS-prod — обновлено 2026-05-26 (ночь, после W3 T-13)
 
 **Источники:** PM (продуктовый), TransPult (технический), Jurist (юридический).
-**HEAD:** `e971441` (после W2 partial + drift fix, deployed in prod).
+**HEAD:** `2502963` (после W3 T-13 МЧД UI доводка).
 **До 01.09.2026:** 97 календарных дней.
-**Последнее обновление:** W2 partial задеплоено в прод. /legal страницы рендерят Jurist'овский markdown (single source of truth). W3 стартует.
+**Последнее обновление:** W3 partial — T-13 МЧД UI alignment с Jurist J-1 + demo seed. T-9/T-7 откладываются в отдельные фокус-сессии (T-9 требует wiring HTTP endpoints).
 
 ---
 
@@ -45,8 +45,9 @@
 | **W1 Sprint** (f0ed26a → 7e23006) | AI flag · FK indexes 0037 · PII redact · bulk-pdf N+1 · Wialon banner · deploy.sh + deploy.ps1 |
 | **W2 partial** (ac3c5d1 + 8ac3cc7) | **T-12** Unisender real (15 unit-тестов) · **T-5** DPA-step gate в StepEdi+StepSignature |
 | **W2 drift fix** (e971441) | /legal/{privacy,terms} читают .md → MarkdownView · markdown-parser server-safe · Dockerfile COPY · .dockerignore exceptions |
+| **W3 partial** (2502963) | **T-13** МЧД UI доводка: info-banner с КЭП-моделью per J-1 · подсказка в форме создания · seed 1 active + 1 expired МЧД |
 
-**Накопительно за сессию: 17 коммитов, 5 миграций (0033-0037), 0 откатов, 5 деплоев в проде. Прод на `e971441`.**
+**Накопительно за сессию: 19 коммитов, 5 миграций (0033-0037), 0 откатов, 5 деплоев в проде. Прод на `e971441` (W3 ожидает деплой).**
 
 ### Jurist — за неделю с deep-audit 23.05 + W1 (вечер 26.05)
 
@@ -232,12 +233,17 @@ Jurist J-8 (Acceptance M+O)
 | T-5 | DPA-step gate в онбординге | 8ac3cc7 | Helper `lib/dpa.ts` (fail-open). StepEdi + StepSignature: DPA-check перед persistChoice |
 | — | Drift fix /legal страниц | e971441 | MarkdownView client + markdown-parser server-safe. Privacy/Terms pages теперь Server Components: fs.readFileSync .md → MarkdownView. Dockerfile COPY + .dockerignore exceptions. Verified на проде: v1.2/v1.1 контент рендерится. |
 
-### W3 Sprint — стартую сейчас
+### ✅ W3 partial закрыт
+
+| # | Задача | Коммит | Что внутри |
+|---|---|---|---|
+| T-13 | МЧД UI доводка | 2502963 | UI banner про КЭП-модель per Jurist J-1; подсказка в форме «Поверенный»; seed 1 active + 1 expired МЧД для демо |
+
+### W4 Sprint — приоритеты
 
 | # | Задача | Часов | Почему важно |
 |---|---|---|---|
-| T-13 | МЧД UI workflow (доводка) | 4-6h | 90% реализовано — нужна проверка соответствия J-1 (КЭП-модель), seed-data, smoke |
-| T-9 | invoices unit-tests | 4h | Мой долг M-batch + разобрать mock-pattern (заодно T-46, T-47) |
+| T-9 | invoices unit-tests + HTTP wiring | 8-12h | M-batch service-layer готов, но не привязан к routes. Полный scope = endpoints + integration tests. Требует фокус-сессию. |
 | T-7 | RBAC sweep (50+ endpoints) | 6-8h | Нужна role-by-role smoke session |
 | T-2 | Cross-tenant event-leak | 2h | Нужно расследование scope-filter в /events |
 | T-25 | KPI aggregation combine | 2h | Perf, не блокер |
@@ -245,7 +251,7 @@ Jurist J-8 (Acceptance M+O)
 | T-4 | Alerting pending_review | 4h | После DevOps coord |
 | T-48 | docs/architecture/migrations.md | 30min | Правило BEGIN/COMMIT (по ревью партнёра) |
 
-**Итого моя зона на W3: ~30 часов.** Стартую с T-13.
+**Итого моя зона на W4: ~30-35 часов.**
 
 ---
 
@@ -311,10 +317,17 @@ Jurist J-8 (Acceptance M+O)
   - 🔴 Founder: F-1 — **не стартовал** (главный блокер календаря)
   - 🟡 Jurist: ждёт сигнал на W3 (J-5 ООО prep, J-4 внутренние доки)
 
-- **Неделя 3 (09.06-15.06) — W3 (старт сейчас):**
-  - Founder: F-1 (если не сделано), F-3 (УСН выбор), F-4 (PoL probes)
-  - Jurist: J-5 (ООО prep — приоритет, разблокирует F-1), J-4, J-6
-  - TransPult: T-13 (МЧД доводка), T-9 (invoice tests), T-7 (RBAC sweep)
+- **Неделя 3 (09.06-15.06) — W3 partial факт:**
+  - ✅ TransPult: T-13 МЧД UI доводка + seed (commit 2502963, ожидает deploy)
+  - 🟡 T-9 invoices tests + wiring — обнаружено что service-layer не привязан
+    к HTTP routes. Полный scope = 8-12h, требует фокус-сессию. → W4.
+  - 🔴 Founder: F-1 — **не стартовал**
+  - 🟡 Jurist: ждёт сигнал на J-5 (ООО prep)
+
+- **Неделя 4 (16.06-22.06) — W4 (план):**
+  - Founder: F-1 (срочно), F-3, F-4 (PoL probes)
+  - Jurist: J-5 (ООО prep), J-4 (внутренние доки), J-6
+  - TransPult: T-9 (invoice service tests + HTTP wiring), T-7 (RBAC sweep), T-2 (event-leak)
 
 - **Неделя 3-4:**
   - TransPult: T-13 (МЧД UI), T-14 (5-day SF), T-2 (event-leak), ЮKassa или Diadoc первый
@@ -331,24 +344,25 @@ Jurist J-8 (Acceptance M+O)
 
 ## §10 Метрики (обновлено после W1)
 
-| Метрика | До W1 | После W1 | Jurist sync | W2 partial | **W2 deployed** |
-|---|---|---|---|---|---|
-| Готовность к платящему клиенту (юр) | ~40% | ~45% | ~55% | ~60% | **~62%** |
-| P0 deep-audit закрыто | 4/12 (33%) | 4/12 | 8/12 | 9/12 | **9/12 (75%)** |
-| P0 TransPult из списка | 0/13 | 6/13 | 6/13 | 8/13 | **8/13 (62%)** |
-| P0 Jurist из списка | 0/7 | 0/7 | 4/7 | 4/7 | 4/7 |
-| Тестов в проекте | 904 | 904 | 904 | 919 | **919** |
-| Тестов в мобильном | 0 | 0 | 0 | 0 | 0 |
-| Миграций в проде | 36 | 37 | 37 | 37 | **37** |
-| Real-провайдеров работает | 0 / 28 | 0 / 28 | 0 / 28 | 1 / 28 | **1 / 28** |
-| Commits в main за сессию | 8 | 13 | 14 | 16 | **17** |
-| Deploy'ев в проде | 4 | **4** | 4 | 4 | **5** (e971441) |
-| Rollback'ов | 0 | 0 | 0 | 0 | 0 |
-| Юр-документы (markdown) | 6 | 6 | 17 | 17 | 17 |
-| ToS версия | 1.0 (hardcoded) | 1.0 | 1.1 (.md) | 1.1 | **1.1 на проде** |
-| Privacy Policy версия | 1.1 (hardcoded) | 1.1 | 1.2 (.md) | 1.2 | **1.2 на проде** |
-| /legal pages source of truth | hardcoded JSX | hardcoded | drift | drift | **single (md)** |
-| Email providers | console only | console only | console only | console+SMTP+Unisender | **same в проде** |
+| Метрика | До W1 | W1 | Jurist | W2 | W2 deploy | **W3 partial** |
+|---|---|---|---|---|---|---|
+| Готовность к платящему клиенту (юр) | ~40% | ~45% | ~55% | ~60% | ~62% | **~65%** |
+| P0 deep-audit закрыто | 4/12 | 4/12 | 8/12 | 9/12 | 9/12 | **9/12 (75%)** |
+| P0 TransPult из списка | 0/13 | 6/13 | 6/13 | 8/13 | 8/13 | **9/13 (69%)** |
+| P0 Jurist из списка | 0/7 | 0/7 | 4/7 | 4/7 | 4/7 | 4/7 |
+| Тестов в проекте | 904 | 904 | 904 | 919 | 919 | **919** |
+| Тестов в мобильном | 0 | 0 | 0 | 0 | 0 | 0 |
+| Миграций в проде | 36 | 37 | 37 | 37 | 37 | **37** |
+| Real-провайдеров работает | 0/28 | 0/28 | 0/28 | 1/28 | 1/28 | **1/28** |
+| Commits в main за сессию | 8 | 13 | 14 | 16 | 17 | **19** |
+| Deploy'ев в проде | 4 | 4 | 4 | 4 | 5 | **5** (W3 pending) |
+| Rollback'ов | 0 | 0 | 0 | 0 | 0 | 0 |
+| Юр-документы (markdown) | 6 | 6 | 17 | 17 | 17 | 17 |
+| ToS версия | 1.0 | 1.0 | 1.1 | 1.1 | **1.1 prod** | 1.1 prod |
+| Privacy Policy версия | 1.1 | 1.1 | 1.2 | 1.2 | **1.2 prod** | 1.2 prod |
+| /legal source of truth | hardcoded | hardcoded | drift | drift | **single (md)** | single (md) |
+| МЧД demo seed | 0 | 0 | 0 | 0 | 0 | **2 (1 active + 1 expired)** |
+| МЧД UI per J-1 | drift | drift | drift | drift | drift | **aligned** |
 
 **bulk-pdf queries (50 invoices):** было ~150 → стало 3-4
 **FK indexes coverage:** было 5 hot FK без индексов → стало 0
@@ -363,14 +377,14 @@ Jurist J-8 (Acceptance M+O)
 
 **Q2 (срочно).** PoL probes (F-4) — 15 звонков. Согласен запустить параллельно техдолгам, или edge-кейс «по списку»?
 
-**Q3 (W3 порядок).** W2 закрыл T-12 (Unisender) + T-5 (DPA-step). Что первым в W3:
-- (a) **T-13 МЧД UI доводка** (4-6h) — 90% уже есть, проверить соответствие J-1
-- (b) **T-9 invoice unit-tests** (4h) — мой долг M-batch (+ разобрать gosklyuch mock T-46)
-- (c) **T-7 RBAC sweep** (6-8h) — нужна role-by-role smoke session
-- (d) **T-2 event-leak fix** (2h) — нужно расследование
-- (e) **T-25 KPI combine** (2h) — perf, не блокер
+**Q3 (W4 порядок).** W3 partial закрыл T-13 (МЧД доводка). Что первым в W4:
+- (a) **T-9 invoice tests + wiring** (8-12h) — service-layer M-batch не привязан к HTTP routes, нужен полный scope: endpoints + integration tests. Фокус-сессия.
+- (b) **T-7 RBAC sweep** (6-8h) — нужна role-by-role smoke session
+- (c) **T-2 event-leak fix** (2h) — нужно расследование scope-filter
+- (d) **T-25 KPI combine** (2h) — perf-win, не блокер
+- (e) **T-48 migrations.md** (30min) — BEGIN/COMMIT правило по ревью партнёра
 
-Рекомендую: (a) → (b) → (c). МЧД доводка — самое короткое окно к pilot-ready. Тесты — закрытие моего долга. RBAC — большой блок отдельной сессией.
+Рекомендую: (a) → (b) → (c). T-9 — закрытие моего M-batch долга, самое продуктивное. T-7 после — большой блок отдельной сессии. T-2 быстрый аудит-fix. T-48 в любой свободный окно.
 
 **Q4 (Jurist W2).** Передать Jurist'у задачи W2: J-5 (приоритет — ООО чек-лист), J-4 (внутренние доки оператора), J-6 (cookie если лендинг)?
 
