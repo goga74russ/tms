@@ -6,6 +6,8 @@ import type { ProviderName } from '@tms/shared';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
+import { DpaStepModal } from '@/app/admin/integrations/DpaStepModal';
+import { checkDpaAcceptance } from '@/lib/dpa';
 
 interface SigOption {
     id: ProviderName;
@@ -37,10 +39,10 @@ export function StepSignature({ onNext, onBack }: Props) {
     const [choice, setChoice] = useState<ProviderName | null>(null);
     const [defer, setDefer] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [pendingDpa, setPendingDpa] = useState<ProviderName | null>(null);
     const { toast } = useToast();
 
-    const submit = async () => {
-        if (!choice && !defer) return;
+    const persistChoice = async () => {
         setSaving(true);
         try {
             const res = await api.post<{ success: boolean; error?: string }>(
@@ -73,6 +75,24 @@ export function StepSignature({ onNext, onBack }: Props) {
         } finally {
             setSaving(false);
         }
+    };
+
+    const submit = async () => {
+        if (!choice && !defer) return;
+        // T-5 (W2): DPA gate. Signature-step не принимает credentials прямо
+        // сейчас (creds вводятся позже в /admin/integrations), но сам факт
+        // выбора провайдера = намерение обрабатывать PII подписанта через
+        // внешний сервис → DPA нужен (если файл существует у этого провайдера).
+        if (choice && !defer) {
+            setSaving(true);
+            const accepted = await checkDpaAcceptance(choice);
+            setSaving(false);
+            if (!accepted) {
+                setPendingDpa(choice);
+                return;
+            }
+        }
+        await persistChoice();
     };
 
     return (
@@ -181,6 +201,18 @@ export function StepSignature({ onNext, onBack }: Props) {
                     Далее
                 </Button>
             </div>
+
+            {/* T-5 (W2): DPA modal — gate перед сохранением выбора провайдера. */}
+            {pendingDpa && (
+                <DpaStepModal
+                    providerId={pendingDpa}
+                    onAccepted={async () => {
+                        setPendingDpa(null);
+                        await persistChoice();
+                    }}
+                    onClose={() => setPendingDpa(null)}
+                />
+            )}
         </div>
     );
 }

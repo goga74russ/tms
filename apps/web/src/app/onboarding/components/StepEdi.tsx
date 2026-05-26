@@ -7,6 +7,8 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
+import { DpaStepModal } from '@/app/admin/integrations/DpaStepModal';
+import { checkDpaAcceptance } from '@/lib/dpa';
 
 interface EdiOption {
     id: ProviderName;
@@ -33,10 +35,13 @@ export function StepEdi({ onNext, onBack }: Props) {
     const [login, setLogin] = useState('');
     const [apiKey, setApiKey] = useState('');
     const [saving, setSaving] = useState(false);
+    // T-5 (W2): DPA-step gate. Когда пользователь нажал «Далее» с выбранным
+    // провайдером и credentials, мы сначала проверяем accepted DPA. Если нет —
+    // открываем DpaStepModal, и только после accept делаем POST в onboarding.
+    const [pendingDpa, setPendingDpa] = useState<ProviderName | null>(null);
     const { toast } = useToast();
 
-    const submit = async () => {
-        if (!choice && !defer) return;
+    const persistChoice = async () => {
         setSaving(true);
         try {
             const res = await api.post<{ success: boolean; error?: string }>(
@@ -71,6 +76,23 @@ export function StepEdi({ onNext, onBack }: Props) {
         } finally {
             setSaving(false);
         }
+    };
+
+    const submit = async () => {
+        if (!choice && !defer) return;
+
+        // T-5: если выбран реальный провайдер с credentials → DPA gate.
+        // Defer / без credentials — DPA не нужен (нечего обрабатывать).
+        if (choice && !defer && (login || apiKey)) {
+            setSaving(true);
+            const accepted = await checkDpaAcceptance(choice);
+            setSaving(false);
+            if (!accepted) {
+                setPendingDpa(choice);
+                return;
+            }
+        }
+        await persistChoice();
     };
 
     return (
@@ -197,6 +219,18 @@ export function StepEdi({ onNext, onBack }: Props) {
                     Далее
                 </Button>
             </div>
+
+            {/* T-5 (W2): DPA modal — gate перед сохранением credentials. */}
+            {pendingDpa && (
+                <DpaStepModal
+                    providerId={pendingDpa}
+                    onAccepted={async () => {
+                        setPendingDpa(null);
+                        await persistChoice();
+                    }}
+                    onClose={() => setPendingDpa(null)}
+                />
+            )}
         </div>
     );
 }
