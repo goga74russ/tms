@@ -111,7 +111,7 @@ const PROVIDER_CATALOG: CatalogEntry[] = [
     // MVP
     { type: 'signature', title: 'Электронная подпись', description: 'Госключ для водителей + облачная КЭП юр-лица (Контур.Подпись)', options: ['gosklyuch', 'kontur_sign'], visibility: 'mvp' },
     { type: 'edi', title: 'ЭДО', description: 'Контур.Диадок — через него документы попадают в ГИС ЭПД (Минтранс, ФЗ-140)', options: ['diadoc'], visibility: 'mvp' },
-    { type: 'telematics', title: 'Телематика (GPS)', description: 'Wialon — GPS-трекинг, доказательство маршрута, контроль РТО (ст. 11.23 КоАП)', options: ['wialon'], visibility: 'mvp' },
+    { type: 'telematics', title: 'Телематика (GPS)', description: 'Wialon — GPS-трекинг, доказательство маршрута, контроль РТО (ст. 11.23 КоАП). Юрисдикция: РФ. Для зарубежных рейсов используйте резервный источник GPS.', options: ['wialon'], visibility: 'mvp' },
     { type: 'payment', title: 'Платежи', description: 'ЮKassa — приём подписки от клиентов TMS', options: ['yookassa'], visibility: 'mvp' },
     { type: 'email', title: 'Почтовый шлюз', description: 'SMTP Mail.ru — транзакционные email (верификация, уведомления)', options: ['mailru_smtp'], visibility: 'mvp' },
 
@@ -688,6 +688,21 @@ function CredentialModal({
                     <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                     <span>Ключи шифруются AES-256-GCM. После сохранения вы не сможете прочитать их обратно.</span>
                 </div>
+                {/* T-23 (sprint W1): Wialon — российский поставщик, юрисдикция РФ.
+                    Для рейсов за пределы РФ (Беларусь / Казахстан / прочие) сервис
+                    может не покрывать треккинг, и доказательство маршрута придётся
+                    собирать другим источником. */}
+                {name === 'wialon' && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start gap-2">
+                        <span aria-hidden className="text-amber-600">⚠</span>
+                        <span>
+                            <strong>Юрисдикция: РФ.</strong> Wialon оптимизирован под российскую территорию.
+                            Для зарубежных рейсов (Беларусь, Казахстан, Армения, прочие) уточните покрытие
+                            у провайдера и подготовьте резервный источник GPS-данных (например, Omnicomm
+                            или собственный бортовой тахограф).
+                        </span>
+                    </div>
+                )}
                 {isSmtp ? (
                     <>
                         <Field label="SMTP host"><Input value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp.mail.ru" /></Field>

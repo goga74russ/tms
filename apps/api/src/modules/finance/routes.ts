@@ -652,20 +652,72 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const skipped: Array<{ id: string; reason: string }> = [];
                 const usedNames = new Set<string>();
 
-                let completed = 0;
+                // ====================================================
+                // T-8 (sprint W1): N+1 fix. Раньше цикл по ids делал
+                // ~3 query на каждый ID (ensureInvoiceAccess + contractor
+                // + trips JOIN) → 150 query на 50 счетов. Теперь —
+                // 3-4 batch query независимо от размера ids.
+                // ====================================================
+
+                // ---- Phase 1: bulk fetch all invoices by IDs --------
+                const invoiceRows = await db.select().from(invoices)
+                    .where(inArray(invoices.id, ids));
+                const foundIds = new Set(invoiceRows.map((r) => r.id));
                 for (const id of ids) {
-                    const access = await ensureInvoiceAccess(id, user);
-                    if (access.error) {
-                        skipped.push({ id, reason: access.error.body.error });
-                        continue;
+                    if (!foundIds.has(id)) {
+                        skipped.push({ id, reason: 'Счёт не найден' });
                     }
-                    const { invoice } = access;
+                }
 
-                    const [contractor] = invoice.contractorId
-                        ? await db.select().from(contractors).where(eq(contractors.id, invoice.contractorId)).limit(1)
-                        : [null];
+                // ---- Phase 2: bulk access check (RLS) ---------------
+                const isClient = !hasPrivilege(user.roles) && user.roles.includes('client');
+                let accessible: typeof invoiceRows;
+                if (isClient) {
+                    const myContractorId = await resolveContractorId(user.userId);
+                    accessible = invoiceRows.filter((inv) => {
+                        if (inv.contractorId !== myContractorId) {
+                            skipped.push({ id: inv.id, reason: 'Доступ запрещён' });
+                            return false;
+                        }
+                        return true;
+                    });
+                } else if (user.organizationId) {
+                    const contractorIdsFromInvoices = invoiceRows
+                        .map((i) => i.contractorId)
+                        .filter((v): v is string => !!v);
+                    const orgContractors = contractorIdsFromInvoices.length
+                        ? await db.select({ id: contractorsTable.id }).from(contractorsTable).where(and(
+                            inArray(contractorsTable.id, contractorIdsFromInvoices),
+                            eq(contractorsTable.organizationId, user.organizationId),
+                        ))
+                        : [];
+                    const orgContractorSet = new Set(orgContractors.map((c) => c.id));
+                    accessible = invoiceRows.filter((inv) => {
+                        if (!inv.contractorId || !orgContractorSet.has(inv.contractorId)) {
+                            skipped.push({ id: inv.id, reason: 'Доступ запрещён' });
+                            return false;
+                        }
+                        return true;
+                    });
+                } else {
+                    // super-admin (organizationId=null) — sees everything
+                    accessible = invoiceRows;
+                }
 
-                    const pdfTripRows = await db.select({
+                // ---- Phase 3: bulk fetch contractors for PDF body ---
+                const contractorIdsForPdf = [...new Set(
+                    accessible.map((i) => i.contractorId).filter((v): v is string => !!v),
+                )];
+                const contractorRows = contractorIdsForPdf.length
+                    ? await db.select().from(contractors).where(inArray(contractors.id, contractorIdsForPdf))
+                    : [];
+                const contractorById = new Map(contractorRows.map((c) => [c.id, c]));
+
+                // ---- Phase 4: bulk fetch trip rows JOIN'ом ---------
+                const accessibleIds = accessible.map((i) => i.id);
+                const allTripRows = accessibleIds.length
+                    ? await db.select({
+                        invoiceId: invoiceTrips.invoiceId,
                         number: tripsTable.number,
                         actualCompletionAt: tripsTable.actualCompletionAt,
                         distanceKm: tripsTable.actualDistanceKm,
@@ -674,7 +726,22 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                     }).from(invoiceTrips)
                         .innerJoin(tripsTable, eq(invoiceTrips.tripId, tripsTable.id))
                         .leftJoin(orders, eq(orders.tripId, tripsTable.id))
-                        .where(eq(invoiceTrips.invoiceId, invoice.id));
+                        .where(inArray(invoiceTrips.invoiceId, accessibleIds))
+                    : [];
+                const tripsByInvoice = new Map<string, typeof allTripRows>();
+                for (const row of allTripRows) {
+                    const arr = tripsByInvoice.get(row.invoiceId) ?? [];
+                    arr.push(row);
+                    tripsByInvoice.set(row.invoiceId, arr);
+                }
+
+                // ---- Phase 5: in-memory loop — build PDFs -----------
+                let completed = 0;
+                for (const invoice of accessible) {
+                    const contractor = invoice.contractorId
+                        ? contractorById.get(invoice.contractorId) ?? null
+                        : null;
+                    const pdfTripRows = tripsByInvoice.get(invoice.id) ?? [];
 
                     const tripCount = pdfTripRows.length || 1;
                     const costPerTrip = Number(invoice.total) / tripCount;

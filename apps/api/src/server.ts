@@ -68,6 +68,31 @@ const app = Fastify({
                 'req.body.signature',
                 'req.body.signedXml',
                 'req.body.signerCertificate',
+                // T-3 (sprint W1): driver/contractor PII — 152-ФЗ.
+                // POST/PUT /drivers, /contractors, /users принимают эти поля
+                // в body. Без redact они уходят в pino-логи и попадают в
+                // grafana/loki/файлы → нарушение принципа минимизации
+                // (152-ФЗ ст. 5 ч. 2). Любая корреляция (phone↔name) уже
+                // даёт PII-категорию.
+                'req.body.phone',
+                'req.body.passport',
+                'req.body.passportNumber',
+                'req.body.passportSeries',
+                'req.body.inn',
+                'req.body.snils',
+                'req.body.driverLicense',
+                'req.body.driverLicenseNumber',
+                'req.body.licenseNumber',
+                'req.body.medCertificate',
+                'req.body.medCertificateNumber',
+                // Array body shapes (bulk import / signup with nested user[])
+                'req.body.users[*].phone',
+                'req.body.users[*].passport',
+                'req.body.users[*].inn',
+                'req.body.drivers[*].phone',
+                'req.body.drivers[*].passport',
+                'req.body.drivers[*].inn',
+                'req.body.drivers[*].driverLicense',
                 'request.body.password',
                 'request.body.credentials',
                 'response.body.token',
