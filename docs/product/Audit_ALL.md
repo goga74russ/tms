@@ -1,9 +1,9 @@
-# Объединённый аудит TMS-prod — обновлено 2026-05-26 (вечер)
+# Объединённый аудит TMS-prod — обновлено 2026-05-26 (поздний вечер)
 
 **Источники:** PM (продуктовый), TransPult (технический), Jurist (юридический).
-**HEAD:** `4071930` (после W1 Sprint + Jurist sync).
+**HEAD:** `8ac3cc7` (после W1 + Jurist sync + W2 partial: T-12, T-5).
 **До 01.09.2026:** 97 календарных дней.
-**Последнее обновление:** W1 Sprint завершён и задеплоен в прод + Jurist J-1/J-2/J-7/J-8 закрыты.
+**Последнее обновление:** W2 partial — T-12 (Unisender) + T-5 (DPA-step UI в onboarding). T-13/T-9/T-7 ожидают свежей сессии.
 
 ---
 
@@ -43,8 +43,9 @@
 | **N** (3791fb2) | UI двусторонняя навигация invoice ↔ orders |
 | **O** (371329d) | PDF-шаблоны СФ/УПД/КСФ/ИСФ по ПП РФ 1137 |
 | **W1 Sprint** (f0ed26a → 7e23006) | AI flag · FK indexes 0037 · PII redact · bulk-pdf N+1 · Wialon banner · deploy.sh + deploy.ps1 |
+| **W2 partial** (ac3c5d1 + 8ac3cc7) | **T-12** Unisender real (15 unit-тестов) · **T-5** DPA-step gate в StepEdi+StepSignature |
 
-**Накопительно за сессию: 13 коммитов, 5 миграций (0033-0037), 0 откатов, в проде сейчас 4 деплоя.**
+**Накопительно за сессию: 16 коммитов, 5 миграций (0033-0037), 0 откатов, 4 деплоя в проде.**
 
 ### Jurist — за неделю с deep-audit 23.05 + W1 (вечер 26.05)
 
@@ -119,18 +120,18 @@
 | # | Долг | Часов | Статус |
 |---|---|---|---|
 | ~~T-0~~ | ~~AI-копилот state check + UI hide~~ | 30min | ✅ **W1 done** (f0ed26a) |
-| T-2 | Cross-tenant event-leak fix (`events/journal.ts:100`) | 2h | ⏸ W2 — нужно расследование |
+| T-2 | Cross-tenant event-leak fix (`events/journal.ts:100`) | 2h | ⏸ W3 — нужно расследование |
 | ~~T-3~~ | ~~Pino redact для PII водителей~~ | 1h | ✅ **W1 done** (ec14b90) |
-| T-4 | Alerting на `pending_review` документы | 4h | W2 |
-| T-5 | DPA-step UI при подключении интеграций | 4h | W2 — есть базовая логика от E batch |
-| T-6 | mailru SMTP — `requires_acceptance: false` info-banner | 1h | W2 (после T-5) |
-| T-7 | 50+ endpoints `requireAbility()` | 6-8h | ⏸ W2 — нужна role-by-role smoke session |
+| T-4 | Alerting на `pending_review` документы | 4h | W3 |
+| ~~T-5~~ | ~~DPA-step UI при подключении интеграций (StepEdi+StepSignature)~~ | 4h | ✅ **W2 done** (8ac3cc7) |
+| T-6 | mailru SMTP — `requires_acceptance: false` info-banner | 1h | W3 (после T-5 готов) |
+| T-7 | 50+ endpoints `requireAbility()` | 6-8h | ⏸ W3 — нужна role-by-role smoke session |
 | ~~T-8~~ | ~~`/finance/invoices/bulk-pdf` N+1 → batch fetch~~ | 1h | ✅ **W1 done** (ec14b90) |
-| T-9 | invoices unit-tests (createDraft/issue/correction/payment/cancel) | 4h | ⏸ W2 — мой долг, mock-pattern требует разбора |
+| T-9 | invoices unit-tests (createDraft/issue/correction/payment/cancel) | 4h | ⏸ W3 — мой долг, mock-pattern требует разбора |
 | ~~T-10~~ | ~~Missing FK indexes — миграция 0037~~ | 30min | ✅ **W1 done** (f0ed26a + applied in prod) |
 | ~~T-11~~ | ~~Full test suite~~ | 1h | ✅ **W1 done** (baseline: 705+199 tests, 8 skip с FIXME) |
-| T-12 | Email-провайдер (Unisender или sendpulse / mailgun) | 1 день | W2 — блокер pilot |
-| T-13 | МЧД UI — создать/прикрепить через UI | 2 дня | W2 — нужны Jurist J-1 + J-7 готовые |
+| ~~T-12~~ | ~~Email-провайдер (Unisender real impl + 15 тестов)~~ | 1 день | ✅ **W2 done** (ac3c5d1) |
+| T-13 | МЧД UI — создать/прикрепить через UI | 2 дня | 🟡 W3 — **90% уже реализовано** (admin/mchd page 836 LOC + SignTitleButton МЧД-integration). Осталась проверка соответствия J-1 (КЭП-модель). |
 
 ### 🟧 P1 — после пилота, но до коммерческого релиза
 
@@ -222,22 +223,27 @@ Jurist J-8 (Acceptance M+O)
 | — | docs/product/sprint-w1-acceptance.md | 3273dd5 |
 | — | scripts/deploy.sh + deploy.ps1 | 9201c94, 7e23006 |
 
-### W2 Sprint — приоритеты (ожидание твоей команды)
+### ✅ W2 partial закрыт
+
+| # | Задача | Коммит | Что внутри |
+|---|---|---|---|
+| T-12 | Unisender real impl | ac3c5d1 | Реальный fetch к api.unisender.com, 15 unit-тестов, env-фабрика, registry wiring, form-urlencoded body, error mapping (transport vs API) |
+| T-5 | DPA-step gate в онбординге | 8ac3cc7 | Helper `lib/dpa.ts` (fail-open). StepEdi: persistChoice вынесен, submit → DPA-check → DpaStepModal → onAccepted. StepSignature: то же. |
+
+### W3 Sprint — приоритеты (ожидание твоей команды)
 
 | # | Задача | Часов | Почему важно |
 |---|---|---|---|
-| T-12 | **Email-провайдер** (Sendgrid/Mailgun fallback к Unisender) | 1 день | Блокер pilot signup |
+| T-13 | МЧД UI workflow (доводка) | 4-6h | 90% реализовано — нужна проверка соответствия J-1 (КЭП-модель), seed-data, smoke |
 | T-9 | invoices unit-tests | 4h | Мой долг M-batch + разобрать mock-pattern (заодно T-46, T-47) |
-| T-13 | МЧД UI workflow | 2 дня | Зависит от Jurist J-1 + J-7 |
 | T-7 | RBAC sweep (50+ endpoints) | 6-8h | Нужна role-by-role smoke session |
-| T-2 | Cross-tenant event-leak | 2h | Нужно расследование sсope-filter в /events |
+| T-2 | Cross-tenant event-leak | 2h | Нужно расследование scope-filter в /events |
 | T-25 | KPI aggregation combine | 2h | Perf, не блокер |
-| T-14 | 5-day SF warning | 6h | После T-12 |
-| T-5 | DPA-step UI | 4h | После Jurist готов с DPA-текстами |
+| T-14 | 5-day SF warning | 6h | BullMQ job + dashboard |
 | T-4 | Alerting pending_review | 4h | После DevOps coord |
 | T-48 | docs/architecture/migrations.md | 30min | Правило BEGIN/COMMIT (по ревью партнёра) |
 
-**Итого моя зона на W2: ~30 часов** (без provider integrations — те в W3+).
+**Итого моя зона на W3: ~30 часов.**
 
 ---
 
@@ -297,10 +303,15 @@ Jurist J-8 (Acceptance M+O)
   - ✅ Jurist: J-1, J-2, J-7, J-8 (вечером 26.05)
   - 🔴 Founder: F-1 (старт ООО), F-4 (PoL probes) — **не стартовали**
 
-- **Неделя 2 (02.06-08.06) — W2:**
+- **~~Неделя 2 (02.06-08.06)~~ — W2 факт:**
+  - ✅ TransPult: T-12 (Unisender real), T-5 (DPA-step в онбординге)
+  - 🔴 Founder: F-1 — **не стартовал** (главный блокер календаря)
+  - 🟡 Jurist: ждёт сигнал на W3 (J-5 ООО prep, J-4 внутренние доки)
+
+- **Неделя 3 (09.06-15.06) — W3:**
   - Founder: F-1 (если не сделано), F-3 (УСН выбор), F-4 (PoL probes)
-  - Jurist: J-5 (ООО prep — приоритет, разблокирует F-1), J-4 (внутренние доки), J-6 (cookie если лендинг)
-  - TransPult: T-12 (email), T-9 (invoice tests), T-13 (МЧД UI — теперь разблокирован), T-5 (DPA-step UI — теперь разблокирован), T-7 (RBAC sweep)
+  - Jurist: J-5 (ООО prep — приоритет, разблокирует F-1), J-4, J-6
+  - TransPult: T-13 (МЧД доводка), T-9 (invoice tests), T-7 (RBAC sweep)
 
 - **Неделя 3-4:**
   - TransPult: T-13 (МЧД UI), T-14 (5-day SF), T-2 (event-leak), ЮKassa или Diadoc первый
@@ -317,23 +328,24 @@ Jurist J-8 (Acceptance M+O)
 
 ## §10 Метрики (обновлено после W1)
 
-| Метрика | До W1 | После W1 | После Jurist sync |
-|---|---|---|---|
-| Готовность к платящему клиенту (юр) | ~40% | ~45% | **~55%** |
-| P0 deep-audit закрыто | 4/12 (33%) | 4/12 | **8/12 (67%)** |
-| P0 TransPult из списка | 0/13 | 6/13 | 6/13 (без изменений) |
-| P0 Jurist из списка | 0/7 | 0/7 | **4/7 (57%)** |
-| Тестов в проекте | 904 | 904 (697+201 + 8 FIXME-skip) | 904 |
-| Тестов в мобильном | 0 | 0 | 0 |
-| Миграций в проде | 36 | **37** (0037 deployed) | 37 |
-| Real-провайдеров работает | 0 / 28 | 0 / 28 | 0 / 28 |
-| Mocks в проде | 4 | 4 | 4 |
-| Commits в main за сессию | 8 | **13** (+5 W1) | **14** (+1 Jurist) |
-| Rollback'ов | 0 | 0 | 0 |
-| Deploy infra | manual ssh paste | **scripts/deploy.{sh,ps1}** | (без изменений) |
-| Юр-документы (markdown) | 6 | 6 | **17** (+10 etrn + invoice-spec) |
-| ToS версия | 1.0 (13.05) | 1.0 | **1.1** (cap 12мес, ЭПД, AI) |
-| Privacy Policy версия | 1.1 | 1.1 | **1.2** (§6 retention) |
+| Метрика | До W1 | После W1 | После Jurist sync | После W2 partial |
+|---|---|---|---|---|
+| Готовность к платящему клиенту (юр) | ~40% | ~45% | ~55% | **~60%** |
+| P0 deep-audit закрыто | 4/12 (33%) | 4/12 | 8/12 | **9/12 (75%)** |
+| P0 TransPult из списка | 0/13 | 6/13 | 6/13 | **8/13 (62%)** |
+| P0 Jurist из списка | 0/7 | 0/7 | 4/7 | 4/7 |
+| Тестов в проекте | 904 | 904 | 904 | **919** (+15 Unisender) |
+| Тестов в мобильном | 0 | 0 | 0 | 0 |
+| Миграций в проде | 36 | 37 | 37 | 37 |
+| Real-провайдеров работает | 0 / 28 | 0 / 28 | 0 / 28 | **1 / 28** (Unisender) |
+| Mocks в проде | 4 | 4 | 4 | 4 |
+| Commits в main за сессию | 8 | 13 | 14 | **16** (+2 W2) |
+| Rollback'ов | 0 | 0 | 0 | 0 |
+| Deploy infra | manual | scripts/deploy.{sh,ps1} | — | — |
+| Юр-документы (markdown) | 6 | 6 | 17 | 17 |
+| ToS версия | 1.0 | 1.0 | 1.1 | 1.1 |
+| Privacy Policy версия | 1.1 | 1.1 | 1.2 | 1.2 |
+| Email providers | console only | console only | console only | **console + SMTP (env) + Unisender (env)** |
 
 **bulk-pdf queries (50 invoices):** было ~150 → стало 3-4
 **FK indexes coverage:** было 5 hot FK без индексов → стало 0
@@ -348,14 +360,14 @@ Jurist J-8 (Acceptance M+O)
 
 **Q2 (срочно).** PoL probes (F-4) — 15 звонков. Согласен запустить параллельно техдолгам, или edge-кейс «по списку»?
 
-**Q3 (W2 порядок).** Что первым в моей W2 очереди — после Jurist sync разблокированы T-13 + T-5:
-- (a) **T-12 email-провайдер** (1 день) — блокер pilot signup
-- (b) **T-13 МЧД UI workflow** (2 дня) — разблокирован J-1 + J-7
-- (c) **T-5 DPA-step UI в onboarding** (4h) — разблокирован J-2 + DPA-99
-- (d) **T-9 invoice unit-tests** (4h) — мой долг M-batch
-- (e) **T-7 RBAC sweep** (6-8h) — нужна role-by-role smoke session
+**Q3 (W3 порядок).** W2 закрыл T-12 (Unisender) + T-5 (DPA-step). Что первым в W3:
+- (a) **T-13 МЧД UI доводка** (4-6h) — 90% уже есть, проверить соответствие J-1
+- (b) **T-9 invoice unit-tests** (4h) — мой долг M-batch (+ разобрать gosklyuch mock T-46)
+- (c) **T-7 RBAC sweep** (6-8h) — нужна role-by-role smoke session
+- (d) **T-2 event-leak fix** (2h) — нужно расследование
+- (e) **T-25 KPI combine** (2h) — perf, не блокер
 
-Рекомендую: (a) → (c) → (b) → (d) → (e). Email самый внешне-видимый, DPA-step быстрая UX-победа, МЧД UI большой блок для pilot, тесты и RBAC — следом.
+Рекомендую: (a) → (b) → (c). МЧД доводка — самое короткое окно к pilot-ready. Тесты — закрытие моего долга. RBAC — большой блок отдельной сессией.
 
 **Q4 (Jurist W2).** Передать Jurist'у задачи W2: J-5 (приоритет — ООО чек-лист), J-4 (внутренние доки оператора), J-6 (cookie если лендинг)?
 
