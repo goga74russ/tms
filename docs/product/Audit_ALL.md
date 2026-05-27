@@ -1,9 +1,9 @@
-# Объединённый аудит TMS-prod — переделано 2026-05-27 (после партнёрского вопроса «это все долги?»)
+# Объединённый аудит TMS-prod — обновлено 2026-05-27 (после W3.5 deployed)
 
 **Источники:** PM (продуктовый), TransPult (технический), Jurist (юридический) + честная самооценка.
-**HEAD:** `08ddbac`.
+**HEAD:** `5599601` (W3.5 deployed в прод).
 **До 01.09.2026:** **96 дней.**
-**Что нового в этой версии:** добавлены §12-15 — слепые пятна, провайдер-карта, pre-PMF метрика, спринт-план до 01.09.
+**Что нового в этой итерации:** W3.5 batch — закрыто 10 quick wins за одну сессию (T-48, T-49, T-41, T-39, T-47, T-6, T-15, T-22, T-25, T-17). 3 deferred с обоснованием (T-18, T-19, T-40).
 
 ---
 
@@ -20,7 +20,7 @@
 | Pre-PMF (PoL probes, real пилоты) | 0 / 15 звонков, 0 пилотов | 🔴 Edge-кейс: продукт без users |
 | Внешний security/perf/a11y audit | 0 (никогда не проводился) | 🟧 Может вылезть на пилоте |
 
-**Готовность к платящему клиенту (юр+тех):** **~55%** (после учёта всех долгов).
+**Готовность к платящему клиенту (юр+тех):** **~60%** (после W3.5 quick wins).
 **Готовность к продукт-маркет-fit'у:** **~15%** (PoL probes не запускались).
 
 ---
@@ -44,6 +44,7 @@
 | **W1** (f0ed26a → 7e23006) | AI flag · 0037 FK indexes · PII redact · bulk-pdf N+1 · Wialon banner · deploy.{sh,ps1} |
 | **W2** (ac3c5d1 + 8ac3cc7 + e971441) | Unisender real (15 тестов) · DPA-step онбординг · drift fix /legal страниц |
 | **W3 partial** (2502963) | МЧД UI alignment с J-1 + seed (1 active + 1 expired) |
+| **W3.5 batch** (a054da0 → 5599601) | 10 quick wins за сессию: T-48 migrations.md · T-49 ALLOW_INITIAL_SCHEMA · T-41 mobile lint · T-39 demo banner · T-47 fix login 401 test · T-15 bulk-generate LIMIT · T-22 HOS N+1 · T-25 KPI parallel · T-17 «Стоимость» в /trips · T-6 SMTP info-banner verified |
 
 ### Юр-документы (Jurist)
 
@@ -112,17 +113,17 @@
 | # | Долг | Часов |
 |---|---|---|
 | T-14 | 5-day SF warning (BullMQ + dashboard) — spec §6 | 6h |
-| T-15 | `/finance/invoices/bulk-generate` без LIMIT — pagination | 1h |
+| ~~T-15~~ | bulk-generate LIMIT 1000 + hasMore | 1h | ✅ W3.5 (df1083b) |
 | T-16 | N4 invoice workflow modals (issue/correction/payment/cancel) | 6h |
-| T-17 | N5 margin column в /trips | 2h |
-| T-18 | BUG-DISP-002 (vehicle auto-select UX) | 2h |
-| T-19 | BUG-FINANCE-001 (кнопка «Создать счёт по рейсам») | 2h |
+| ~~T-17~~ | Колонка «Стоимость» в /trips (RBAC) — full margin = W4 | 2h | ✅ W3.5 (2d98d9a + 5599601) |
+| T-18 | BUG-DISP-002 (vehicle auto-select UX) — **needs QA repro** | 2h | ⏸ W4 |
+| T-19 | BUG-FINANCE-001 («Создать счёт по рейсам») — **needs QA repro** | 2h | ⏸ W4 |
 | T-20 | forgot-password real flow (stub) | 3h |
 | T-21 | Мёртвые кнопки (Fines/Permits/Billing/Repair Kanban) | 4h |
-| T-22 | drivers HOS bulk endpoint — N+1 | 2h |
+| ~~T-22~~ | drivers HOS bulk endpoint — N+1 → Promise.all | 2h | ✅ W3.5 (df1083b) |
 | ~~T-23~~ | Wialon RU jurisdiction banner | 1h | ✅ W1 (ec14b90) |
 | T-24 | XSD validation через `xmllint-wasm` (для ФНС) | 1 день |
-| T-25 | KPI 5 aggregation → 1-2 CTE | 2h |
+| ~~T-25~~ | KPI 7 sequential → Promise.all | 2h | ✅ W3.5 (df1083b) |
 | T-27 | E2E полный invoice flow (issue→pay→correction) | 1h |
 
 ### 🟨 P2 — continuous improvement
@@ -147,16 +148,16 @@
 | T-36 | operational-core тесты (9 файлов) | 2 дня |
 | T-37 | JWT refresh/revocation (24h hardcoded) | 1 день |
 | T-38 | RepairKanban (1397 LOC) → shared KanbanBoard | 1 день |
-| T-39 | Mock telematics marker «demo data» в /dispatcher | 30min |
-| T-40 | DEPRECATED поля → миграция 0040+ (carrier_cost, contractor_id, tripIds) | 2h |
-| T-41 | Mobile lint config | 1h |
+| ~~T-39~~ | Mock telematics demo banner | 30min | ✅ W3.5 (a054da0) |
+| T-40 | DEPRECATED поля → миграция 0040+ (carrier_cost, contractor_id, tripIds) — **per migrations.md §5 в 3 спринта: W4 убрать writes, потом drop** | 2h |
+| ~~T-41~~ | Mobile lint config (.eslintrc.json + expo lint) | 1h | ✅ W3.5 (a054da0) |
 | T-42 | Prometheus exporters (6 TODO в alert-rules.md) | 1 день |
 | T-43 | Carriers-1..4 UI (страница /carriers) | 17h |
 | T-44 | R1 Research — Diadoc proxy-OAuth к Госключу | 1 день |
 | T-46 | Fix gosklyuch-callback test skip (7 тестов) | 2-4h |
-| T-47 | Fix login 401 redirect test skip | 1h |
-| T-48 | docs/architecture/migrations.md (BEGIN/COMMIT правило) | 30min |
-| T-49 | ALLOW_INITIAL_SCHEMA env в deploy.sh | 30min |
+| ~~T-47~~ | Fix login 401 test (api.ts /auth/* exception) | 1h | ✅ W3.5 (a054da0) |
+| ~~T-48~~ | docs/architecture/migrations.md (BEGIN/COMMIT) | 30min | ✅ W3.5 (a054da0) |
+| ~~T-49~~ | ALLOW_INITIAL_SCHEMA env в deploy.sh | 30min | ✅ W3.5 (a054da0) |
 
 ---
 
@@ -187,9 +188,9 @@ Mobile pilot (если)
 |---|---|---|---|---|
 | T-9 invoice wiring (8-12h) | T-7 RBAC sweep (6-8h) | T-29 ЮKassa real (3-4 нед) ► | ► продолжение | T-31 Госключ real (3 нед) ► |
 | T-2 event-leak (2h) | T-14 5-day SF warning (6h) | | T-30 Diadoc real (3-4 нед) ► | ► продолжение |
-| T-25 KPI combine (2h) | T-46/47 fix skipped tests (3-5h) | | | |
-| T-48 migrations doc (30min) | T-4 alerting (4h) | | | |
-| T-6 SMTP info-banner (1h) | T-22 drivers HOS bulk N+1 (2h) | | | |
+| T-40 убрать carrierCost writes (Spr 2) | T-46 fix gosklyuch skipped (3-4h) | | | |
+| T-18/T-19 (после QA repro) | T-4 alerting (4h) | | | |
+| T-16 invoice modals (6h) | T-37 JWT refresh (1d) | | | |
 
 После W8 — есть 5 недель до 01.09 на P1 UI/UX полировки + любые внешние audits.
 
