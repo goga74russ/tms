@@ -41,6 +41,13 @@ interface Trip {
     createdAt: string;
     carrierContractorId?: string | null;
     carrierName?: string | null;
+    // L1 (Carriers-0, миграция 0035) — режим выполнения + раздельный учёт.
+    // T-17 (W3.5) использует эти поля в колонке «Стоимость».
+    executionMode?: 'own' | 'subcontract';
+    ownCostEstimate?: number | null;
+    subcontractorCost?: number | null;
+    // DEPRECATED (W4 backlog T-40), оставлен для legacy записей до миграции L1.
+    carrierCost?: number | null;
 }
 
 interface VehicleInfo {
