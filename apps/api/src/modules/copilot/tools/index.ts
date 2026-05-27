@@ -286,18 +286,20 @@ const proposeReassignmentTool: CopilotTool<z.infer<typeof ProposeReassignmentInp
             ))
             .limit(5);
 
-        // Annotate each with HOS status so model can pick safest.
-        const ranked: Array<{ driverId: string; fullName: string; dayHours: number; weekHours: number; breach: boolean }> = [];
-        for (const c of candidates) {
-            const hos = await getDriverHosStatus(c.id);
-            ranked.push({
-                driverId: c.id,
-                fullName: c.fullName,
-                dayHours: hos.dayHours,
-                weekHours: hos.weekHours,
-                breach: hos.breach,
-            });
-        }
+        // T-22 (W3.5): parallel HOS fetch — was 5 sequential round-trips, now 1.
+        // Each getDriverHosStatus делает свои 2-3 DB-запроса; Promise.all
+        // не агрегирует их в один SQL, но как минимум переводит latency
+        // 5×~50ms (sequential) → ~50ms (parallel) для топ-кандидатов.
+        const hosResults = await Promise.all(
+            candidates.map((c) => getDriverHosStatus(c.id)),
+        );
+        const ranked = candidates.map((c, i) => ({
+            driverId: c.id,
+            fullName: c.fullName,
+            dayHours: hosResults[i]!.dayHours,
+            weekHours: hosResults[i]!.weekHours,
+            breach: hosResults[i]!.breach,
+        }));
         ranked.sort((a, b) => Number(a.breach) - Number(b.breach) || a.weekHours - b.weekHours);
 
         return {
