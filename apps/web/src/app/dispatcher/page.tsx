@@ -647,6 +647,23 @@ export default function DispatcherPage() {
                 onToggleDarkMode={() => setDarkMode(d => !d)}
             />
 
+            {/* T-39 (W3.5): GPS-данные сейчас идут с /integrations/wialon-mock
+                endpoint'а — это эмулятор. Реальный Wialon-провайдер ещё в stub'е
+                (T-28/T-31 backlog). Баннер чтобы пилотные пользователи не путали
+                эмуляцию с боевыми треками. */}
+            {liveWialonMarkers && Object.keys(liveWialonMarkers).length > 0 && (
+                <div className="flex items-center gap-2 px-4 py-1.5 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-900">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 font-semibold uppercase tracking-wider text-[10px]">
+                        Demo data
+                    </span>
+                    <span>
+                        GPS-треки эмулируются (Wialon real-provider в backlog). Для пилота
+                        с реальной телематикой — подключите Wialon credentials в
+                        /admin/integrations.
+                    </span>
+                </div>
+            )}
+
             <ErrorBoundary scope="dispatcher-panels">
             <div className="flex-1 flex min-h-0 relative">
                 {/* Left rail */}

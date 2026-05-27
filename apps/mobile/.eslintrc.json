@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/eslintrc",
+  "root": true,
+  "extends": [
+    "expo"
+  ],
+  "ignorePatterns": [
+    "node_modules",
+    ".expo",
+    "dist",
+    "build",
+    "**/*.d.ts"
+  ],
+  "rules": {
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["warn", {
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_"
+    }],
+    "no-console": ["warn", {
+      "allow": ["warn", "error"]
+    }],
+    "prefer-const": "warn",
+    "no-var": "error"
+  }
+}

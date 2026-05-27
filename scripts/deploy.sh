@@ -56,22 +56,22 @@ fi
 
 echo ""
 echo "==[3/6]== Applying pending migrations"
-# Note (partner review W1): 0000_full_schema хардкодом пропускается — ОК на проде
-# (схема уже накатана). На чистом dev/staging этот же скрипт оставит БД пустой —
-# на будущее перед запуском проверять «есть ли таблицы», или дать ALLOW_INITIAL_SCHEMA env.
+# Атомарность: правила в docs/architecture/migrations.md.
+# Каждый *.sql должен оборачивать содержимое в BEGIN/COMMIT, тогда
+# psql -v ON_ERROR_STOP=1 откатит всё на сбое и тэг не запишется.
 #
-# Атомарность: psql_exec < $sql_file выполняет каждый statement отдельно. Если
-# миграция упала на середине — часть применилась, тэг НЕ записался, следующий
-# запуск попробует ещё раз и упадёт на duplicate-create. Правило для авторов
-# миграций: каждый *.sql файл оборачивает свой контент в `BEGIN; ... COMMIT;`,
-# тогда rollback при ошибке откатит ВСЁ. См. docs/architecture/migrations.md
-# (TODO: написать). 0037 безопасен (CREATE INDEX IF NOT EXISTS).
+# 0000_full_schema (initial schema bootstrap) обычно пропускается — на
+# проде схема уже накатана. На чистом dev/staging — задайте
+# `ALLOW_INITIAL_SCHEMA=true` чтобы применить и его (T-49).
 psql_exec -v ON_ERROR_STOP=1 -c "CREATE TABLE IF NOT EXISTS tms_schema_migrations (tag TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());" >/dev/null
 APPLIED_TAGS=$(psql_exec -t -A -c "SELECT tag FROM tms_schema_migrations;" || true)
 
+ALLOW_INITIAL="${ALLOW_INITIAL_SCHEMA:-false}"
+
 for sql_file in $(ls apps/api/drizzle/*.sql 2>/dev/null | sort); do
     tag=$(basename "$sql_file" .sql)
-    if [ "$tag" = "0000_full_schema" ]; then
+    if [ "$tag" = "0000_full_schema" ] && [ "$ALLOW_INITIAL" != "true" ]; then
+        echo "  [skip] $tag (initial schema — pass ALLOW_INITIAL_SCHEMA=true to apply)"
         continue
     fi
     if echo "$APPLIED_TAGS" | grep -qx "$tag"; then

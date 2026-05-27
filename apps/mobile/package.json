@@ -8,7 +8,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build": "echo 'Mobile build requires expo eas build — skipping in CI'",
-    "lint": "echo 'Mobile lint — TODO: add eslint config'",
+    "lint": "expo lint",
     "test": "jest",
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit"

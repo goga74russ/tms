@@ -79,8 +79,16 @@ class ApiClient {
             // что сессия истекла. На /auth/me 401 уже ожидаем как
             // unauthenticated probe, не редиректим (его обрабатывает UserContext).
             if (response.status === 401 && typeof window !== 'undefined') {
-                const isMe = path.startsWith('/auth/me');
-                if (!isMe) {
+                // Auth endpoints получают 401 как часть legit-flow:
+                //   /auth/me      — probe «авторизован?», UserContext сам обработает
+                //   /auth/login   — неверный логин/пароль, форма покажет setFormError
+                //   /auth/signup  — нелегитимные креды при signup
+                //   /auth/verify  — неверный код
+                //   /auth/password-reset — неверный код / истёкший токен
+                // На таких НЕ редиректим — иначе jsdom-тесты бесконечно навигируют
+                // и пользователю не показывается inline-ошибка.
+                const isAuthCall = path.startsWith('/auth/');
+                if (!isAuthCall) {
                     // BroadcastChannel оповестит остальные вкладки (см. user-context).
                     try { new BroadcastChannel('tms-auth').postMessage('logout'); } catch { /* no-op */ }
                     // Полный навигационный переход — снимает SPA-state и оставшиеся cookies.
