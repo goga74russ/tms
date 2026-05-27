@@ -2547,6 +2547,26 @@ export default function TripsPage() {
         hasOrders: Boolean(dossier?.orders?.length),
     });
 
+    // T-17 (W3.5): «Стоимость» колонка видна только финансовым ролям.
+    // Полная margin (revenue − cost) требует joining customerPrice от
+    // linked orders на backend — это отдельная задача. Здесь показываем
+    // тримповый cost (executionMode-aware).
+    const canSeeFinance = !!user?.roles.some((r) =>
+        ['admin', 'manager', 'accountant'].includes(r),
+    );
+    const formatRub = (n?: number | null) => {
+        if (n == null) return '—';
+        return Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 0 }) + ' ₽';
+    };
+    const tripCostValue = (t: Trip): number | null => {
+        // Carriers-0: subcontract uses subcontractorCost, own uses ownCostEstimate.
+        // Fallback на DEPRECATED carrierCost для legacy записей до миграции L1.
+        if (t.executionMode === 'subcontract' && t.subcontractorCost != null) return t.subcontractorCost;
+        if (t.executionMode === 'own' && t.ownCostEstimate != null) return t.ownCostEstimate;
+        if (t.carrierCost != null) return t.carrierCost;
+        return null;
+    };
+
     const tripColumns: Column<Trip>[] = [
         {
             id: 'number',
@@ -2707,6 +2727,27 @@ export default function TripsPage() {
             align: 'right',
             monospace: true,
         },
+        // T-17 (W3.5): Стоимость рейса — только admin/manager/accountant.
+        ...(canSeeFinance ? [{
+            id: 'cost',
+            header: 'Стоимость',
+            accessor: (t: Trip) => tripCostValue(t) ?? 0,
+            sortable: true,
+            width: '130px',
+            align: 'right' as const,
+            monospace: true,
+            cell: (t: Trip) => {
+                const v = tripCostValue(t);
+                if (v == null) return <span className="text-neutral-400">—</span>;
+                const mode = t.executionMode === 'subcontract' ? 'подряд' : 'свой';
+                return (
+                    <div className="flex flex-col items-end">
+                        <span className="font-medium text-neutral-900">{formatRub(v)}</span>
+                        <span className="text-[10px] text-neutral-400">{mode}</span>
+                    </div>
+                );
+            },
+        }] : []),
         {
             id: 'createdAt',
             header: 'Создан',
