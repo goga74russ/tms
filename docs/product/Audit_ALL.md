@@ -97,7 +97,7 @@
 | ~~T-3~~ | pino redact PII | 1h | ✅ W1 (ec14b90) |
 | T-4 | Alerting pending_review (Telegram webhook) | 4h | W4 |
 | ~~T-5~~ | DPA-step UI в онбординг | 4h | ✅ W2 (8ac3cc7) |
-| T-6 | mailru SMTP `requires_acceptance: false` info-banner | 1h | После T-5 wiring |
+| ~~T-6~~ | ~~mailru SMTP info-banner~~ | 1h | ✅ W3.5 verified (E7 уже сделал) |
 | T-7 | 50+ endpoints `requireAbility()` | 6-8h | ⏸ W4 — нужна role-by-role smoke |
 | ~~T-8~~ | bulk-pdf N+1 → batch fetch | 1h | ✅ W1 (ec14b90) |
 | T-9 | **invoice service tests + HTTP wiring** | **8-12h** | ⏸ W4 — M-batch service не привязан к routes |
