@@ -1,391 +1,413 @@
-# Объединённый аудит TMS-prod — обновлено 2026-05-26 (ночь, после W3 T-13)
+# Объединённый аудит TMS-prod — переделано 2026-05-27 (после партнёрского вопроса «это все долги?»)
 
-**Источники:** PM (продуктовый), TransPult (технический), Jurist (юридический).
-**HEAD:** `2502963` (после W3 T-13 МЧД UI доводка).
-**До 01.09.2026:** 97 календарных дней.
-**Последнее обновление:** W3 partial — T-13 МЧД UI alignment с Jurist J-1 + demo seed. T-9/T-7 откладываются в отдельные фокус-сессии (T-9 требует wiring HTTP endpoints).
-
----
-
-## §1 TL;DR — что изменилось после W1
-
-После W1 Sprint (5 коммитов · 1 миграция · 0 откатов · all green в проде):
-
-1. **🟡 Provider drought (PM)** — не изменилось: 0 real-провайдеров. Все throw `NotImplemented`. План реализации — поэтапно в W3+.
-2. **🔴 Внешняя юр-инфраструктура** — не изменилось: ООО не зарегистрировано, РКН не уведомлён. Зависит от Founder F-1.
-3. **🟢 Технические долги — частично закрыты в W1:**
-   - ✅ AI-копилот за feature-flag (404 в проде → разблокировал Jurist J-3)
-   - ✅ 5 FK indexes добавлены (миграция 0037 в проде)
-   - ✅ PII redact для phone/passport/inn/snils/driverLicense
-   - ✅ bulk-pdf N+1 → 3-4 batch queries
-   - ✅ Wialon UI jurisdiction banner
-   - ✅ Версионированный deploy flow (scripts/deploy.sh + .ps1)
-   - ⏸ RBAC sweep (T-7) отложен в W2 — нужна role-by-role smoke-сессия
-
-Готовность к платящему клиенту: **~45%** (юр-метрика). Технический контур и бизнес-логика — зрелые и безопаснее. **Внешние границы продукта** (провайдеры) + **внешняя юридическая регистрация** — по-прежнему главный gap.
+**Источники:** PM (продуктовый), TransPult (технический), Jurist (юридический) + честная самооценка.
+**HEAD:** `08ddbac`.
+**До 01.09.2026:** **96 дней.**
+**Что нового в этой версии:** добавлены §12-15 — слепые пятна, провайдер-карта, pre-PMF метрика, спринт-план до 01.09.
 
 ---
 
-## §2 Что закрыто (по зонам, кумулятивно)
+## §1 Главное в одной таблице
 
-### TransPult — за 2 недели + сегодня + W1 Sprint
+| Зона | Прогресс | Главный риск |
+|---|---|---|
+| Core security + auth | ~95% (W1 закрыл AI flag, PII redact, FK indexes) | rbac sweep ещё не сделан (T-7) |
+| Бизнес-логика (orders / trips / invoices / MCHD) | ~85% | T-9 invoice service не привязан к routes (M-batch висит) |
+| Юр-документы | ~80% (Jurist J-1/2/7/8 done; J-3 заморожен; J-4/5/6 ждут) | J-5 (ООО prep) блокирует Founder F-1 |
+| **Real-провайдеры** | **1/28 (Unisender)** | 🔴 **Главный pre-pilot блокер** |
+| Mobile app (driver) | 0 тестов / 10 экранов | T-13 МЧД UI готов, но водитель в мобиле не пилотируется |
+| **Founder side (ООО + PoL)** | 0/4 (F-1..F-4) | 🔴 Календарь до 01.09 без F-1 невозможен |
+| Pre-PMF (PoL probes, real пилоты) | 0 / 15 звонков, 0 пилотов | 🔴 Edge-кейс: продукт без users |
+| Внешний security/perf/a11y audit | 0 (никогда не проводился) | 🟧 Может вылезть на пилоте |
+
+**Готовность к платящему клиенту (юр+тех):** **~55%** (после учёта всех долгов).
+**Готовность к продукт-маркет-fit'у:** **~15%** (PoL probes не запускались).
+
+---
+
+## §2 Что закрыто (за всю историю + текущая сессия)
+
+### Технический контур (TransPult)
 
 | Категория | Закрыто |
 |---|---|
-| Security/Auth fixes (deep audit A-серии) | A3-A6, B1, B2, B4, C1, C3 + 7.18-7.20 (anti-spoofing, HMAC, cross-tenant, race) |
+| Security/Auth fixes (deep audit A-серии) | A3-A6, B1-B4, C1-C3 + 7.18-7.20 (anti-spoofing, HMAC, cross-tenant, race) |
 | Audit batches B/C/D + 7.x | 25+ findings |
 | QA-cycle | F1+F2 (org-scoping seed, Playwright multi-role) |
-| **G** (16ec4f3) | разморозка QA: lot_assignments auto-create + cold-chain URL + /orders page + sidebar wiring |
-| **I** (d6fb8db) | проверка кубов (vehicle capacity) + override через journal |
-| **J1+L** (fa5c18f + f3e014b) | tax_regime fundament (8 значений) + usn_vat_rate (244-ФЗ) + Carriers-0 foundation |
-| **K** (0a6d547) | customer_price + carrier_cost + margin + RBAC по финансам |
-| **M** (3d04e14) | invoice schema rebuild — 7-enum + invoice_orders junction + FSM + DB-triggers + invoice_history |
-| **N** (3791fb2) | UI двусторонняя навигация invoice ↔ orders |
-| **O** (371329d) | PDF-шаблоны СФ/УПД/КСФ/ИСФ по ПП РФ 1137 |
-| **W1 Sprint** (f0ed26a → 7e23006) | AI flag · FK indexes 0037 · PII redact · bulk-pdf N+1 · Wialon banner · deploy.sh + deploy.ps1 |
-| **W2 partial** (ac3c5d1 + 8ac3cc7) | **T-12** Unisender real (15 unit-тестов) · **T-5** DPA-step gate в StepEdi+StepSignature |
-| **W2 drift fix** (e971441) | /legal/{privacy,terms} читают .md → MarkdownView · markdown-parser server-safe · Dockerfile COPY · .dockerignore exceptions |
-| **W3 partial** (2502963) | **T-13** МЧД UI доводка: info-banner с КЭП-моделью per J-1 · подсказка в форме создания · seed 1 active + 1 expired МЧД |
+| G (16ec4f3) | разморозка QA: lot_assignments + cold-chain URL + /orders + sidebar |
+| I (d6fb8db) | проверка кубов (capacity_volume_m3) + журнал |
+| J1+L (fa5c18f + f3e014b) | tax_regime (8 enum) + usn_vat_rate (244-ФЗ) + Carriers-0 |
+| K (0a6d547) | customer_price + carrier_cost + margin + RBAC |
+| M (3d04e14) | invoice schema rebuild — 7-enum + invoice_orders + FSM + DB-triggers |
+| N (3791fb2) | UI invoice ↔ orders двусторонняя навигация |
+| O (371329d) | PDF-шаблоны СФ/УПД/КСФ/ИСФ по ПП РФ 1137 |
+| **W1** (f0ed26a → 7e23006) | AI flag · 0037 FK indexes · PII redact · bulk-pdf N+1 · Wialon banner · deploy.{sh,ps1} |
+| **W2** (ac3c5d1 + 8ac3cc7 + e971441) | Unisender real (15 тестов) · DPA-step онбординг · drift fix /legal страниц |
+| **W3 partial** (2502963) | МЧД UI alignment с J-1 + seed (1 active + 1 expired) |
 
-**Накопительно за сессию: 19 коммитов, 5 миграций (0033-0037), 0 откатов, 5 деплоев в проде. Прод на `e971441` (W3 ожидает деплой).**
-
-### Jurist — за неделю с deep-audit 23.05 + W1 (вечер 26.05)
+### Юр-документы (Jurist)
 
 | Артефакт | Статус |
 |---|---|
-| 6 DPA для провайдеров (`docs/legal/dpa/`) | ✅ |
-| Privacy Policy v1.1 — §7 переписан | ✅ |
-| Согласие водителя на Госключ | ✅ |
-| `docs/legal/invoice-spec.md` | ✅ |
-| Юр-пакет ЭТрН (10 файлов в `docs/legal/etrn/`) | ✅ |
-| DPA «Клиент ↔ TMS» (документ 99) | ✅ |
-| **W1 J-1** — Исправлены КЭП-формулировки в 05/08 + унификация МЧД normativki | ✅ (commit `4071930`) |
-| **W1 J-2** — Terms of Service v1.1 (новые §2/§7/§8/§13, cap 1мес→12мес) | ✅ (commit `4071930`) |
-| **W1 J-7** — Privacy Policy v1.2 — §6 переписан, 6 подразделов со сроками | ✅ (commit `4071930`) |
-| **W1 J-8** — Acceptance подписи M+O batch'ей | ✅ (commit `4071930`) |
+| 6 DPA для провайдеров | ✅ |
+| Юр-пакет ЭТрН (10 файлов etrn/) | ✅ |
+| DPA «Клиент ↔ TMS» (99) | ✅ |
+| **W1 J-1** Исправлены КЭП-формулировки 05/08 + унификация МЧД normativki | ✅ (4071930) |
+| **W1 J-2** ToS v1.1 (§2 разграничение / §6 cap 12мес / §7 ЭПД / §8 AI) | ✅ |
+| **W1 J-7** Privacy Policy v1.2 — §6 retention для МЧД/dpa_acceptances/finance | ✅ |
+| **W1 J-8** Acceptance подписи M+O batch'ей | ✅ |
 
-**Закрыто 8 из 12 P0 deep-audit + 6 self-discovered.** В W1 Jurist закрыл 4 блокера TransPult'а — разблокированы T-13 (МЧД UI) и T-5 (DPA-step UI).
-
-### PM-аудит — что устарело (актуализация после W1)
-
-| PM-аудит говорил | После моих G→O+W1 |
-|---|---|
-| GAP-LOT-SETUP открыт | ✅ закрыт G1 |
-| GAP-COLD-CHAIN-ROUTES не работает | ✅ закрыт G2 |
-| BUG-DISP-001 sidebar broken | ✅ закрыт H5 |
-| Schema overshoot — invoices не структурирован | ✅ закрыт M (новый schema) |
-| UI invoice ↔ orders отсутствует | ✅ закрыт N |
-| PDF-шаблоны нет | ✅ закрыт O |
-| tax_regime — gap | ✅ закрыт J1+L |
-| Pricing нет | ✅ закрыт K |
-| Этапы 3-6 из invoice-spec — backlog | ✅ закрыто M+N+O |
-| **AI-копилот без DPA** | ✅ **W1 T-0** скрыт за фичефлагом (404 в проде) |
-| **Missing FK indexes** | ✅ **W1 T-10** миграция 0037 |
-| **bulk-pdf N+1** | ✅ **W1 T-8** batch fetch (~150 queries → 3-4) |
-| **PII в логах** | ✅ **W1 T-3** pino redact |
-| **Wialon юрисдикция UX** | ✅ **W1 T-23** banner в credential modal |
-
-**Большая часть PM-product-gap'ов закрыта.** Главное что осталось: provider drought + email Unisender + Mobile (driver) + RBAC sweep + UI-полировки.
+**Накопительно: 21 commit за сессию, 5 миграций (0033-0037), 0 rollback'ов, 6 deploy'ев в проде.**
 
 ---
 
-## §3 Не закрыто — единая дорожная карта
+## §3 Долги — единая дорожная карта (передраконено)
 
-Объединил находки из всех трёх аудитов, убрал дубли. **3 категории по приоритету.**
+### 🔴 P0 — блокеры платящего клиента
 
-### 🔴 P0 — блокеры платящего клиента (до 01.09.2026)
-
-**Зона: Founder (не делегируется)**
-
-| # | Долг | Часов | Кто | Зависимость |
-|---|---|---|---|---|
-| F-1 | **Регистрация ООО** — обращение к бухгалтеру/юристу, подача в ИФНС | 3 раб. дня | Гоша + бухгалтер | Гейт для всего платного flow |
-| F-2 | **Уведомление РКН (форма Р-1)** | 0.5 дня | Гоша | После F-1 |
-| F-3 | Решение о выборе УСН-режима для ООО | до F-1 | Гоша + Jurist | — |
-| F-4 | PoL probes (15 звонков) | эта неделя | Гоша | — |
-
-**Зона: Jurist (юридическая)**
-
-| # | Долг | Часов | Кто | Статус |
-|---|---|---|---|---|
-| ~~J-1~~ | ~~Исправить документы 05/08 ЭТрН — формулировки КЭП физлица~~ | 1-2h | Jurist | ✅ **W1 done** (4071930) |
-| ~~J-2~~ | ~~Update Terms of Service — ЭПД + AI disclaimer + cap 12 мес~~ | 1 день | Jurist | ✅ **W1 done** (4071930) |
-| ~~J-3~~ | ~~AI-копилот DPA~~ | — | — | ⏸ Заморожен — W1 T-0 фичефлаг off |
-| J-4 | **Внутренние документы оператора ПДн** — приказ, регламент, перечень мест хранения, журнал обращений | 2-3 дня | Jurist | W2 |
-| J-5 | **Подготовка к регистрации ООО** — чек-лист, форма Р-1, mapping ИП→ООО, выбор УСН-режима | 1 день | Jurist | W2 — Founder F-1 blocker |
-| J-6 | **Cookie-policy + согласие на маркетинг** | 0.5 дня | Jurist | P1 — если лендинг |
-| ~~J-7~~ | ~~Privacy Policy §6 — сроки хранения МЧД, журналов подписаний~~ | 0.5 дня | Jurist | ✅ **W1 done** (4071930) v1.2 |
-| ~~J-8~~ | ~~Acceptance подписи `invoice-spec-acceptance-M.md` + `-O.md`~~ | 0.5 дня | Jurist | ✅ **W1 done** (4071930) |
-
-**Зона: TransPult (мои технические долги)**
+#### Зона: Founder (не делегируется)
 
 | # | Долг | Часов | Статус |
 |---|---|---|---|
-| ~~T-0~~ | ~~AI-копилот state check + UI hide~~ | 30min | ✅ **W1 done** (f0ed26a) |
-| T-2 | Cross-tenant event-leak fix (`events/journal.ts:100`) | 2h | ⏸ W3 — нужно расследование |
-| ~~T-3~~ | ~~Pino redact для PII водителей~~ | 1h | ✅ **W1 done** (ec14b90) |
-| T-4 | Alerting на `pending_review` документы | 4h | W3 |
-| ~~T-5~~ | ~~DPA-step UI при подключении интеграций (StepEdi+StepSignature)~~ | 4h | ✅ **W2 done** (8ac3cc7) |
-| T-6 | mailru SMTP — `requires_acceptance: false` info-banner | 1h | W3 (после T-5 готов) |
-| T-7 | 50+ endpoints `requireAbility()` | 6-8h | ⏸ W3 — нужна role-by-role smoke session |
-| ~~T-8~~ | ~~`/finance/invoices/bulk-pdf` N+1 → batch fetch~~ | 1h | ✅ **W1 done** (ec14b90) |
-| T-9 | invoices unit-tests (createDraft/issue/correction/payment/cancel) | 4h | ⏸ W3 — мой долг, mock-pattern требует разбора |
-| ~~T-10~~ | ~~Missing FK indexes — миграция 0037~~ | 30min | ✅ **W1 done** (f0ed26a + applied in prod) |
-| ~~T-11~~ | ~~Full test suite~~ | 1h | ✅ **W1 done** (baseline: 705+199 tests, 8 skip с FIXME) |
-| ~~T-12~~ | ~~Email-провайдер (Unisender real impl + 15 тестов)~~ | 1 день | ✅ **W2 done** (ac3c5d1) |
-| ~~T-13~~ | ~~МЧД UI alignment с J-1 + seed demo~~ | 4-6h | ✅ **W3 done** (2502963) |
+| F-1 | Регистрация ООО (бухгалтер/юрист → ИФНС) | 3 дня | 🔴 Не стартовал |
+| F-2 | Уведомление РКН (форма Р-1) | 0.5 дня | После F-1 |
+| F-3 | Выбор УСН-режима для ООО | До F-1 | С Jurist J-5 |
+| F-4 | PoL probes (15 звонков) | 1 неделя | 🔴 Не стартовал |
+
+#### Зона: Jurist (юридическая)
+
+| # | Долг | Часов | Статус |
+|---|---|---|---|
+| ~~J-1~~ | КЭП-формулировки 05/08 | — | ✅ W1 (4071930) |
+| ~~J-2~~ | ToS v1.1 | — | ✅ W1 (4071930) |
+| ~~J-3~~ | AI DPA | — | ⏸ Заморожен (W1 T-0) |
+| J-4 | Внутренние документы оператора ПДн (5 артефактов) | 2-3 дня | W4 |
+| J-5 | ООО prep — чек-лист, форма Р-1, mapping ИП→ООО | 1 день | **W4, разблокирует F-1** |
+| J-6 | Cookie-policy + согласие на маркетинг | 0.5 дня | После лендинга |
+| ~~J-7~~ | Privacy Policy §6 retention | — | ✅ W1 (4071930) |
+| ~~J-8~~ | Acceptance M+O | — | ✅ W1 (4071930) |
+
+#### Зона: TransPult (мои технические долги, P0)
+
+| # | Долг | Часов | Статус |
+|---|---|---|---|
+| ~~T-0~~ | AI flag off | 30min | ✅ W1 (f0ed26a) |
+| T-2 | Cross-tenant event-leak (`events/journal.ts`) | 2h | ⏸ W4 — нужно расследование |
+| ~~T-3~~ | pino redact PII | 1h | ✅ W1 (ec14b90) |
+| T-4 | Alerting pending_review (Telegram webhook) | 4h | W4 |
+| ~~T-5~~ | DPA-step UI в онбординг | 4h | ✅ W2 (8ac3cc7) |
+| T-6 | mailru SMTP `requires_acceptance: false` info-banner | 1h | После T-5 wiring |
+| T-7 | 50+ endpoints `requireAbility()` | 6-8h | ⏸ W4 — нужна role-by-role smoke |
+| ~~T-8~~ | bulk-pdf N+1 → batch fetch | 1h | ✅ W1 (ec14b90) |
+| T-9 | **invoice service tests + HTTP wiring** | **8-12h** | ⏸ W4 — M-batch service не привязан к routes |
+| ~~T-10~~ | FK indexes 0037 | 30min | ✅ W1 (f0ed26a) |
+| ~~T-11~~ | test suite baseline | 1h | ✅ W1 (f0ed26a) |
+| ~~T-12~~ | Email Unisender real | 1 день | ✅ W2 (ac3c5d1) |
+| ~~T-13~~ | МЧД UI alignment с J-1 | 4-6h | ✅ W3 (2502963) |
 
 ### 🟧 P1 — после пилота, но до коммерческого релиза
 
-**Зона: TransPult**
+#### UI/UX полировки
 
 | # | Долг | Часов |
 |---|---|---|
-| T-14 | **5-day SF warning** (spec §6) — BullMQ job + admin dashboard «СФ с просрочкой выпуска» | 6h |
-| T-15 | `/finance/invoices/bulk-generate` без LIMIT — pagination/chunks | 1h |
-| T-16 | N4 UI — модалы invoice workflow (issue/correction/payment/cancel) | 6h |
-| T-17 | N5 — колонка «Маржа» в /trips таблице | 2h |
+| T-14 | 5-day SF warning (BullMQ + dashboard) — spec §6 | 6h |
+| T-15 | `/finance/invoices/bulk-generate` без LIMIT — pagination | 1h |
+| T-16 | N4 invoice workflow modals (issue/correction/payment/cancel) | 6h |
+| T-17 | N5 margin column в /trips | 2h |
 | T-18 | BUG-DISP-002 (vehicle auto-select UX) | 2h |
-| T-19 | BUG-FINANCE-001 (кнопка «Создать счёт по рейсам» не открывает форму) | 2h |
-| T-20 | forgot-password real flow — сейчас stub | 3h |
-| T-21 | Мёртвые кнопки в UI — FinesTable, PermitsTable, billing, repair Kanban | 4h |
-| T-22 | drivers HOS bulk endpoint — убрать N+1 | 2h |
-| ~~T-23~~ | ~~Wialon UI — banner про юрисдикцию~~ | 1h | ✅ **W1 done** (ec14b90) |
-| T-24 | XSD валидация через `xmllint-wasm` (вместо regex) | 1 день |
-| T-25 | `/finance/kpi` aggregations — combine 5 SUM/COUNT queries в 1-2 | 2h |
-| T-27 | E2E полный invoice flow smoke (issue→pay→correction) | 1h |
+| T-19 | BUG-FINANCE-001 (кнопка «Создать счёт по рейсам») | 2h |
+| T-20 | forgot-password real flow (stub) | 3h |
+| T-21 | Мёртвые кнопки (Fines/Permits/Billing/Repair Kanban) | 4h |
+| T-22 | drivers HOS bulk endpoint — N+1 | 2h |
+| ~~T-23~~ | Wialon RU jurisdiction banner | 1h | ✅ W1 (ec14b90) |
+| T-24 | XSD validation через `xmllint-wasm` (для ФНС) | 1 день |
+| T-25 | KPI 5 aggregation → 1-2 CTE | 2h |
+| T-27 | E2E полный invoice flow (issue→pay→correction) | 1h |
 
 ### 🟨 P2 — continuous improvement
 
+#### Provider реализации (см. §13 ниже — отдельная карта)
+
 | # | Долг | Часов |
 |---|---|---|
-| T-28 | 20+ provider скелетов — поэтапная реализация по 1-2 в спринт | 1-2 недели per провайдер |
-| T-29 | Минимум 1 платёжный провайдер (ЮKassa первая) | 3-4 недели |
-| T-30 | Минимум 1 ЭДО-оператор (Diadoc) — до 01.09 | 3-4 недели |
-| T-31 | Минимум 1 КЭП-провайдер (Госключ для ИП) — до 01.09 | 3 недели |
-| T-32 | Атракс (если у пилот-клиента) | 1 неделя |
-| T-33 | СКЗИ tachograph reader (`ddd-parser.ts`) | 1-2 недели |
-| T-34 | Type-safety — убирать 41× `as any` точечно | continuous |
-| T-35 | Mobile тесты (0 сейчас) — smoke на login + ключевые экраны | 1 день |
-| T-36 | operational-core тесты (9 файлов без покрытия) | 2 дня |
+| T-28 | 20+ provider скелетов — поэтапно | 1-2 нед per |
+| T-29 | ЮKassa real (1-й платёжный) | 3-4 нед |
+| T-30 | Diadoc real (1-й ЭДО) | 3-4 нед |
+| T-31 | Госключ real (1-й КЭП) | 3 нед |
+| T-32 | Атракс (опц для пилот-клиента) | 1 нед |
+| T-33 | СКЗИ tachograph reader (ddd-parser) | 1-2 нед |
+
+#### Tech debt
+
+| # | Долг | Часов |
+|---|---|---|
+| T-34 | Type-safety — 41× `as any` | continuous |
+| T-35 | Mobile тесты (0/10 экранов) | 1 день |
+| T-36 | operational-core тесты (9 файлов) | 2 дня |
 | T-37 | JWT refresh/revocation (24h hardcoded) | 1 день |
-| T-38 | RepairKanban migration на `<KanbanBoard>` (1,397 LOC deprecated) | 1 день |
-| T-39 | Mock telematics marker в `/dispatcher` — «demo data» | 30min |
-| T-40 | DEPRECATED поля удалить в миграции 0040+: `trips.carrier_cost`, `invoices.contractor_id`, `invoices.tripIds[]` | 2h |
-| T-41 | Mobile lint config добавить | 1h |
-| T-42 | `docs/operations/monitoring/alert-rules.md` — 6 TODO для Prometheus | 1 день |
-| T-43 | Carriers-1..4 UI (страница /carriers + переключатели) | 17h |
-| T-44 | R1 Research — Диадок proxy-OAuth к Госключу | 1 день |
-| T-46 | **Gosklyuch callback test mock** — починить 7 skipped (db.transaction mock pattern) | 2-4h |
-| T-47 | **Login 401 redirect test** — fix jsdom navigation (api.ts:87) | 1h |
-| T-48 | **docs/architecture/migrations.md** — правило BEGIN/COMMIT обёртка для атомарности | 30min |
-| T-49 | **ALLOW_INITIAL_SCHEMA env** в deploy.sh — для clean dev/staging | 30min |
+| T-38 | RepairKanban (1397 LOC) → shared KanbanBoard | 1 день |
+| T-39 | Mock telematics marker «demo data» в /dispatcher | 30min |
+| T-40 | DEPRECATED поля → миграция 0040+ (carrier_cost, contractor_id, tripIds) | 2h |
+| T-41 | Mobile lint config | 1h |
+| T-42 | Prometheus exporters (6 TODO в alert-rules.md) | 1 день |
+| T-43 | Carriers-1..4 UI (страница /carriers) | 17h |
+| T-44 | R1 Research — Diadoc proxy-OAuth к Госключу | 1 день |
+| T-46 | Fix gosklyuch-callback test skip (7 тестов) | 2-4h |
+| T-47 | Fix login 401 redirect test skip | 1h |
+| T-48 | docs/architecture/migrations.md (BEGIN/COMMIT правило) | 30min |
+| T-49 | ALLOW_INITIAL_SCHEMA env в deploy.sh | 30min |
 
 ---
 
-## §4 Зависимости между зонами
+## §4 Зависимости
 
 ```
-Founder F-1 (ООО)
-  ├─→ Founder F-2 (РКН-уведомление)
-  ├─→ Jurist J-5 (подготовка к ООО)
-  └─→ TransPult mapping ИП→ООО в коде (1h, после регистрации)
+Founder F-1 (ООО) — главный гейт
+  ├─ Jurist J-5 (чек-лист) ускоряет
+  ├─ Founder F-2 (РКН) после
+  └─ TransPult mapping ИП→ООО в коде (1h, после F-1)
 
-Jurist J-1, J-7 (ЭТрН доки + retention)
-  └─→ требует TransPult T-13 (МЧД UI) с правильными формулировками
+Pilot launch
+  ├─ T-9 invoice tests + wiring (моя ответственность)
+  ├─ Минимум 1 платёжный провайдер (T-29 ЮKassa)
+  ├─ Минимум 1 ЭДО (T-30 Diadoc)
+  ├─ Минимум 1 КЭП (T-31 Госключ)
+  └─ Founder F-4 PoL probes (доказать спрос)
 
-TransPult T-5 (DPA-step UI)
-  └─→ Jurist J-1, J-2 готовы (DPA-тексты уже есть)
-
-Jurist J-8 (Acceptance M+O)
-  └─→ требует Jurist review кода M-batch + O templates
+Mobile pilot (если)
+  └─ Требует GAP-DRIVER-WEB (не в нашей зоне сейчас)
 ```
 
-**После W1 + Jurist sync главного риска (AI-копилот без DPA) больше нет** — флаг скрыт, J-3 заморожен.
-**После Jurist sync** разблокированы у TransPult:
-- T-13 МЧД UI (был блокирован J-1 + J-7 — оба готовы)
-- T-5 DPA-step UI (DPA-99 + 6 текстов + J-2 ToS готовы)
+---
 
-**Текущий главный риск**: Founder F-1 не стартовал.
+## §5 Зона TransPult — W4-W8 backlog
+
+| W4 (16-22.06) | W5 (23-29.06) | W6 (30.06-06.07) | W7 (07-13.07) | W8 (14-20.07) |
+|---|---|---|---|---|
+| T-9 invoice wiring (8-12h) | T-7 RBAC sweep (6-8h) | T-29 ЮKassa real (3-4 нед) ► | ► продолжение | T-31 Госключ real (3 нед) ► |
+| T-2 event-leak (2h) | T-14 5-day SF warning (6h) | | T-30 Diadoc real (3-4 нед) ► | ► продолжение |
+| T-25 KPI combine (2h) | T-46/47 fix skipped tests (3-5h) | | | |
+| T-48 migrations doc (30min) | T-4 alerting (4h) | | | |
+| T-6 SMTP info-banner (1h) | T-22 drivers HOS bulk N+1 (2h) | | | |
+
+После W8 — есть 5 недель до 01.09 на P1 UI/UX полировки + любые внешние audits.
 
 ---
 
-## §5 Что я (TransPult) беру на себя дальше
+## §6 Что нужно от Jurist'а в W4-W5
 
-### ✅ W1 Sprint закрыт
-
-| # | Задача | Коммит |
+| # | Задача | Срок |
 |---|---|---|
-| T-0 | AI flag off | f0ed26a |
-| T-10 | Migration 0037 (FK indexes) | f0ed26a |
-| T-11 | Full test suite baseline | f0ed26a |
-| T-3 | pino PII redact | ec14b90 |
-| T-8 | bulk-pdf N+1 fix | ec14b90 |
-| T-23 | Wialon RU banner | ec14b90 |
-| — | docs/product/sprint-w1-acceptance.md | 3273dd5 |
-| — | scripts/deploy.sh + deploy.ps1 | 9201c94, 7e23006 |
-
-### ✅ W2 закрыт
-
-| # | Задача | Коммит | Что внутри |
-|---|---|---|---|
-| T-12 | Unisender real impl | ac3c5d1 | Реальный fetch к api.unisender.com, 15 unit-тестов, env-фабрика, registry wiring, form-urlencoded body, error mapping |
-| T-5 | DPA-step gate в онбординге | 8ac3cc7 | Helper `lib/dpa.ts` (fail-open). StepEdi + StepSignature: DPA-check перед persistChoice |
-| — | Drift fix /legal страниц | e971441 | MarkdownView client + markdown-parser server-safe. Privacy/Terms pages теперь Server Components: fs.readFileSync .md → MarkdownView. Dockerfile COPY + .dockerignore exceptions. Verified на проде: v1.2/v1.1 контент рендерится. |
-
-### ✅ W3 partial закрыт
-
-| # | Задача | Коммит | Что внутри |
-|---|---|---|---|
-| T-13 | МЧД UI доводка | 2502963 | UI banner про КЭП-модель per Jurist J-1; подсказка в форме «Поверенный»; seed 1 active + 1 expired МЧД для демо |
-
-### W4 Sprint — приоритеты
-
-| # | Задача | Часов | Почему важно |
-|---|---|---|---|
-| T-9 | invoices unit-tests + HTTP wiring | 8-12h | M-batch service-layer готов, но не привязан к routes. Полный scope = endpoints + integration tests. Требует фокус-сессию. |
-| T-7 | RBAC sweep (50+ endpoints) | 6-8h | Нужна role-by-role smoke session |
-| T-2 | Cross-tenant event-leak | 2h | Нужно расследование scope-filter в /events |
-| T-25 | KPI aggregation combine | 2h | Perf, не блокер |
-| T-14 | 5-day SF warning | 6h | BullMQ job + dashboard |
-| T-4 | Alerting pending_review | 4h | После DevOps coord |
-| T-48 | docs/architecture/migrations.md | 30min | Правило BEGIN/COMMIT (по ревью партнёра) |
-
-**Итого моя зона на W4: ~30-35 часов.**
+| J-5 | ООО prep — приоритет | W4 (16-22.06) |
+| J-4 | Внутренние документы оператора ПДн | W4-W5 |
+| J-6 | Cookie + согласие маркетинг (если лендинг) | W6 |
+| Review | Sprint W4 acceptance после T-9 | W4 end |
 
 ---
 
-## §6 Что нужно передать Jurist'у
+## §7 Что нужно от Founder'а
 
-| # | Задача | Зачем | Статус |
+| # | Задача | Когда | Блокирует |
 |---|---|---|---|
-| ~~J-1~~ | ~~Исправить документы 05/08 ЭТрН (КЭП физлица формулировки)~~ | Юр-точность, блокер T-13 | ✅ **W1 done** (4071930) |
-| ~~J-2~~ | ~~Update ToS — раздел ЭПД + AI disclaimer + cap 12 мес~~ | Синхронизация с DPA-99 | ✅ **W1 done** (4071930) v1.1 |
-| ~~J-3~~ | ~~AI DPA~~ | ⏸ Заморожен (W1 T-0 — флаг off) | — |
-| J-4 | Внутренние документы оператора ПДн (5 артефактов) | Регуляторный долг | **W2** |
-| J-5 | Чек-лист регистрации ООО + форма Р-1 + mapping ИП→ООО | Подготовка для Founder | **W2** — приоритет, F-1 blocker |
-| J-6 | Cookie-policy + согласие на маркетинг | Если будет лендинг | P1 |
-| ~~J-7~~ | ~~Privacy Policy §6 — сроки хранения МЧД и журналов~~ | Блокер T-13 | ✅ **W1 done** (4071930) v1.2 |
-| ~~J-8~~ | ~~Acceptance подписи `invoice-spec-acceptance-M.md` + `-O.md`~~ | Закрытие моего M+O долга | ✅ **W1 done** (4071930) |
+| F-1 | Регистрация ООО | **W4** (срочно) | Календарь до 01.09 |
+| F-2 | Подача Р-1 в РКН | После F-1 | Юр-инфраструктура |
+| F-3 | Выбор УСН-режима | До F-1 (с Jurist) | Налоговая модель |
+| F-4 | PoL probes (15 звонков) | **W4 параллельно** | Pre-PMF metric |
+
+**Главный риск:** без F-1 в W4 окно сужается до 70 дней.
 
 ---
 
-## §7 Что нужно от Founder'а (не делегируется)
-
-| # | Задача | Когда |
-|---|---|---|
-| F-1 | Регистрация ООО через бухгалтера/юриста | На этой неделе |
-| F-2 | Подача формы Р-1 в РКН | После F-1 |
-| F-3 | Решение о выборе УСН-режима для ООО | До F-1 (с Jurist) |
-| F-4 | Запустить PoL probes (15 звонков) | Эта неделя |
-
-**Без F-1+F-2 платящего клиента невозможно завести юридически.**
-
----
-
-## §8 Главные риски (после W1 + Jurist sync)
+## §8 Главные риски (после W3 deployed)
 
 | Риск | Severity | Митигация |
 |---|---|---|
-| ~~AI-копилот в проде без DPA~~ | ✅ Снят | W1 T-0 — фичефлаг off в проде, 404 на /api/copilot/* |
-| ~~КЭП-формулировки в юр-доках устарели~~ | ✅ Снят | Jurist J-1 — модель КЭП обновлена под ФЗ-476 |
-| ~~ToS без раздела ЭПД и AI~~ | ✅ Снят | Jurist J-2 — ToS v1.1 + cap 12мес |
-| ~~Privacy Policy без сроков хранения МЧД~~ | ✅ Снят | Jurist J-7 — PP v1.2 §6 |
-| ~~M+O batch без acceptance~~ | ✅ Снят | Jurist J-8 — подписи на M (3d04e14) + O (371329d) |
-| **Provider drought** — pilot выяснит что real ЮKassa/Госключ/Диадок не работают | 🔴 P0 | T-12 (email) первым в W2, потом ЮKassa+Diadoc+Госключ параллельно |
-| **Регистрация ООО не стартовала** — окно до 01.09 (97 дней) сужается | 🔴 P0 | F-1 на этой неделе обязателен; J-5 поможет с чек-листом |
-| **0 unit-тестов на invoices service-методы** — регрессия проедет в pilot | 🟧 P1 | T-9 в W2, заодно разобрать mock-pattern (T-46, T-47) |
-| **50+ endpoints без requireAbility** — privilege escalation при изменении CASL | 🟧 P1 | T-7 — большой блок, отдельная W2 session с per-role smoke |
-| **Drift между .md юр-доками и /legal/*.tsx страницами** | 🟨 P2 | W2: либо MDX-render, либо hand-port |
-| ~~bulk-pdf N+1~~ | ✅ Снят | W1 T-8 — 3-4 batch queries |
-| ~~Missing FK indexes~~ | ✅ Снят | W1 T-10 — миграция 0037 в проде |
+| ~~AI-копилот без DPA~~ | ✅ Снят | W1 T-0 |
+| ~~КЭП-формулировки устарели~~ | ✅ Снят | Jurist J-1 |
+| ~~ToS без ЭПД / AI / cap 12мес~~ | ✅ Снят | Jurist J-2 |
+| ~~Privacy Policy без retention МЧД~~ | ✅ Снят | Jurist J-7 |
+| ~~M+O acceptance~~ | ✅ Снят | Jurist J-8 |
+| ~~/legal pages drift с .md~~ | ✅ Снят | W2 e971441 |
+| ~~МЧД UI не отражает J-1~~ | ✅ Снят | W3 T-13 |
+| **Provider drought (27/28)** | 🔴 P0 | T-29/30/31 параллельно в W6-W8 |
+| **F-1 (ООО) не начат** | 🔴 P0 | Партнёрский вопрос Гоше |
+| **0 PoL probes** | 🔴 P0 | F-4 параллельно |
+| **0 real пилот-клиентов** | 🔴 P0 | Pre-PMF — главная риск-метрика |
+| **T-9 M-batch service не wired** | 🟧 P1 | W4 первым приоритетом |
+| **50+ endpoints без requireAbility** | 🟧 P1 | T-7 в W4-W5 |
+| **Mobile app почти без тестов** | 🟧 P1 | T-35 в W6+ |
+| **Внешний security pen-test не было** | 🟧 P1 | Нужен подрядчик в W7+ |
 
 ---
 
-## §9 Календарь до 01.09.2026
+## §9 Календарь до 01.09.2026 — **96 дней**
 
-**97 дней. Распределение (актуализировано после W1):**
+| Период | Founder | Jurist | TransPult | Главная цель |
+|---|---|---|---|---|
+| Неделя 0 факт | (не стартовал) | J-1/2/7/8 ✅ | W1+W2+W3 ✅ | Технический контур закрыт |
+| W4 (16-22.06) | F-1 + F-4 | J-5 | T-9 + T-2 + T-25 + T-48 + T-6 | M-batch wired |
+| W5 (23-29.06) | F-2 после F-1 | J-4 | T-7 + T-14 + T-46/47 + T-4 | RBAC чисто + alerting |
+| W6 (30.06-06.07) | пилот-фидбек | J-6 | ЮKassa real (старт) | 1-й провайдер платежей |
+| W7 (07-13.07) | пилот-фидбек | review | Diadoc real (старт) | 1-й ЭДО |
+| W8 (14-20.07) | пилот-фидбек | | Госключ real (старт) | 1-й КЭП |
+| Недели 9-12 | масштаб | | UI/UX P1 полировка | Pilot → 5 клиентов |
+| Недели 13-14 | масштаб | | Security pen-test + perf audit | Внешние проверки |
 
-- **~~Неделя 1 (26.05-01.06)~~ — W1 факт:**
-  - ✅ TransPult: T-0, T-3, T-8, T-10, T-11, T-23 + scripts/deploy
-  - ✅ Jurist: J-1, J-2, J-7, J-8 (вечером 26.05)
-  - 🔴 Founder: F-1 (старт ООО), F-4 (PoL probes) — **не стартовали**
-
-- **~~Неделя 2 (02.06-08.06)~~ — W2 факт + deployed:**
-  - ✅ TransPult: T-12 (Unisender real), T-5 (DPA-step в онбординге), drift fix /legal pages
-  - ✅ Deploy в прод: e971441 — Jurist v1.2 PP и v1.1 ToS теперь видны на transpult.ru/legal/*
-  - 🔴 Founder: F-1 — **не стартовал** (главный блокер календаря)
-  - 🟡 Jurist: ждёт сигнал на W3 (J-5 ООО prep, J-4 внутренние доки)
-
-- **Неделя 3 (09.06-15.06) — W3 partial факт:**
-  - ✅ TransPult: T-13 МЧД UI доводка + seed (commit 2502963, ожидает deploy)
-  - 🟡 T-9 invoices tests + wiring — обнаружено что service-layer не привязан
-    к HTTP routes. Полный scope = 8-12h, требует фокус-сессию. → W4.
-  - 🔴 Founder: F-1 — **не стартовал**
-  - 🟡 Jurist: ждёт сигнал на J-5 (ООО prep)
-
-- **Неделя 4 (16.06-22.06) — W4 (план):**
-  - Founder: F-1 (срочно), F-3, F-4 (PoL probes)
-  - Jurist: J-5 (ООО prep), J-4 (внутренние доки), J-6
-  - TransPult: T-9 (invoice service tests + HTTP wiring), T-7 (RBAC sweep), T-2 (event-leak)
-
-- **Неделя 3-4:**
-  - TransPult: T-13 (МЧД UI), T-14 (5-day SF), T-2 (event-leak), ЮKassa или Diadoc первый
-  - Jurist: J-4 (внутренние документы)
-  - Founder: F-2 (РКН)
-
-- **Недели 5-12:**
-  - Параллельная реализация провайдеров
-  - Pilot onboarding (5-10 клиентов)
-
-**Оценка готовности к первому платящему:** конец июня — середина июля 2026 (~35-50 дней) — если Founder F-1+F-2 на этой неделе.
+**Реалистичный пилотный launch:** середина июля при условии F-1 в W4.
+**Коммерческий relase:** конец августа при условии 3 real-провайдеров.
 
 ---
 
-## §10 Метрики (обновлено после W1)
+## §10 Метрики (полный snapshot)
 
-| Метрика | До W1 | W1 | Jurist | W2 | W2 deploy | **W3 partial** |
-|---|---|---|---|---|---|---|
-| Готовность к платящему клиенту (юр) | ~40% | ~45% | ~55% | ~60% | ~62% | **~65%** |
-| P0 deep-audit закрыто | 4/12 | 4/12 | 8/12 | 9/12 | 9/12 | **9/12 (75%)** |
-| P0 TransPult из списка | 0/13 | 6/13 | 6/13 | 8/13 | 8/13 | **9/13 (69%)** |
-| P0 Jurist из списка | 0/7 | 0/7 | 4/7 | 4/7 | 4/7 | 4/7 |
-| Тестов в проекте | 904 | 904 | 904 | 919 | 919 | **919** |
-| Тестов в мобильном | 0 | 0 | 0 | 0 | 0 | 0 |
-| Миграций в проде | 36 | 37 | 37 | 37 | 37 | **37** |
-| Real-провайдеров работает | 0/28 | 0/28 | 0/28 | 1/28 | 1/28 | **1/28** |
-| Commits в main за сессию | 8 | 13 | 14 | 16 | 17 | **19** |
-| Deploy'ев в проде | 4 | 4 | 4 | 4 | 5 | **5** (W3 pending) |
-| Rollback'ов | 0 | 0 | 0 | 0 | 0 | 0 |
-| Юр-документы (markdown) | 6 | 6 | 17 | 17 | 17 | 17 |
-| ToS версия | 1.0 | 1.0 | 1.1 | 1.1 | **1.1 prod** | 1.1 prod |
-| Privacy Policy версия | 1.1 | 1.1 | 1.2 | 1.2 | **1.2 prod** | 1.2 prod |
-| /legal source of truth | hardcoded | hardcoded | drift | drift | **single (md)** | single (md) |
-| МЧД demo seed | 0 | 0 | 0 | 0 | 0 | **2 (1 active + 1 expired)** |
-| МЧД UI per J-1 | drift | drift | drift | drift | drift | **aligned** |
+### Прогресс
 
-**bulk-pdf queries (50 invoices):** было ~150 → стало 3-4
-**FK indexes coverage:** было 5 hot FK без индексов → стало 0
-**pino redact paths:** было 16 → стало 30+ (driver PII)
-**AI exposure:** было live → 404
+| Метрика | Значение |
+|---|---|
+| Готовность к платящему клиенту (юр) | ~65% |
+| **Готовность к платящему клиенту (тех + юр + провайдеры)** | **~55%** |
+| **Готовность к продукт-маркет-fit (PoL probes + пилоты)** | **~15%** |
+| P0 deep-audit закрыто | 9/12 (75%) |
+| P0 TransPult из списка | 9/13 (69%) |
+| P0 Jurist | 4/7 |
+| P0 Founder | 0/4 |
+
+### Код
+
+| Метрика | Значение |
+|---|---|
+| Tests в проекте | 919 (713 api + 198 web + 18 shared FSM) |
+| Тестов в мобильном | 0 |
+| Skipped с FIXME | 8 (7 gosklyuch + 1 login 401) |
+| Миграций в проде | 37 |
+| `as any` в API | 41 |
+| Console.log в production | 5 файлов |
+
+### Deploy
+
+| Метрика | Значение |
+|---|---|
+| Commits в main за сессию | 21 |
+| Deploy'ев в проде | 6 |
+| Rollback'ов | 0 |
+| Прод HEAD | 08ddbac |
+
+### Провайдеры (см. §13)
+
+| Метрика | Значение |
+|---|---|
+| Real working | 1/28 (Unisender, при наличии env vars) |
+| Mocks в проде | 4 (dadata, wialon, gibdd-alias, fuel-card) |
+| Stubs throwing NotImplemented | 22 |
+| Удалены deprecated | 4 (kontur, tinkoff, cloudpayments, gibdd-direct) |
+
+### Юр-инфраструктура
+
+| Метрика | Значение |
+|---|---|
+| Юр-документы (markdown) | 17 |
+| ToS версия | 1.1 (на проде) |
+| Privacy Policy версия | 1.2 (на проде) |
+| /legal source of truth | markdown |
+| МЧД demo seed | 2 (1 active + 1 expired) |
 
 ---
 
-## §11 Что прошу решить от Founder'а (после W1)
+## §11 Pre-PMF метрика (откровенно)
 
-**Q1 (срочно — на этой неделе).** Начинаешь регистрацию ООО (F-1)? Без неё календарь до 01.09 сужается. Бухгалтер/юрист на связи? Jurist подготовил `docs/legal/etrn/` + ждёт сигнал на J-5 (чек-лист ООО + форма Р-1).
+| Что | Значение | Норма для pilot launch |
+|---|---|---|
+| PoL probes | 0 / 15 | ≥ 10 |
+| Договоры намерения / LOI | 0 | ≥ 3 |
+| Активные пилотники | 0 | ≥ 1 |
+| Платящие клиенты | 0 | ≥ 1 (после pilot 2-3 мес) |
+| Negative validation (отказы с причинами) | 0 | ≥ 5 |
+| Distinct ИНН в demo signups | 1 (только seed) | ≥ 20 |
 
-**Q2 (срочно).** PoL probes (F-4) — 15 звонков. Согласен запустить параллельно техдолгам, или edge-кейс «по списку»?
+**Что это значит:** мы строим продукт под гипотезу, но **спрос не валидирован**. Партнёрское правило «PoL before code» нарушено для последних 6 спринтов (M, N, O, W1, W2, W3 ушли в код, не в звонки).
 
-**Q3 (W4 порядок).** W3 partial закрыл T-13 (МЧД доводка). Что первым в W4:
-- (a) **T-9 invoice tests + wiring** (8-12h) — service-layer M-batch не привязан к HTTP routes, нужен полный scope: endpoints + integration tests. Фокус-сессия.
-- (b) **T-7 RBAC sweep** (6-8h) — нужна role-by-role smoke session
-- (c) **T-2 event-leak fix** (2h) — нужно расследование scope-filter
-- (d) **T-25 KPI combine** (2h) — perf-win, не блокер
-- (e) **T-48 migrations.md** (30min) — BEGIN/COMMIT правило по ревью партнёра
+---
 
-Рекомендую: (a) → (b) → (c). T-9 — закрытие моего M-batch долга, самое продуктивное. T-7 после — большой блок отдельной сессии. T-2 быстрый аудит-fix. T-48 в любой свободный окно.
+## §12 Слепые пятна (зоны где аудита нет)
 
-**Q4 (Jurist W2).** Передать Jurist'у задачи W2: J-5 (приоритет — ООО чек-лист), J-4 (внутренние доки оператора), J-6 (cookie если лендинг)?
+| Зона | Текущее состояние | Что не известно | Когда нужно проверить |
+|---|---|---|---|
+| **Web Core Vitals** | Lighthouse не запускали | INP / LCP / CLS на проде | До pilot launch (W7) |
+| **Bundle size / load perf** | Next.js bundle audit не делали | Размер vendor chunks, lazy boundaries | W7 |
+| **Accessibility (a11y)** | ARIA не аудировали, контраст частично | Клавиатурная навигация, screen reader | W8 |
+| **i18n** | Всё на русском | Цена локализации, RTL не нужен | Отложено (международка — после РФ-релиза) |
+| **Security pen-test** | Внешний тест не было | XSS/CSRF/IDOR не верифицированы извне | W7 (нужен подрядчик) |
+| **Backup / DR drill** | backup-restore-drill.ps1 есть, не запускался | RTO/RPO реальные | W6 |
+| **Capacity planning** | Load testing нет | Лимит запросов / секунду | После pilot |
+| **GDPR/152-ФЗ end-to-end audit** | Документы есть, flow не верифицирован | Реальное соответствие в коде | W5 (после T-7 RBAC) |
+| **Outbound webhook reliability** | Retry / dead-letter queue нет | Что если ЮKassa webhook упадёт? | После T-29 |
+| **DB index hit rate в проде** | Не мониторим | Реальная польза от 0037 indexes | W6 (через Prometheus после T-42) |
+| **Mobile crash reporting** | Sentry не подключён | Краши в продакшене не видны | После T-35 |
 
-**Q5 (drift).** /legal/privacy и /legal/terms на web — hardcoded JSX (не пулят .md). Сейчас md = source of truth (для юр-актов это OK), но в W2: либо MDX-render, либо hand-port. Какой подход выбираешь?
+---
+
+## §13 Провайдер-карта (28 интеграций)
+
+### По типам
+
+| Тип | Названия | Real / Mock / Stub |
+|---|---|---|
+| **signature** (6) | gosklyuch, kontur_sign, sbis_sign, cadesplugin, mock | mock real / 4 stub |
+| **edi** (4) | diadoc, sbis, kaluga_astral, taxcom | 0 real / 4 stub |
+| **telematics** (3) | wialon, omnicomm, glonasssoft | 0 real / 3 stub (mock в dispatcher) |
+| **fuel_card** (5) | rosneft, lukoil, gazprom, ppr_card, mock | 0 real / 4 stub |
+| **fines** (3) | gis_gmp, traffic, mock | 0 real / 2 stub |
+| **marking** (1) | crpt | 0 real / 1 stub |
+| **payment** (3) | yookassa, mock, …(дубли удалены) | 0 real / 1 stub |
+| **email** (3) | console, mailru_smtp, unisender | **1 real (Unisender), SMTP работает через env** |
+| **osago** (1) | rsa | 0 real / 1 stub |
+| **ofd** (1) | mock | 0 real / 1 mock |
+
+**Итого: 1 real, 4 mock в проде, 22 stub throwing NotImplemented.**
+
+### Приоритет реализации
+
+1. 🔴 **ЮKassa** (T-29) — без него платежи невозможны
+2. 🔴 **Diadoc** (T-30) — без него ЭПД не выпустить (нужен до 01.09)
+3. 🔴 **Госключ** (T-31) — подписание Титула 4 ЭТрН водителем
+4. 🟧 **CRPT** (маркировка) — для перевозок маркированных товаров
+5. 🟧 **GIS GMP** (штрафы) — после первых пилотов
+
+Остальные — после пилота по запросу клиентов.
+
+---
+
+## §14 Известные баги UI (P1, не блокеры)
+
+| # | Что | Severity |
+|---|---|---|
+| BUG-DISP-002 | Vehicle auto-select UX | P1 |
+| BUG-FINANCE-001 | «Создать счёт по рейсам» кнопка не открывает форму | P1 |
+| Мёртвые кнопки | FinesTable / PermitsTable / Billing payment-method / Repair Kanban assignedTo | P1 |
+| forgot-password | Stub с amber-banner вместо real flow | P1 |
+| Mobile GPS hardcoded ±5м | CheckpointScreen.tsx | P1 |
+
+---
+
+## §15 Что прошу от тебя
+
+**Q1 (срочно — W4).** Стартуешь F-1 (регистрация ООО)? Без неё календарь до 01.09 нереалистичен. Jurist готов помочь с J-5 (чек-лист) как только дашь сигнал.
+
+**Q2 (срочно — W4).** Запускаешь F-4 PoL probes (15 звонков)? Параллельно техдолгам — займёт 1 неделю. Без них едем в pilot launch вслепую.
+
+**Q3 (W4 порядок TransPult).** Что первым:
+- (a) **T-9 invoice wiring** (8-12h) — мой долг M-batch, разблокирует invoice workflow
+- (b) **T-7 RBAC sweep** (6-8h) — безопасность 50+ endpoint'ов
+- (c) **T-29 ЮKassa real** (3-4 нед) — главный pre-pilot блокер
+
+Рекомендую (a) — закрытие моего долга. После — (b). (c) стартует в W6 параллельно.
+
+**Q4 (внешние проверки).** Заказывать pen-test и Web Vitals audit к pilot launch (~$2-5k каждое)? Или едем на «good enough» до первой жалобы?
+
+**Q5 (стратегия).** **Партнёрское правило «PoL before code» нарушено.** Делаешь ставку:
+- (1) Сейчас пауза в коде → F-4 PoL probes → решение по pivot/proceed
+- (2) Продолжаем код параллельно, PoL probes на полскорости
+- (3) Идём в pilot вслепую к 01.09
+
+Моя рекомендация: **(1)** — PoL probes 1 неделя, и после них решение. Иначе риск построить продукт на гипотезе.
