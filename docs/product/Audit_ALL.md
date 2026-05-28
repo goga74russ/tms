@@ -23,10 +23,12 @@ Tests: `subcontract-gating.integration.test.ts` (4/4).
 
 ## §0 SESSION HANDOFF (читать первым при старте новой сессии)
 
-**Где мы:** одна длинная сессия закрыла W1 → W2 → W3 → W3.5 → W4-T9 → субподряд MVP-gate. Прод стабилен.
+**Где мы:** длинная сессия закрыла W1 → W2 → W3 → W3.5 → **весь W4** (T-9, субподряд MVP-gate,
+T-7, T-2, T-14, T-16) + полировку. Прод стабилен.
 
-**Прод синхронизирован с origin** (оба на `ac4bbe4`, deploy 2026-05-28). Нет pending-разницы.
-Health OK, AI-флаг off (404). Субподряд-гейт без миграций (использует существующую `execution_mode`).
+**Прод синхронизирован с origin** (оба на `286fbb5`, deploy 2026-05-28). Нет pending-разницы.
+Health OK, AI-флаг off (404). Все W4-правки без новых миграций (логика + UI; T-14 использует
+существующие unloading_date / actual_completion_at, T-2/T-7 — чистая авторизация).
 
 **Что делать в начале новой сессии:**
 1. `git -C D:\Ai\TMS-prod log --oneline -5` — свериться с HEAD
@@ -101,6 +103,22 @@ tripIds), execution (idempotency по externalId). +6 integration tests
 Без миграции (просрочка вычисляется из unloading_date + журнала). Tests: +5 (sf-overdue)
 +5 (sf-deadline-scan) + unit. Коммиты 9d2ae8f + e8b8859 + UI. Unit 713/720, регрессий нет.
 
+**Что нового (T-16 invoice workflow migration, 2026-05-28):** полная миграция UI `/finance`
+на M-batch invoice-модель. Было: фронт на легаси-типах (invoice/act/upd, sent/paid), API уже
+отдавал новую модель → лейблы/фильтры рассинхрон.
+1. shared `InvoiceSchema` → 7-типов enum (payment/advance/sf/upd/corrective_sf/corrective_upd/act)
+   + FSM-статусы (draft/issued/paid_partial/paid_full/cancelled/corrected) + новые поля.
+2. `/finance` + `/client` — лейблы/статусы/summary/фильтры на новую модель.
+3. Новый изолированный `InvoiceWorkflowActions.tsx` — FSM-gated документооборот:
+   create-draft → issue (basis_text + аллокатор invoice_orders + диалог просрочки T-14) →
+   register-payment / КСФ-ИСФ correction / cancel. Кнопки гейтятся по статусу.
+4. Полировка: убраны легаси «Оплата»-таб, «Счёт по рейсам», мёртвые хендлеры (−104 стр).
+Коммиты 1886aae + 7d1d9a9 + 286fbb5. tsc (web+api) clean, web-тесты 199/199.
+Остаток (минор): осиротевший `InvoicePaymentStatus` import в shared schemas.ts/types.ts.
+
+**Тех-долг тестового раннера (всплыл в T-14):** `packages/shared` не подключён к vitest —
+юниты M7 (`invoice-fsm.test.ts`) + новые `checkSfIssueDeadline` только тайпчекаются, не гоняются.
+
 ---
 
 ## §1 Главное в одной таблице
@@ -108,7 +126,7 @@ tripIds), execution (idempotency по externalId). +6 integration tests
 | Зона | Прогресс | Главный риск |
 |---|---|---|
 | Core security + auth | ~97% (W1 + T-7 RBAC sweep: закрыт priv-esc в invite-team) | внешний pen-test не проводился |
-| Бизнес-логика (orders / trips / invoices / MCHD) | ~85% | T-9 invoice service не привязан к routes (M-batch висит) |
+| Бизнес-логика (orders / trips / invoices / MCHD) | ~90% (T-9 wired, T-16 UI на новой модели, T-14 5-дн срок) | UI-workflow не прогонялся живым QA |
 | Юр-документы | ~80% (Jurist J-1/2/7/8 done; J-3 заморожен; J-4/5/6 ждут) | J-5 (ООО prep) блокирует Founder F-1 |
 | **Real-провайдеры** | **1/28 (Unisender)** | 🔴 **Главный pre-pilot блокер** |
 | Mobile app (driver) | 0 тестов / 10 экранов | T-13 МЧД UI готов, но водитель в мобиле не пилотируется |
