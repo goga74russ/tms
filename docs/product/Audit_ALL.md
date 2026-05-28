@@ -213,7 +213,7 @@ tripIds), execution (idempotency по externalId). +6 integration tests
 | T-4 | Alerting pending_review (Telegram webhook) | 4h | W4 |
 | ~~T-5~~ | DPA-step UI в онбординг | 4h | ✅ W2 (8ac3cc7) |
 | ~~T-6~~ | ~~mailru SMTP info-banner~~ | 1h | ✅ W3.5 verified (E7 уже сделал) |
-| T-7 | 50+ endpoints `requireAbility()` | 6-8h | ⏸ W4 — нужна role-by-role smoke |
+| ~~T-7~~ | RBAC sweep (50+ endpoints) | 6-8h | ✅ W4 — закрыт priv-esc invite-team + 5 MED, +7 тестов |
 | ~~T-8~~ | bulk-pdf N+1 → batch fetch | 1h | ✅ W1 (ec14b90) |
 | ~~T-9~~ | ~~invoice service tests + HTTP wiring~~ | 8-12h | ✅ W4 (6e62a3b) — routes были wired в M, +17 integration tests |
 | ~~T-10~~ | FK indexes 0037 | 30min | ✅ W1 (f0ed26a) |
@@ -229,7 +229,7 @@ tripIds), execution (idempotency по externalId). +6 integration tests
 |---|---|---|
 | ~~T-14~~ | 5-day SF warning (BullMQ + dashboard) — spec §6 | 6h | ✅ W4 — reactive+worker+UI, +15 тестов |
 | ~~T-15~~ | bulk-generate LIMIT 1000 + hasMore | 1h | ✅ W3.5 (df1083b) |
-| T-16 | N4 invoice workflow modals (issue/correction/payment/cancel) | 6h |
+| ~~T-16~~ | invoice workflow modals (issue/correction/payment/cancel) | 6h | ✅ W4 — миграция /finance + workflow + полировка |
 | ~~T-17~~ | Колонка «Стоимость» в /trips (RBAC) — full margin = W4 | 2h | ✅ W3.5 (2d98d9a + 5599601) |
 | T-18 | BUG-DISP-002 (vehicle auto-select UX) — **needs QA repro** | 2h | ⏸ W4 |
 | T-19 | BUG-FINANCE-001 («Создать счёт по рейсам») — **needs QA repro** | 2h | ⏸ W4 |
