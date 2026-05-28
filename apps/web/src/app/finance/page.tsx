@@ -59,30 +59,34 @@ interface DocReturn {
 type ApiResponse<T> = { success: boolean; data: T };
 
 // ——— Status helpers ———
+// T-16 — новая FSM статусов (invoice-spec.md §2).
 const STATUS_OPTIONS = [
     { value: '', label: 'Все статусы' },
     { value: 'draft', label: 'Черновик' },
-    { value: 'sent', label: 'Отправлен' },
-    { value: 'paid', label: 'Оплачен' },
-    { value: 'overdue', label: 'Просрочен' },
+    { value: 'issued', label: 'Выпущен' },
+    { value: 'paid_partial', label: 'Частично оплачен' },
+    { value: 'paid_full', label: 'Оплачен' },
+    { value: 'corrected', label: 'Исправлен' },
     { value: 'cancelled', label: 'Отменён' },
 ];
 
 const getStatusColor = (status: string) => {
     switch (status) {
-        case 'paid': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        case 'sent': return 'bg-blue-50 text-blue-700 border-blue-200';
-        case 'overdue': return 'bg-red-50 text-red-700 border-red-200';
+        case 'paid_full': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        case 'paid_partial': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+        case 'issued': return 'bg-blue-50 text-blue-700 border-blue-200';
+        case 'corrected': return 'bg-purple-50 text-purple-700 border-purple-200';
         case 'cancelled': return 'bg-neutral-100 text-neutral-500 border-neutral-200';
-        default: return 'bg-amber-50 text-amber-700 border-amber-200';
+        default: return 'bg-amber-50 text-amber-700 border-amber-200'; // draft
     }
 };
 
 const getStatusText = (status: string) => {
     switch (status) {
-        case 'paid': return 'Оплачен';
-        case 'sent': return 'Отправлен';
-        case 'overdue': return 'Просрочен';
+        case 'paid_full': return 'Оплачен';
+        case 'paid_partial': return 'Частично оплачен';
+        case 'issued': return 'Выпущен';
+        case 'corrected': return 'Исправлен';
         case 'cancelled': return 'Отменён';
         default: return 'Черновик';
     }
@@ -101,9 +105,13 @@ function shortInvoiceNo(num: string): string {
 }
 
 const invoiceTypeLabels: Record<Invoice['type'], string> = {
-    invoice: 'Счет',
-    act: 'Акт',
+    payment: 'Счёт на оплату',
+    advance: 'Аванс СФ',
+    sf: 'Счёт-фактура',
     upd: 'УПД',
+    corrective_sf: 'КСФ',
+    corrective_upd: 'КУПД',
+    act: 'Акт',
 };
 
 const ADDITIONAL_SERVICE_OPTIONS = [
@@ -282,13 +290,14 @@ export default function FinanceDashboard() {
 
     // ——— Derived summary ———
     const summary = useMemo(() => {
-        const pending = periodInvoices.filter(i => i.status === 'sent' || i.status === 'draft')
+        // К оплате — выпущенные и частично оплаченные (остаток).
+        const pending = periodInvoices.filter(i => i.status === 'issued' || i.status === 'paid_partial')
+            .reduce((sum, i) => sum + Math.max(Number(i.total) - Number(i.paidAmount ?? 0), 0), 0);
+        const partial = periodInvoices.filter(i => i.status === 'paid_partial')
+            .reduce((sum, i) => sum + Number(i.paidAmount ?? 0), 0);
+        const totalPaid = periodInvoices.filter(i => i.status === 'paid_full')
             .reduce((sum, i) => sum + Number(i.total), 0);
-        const overdue = periodInvoices.filter(i => i.status === 'overdue')
-            .reduce((sum, i) => sum + Number(i.total), 0);
-        const totalPaid = periodInvoices.filter(i => i.status === 'paid')
-            .reduce((sum, i) => sum + Number(i.total), 0);
-        return { pending, overdue, totalPaid };
+        return { pending, partial, totalPaid };
     }, [periodInvoices]);
 
     // 30-day sparkline of "К оплате" amounts grouped by day.
@@ -297,7 +306,7 @@ export default function FinanceDashboard() {
         const buckets = new Array<number>(days).fill(0);
         const todayMs = Date.now();
         invoices.forEach((inv) => {
-            if (inv.status !== 'sent' && inv.status !== 'draft') return;
+            if (inv.status !== 'issued' && inv.status !== 'paid_partial') return;
             if (!inv.createdAt) return;
             const t = new Date(inv.createdAt).getTime();
             if (!Number.isFinite(t)) return;
@@ -717,9 +726,9 @@ export default function FinanceDashboard() {
     };
 
     // ================================================================
-    const pendingCount = periodInvoices.filter(i => i.status === 'sent' || i.status === 'draft').length;
-    const paidCount = periodInvoices.filter(i => i.status === 'paid').length;
-    const overdueCount = periodInvoices.filter(i => i.status === 'overdue').length;
+    const pendingCount = periodInvoices.filter(i => i.status === 'issued' || i.status === 'paid_partial').length;
+    const paidCount = periodInvoices.filter(i => i.status === 'paid_full').length;
+    const partialCount = periodInvoices.filter(i => i.status === 'paid_partial').length;
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 space-y-6 bg-neutral-50 min-h-screen text-neutral-900">
@@ -766,12 +775,11 @@ export default function FinanceDashboard() {
                     tone="info"
                 />
                 <MetricCard
-                    label="Просрочено"
-                    value={fmtMoney(summary.overdue)}
-                    hint={overdueCount > 0 ? `${overdueCount} счетов` : 'нет просроченных'}
+                    label="Частично оплачено"
+                    value={fmtMoney(summary.partial)}
+                    hint={partialCount > 0 ? `${partialCount} счетов` : 'нет частичных'}
                     icon={AlertCircle}
-                    tone={summary.overdue > 0 ? 'danger' : 'neutral'}
-                    changeGood={false}
+                    tone={summary.partial > 0 ? 'warning' : 'neutral'}
                 />
                 <MetricCard
                     label="Оплачено"
@@ -909,7 +917,7 @@ export default function FinanceDashboard() {
                                                         <FileDown className="w-4 h-4 text-red-500" />
                                                     </button>
                                                     <button
-                                                        onClick={e => { e.stopPropagation(); window.open(`/print/${inv.type === 'invoice' ? 'invoice' : 'act'}/${inv.id}`, '_blank'); }}
+                                                        onClick={e => { e.stopPropagation(); window.open(`/print/${inv.type === 'act' ? 'act' : 'invoice'}/${inv.id}`, '_blank'); }}
                                                         className="p-1 rounded hover:bg-purple-100 transition-colors" title="Печать"
                                                     >
                                                         <Printer className="w-4 h-4 text-purple-500" />

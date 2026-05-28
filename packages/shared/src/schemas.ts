@@ -892,22 +892,43 @@ export const FineCreateSchema = FineSchema.omit({
 export const FineUpdateSchema = FineCreateSchema.partial();
 
 // ================================================================
-// Счёт / Акт (§3.9)
+// Счёт-фактура / УПД / Акт (invoice-spec.md — M-batch модель)
 // ================================================================
+// T-16 (полная миграция UI на новую модель): тип теперь 7-значный enum
+// (payment/advance/sf/upd/corrective_sf/corrective_upd/act), статус — FSM
+// (draft/issued/paid_partial/paid_full/cancelled/corrected). Поля nullish'
+// чтобы совпадать с тем, что отдаёт API (select().from(invoices) с NULL'ами).
+export const InvoiceTypeValues = ['payment', 'advance', 'sf', 'upd', 'corrective_sf', 'corrective_upd', 'act'] as const;
+export const InvoiceStatusValues = ['draft', 'issued', 'paid_partial', 'paid_full', 'cancelled', 'corrected'] as const;
+
 export const InvoiceSchema = z.object({
     id: uuid,
     number: z.string(),
     contractorId: uuid,
-    contractId: uuid.optional(),
-    type: z.enum(['invoice', 'act', 'upd']),
-    status: z.nativeEnum(InvoicePaymentStatus).default('draft'),
-    tripIds: z.array(uuid),
+    contractId: uuid.nullish(),
+    type: z.enum(InvoiceTypeValues),
+    status: z.enum(InvoiceStatusValues).default('draft'),
+    tripIds: z.array(uuid).default([]),
     subtotal: z.number(),
     vatAmount: z.number(),
     total: z.number(),
+    vatRate: z.number().nullish(),
+    includesVat: z.boolean().optional(),
+    basisText: z.string().nullish(),
+    payerId: uuid.nullish(),
+    payeeId: uuid.nullish(),
+    payeeOrganizationId: uuid.nullish(),
+    currency: z.string().optional(),
     periodStart: z.string(),
     periodEnd: z.string(),
-    paidAt: dateStr.optional(),
+    issuedAt: dateStr.nullish(),
+    paidAt: dateStr.nullish(),
+    paidAmount: z.number().optional(),
+    correctionKind: z.enum(['adjustment', 'replacement']).nullish(),
+    relatedInvoiceId: uuid.nullish(),
+    correctionReason: z.string().nullish(),
+    hasCorrections: z.boolean().optional(),
+    cancellationReason: z.string().nullish(),
     createdAt: dateStr,
 });
 export type Invoice = z.infer<typeof InvoiceSchema>;

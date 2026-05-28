@@ -134,7 +134,7 @@ export default function ClientPortalPage() {
     // Stats
     const activeOrders = periodOrders.filter(o => ['confirmed', 'assigned', 'in_transit'].includes(o.status)).length;
     const completedOrders = periodOrders.filter(o => o.status === 'completed' || o.status === 'delivered').length;
-    const unpaidInvoices = periodInvoices.filter(i => ['sent', 'overdue'].includes(i.status));
+    const unpaidInvoices = periodInvoices.filter(i => ['issued', 'paid_partial'].includes(i.status));
     const unpaidTotal = unpaidInvoices.reduce((sum, invoice) => {
         return sum + Number(invoice.totalAmount ?? invoice.total ?? 0);
     }, 0);
