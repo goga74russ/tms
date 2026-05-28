@@ -138,8 +138,12 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
         schema: { tags: ['Биллинг'], summary: 'Перейти на платный тариф', description: 'Создаёт платёж, возвращает ссылку на ЮKassa.' },
         preHandler: [fastify.authenticate],
     }, async (request, reply) => {
-        const orgId = requireOrg(request.user as AuthUser);
+        const user = request.user as AuthUser;
+        const orgId = requireOrg(user);
         if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
+        // T-7: платёж за тариф организации — только администратор организации.
+        // Без гейта любой член орг (включая driver) мог инициировать платёж.
+        if (!isAdmin(user)) return reply.status(403).send({ success: false, error: 'admin only' });
         const parsed = SubscribeSchema.safeParse(request.body);
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: parsed.error.message });
@@ -161,8 +165,11 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
         schema: { tags: ['Биллинг'], summary: 'Отменить продление', description: 'Подписка останется активной до конца оплаченного периода.' },
         preHandler: [fastify.authenticate],
     }, async (request, reply) => {
-        const orgId = requireOrg(request.user as AuthUser);
+        const user = request.user as AuthUser;
+        const orgId = requireOrg(user);
         if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
+        // T-7: отмена подписки организации — только администратор.
+        if (!isAdmin(user)) return reply.status(403).send({ success: false, error: 'admin only' });
         const updated = await cancelAtPeriodEnd(orgId);
         if (!updated) return reply.status(404).send({ success: false, error: 'no active subscription' });
         return { success: true, data: updated };
@@ -195,9 +202,14 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.get('/billing/payments', {
         schema: { tags: ['Биллинг'], summary: 'История платежей' },
         preHandler: [fastify.authenticate],
-    }, async (request) => {
-        const orgId = requireOrg(request.user as AuthUser);
+    }, async (request, reply) => {
+        const user = request.user as AuthUser;
+        const orgId = requireOrg(user);
         if (!orgId) return { success: true, data: [], note: 'no_organization_in_token' };
+        // T-7: история платежей — финансовые данные. admin/accountant.
+        if (!user.roles?.some((r) => r === 'admin' || r === 'accountant')) {
+            return reply.status(403).send({ success: false, error: 'admin/accountant only' });
+        }
         const data = await listPayments(orgId);
         return { success: true, data };
     });

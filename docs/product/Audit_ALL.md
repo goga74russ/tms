@@ -40,8 +40,9 @@ Health OK, AI-флаг off (404). Субподряд-гейт без мигра�
 - 🟡 Jurist J-5 (ООО prep) — ждёт сигнал Founder'а
 
 **Мой (TransPult) W4-остаток после T-9:**
-- T-7 RBAC sweep (6-8h) — следующий по приоритету
-- T-2 event-leak (2h), T-14 5-day SF warning (6h), T-16 invoice modals (6h)
+- ✅ T-7 RBAC sweep — ЗАКРЫТ (см. ниже)
+- T-2 event-leak (2h) — следующий по приоритету
+- T-14 5-day SF warning (6h), T-16 invoice modals (6h)
 - T-40 убрать carrierCost writes (Spr 2 перед drop)
 
 **Известный pre-existing test debt (W5):**
@@ -60,13 +61,28 @@ Health OK, AI-флаг off (404). Субподряд-гейт без мигра�
 + двойная ЭТрН) — W5+ после PoL. Stop-gate: наёмный flow не продавать.
 Заодно: убран hardcoded `demo1234` fallback в e2e-фикстурах (GAP-003/M-5).
 
+**Что нового (T-7 RBAC sweep, 2026-05-28):** аудит всех модулей с `app.authenticate`,
+но без role-гейта. Найдена и закрыта 1 HIGH + 5 MEDIUM:
+- 🔴 HIGH `POST /onboarding/invite-team` — privilege escalation: любой член орг мог
+  создать нового `admin` (InviteSchema принимает `admin` в ролях). → admin-only.
+- 🟡 MED onboarding `profile`/`select-scenario`/`save-integration-choice`/`complete`
+  (перезапись реквизитов ЮЛ + ключей интеграций) → admin-only.
+- 🟡 MED `POST /billing/subscribe` + `/billing/cancel` (платёж/отмена подписки) →
+  admin-only; `/billing/payments` → admin/accountant.
+- 🟡 MED `POST /compliance/tachograph/upload` → admin/manager/mechanic.
+- 🟡 MED `POST /compliance/marking/verify` + `/scan-batch` → рабочие роли.
+- analytics: 3 хендлера отдавали `200 {success:false}` вместо 403 — нормализованы.
+Проверены и признаны OK (org-scope/guard/admin уже есть): cold-chain (assertTripAccess),
+import, geo, dpa, mchd, sync (verifyTripOwnership), integrations/credentials, audit, demo.
++7 integration tests (`rbac-gating.integration.test.ts`). Unit 713/720, регрессий нет.
+
 ---
 
 ## §1 Главное в одной таблице
 
 | Зона | Прогресс | Главный риск |
 |---|---|---|
-| Core security + auth | ~95% (W1 закрыл AI flag, PII redact, FK indexes) | rbac sweep ещё не сделан (T-7) |
+| Core security + auth | ~97% (W1 + T-7 RBAC sweep: закрыт priv-esc в invite-team) | внешний pen-test не проводился |
 | Бизнес-логика (orders / trips / invoices / MCHD) | ~85% | T-9 invoice service не привязан к routes (M-batch висит) |
 | Юр-документы | ~80% (Jurist J-1/2/7/8 done; J-3 заморожен; J-4/5/6 ждут) | J-5 (ООО prep) блокирует Founder F-1 |
 | **Real-провайдеры** | **1/28 (Unisender)** | 🔴 **Главный pre-pilot блокер** |

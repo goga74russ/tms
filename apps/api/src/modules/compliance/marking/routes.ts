@@ -22,6 +22,14 @@ interface AuthUser {
     organizationId?: string | null;
 }
 
+// T-7: операции маркировки, которые пишут в БД и дёргают внешний ЦРПТ, должны
+// быть за role-гейтом (а не только за requireFeature). Read-роуты остаются
+// доступны всем членам орг (org-scoped). Чтение — любой; запись — рабочие роли.
+const MARKING_WRITE_ROLES = ['admin', 'manager', 'dispatcher', 'logist'];
+function canWriteMarking(user: AuthUser): boolean {
+    return Boolean(user.roles?.some((r) => MARKING_WRITE_ROLES.includes(r)));
+}
+
 const VerifySchema = z.object({
     codes: z.array(z.string().min(1).max(255)).min(1).max(500),
 });
@@ -43,6 +51,9 @@ const markingRoutes: FastifyPluginAsync = async (app) => {
         preHandler: [app.authenticate, requireFeature('marking')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
+        if (!canWriteMarking(user)) {
+            return reply.status(403).send({ success: false, error: 'Недостаточно прав для проверки маркировки' });
+        }
         const parsed = VerifySchema.safeParse(request.body);
         if (!parsed.success) {
             return reply.status(400).send({
@@ -75,6 +86,9 @@ const markingRoutes: FastifyPluginAsync = async (app) => {
         preHandler: [app.authenticate, requireFeature('marking')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
+        if (!canWriteMarking(user)) {
+            return reply.status(403).send({ success: false, error: 'Недостаточно прав для сканирования маркировки' });
+        }
         const parsed = ScanBatchSchema.safeParse(request.body);
         if (!parsed.success) {
             return reply.status(400).send({

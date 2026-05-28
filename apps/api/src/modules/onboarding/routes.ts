@@ -38,6 +38,15 @@ function requireOrg(user: AuthUser | undefined): string | null {
     return user?.organizationId ?? null;
 }
 
+// T-7: онбординг-визард запускает создатель организации (signup присваивает
+// roles:['admin'], см. auth.ts). Мутирующие шаги меняют реквизиты ЮЛ, ключи
+// интеграций и создают пользователей — это admin-операции. Без гейта любой
+// член орг (driver/accountant/…) мог переписать реквизиты или создать нового
+// admin'а через invite-team (privilege escalation).
+function isAdmin(user: AuthUser | undefined): boolean {
+    return Boolean(user?.roles?.includes('admin'));
+}
+
 const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
     // GET /api/onboarding/status
     fastify.get('/onboarding/status', {
@@ -114,6 +123,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         const user = request.user as AuthUser;
         const orgId = requireOrg(user);
         if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
+        if (!isAdmin(user)) return reply.status(403).send({ success: false, error: 'admin only' });
 
         const parsed = ProfileSchema.safeParse(request.body);
         if (!parsed.success) {
@@ -141,6 +151,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         const user = request.user as AuthUser;
         const orgId = requireOrg(user);
         if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
+        if (!isAdmin(user)) return reply.status(403).send({ success: false, error: 'admin only' });
 
         const parsed = ScenarioSchema.safeParse(request.body);
         if (!parsed.success) {
@@ -163,6 +174,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         const user = request.user as AuthUser;
         const orgId = requireOrg(user);
         if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
+        if (!isAdmin(user)) return reply.status(403).send({ success: false, error: 'admin only' });
 
         const parsed = IntegrationChoiceSchema.safeParse(request.body);
         if (!parsed.success) {
@@ -220,6 +232,10 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         const user = request.user as AuthUser;
         const orgId = requireOrg(user);
         if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
+        // T-7 (HIGH): InviteSchema принимает любые APP_ROLES, включая 'admin'.
+        // Без admin-гейта любой член орг мог создать нового admin'а →
+        // privilege escalation. Создавать пользователей может только admin.
+        if (!isAdmin(user)) return reply.status(403).send({ success: false, error: 'admin only' });
 
         const parsed = InviteSchema.safeParse(request.body);
         if (!parsed.success) {
@@ -289,6 +305,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         const user = request.user as AuthUser;
         const orgId = requireOrg(user);
         if (!orgId) return reply.status(400).send({ success: false, error: 'Организация не найдена в токене' });
+        if (!isAdmin(user)) return reply.status(403).send({ success: false, error: 'admin only' });
 
         await db.update(organizations).set({
             onboardingCompletedAt: new Date(),

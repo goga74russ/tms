@@ -22,11 +22,11 @@ export default async function analyticsRoutes(app: FastifyInstance) {
     app.get('/analytics/maintenance-alerts', {
         schema: { tags: ['Аналитика'], summary: 'ТО-алерты', description: 'Предиктивные алерты: ТО, ОСАГО, техосмотр, тахограф (<7д — critical, <30д — warning), пробег (<2000 км).' },
         preHandler: [app.authenticate],
-    }, async (request) => {
+    }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string };
         const allowedRoles = ['admin', 'manager', 'mechanic', 'dispatcher'];
         if (!user.roles.some((r: string) => allowedRoles.includes(r))) {
-            return { success: false, error: 'Доступ запрещён' };
+            return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
         }
 
         // All non-archived vehicles
@@ -168,11 +168,11 @@ export default async function analyticsRoutes(app: FastifyInstance) {
     app.get('/analytics/fleet-health', {
         schema: { tags: ['Аналитика'], summary: 'КТГ парка', description: 'Runtime-расчет коэффициента технической готовности: готовые к выпуску ТС / активный парк.' },
         preHandler: [app.authenticate],
-    }, async (request) => {
+    }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string };
         const allowedRoles = ['admin', 'manager', 'dispatcher', 'mechanic', 'accountant'];
         if (!user.roles.some((r: string) => allowedRoles.includes(r))) {
-            return { success: false, error: 'Доступ запрещён' };
+            return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
         }
 
         const vehicleConditions = [eq(vehicles.isArchived, false)];
@@ -238,11 +238,11 @@ export default async function analyticsRoutes(app: FastifyInstance) {
     app.get('/analytics/profitability', {
         schema: { tags: ['Аналитика'], summary: 'Маржинальность рейсов', description: 'Анализ выручки vs себестоимости по завершённым рейсам через TarificationService.' },
         preHandler: [app.authenticate],
-    }, async (request) => {
+    }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string };
         const allowedRoles = ['admin', 'manager', 'accountant'];
         if (!user.roles.some((r: string) => allowedRoles.includes(r))) {
-            return { success: false, error: 'Доступ запрещён' };
+            return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
         }
 
         // Get completed trips

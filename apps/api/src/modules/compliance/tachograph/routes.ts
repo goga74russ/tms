@@ -32,6 +32,14 @@ const tachographRoutes: FastifyPluginAsync = async (app) => {
         preHandler: [app.authenticate, requireFeature('tachograph')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
+        // T-7: загрузка .DDD создаёт org-wide compliance-записи, привязанные к
+        // водителям по номеру СКЗИ-карты. Без role-гейта любой член орг (в т.ч.
+        // driver) мог заливать данные за чужих водителей. Только эксплуатационные
+        // роли: admin/manager/mechanic.
+        const allowed = ['admin', 'manager', 'mechanic'];
+        if (!user.roles?.some((r) => allowed.includes(r))) {
+            return reply.status(403).send({ success: false, error: 'Недостаточно прав для загрузки тахографа' });
+        }
         const data = await request.file();
         if (!data) {
             return reply.status(400).send({ success: false, error: 'Поле file обязательно' });
