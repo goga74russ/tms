@@ -166,13 +166,11 @@ export default function FinanceDashboard() {
 
     // Invoice modal
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-    const [statusChanging, setStatusChanging] = useState(false);
     const [docReturns, setDocReturns] = useState<DocReturn[]>([]);
     const [docReturnsLoading, setDocReturnsLoading] = useState(false);
     const [markingReceived, setMarkingReceived] = useState<string | null>(null);
     const [financeActionLoading, setFinanceActionLoading] = useState<string | null>(null);
     const [financeActionResult, setFinanceActionResult] = useState<string | null>(null);
-    const [paymentForm, setPaymentForm] = useState({ amount: '', paymentRef: '', payerName: '', notes: '' });
     const [serviceForm, setServiceForm] = useState({
         serviceType: 'loading',
         description: SERVICE_RULES.loading.description,
@@ -191,10 +189,7 @@ export default function FinanceDashboard() {
         notes: '',
     });
 
-    // Generate invoice form
-    const [generating, setGenerating] = useState(false);
     const [contractors, setContractors] = useState<ContractorOption[]>([]);
-    const [selectedContractorId, setSelectedContractorId] = useState('');
 
     // Bulk row selection (for floating BulkActionsBar)
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -257,7 +252,6 @@ export default function FinanceDashboard() {
     useEffect(() => {
         if (!selectedInvoice) return;
         setFinanceActionResult(null);
-        setPaymentForm({ amount: String(selectedInvoice.total || ''), paymentRef: '', payerName: '', notes: '' });
         setServiceForm({
             serviceType: 'loading',
             description: SERVICE_RULES.loading.description,
@@ -353,29 +347,6 @@ export default function FinanceDashboard() {
     }, [periodInvoices, filterStatus, filterSearch, sortBy, sortDir]);
 
     // ——— Actions ———
-    const handleGenerateInvoice = async () => {
-        if (!selectedContractorId) {
-            toast({ variant: 'warning', title: 'Контрагент не выбран', description: 'Выберите контрагента для генерации счёта.' });
-            return;
-        }
-
-        setGenerating(true);
-        try {
-            setError(null);
-            await api.post('/finance/invoices', {
-                contractorId: selectedContractorId,
-                periodStart: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString(),
-                periodEnd: new Date().toISOString(),
-                type: 'invoice',
-            });
-            await fetchInvoices();
-            toast({ variant: 'success', title: 'Готово', description: 'Счёт создан по рейсам контрагента' });
-        } catch (err: any) {
-            toast({ variant: 'error', title: 'Ошибка', description: err.message });
-        } finally {
-            setGenerating(false);
-        }
-    };
 
     const handleBulkGenerate = async () => {
         if (!bulkFrom || !bulkTo) {
@@ -446,20 +417,6 @@ export default function FinanceDashboard() {
         }
     };
 
-    const handleStatusChange = async (invoiceId: string, newStatus: string) => {
-        setStatusChanging(true);
-        try {
-            await api.put(`/finance/invoices/${invoiceId}/status`, { status: newStatus });
-            await fetchInvoices();
-            setSelectedInvoice(null);
-            toast({ variant: 'success', title: 'Статус изменён', description: getStatusText(newStatus) });
-        } catch (err: any) {
-            toast({ variant: 'error', title: 'Ошибка', description: err.message });
-        } finally {
-            setStatusChanging(false);
-        }
-    };
-
     const parseMoneyInput = useCallback((value: string) => {
         const parsed = Number(value.replace(',', '.').trim());
         return Number.isFinite(parsed) ? parsed : NaN;
@@ -503,36 +460,6 @@ export default function FinanceDashboard() {
             ...next,
             amount: Number.isFinite(amount) ? String(amount) : next.amount,
         });
-    };
-
-    const handleRecordPayment = async () => {
-        if (!selectedInvoice) return;
-        const amount = parseMoneyInput(paymentForm.amount);
-        if (!amount || amount <= 0) {
-            toast({ variant: 'warning', title: 'Сумма оплаты', description: 'Укажите корректную сумму' });
-            return;
-        }
-
-        setFinanceActionLoading('payment');
-        try {
-            setError(null);
-            const result = await api.post<{ success: boolean; data?: any }>(`/finance/invoices/${selectedInvoice.id}/payments`, {
-                amount,
-                paidAt: new Date().toISOString(),
-                paymentRef: paymentForm.paymentRef || null,
-                payerName: paymentForm.payerName || null,
-                notes: paymentForm.notes || null,
-            });
-            await fetchInvoices();
-            const remaining = result?.data?.remainingAmount;
-            const message = `Оплата зафиксирована${remaining !== undefined ? `. Остаток: ${fmtMoney(remaining)}` : ''}`;
-            setFinanceActionResult(message);
-            toast({ variant: 'success', title: 'Оплата', description: message });
-        } catch (err: any) {
-            toast({ variant: 'error', title: 'Ошибка', description: err.message || 'Не удалось зафиксировать оплату' });
-        } finally {
-            setFinanceActionLoading(null);
-        }
     };
 
     const handleAddService = async () => {
@@ -744,23 +671,11 @@ export default function FinanceDashboard() {
                 refreshing={loading}
                 actions={
                     <>
-                        <Select
-                            value={selectedContractorId}
-                            onChange={(e) => setSelectedContractorId(e.target.value)}
-                            options={contractors.map((contractor) => ({
-                                value: contractor.id,
-                                label: contractor.name + ' (' + contractor.inn + ')',
-                            }))}
-                            placeholder="Выберите контрагента"
-                            className="w-72"
-                        />
-                        <Button variant="outline" leftIcon={<Plus className="w-4 h-4" />} isLoading={generating} onClick={handleGenerateInvoice} disabled={!selectedContractorId} title={!selectedContractorId ? 'Сначала выберите контрагента' : 'Легаси: счёт по рейсам контрагента'}>
-                            Счёт по рейсам
-                        </Button>
+                        {/* T-16 — пакетная генерация по периоду (по завершённым рейсам). */}
                         <Button variant="outline" leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => { setBulkResult(null); setBulkOpen(true); }}>
                             Пакетом
                         </Button>
-                        {/* T-16 — новый workflow: создать черновик СФ/УПД */}
+                        {/* T-16 — новый workflow: создать черновик СФ/УПД. */}
                         <CreateInvoiceButton contractors={contractors} onDone={() => void fetchInvoices()} />
                     </>
                 }
@@ -1049,24 +964,13 @@ export default function FinanceDashboard() {
                         )}
 
                         <div className="border-t border-neutral-200 pt-4">
-                            <Tabs defaultValue="payment" className="space-y-3">
+                            {/* T-16: «Оплата» убрана — оплата теперь через FSM-workflow выше
+                                (register-payment). Остаются доп.услуги и сверка 1С. */}
+                            <Tabs defaultValue="service" className="space-y-3">
                                 <TabsList>
-                                    <TabsTrigger value="payment">Оплата</TabsTrigger>
                                     <TabsTrigger value="service">Доп. услуги</TabsTrigger>
                                     <TabsTrigger value="reconciliation">Сверка 1С</TabsTrigger>
                                 </TabsList>
-
-                                <TabsContent value="payment">
-                                    <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Зафиксировать оплату</p>
-                                        <Input type="number" step="0.01" placeholder="Сумма" value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
-                                        <Input placeholder="Платежное поручение" value={paymentForm.paymentRef} onChange={(e) => setPaymentForm({ ...paymentForm, paymentRef: e.target.value })} />
-                                        <Input placeholder="Плательщик" value={paymentForm.payerName} onChange={(e) => setPaymentForm({ ...paymentForm, payerName: e.target.value })} />
-                                        <Button size="sm" className="w-full" disabled={financeActionLoading === 'payment'} onClick={handleRecordPayment}>
-                                            {financeActionLoading === 'payment' ? 'Запись...' : 'Зафиксировать оплату'}
-                                        </Button>
-                                    </div>
-                                </TabsContent>
 
                                 <TabsContent value="service">
                                     <div className="rounded-lg border border-neutral-200 p-3 space-y-2">
