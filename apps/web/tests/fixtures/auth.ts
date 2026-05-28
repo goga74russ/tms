@@ -23,8 +23,20 @@ const __dirname = path.dirname(__filename);
 /** Корневой каталог для storage state файлов (gitignored). */
 export const AUTH_DIR = path.resolve(__dirname, '..', '.auth');
 
-/** Пароль ставится через env, дефолт совпадает с seed-demo.ts. */
-export const SEED_PASSWORD = process.env.E2E_SEED_PASSWORD ?? 'demo1234';
+/**
+ * Пароль для тестовых аккаунтов. Должен совпадать со значением SEED_PASSWORD,
+ * с которым запускался pnpm seed:demo. Hardcoded fallback `demo1234` намеренно
+ * убран (GAP-003, M-5) — лучше явный фейл, чем тихий миссматч с продовой ENV.
+ * Можно задавать как E2E_SEED_PASSWORD (приоритет) или SEED_PASSWORD.
+ */
+export const SEED_PASSWORD =
+    process.env.E2E_SEED_PASSWORD ?? process.env.SEED_PASSWORD ?? '';
+
+if (!SEED_PASSWORD) {
+    throw new Error(
+        'E2E_SEED_PASSWORD (или SEED_PASSWORD) должна быть задана — fallback demo1234 убран, см. fixtures/auth.ts',
+    );
+}
 
 /** Реестр ролей, для каждой — email из seed-demo + краткое описание. */
 export interface RoleUser {
