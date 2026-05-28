@@ -17,6 +17,7 @@ import { startFinesWorker, stopFinesWorker } from './integrations/workers/fines.
 import { startNotificationWorker, stopNotificationWorker } from './integrations/workers/notification.worker.js';
 import { startBillingWorker, stopBillingWorker } from './integrations/workers/billing.worker.js';
 import { startEdiWorker, stopEdiWorker } from './integrations/workers/edi.worker.js';
+import { startSfDeadlineWorker, stopSfDeadlineWorker } from './integrations/workers/sf-deadline.worker.js';
 import { startPositionBroadcast, stopPositionBroadcast } from './integrations/websocket.js';
 import { sql as rawSql } from './db/connection.js';
 import { APPEND_ONLY_TRIGGER_SQL } from './db/triggers.js';
@@ -451,8 +452,9 @@ if (redisOk) {
     startNotificationWorker(app.log);
     startBillingWorker(app.log);
     startEdiWorker(app.log);
+    startSfDeadlineWorker(app.log);
     await setupRepeatableJobs(app.log);
-    app.log.info('🔄 BullMQ workers started (wialon, fines, notifications, billing, edi)');
+    app.log.info('🔄 BullMQ workers started (wialon, fines, notifications, billing, edi, sf-deadline)');
     startPositionBroadcast(app.log, 10000); // Broadcast vehicle positions every 10s
     app.log.info('📡 Vehicle position WebSocket broadcast started');
 } else {
@@ -469,6 +471,7 @@ for (const signal of signals) {
         await stopNotificationWorker();
         await stopBillingWorker();
         await stopEdiWorker();
+        await stopSfDeadlineWorker();
         stopPositionBroadcast();
         await app.close();
         process.exit(0);

@@ -136,6 +136,19 @@ const EVENT_TEMPLATES: Record<string, {
         title: 'Счёт оплачен',
         format: (_d) => `Счёт оплачен`,
     },
+    // T-14 (spec §6) — проактивные напоминания о 5-дневном сроке СФ/УПД.
+    'invoice.sf_deadline_approaching': {
+        emoji: '⏳',
+        title: 'Скоро срок выпуска СФ',
+        format: (d) => `Заявка <b>${d.orderNumber || '—'}</b>: реализована ${d.daysSinceRealization || '?'} дн. назад. `
+            + `Выставьте СФ до ${d.deadlineDate ? new Date(d.deadlineDate).toLocaleDateString('ru-RU') : '—'} (5-дневный срок, ст. 168 НК).`,
+    },
+    'invoice.sf_overdue': {
+        emoji: '🔴',
+        title: 'Просрочен выпуск СФ',
+        format: (d) => `Заявка <b>${d.orderNumber || '—'}</b>: срок выпуска СФ просрочен на ${d.daysLate || '?'} дн. `
+            + `(реализация ${d.realizationDate ? new Date(d.realizationDate).toLocaleDateString('ru-RU') : '—'}). Выставьте счёт-фактуру.`,
+    },
     'vehicle.status_changed': {
         emoji: '🚗',
         title: 'Статус ТС изменён',
