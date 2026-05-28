@@ -23,9 +23,10 @@ Tests: `subcontract-gating.integration.test.ts` (4/4).
 
 ## §0 SESSION HANDOFF (читать первым при старте новой сессии)
 
-**Где мы:** одна длинная сессия закрыла W1 → W2 → W3 → W3.5 → W4-T9. Прод стабилен.
+**Где мы:** одна длинная сессия закрыла W1 → W2 → W3 → W3.5 → W4-T9 → субподряд MVP-gate. Прод стабилен.
 
-**Прод синхронизирован с origin** (оба на `f2368b4`, deploy 2026-05-27). Нет pending-разницы.
+**Прод синхронизирован с origin** (оба на `ac4bbe4`, deploy 2026-05-28). Нет pending-разницы.
+Health OK, AI-флаг off (404). Субподряд-гейт без миграций (использует существующую `execution_mode`).
 
 **Что делать в начале новой сессии:**
 1. `git -C D:\Ai\TMS-prod log --oneline -5` — свериться с HEAD
@@ -50,6 +51,14 @@ Tests: `subcontract-gating.integration.test.ts` (4/4).
 
 **Что нового в W4 T-9:** +17 integration tests на M-batch invoice workflow
 (draft/issue/corrections/payment/cancel). Закрыт мой долг «0 тестов на invoice service».
+
+**Что нового (субподряд MVP-gate, 2026-05-28):** реализованы 2 юр-гейта из анализа юриста
+(`docs/legal/subcontract-legal-analysis.md`) — см. §-1. Gap 1: `generateWaybill()` блокирует
+ПЛ для `execution_mode='subcontract'` (422 SUBCONTRACT_WAYBILL_BLOCKED). Gap 2: sign-endpoint
+блокирует ЭТрН для subcontract (422 SUBCONTRACT_ETRN_BLOCKED). Свой парк не затронут.
++4 integration tests (subcontract-gating). Полное решение (5-мод enum + client_contract_type
++ двойная ЭТрН) — W5+ после PoL. Stop-gate: наёмный flow не продавать.
+Заодно: убран hardcoded `demo1234` fallback в e2e-фикстурах (GAP-003/M-5).
 
 ---
 
