@@ -6,6 +6,7 @@ import { ru } from "date-fns/locale";
 import type { Invoice as SharedInvoice } from '@tms/shared';
 import { api } from "@/lib/api";
 import { downloadFromApi } from '@/lib/download';
+import { CreateInvoiceButton, InvoiceWorkflowActions } from './InvoiceWorkflowActions';
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -753,12 +754,14 @@ export default function FinanceDashboard() {
                             placeholder="Выберите контрагента"
                             className="w-72"
                         />
-                        <Button variant="brand" leftIcon={<Plus className="w-4 h-4" />} isLoading={generating} onClick={handleGenerateInvoice} disabled={!selectedContractorId} title={!selectedContractorId ? 'Сначала выберите контрагента' : undefined}>
+                        <Button variant="outline" leftIcon={<Plus className="w-4 h-4" />} isLoading={generating} onClick={handleGenerateInvoice} disabled={!selectedContractorId} title={!selectedContractorId ? 'Сначала выберите контрагента' : 'Легаси: счёт по рейсам контрагента'}>
                             Счёт по рейсам
                         </Button>
                         <Button variant="outline" leftIcon={<FileSpreadsheet className="w-4 h-4" />} onClick={() => { setBulkResult(null); setBulkOpen(true); }}>
                             Пакетом
                         </Button>
+                        {/* T-16 — новый workflow: создать черновик СФ/УПД */}
+                        <CreateInvoiceButton contractors={contractors} onDone={() => void fetchInvoices()} />
                     </>
                 }
             />
@@ -1109,23 +1112,11 @@ export default function FinanceDashboard() {
                             </Tabs>
                         </div>
 
-                        <div className="border-t border-neutral-200 pt-4">
-                            <p className="text-sm font-medium text-neutral-700 mb-3">Сменить статус:</p>
-                            <div className="flex flex-wrap gap-2">
-                                {['draft', 'sent', 'paid', 'overdue', 'cancelled'].filter(s => s !== selectedInvoice.status).map(s => (
-                                    <Button
-                                        key={s}
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={statusChanging}
-                                        onClick={() => handleStatusChange(selectedInvoice.id, s)}
-                                        className={getStatusColor(s)}
-                                    >
-                                        → {getStatusText(s)}
-                                    </Button>
-                                ))}
-                            </div>
-                        </div>
+                        {/* T-16 — FSM workflow вместо легаси «сменить статус» */}
+                        <InvoiceWorkflowActions
+                            invoice={selectedInvoice}
+                            onDone={() => { void fetchInvoices(); setSelectedInvoice(null); }}
+                        />
                     </div>
                 )}
             </Dialog>

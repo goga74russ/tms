@@ -43,8 +43,10 @@ Health OK, AI-флаг off (404). Субподряд-гейт без мигра�
 - ✅ T-7 RBAC sweep — ЗАКРЫТ (см. ниже)
 - ✅ T-2 event-leak — ЗАКРЫТ (см. ниже)
 - ✅ T-14 5-day SF warning — ЗАКРЫТ (reactive + BullMQ + UI, см. ниже)
-- T-16 invoice modals (6h) — следующий по приоритету
-- T-40 убрать carrierCost writes (Spr 2 перед drop)
+- ✅ T-16 invoice workflow modals — ЗАКРЫТ (миграция /finance на новую модель, см. ниже)
+- T-40 убрать carrierCost writes (Spr 2 перед drop) — следующий
+- ⚠️ остаток T-16 (полировка): легаси «Оплата»-таб + «Счёт по рейсам» + dead handleStatusChange
+  на /finance можно убрать (дубль с новым workflow); shared `InvoicePaymentStatus` enum осиротел
 
 **Известный pre-existing test debt (W5):**
 - finance.integration.test.ts — старый enum `type:'invoice'` (5 fails)
