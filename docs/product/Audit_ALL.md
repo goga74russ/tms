@@ -41,8 +41,9 @@ Health OK, AI-флаг off (404). Субподряд-гейт без мигра�
 
 **Мой (TransPult) W4-остаток после T-9:**
 - ✅ T-7 RBAC sweep — ЗАКРЫТ (см. ниже)
-- T-2 event-leak (2h) — следующий по приоритету
-- T-14 5-day SF warning (6h), T-16 invoice modals (6h)
+- ✅ T-2 event-leak — ЗАКРЫТ (см. ниже)
+- T-14 5-day SF warning (6h) — следующий по приоритету
+- T-16 invoice modals (6h)
 - T-40 убрать carrierCost writes (Spr 2 перед drop)
 
 **Известный pre-existing test debt (W5):**
@@ -75,6 +76,16 @@ Health OK, AI-флаг off (404). Субподряд-гейт без мигра�
 Проверены и признаны OK (org-scope/guard/admin уже есть): cold-chain (assertTripAccess),
 import, geo, dpa, mchd, sync (verifyTripOwnership), integrations/credentials, audit, demo.
 +7 integration tests (`rbac-gating.integration.test.ts`). Unit 713/720, регрессий нет.
+
+**Что нового (T-2 cross-tenant event-leak, 2026-05-28):** `events/journal.ts` —
+`getRecentEvents()` возвращал последние события по ВСЕМ орг, `getEntityEvents()`
+читал по entityId без org-фильтра (чужой журнал по известному UUID). Обе функции
+сейчас dead-code, но это leak-by-omission. Сделал `organizationId` обязательным
+параметром обеих (явный `null` = осознанный system/super-admin cross-tenant).
+Живые читатели таблицы `events` проверены и OK: audit (org-scope A-P0-12),
+finance (агрегация по уже загруженному invoice), exceptions (по org-фильтрованным
+tripIds), execution (idempotency по externalId). +6 integration tests
+(`events-journal-scope`, вкл. same-entityId cross-tenant). Unit 713/720, регрессий нет.
 
 ---
 
@@ -165,7 +176,7 @@ import, geo, dpa, mchd, sync (verifyTripOwnership), integrations/credentials, au
 | # | Долг | Часов | Статус |
 |---|---|---|---|
 | ~~T-0~~ | AI flag off | 30min | ✅ W1 (f0ed26a) |
-| T-2 | Cross-tenant event-leak (`events/journal.ts`) | 2h | ⏸ W4 — нужно расследование |
+| ~~T-2~~ | Cross-tenant event-leak (`events/journal.ts`) | 2h | ✅ W4 — org-scope обязателен + 6 тестов |
 | ~~T-3~~ | pino redact PII | 1h | ✅ W1 (ec14b90) |
 | T-4 | Alerting pending_review (Telegram webhook) | 4h | W4 |
 | ~~T-5~~ | DPA-step UI в онбординг | 4h | ✅ W2 (8ac3cc7) |

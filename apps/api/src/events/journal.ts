@@ -96,30 +96,47 @@ export async function recordEvent(params: CreateEventParams, tx?: any) {
 
 /**
  * Получает историю событий по сущности.
+ *
+ * T-2 (cross-tenant event-leak): `organizationId` обязателен. Раньше фильтра по
+ * org не было — любой, кто знает/угадает entityId (UUID) чужого тенанта, мог
+ * прочитать его журнал. Теперь читаем только события своей организации.
+ * Передать `null` можно ТОЛЬКО осознанно для system/super-admin
+ * cross-tenant-чтения (нет привязки к одной орг).
  */
-export async function getEntityEvents(entityType: string, entityId: string, limit = 100) {
+export async function getEntityEvents(
+    entityType: string,
+    entityId: string,
+    organizationId: string | null,
+    limit = 100,
+) {
+    const conditions = [
+        eq(events.entityType, entityType),
+        eq(events.entityId, entityId),
+    ];
+    if (organizationId !== null) {
+        conditions.push(eq(events.organizationId, organizationId));
+    }
     return db
         .select()
         .from(events)
-        .where(
-            and(
-                eq(events.entityType, entityType),
-                eq(events.entityId, entityId),
-            ),
-        )
+        .where(and(...conditions))
         .orderBy(desc(events.timestamp))
         .limit(limit);
 }
 
 /**
  * Получает последние N событий (для дашбордов).
+ *
+ * T-2: `organizationId` обязателен — без него запрос возвращал последние события
+ * по ВСЕМ организациям (явная межтенантная утечка). `null` — только для
+ * system/super-admin (осознанный cross-tenant дашборд).
  */
-export async function getRecentEvents(limit = 100) {
-    return db
-        .select()
-        .from(events)
-        .orderBy(desc(events.timestamp))
-        .limit(limit);
+export async function getRecentEvents(organizationId: string | null, limit = 100) {
+    const base = db.select().from(events);
+    const scoped = organizationId !== null
+        ? base.where(eq(events.organizationId, organizationId))
+        : base;
+    return scoped.orderBy(desc(events.timestamp)).limit(limit);
 }
 
 /**
