@@ -42,8 +42,8 @@ Health OK, AI-флаг off (404). Субподряд-гейт без мигра�
 **Мой (TransPult) W4-остаток после T-9:**
 - ✅ T-7 RBAC sweep — ЗАКРЫТ (см. ниже)
 - ✅ T-2 event-leak — ЗАКРЫТ (см. ниже)
-- T-14 5-day SF warning (6h) — следующий по приоритету
-- T-16 invoice modals (6h)
+- ✅ T-14 5-day SF warning — ЗАКРЫТ (reactive + BullMQ + UI, см. ниже)
+- T-16 invoice modals (6h) — следующий по приоритету
 - T-40 убрать carrierCost writes (Spr 2 перед drop)
 
 **Известный pre-existing test debt (W5):**
@@ -86,6 +86,19 @@ import, geo, dpa, mchd, sync (verifyTripOwnership), integrations/credentials, au
 finance (агрегация по уже загруженному invoice), exceptions (по org-фильтрованным
 tripIds), execution (idempotency по externalId). +6 integration tests
 (`events-journal-scope`, вкл. same-entityId cross-tenant). Unit 713/720, регрессий нет.
+
+**Что нового (T-14 5-day SF warning, 2026-05-28):** полный spec §6 (5-дневный срок
+выпуска СФ/УПД, ст. 168 ч. 3 НК) в 3 слоя:
+1. **Reactive** — `issueDraftInvoice`: выпуск позже 5 дней от даты реализации
+   (MAX `orders.unloading_date`, fallback `trips.actual_completion_at`) без причины →
+   422 `SF_OVERDUE_WARNING` + details; с причиной → выпуск + факт/причина в журнал.
+2. **Proactive** — `sf-deadline.worker` (BullMQ, ежедн. 06:00): сканит доставленные
+   заявки плательщиков НДС без выпущенного СФ → Telegram-напоминания (approach/overdue,
+   идемпотентно по externalId).
+3. **Dashboard** — `GET /finance/invoices/overdue` + страница `/finance/sf-overdue` +
+   пункт сайдбара (бухгалтер/руководитель).
+Без миграции (просрочка вычисляется из unloading_date + журнала). Tests: +5 (sf-overdue)
++5 (sf-deadline-scan) + unit. Коммиты 9d2ae8f + e8b8859 + UI. Unit 713/720, регрессий нет.
 
 ---
 
@@ -195,7 +208,7 @@ tripIds), execution (idempotency по externalId). +6 integration tests
 
 | # | Долг | Часов |
 |---|---|---|
-| T-14 | 5-day SF warning (BullMQ + dashboard) — spec §6 | 6h |
+| ~~T-14~~ | 5-day SF warning (BullMQ + dashboard) — spec §6 | 6h | ✅ W4 — reactive+worker+UI, +15 тестов |
 | ~~T-15~~ | bulk-generate LIMIT 1000 + hasMore | 1h | ✅ W3.5 (df1083b) |
 | T-16 | N4 invoice workflow modals (issue/correction/payment/cancel) | 6h |
 | ~~T-17~~ | Колонка «Стоимость» в /trips (RBAC) — full margin = W4 | 2h | ✅ W3.5 (2d98d9a + 5599601) |

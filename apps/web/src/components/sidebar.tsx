@@ -6,7 +6,7 @@ import {
     Truck, ClipboardList, Map, Wrench, HeartPulse,
     Settings, BarChart3, FileText, DollarSign, Users,
     Home, ChevronLeft, Menu, LogOut, LogIn, Building2,
-    Activity, Upload, Siren,
+    Activity, Upload, Siren, Clock,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useUser } from '@/lib/user-context';
@@ -34,6 +34,7 @@ const navigation = [
     { name: 'Ремонты', href: '/repair', icon: Wrench, roles: ['repair_service', 'mechanic'] },
     { name: 'Контрагенты', href: '/contractors', icon: Building2, roles: ['accountant', 'logist'] },
     { name: 'Финансы', href: '/finance', icon: DollarSign, roles: ['accountant', 'manager'] },
+    { name: 'СФ с просрочкой', href: '/finance/sf-overdue', icon: Clock, roles: ['accountant', 'manager'] },
     { name: 'KPI', href: '/kpi', icon: BarChart3, roles: ['manager'] },
     { name: 'Тарифы', href: '/tariffs', icon: FileText, roles: ['accountant', 'manager'] },
     { name: 'Водители', href: '/drivers', icon: Users, roles: ['mechanic', 'dispatcher', 'logist', 'manager'] },
