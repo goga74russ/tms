@@ -1008,6 +1008,32 @@ export function registerAuthRoutes(app: FastifyInstance) {
         return { success: true, data };
     });
 
+    // GET /api/auth/contracts — список договоров (для выбора при создании тарифа).
+    // Org-scoped; admin/accountant/manager. Возвращает id + номер + контрагент.
+    app.get('/api/auth/contracts', {
+        schema: { tags: ['Администрирование'], summary: 'Список договоров', description: 'Для дропдауна при создании тарифа.' },
+        preHandler: [app.authenticate],
+    }, async (request, reply) => {
+        const actor = request.user as AuthenticatedUser;
+        const { roles } = actor;
+        if (!roles.includes('admin') && !roles.includes('accountant') && !roles.includes('manager')) {
+            return reply.status(403).send({ success: false, error: 'Access denied' });
+        }
+        let q = db.select({
+            id: contracts.id,
+            number: contracts.number,
+            contractorName: contractors.name,
+        })
+            .from(contracts)
+            .leftJoin(contractors, eq(contracts.contractorId, contractors.id))
+            .$dynamic();
+        if (actor.organizationId) {
+            q = q.where(eq(contractors.organizationId, actor.organizationId));
+        }
+        const rows = await q.orderBy(desc(contracts.createdAt));
+        return { success: true, data: rows };
+    });
+
     // POST /api/auth/tariffs — create tariff (admin only)
     app.post('/api/auth/tariffs', {
         schema: { tags: ['Администрирование'], summary: 'Создать тариф', description: 'Новый тариф с модификаторами (ночь, выходные, НДС).' },

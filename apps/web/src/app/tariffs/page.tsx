@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
+import { AddTariffModal } from "./AddTariffModal";
 import { Button } from "@/components/ui/button";
 import { Stat } from "@/components/ui/stat";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -51,13 +52,17 @@ export default function TariffsPage() {
     const [tariffs, setTariffs] = useState<Tariff[]>([]);
     const [loading, setLoading] = useState(true);
     const [filterType, setFilterType] = useState('');
+    const [addOpen, setAddOpen] = useState(false);
 
-    useEffect(() => {
+    const loadTariffs = useCallback(() => {
+        setLoading(true);
         api.get<{ success: boolean; data: Tariff[] }>('/auth/tariffs')
             .then(res => setTariffs(res.data))
             .catch(err => toast({ variant: 'error', title: 'Не удалось загрузить тарифы', description: err?.message }))
             .finally(() => setLoading(false));
     }, [toast]);
+
+    useEffect(() => { loadTariffs(); }, [loadTariffs]);
 
     const filtered = filterType ? tariffs.filter(t => t.type === filterType) : tariffs;
     const activeCount = tariffs.filter(t => t.active).length;
@@ -159,8 +164,8 @@ export default function TariffsPage() {
                         <p className="text-sm text-neutral-500 mt-0.5">Тарифные сетки по договорам с контрагентами</p>
                     </div>
                 </div>
-                <Button variant="brand" disabled>
-                    + Новый тариф (скоро)
+                <Button variant="brand" onClick={() => setAddOpen(true)}>
+                    + Новый тариф
                 </Button>
             </div>
 
@@ -196,6 +201,7 @@ export default function TariffsPage() {
                 }
                 pageSize={50}
             />
+            <AddTariffModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={loadTariffs} />
         </div>
     );
 }
