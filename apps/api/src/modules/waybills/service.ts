@@ -455,6 +455,29 @@ export async function generateWaybill(
 ) {
     const state = await getTripPreTripState(tripId);
 
+    // ============================================================
+    // Gap 1 (docs/legal/subcontract-legal-analysis.md §1) — ПЛ-gating.
+    // Путевой лист оформляет ЭКСПЛУАТАНТ ТС (ст. 6 ч. 2 ФЗ-259), не владелец.
+    // При наёмном транспорте (execution_mode='subcontract') эксплуатант —
+    // подрядчик: он проводит медосмотр, техконтроль, выпуск на линию.
+    // Генерируя ПЛ на чужое ТС от нашего ЮЛ, мы создали бы недействительный
+    // документ + взяли ответственность за медосмотр, который не проводили
+    // (ст. 11.32, 12.31.1 КоАП).
+    //
+    // MVP-fallback (до реализации полной 5-модовой модели + we_operate_vehicle):
+    // блокируем автогенерацию ПЛ для subcontract. Подрядчик оформляет ПЛ сам.
+    // TODO(W5+): расширить execution_mode и разрешить ПЛ для own/rent_without_crew.
+    if (state.trip.executionMode === 'subcontract') {
+        throw Object.assign(
+            new Error(
+                'Путевой лист оформляет подрядчик-эксплуатант ТС (наёмный рейс). '
+                + 'Запросите ПЛ у подрядчика и приложите к досье рейса. '
+                + 'См. docs/legal/subcontract-legal-analysis.md §1.',
+            ),
+            { statusCode: 422, code: 'SUBCONTRACT_WAYBILL_BLOCKED' },
+        );
+    }
+
     if ([TripStatus.IN_TRANSIT, TripStatus.COMPLETED, TripStatus.BILLED, TripStatus.CANCELLED].includes(state.trip.status as any)) {
         throw new Error(`Waybill cannot be generated for trip status ${state.trip.status}`);
     }

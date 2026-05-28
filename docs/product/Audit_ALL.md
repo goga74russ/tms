@@ -6,6 +6,21 @@
 
 ---
 
+## §-1 СУБПОДРЯД — 2 юр-gap'а (Jurist 27.05, MVP-gate реализован TransPult)
+
+**Полный анализ:** `docs/legal/subcontract-legal-analysis.md`.
+
+| Gap | Суть | MVP-gate (сделано) | Полное решение (W5+, после PoL) |
+|---|---|---|---|
+| **Gap 1 — ПЛ** | ПЛ оформляет эксплуатант (ст. 6 ч.2 ФЗ-259), не мы. При наёмном ТС эксплуатант — подрядчик. | ✅ `generateWaybill()` блокирует subcontract (422 SUBCONTRACT_WAYBILL_BLOCKED) | 5-мод enum + `we_operate_vehicle` + поле загрузки ПЛ подрядчика |
+| **Gap 2 — ЭТрН-роли** | Генератор assume «мы перевозчик». При субподряде нужна 2-я ЭТрН; при экспедиции — экспед.документы. | ✅ sign-endpoint блокирует ЭТрН для subcontract (422 SUBCONTRACT_ETRN_BLOCKED) | `client_contract_type` + двойная ЭТрН + forwarding-документы |
+
+**Свой парк (own) НЕ затронут** — оба flow работают. Gate'ы только для subcontract.
+**Stop-gate:** наёмный flow не продавать до полного решения Gap 1+2. Своим парком — можно.
+Tests: `subcontract-gating.integration.test.ts` (4/4).
+
+---
+
 ## §0 SESSION HANDOFF (читать первым при старте новой сессии)
 
 **Где мы:** одна длинная сессия закрыла W1 → W2 → W3 → W3.5 → W4-T9. Прод стабилен.

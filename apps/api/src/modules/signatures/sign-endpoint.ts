@@ -172,9 +172,33 @@ const signRoutes: FastifyPluginAsync = async (app) => {
         }
 
         // ---- 2. Org-scope через trip ----
-        const [tripRow] = await db.select({ organizationId: trips.organizationId })
+        const [tripRow] = await db.select({
+            organizationId: trips.organizationId,
+            executionMode: trips.executionMode,
+        })
             .from(trips).where(eq(trips.id, doc.tripId)).limit(1);
         const documentOrgId = tripRow?.organizationId ?? null;
+
+        // ---- 2b. Gap 2 (docs/legal/subcontract-legal-analysis.md §2) — ЭТрН-роли.
+        // При наёмном рейсе (execution_mode='subcontract') наша роль в ЭТрН
+        // зависит от типа договора с клиентом (перевозка → 2 ЭТрН; экспедиция →
+        // экспедиторские документы). Текущий генератор assume «мы перевозчик»,
+        // что верно только для own. Подписывая ЭТрН от своего имени для
+        // subcontract, создаём юридически некорректный документ (разрыв цепочки
+        // / переквалификация экспедиции в перевозку).
+        //
+        // MVP-fallback (до реализации client_contract_type + двойной ЭТрН):
+        // блокируем подпись ЭТрН-титулов для subcontract. Свой парк не затронут.
+        // TODO(W5+): client_contract_type × execution_mode → структура ЭТрН.
+        if (tripRow?.executionMode === 'subcontract') {
+            return reply.status(422).send({
+                success: false,
+                code: 'SUBCONTRACT_ETRN_BLOCKED',
+                error: 'Оформление ЭТрН при наёмном транспорте требует ручной настройки '
+                    + 'ролей (перевозчик/экспедитор) — обратитесь к ответственному за ЭПД. '
+                    + 'См. docs/legal/subcontract-legal-analysis.md §2.',
+            });
+        }
 
         if (!user.organizationId) {
             // super-admin (без organizationId) не подписывает — у него нет МЧД и
