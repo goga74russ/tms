@@ -119,6 +119,18 @@ tripIds), execution (idempotency по externalId). +6 integration tests
 **Тех-долг тестового раннера (всплыл в T-14):** `packages/shared` не подключён к vitest —
 юниты M7 (`invoice-fsm.test.ts`) + новые `checkSfIssueDeadline` только тайпчекаются, не гоняются.
 
+**Что нового (demo-readiness sweep, 2026-05-28):** цель owner'а — код 95-98% для передачи
+дизайнеру + демо. Прогон всего surface `apps/web` (агент): найдено **0** пустых страниц,
+0 битых nav, 0 фейковых auth-флоу → ~96-97% готово. Закрыты все видимые dead-ends:
+- `/fleet` «Добавить пропуск» + «Добавить штраф» — были no-op → новые `AddPermitModal` +
+  `AddFineModal` (wired к существующим POST /fleet/permits|fines).
+- `/admin/demo` — 4 ссылки в 404 (`/fleet/vehicles|drivers|trailers`, `/contracts`) →
+  перенаправлены на реальные роуты (/fleet, /drivers, /contractors).
+- `/claims` «Экспорт в Excel» — был toast-заглушка → клиентский CSV (BOM + anti-injection).
+- `/import` — `alert()` → toast (консистентность).
+Осталось по демо: ничего критичного (legal PDF-кнопка корректно disabled). tsc web clean,
+тесты 199/199. **Вывод: web demo-ready (~98%).**
+
 ---
 
 ## §1 Главное в одной таблице

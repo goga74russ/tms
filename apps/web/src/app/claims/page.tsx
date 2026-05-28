@@ -13,7 +13,16 @@ import { useToast } from "@/components/ui/toast";
 import { DataTable, type Column, type RowAction, Pill, type PillTone } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
 import { BulkActionsBar } from "@/components/ui/bulk-actions-bar";
+import { saveBlob } from "@/lib/download";
 import { AlertOctagon, ShieldAlert, Plus, CheckCircle2, FilePlus2, FileText, PlayCircle, XCircle, AlertCircle, Clock, FileSpreadsheet } from "lucide-react";
+
+// B4.4 — защита от CSV formula-injection: ячейки, начинающиеся с = + - @ или
+// управляющих символов, экранируем ведущим апострофом; всё оборачиваем в кавычки.
+function csvCell(value: unknown): string {
+    let s = value == null ? '' : String(value);
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return `"${s.replace(/"/g, '""')}"`;
+}
 
 // ——— Types ———
 interface Claim {
@@ -575,12 +584,25 @@ export default function ClaimsPage() {
     }
 
     function handleBulkExportExcel() {
-        // No bulk export endpoint exists yet — stub.
-        toast({
-            variant: 'info',
-            title: 'Скоро будет',
-            description: `Экспорт в Excel (${selectedIds.size}) появится в следующем релизе.`,
-        });
+        const rows = claims.filter((c) => selectedIds.has(c.id));
+        if (rows.length === 0) return;
+        const headers = ['ID', 'Тип', 'Статус', 'Сумма', 'Возмещение', 'Описание', 'Создана'];
+        const lines = [
+            headers.map(csvCell).join(','),
+            ...rows.map((c) => [
+                c.id,
+                TYPE_LABELS[c.type] ?? c.type,
+                STATUS_LABELS[c.status] ?? c.status,
+                c.amount ?? '',
+                c.resolvedAmount ?? '',
+                c.description ?? '',
+                c.createdAt ? format(new Date(c.createdAt), 'dd.MM.yyyy', { locale: ru }) : '',
+            ].map(csvCell).join(',')),
+        ];
+        // BOM — чтобы Excel корректно распознал UTF-8 (кириллица).
+        const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        saveBlob(blob, `claims-${new Date().toISOString().slice(0, 10)}.csv`);
+        toast({ variant: 'success', title: 'Экспортировано', description: `Претензий: ${rows.length}` });
     }
 
     const columns: Column<Claim>[] = [

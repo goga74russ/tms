@@ -6,6 +6,7 @@ import { Plus, AlertTriangle } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
+import { AddFineModal } from './AddFineModal';
 
 interface Fine {
     id: string;
@@ -59,6 +60,7 @@ export function FinesTable() {
     const [drivers, setDrivers] = useState<DriverLink[]>([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({ status: '', vehicleId: '' });
+    const [addOpen, setAddOpen] = useState(false);
 
     async function loadData() {
         setLoading(true);
@@ -233,7 +235,7 @@ export function FinesTable() {
                     <Button
                         variant="brand"
                         leftIcon={<Plus className="w-4 h-4" />}
-                        onClick={() => { /* TODO: модалка добавления штрафа */ }}
+                        onClick={() => setAddOpen(true)}
                     >
                         Добавить штраф
                     </Button>
@@ -248,6 +250,7 @@ export function FinesTable() {
                 }
                 pageSize={50}
             />
+            <AddFineModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={loadData} />
         </div>
     );
 }

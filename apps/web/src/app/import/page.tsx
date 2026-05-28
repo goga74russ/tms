@@ -113,6 +113,7 @@ function ImportCard({
 }) {
     const cfg = ENTITIES[entity];
     const Icon = cfg.icon;
+    const { toast } = useToast();
 
     async function downloadTemplate(e: React.MouseEvent) {
         e.stopPropagation();
@@ -127,7 +128,7 @@ function ImportCard({
             a.click();
             URL.revokeObjectURL(url);
         } catch (err: any) {
-            alert(err?.message ?? 'Ошибка');
+            toast({ variant: 'error', title: 'Ошибка', description: err?.message ?? 'Не удалось скачать шаблон' });
         }
     }
 

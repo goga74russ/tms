@@ -6,6 +6,7 @@ import { Plus, ShieldCheck } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
+import { AddPermitModal } from './AddPermitModal';
 
 interface Permit {
     id: string;
@@ -51,6 +52,7 @@ export function PermitsTable() {
     const [vehicles, setVehicles] = useState<VehicleLink[]>([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({ vehicleId: '', active: '' });
+    const [addOpen, setAddOpen] = useState(false);
 
     async function loadData() {
         setLoading(true);
@@ -158,6 +160,7 @@ export function PermitsTable() {
     ];
 
     return (
+        <>
         <DataTable<Permit>
             tableId="fleet-permits"
             data={permits}
@@ -189,7 +192,7 @@ export function PermitsTable() {
                 <Button
                     variant="brand"
                     leftIcon={<Plus className="w-4 h-4" />}
-                    onClick={() => { /* TODO: модалка добавления пропуска */ }}
+                    onClick={() => setAddOpen(true)}
                 >
                     Добавить пропуск
                 </Button>
@@ -204,5 +207,7 @@ export function PermitsTable() {
             }
             pageSize={50}
         />
+        <AddPermitModal open={addOpen} onClose={() => setAddOpen(false)} onCreated={loadData} />
+        </>
     );
 }

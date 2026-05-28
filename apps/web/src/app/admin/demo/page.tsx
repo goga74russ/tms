@@ -191,12 +191,12 @@ export default function AdminDemoPage() {
                     <CardContent>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <SummaryItem label="Контрагенты" count={generated.contractorIds.length} href="/contractors" />
-                            <SummaryItem label="ТС" count={generated.vehicleIds.length} href="/fleet/vehicles" />
-                            <SummaryItem label="Водители" count={generated.driverIds.length} href="/fleet/drivers" />
-                            <SummaryItem label="Прицепы" count={generated.trailerIds.length} href="/fleet/trailers" />
+                            <SummaryItem label="ТС" count={generated.vehicleIds.length} href="/fleet" />
+                            <SummaryItem label="Водители" count={generated.driverIds.length} href="/drivers" />
+                            <SummaryItem label="Прицепы" count={generated.trailerIds.length} href="/fleet" />
                             <SummaryItem label="Заявки" count={generated.orderIds.length} href="/orders" />
                             <SummaryItem label="Рейсы" count={generated.tripIds.length} href="/trips" />
-                            <SummaryItem label="Договоры" count={generated.contractIds.length} href="/contracts" />
+                            <SummaryItem label="Договоры" count={generated.contractIds.length} href="/contractors" />
                             <SummaryItem label="Тарифы" count={generated.tariffIds.length} href="/tariffs" />
                         </div>
                         <div className="mt-4 flex gap-2 flex-wrap">
