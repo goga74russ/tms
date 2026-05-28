@@ -1,9 +1,42 @@
-# Объединённый аудит TMS-prod — обновлено 2026-05-27 (после W3.5 deployed)
+# Объединённый аудит TMS-prod — обновлено 2026-05-27 (после W4 T-9)
 
 **Источники:** PM (продуктовый), TransPult (технический), Jurist (юридический) + честная самооценка.
-**HEAD:** `5599601` (W3.5 deployed в прод).
+**HEAD (origin/main):** `6e62a3b`. **Прод задеплоен на:** `5599601` (W3.5; T-9 ещё НЕ задеплоен — только тесты, без runtime-изменений).
 **До 01.09.2026:** **96 дней.**
-**Что нового в этой итерации:** W3.5 batch — закрыто 10 quick wins за одну сессию (T-48, T-49, T-41, T-39, T-47, T-6, T-15, T-22, T-25, T-17). 3 deferred с обоснованием (T-18, T-19, T-40).
+
+---
+
+## §0 SESSION HANDOFF (читать первым при старте новой сессии)
+
+**Где мы:** одна длинная сессия закрыла W1 → W2 → W3 → W3.5 → W4-T9. Прод стабилен.
+
+**Что НЕ задеплоено в прод (origin ahead of prod):**
+- `6e62a3b` T-9 integration tests — runtime НЕ меняет (только test/), деплой не обязателен
+- Прод на `5599601`, origin на `6e62a3b` — разница только тесты + docs
+
+**Что делать в начале новой сессии:**
+1. `git -C D:\Ai\TMS-prod log --oneline -5` — свериться с HEAD
+2. Прочитать этот §0 + §5 (W4-W8 backlog) + §11 (pre-PMF) + §15 (вопросы Founder'у)
+3. Локалка может отстать → `docker compose -f docker-compose.prod.yml up -d --build api web` если нужен свежий стек
+4. Deploy: `pwsh scripts\deploy.ps1` (требует SSH-key transpult_ed25519 + permission rule в settings.local.json)
+
+**Активные блокеры (НЕ моя зона):**
+- 🔴 Founder F-1 (регистрация ООО) — не стартовал, гейт всего календаря
+- 🔴 Founder F-4 (PoL probes 15 звонков) — не стартовал, pre-PMF риск
+- 🟡 Jurist J-5 (ООО prep) — ждёт сигнал Founder'а
+
+**Мой (TransPult) W4-остаток после T-9:**
+- T-7 RBAC sweep (6-8h) — следующий по приоритету
+- T-2 event-leak (2h), T-14 5-day SF warning (6h), T-16 invoice modals (6h)
+- T-40 убрать carrierCost writes (Spr 2 перед drop)
+
+**Известный pre-existing test debt (W5):**
+- finance.integration.test.ts — старый enum `type:'invoice'` (5 fails)
+- auth.integration.test.ts — локализация 'Invalid credentials' (1 fail)
+- 7 gosklyuch-callback skipped (T-46) + полностью работающий новый invoice-workflow (17/17)
+
+**Что нового в W4 T-9:** +17 integration tests на M-batch invoice workflow
+(draft/issue/corrections/payment/cancel). Закрыт мой долг «0 тестов на invoice service».
 
 ---
 
@@ -45,6 +78,7 @@
 | **W2** (ac3c5d1 + 8ac3cc7 + e971441) | Unisender real (15 тестов) · DPA-step онбординг · drift fix /legal страниц |
 | **W3 partial** (2502963) | МЧД UI alignment с J-1 + seed (1 active + 1 expired) |
 | **W3.5 batch** (a054da0 → 5599601) | 10 quick wins за сессию: T-48 migrations.md · T-49 ALLOW_INITIAL_SCHEMA · T-41 mobile lint · T-39 demo banner · T-47 fix login 401 test · T-15 bulk-generate LIMIT · T-22 HOS N+1 · T-25 KPI parallel · T-17 «Стоимость» в /trips · T-6 SMTP info-banner verified |
+| **W4 T-9** (6e62a3b) | +17 integration tests на M-batch invoice workflow (draft/issue/corrections/payment/cancel) — закрыт долг «0 тестов на invoice service» |
 
 ### Юр-документы (Jurist)
 
@@ -100,7 +134,7 @@
 | ~~T-6~~ | ~~mailru SMTP info-banner~~ | 1h | ✅ W3.5 verified (E7 уже сделал) |
 | T-7 | 50+ endpoints `requireAbility()` | 6-8h | ⏸ W4 — нужна role-by-role smoke |
 | ~~T-8~~ | bulk-pdf N+1 → batch fetch | 1h | ✅ W1 (ec14b90) |
-| T-9 | **invoice service tests + HTTP wiring** | **8-12h** | ⏸ W4 — M-batch service не привязан к routes |
+| ~~T-9~~ | ~~invoice service tests + HTTP wiring~~ | 8-12h | ✅ W4 (6e62a3b) — routes были wired в M, +17 integration tests |
 | ~~T-10~~ | FK indexes 0037 | 30min | ✅ W1 (f0ed26a) |
 | ~~T-11~~ | test suite baseline | 1h | ✅ W1 (f0ed26a) |
 | ~~T-12~~ | Email Unisender real | 1 день | ✅ W2 (ac3c5d1) |
