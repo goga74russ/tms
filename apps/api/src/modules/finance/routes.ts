@@ -18,6 +18,7 @@ import {
     createCorrection,
     registerPayment,
     cancelInvoice,
+    getOverdueInvoices,
     InvoiceWorkflowError,
 } from './invoice-workflow.service.js';
 import { db } from '../../db/connection.js';
@@ -293,6 +294,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 success: false,
                 error: err.message,
                 code: err.code,
+                ...(err.details ? { details: err.details } : {}),
             });
         }
         return reply.code(500).send({ success: false, error: (err as Error).message });
@@ -383,6 +385,20 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
             } catch (err) {
                 return handleWorkflowError(reply, err);
             }
+        }
+    );
+
+    // 4f. GET /finance/invoices/overdue — отчёт «СФ/УПД с просрочкой» (spec §6)
+    // Статический сегмент — Fastify приоритезирует его над /:id.
+    fastify.get(
+        '/finance/invoices/overdue',
+        { schema: { tags: ['Финансы'], summary: 'СФ/УПД выпущенные с просрочкой (>5 дней)', description: 'spec §6 — отчёт для бухгалтера: документы, выпущенные позже 5 дней от даты реализации.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Invoice')] },
+        async (request, reply) => {
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+            if (!user.organizationId) return { success: true, data: [], note: 'no_organization_in_token' };
+            const q = request.query as { from?: string; to?: string };
+            const data = await getOverdueInvoices(user.organizationId, { from: q.from, to: q.to });
+            return reply.send({ success: true, data });
         }
     );
 

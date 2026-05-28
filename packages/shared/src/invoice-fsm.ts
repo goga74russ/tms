@@ -45,6 +45,78 @@ export const TaxRegimeEnum = z.enum([
 ]);
 export type TaxRegime = z.infer<typeof TaxRegimeEnum>;
 
+/**
+ * Налоговые режимы — плательщики НДС, обязанные выставлять СФ/УПД.
+ * Только для них действует 5-дневный срок (ст. 168 ч. 3 НК).
+ */
+export const VAT_PAYING_REGIMES: TaxRegime[] = ['osno', 'usn_with_vat'];
+
+export function isVatPayingRegime(regime: TaxRegime | null | undefined): boolean {
+    return regime != null && VAT_PAYING_REGIMES.includes(regime);
+}
+
+// ============================================================
+// 5-дневный срок выпуска СФ/УПД (spec §6, ст. 168 ч. 3 НК)
+// ============================================================
+
+/** Типы документов, для которых действует 5-дневный срок от даты реализации. */
+export const FIVE_DAY_DEADLINE_TYPES: InvoiceType[] = ['sf', 'upd', 'corrective_sf', 'advance'];
+
+/** Срок выпуска СФ/УПД от даты реализации, календарных дней. */
+export const SF_ISSUE_DEADLINE_DAYS = 5;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+export interface SfDeadlineCheck {
+    /** Тип подпадает под 5-дневное правило И есть дата реализации для расчёта. */
+    applies: boolean;
+    /** Выпуск позже срока. */
+    overdue: boolean;
+    /** На сколько календарных дней просрочен выпуск (сверх 5). 0 если в срок. */
+    daysLate: number;
+    /** Крайняя дата выпуска (реализация + 5 дней), ISO. null если applies=false. */
+    deadlineDate: string | null;
+    /** Использованная дата реализации, ISO. null если applies=false. */
+    realizationDate: string | null;
+}
+
+/**
+ * spec §6 — проверка 5-дневного срока выпуска СФ/УПД.
+ * Чистая функция (без БД) — даёт фактуру для warning'а в UI и для отчёта
+ * «СФ выпущенные с просрочкой». НЕ блокирует выпуск (это soft-warning).
+ *
+ * `realizationDate` — дата реализации: для СФ это MAX(unloading_date) связанных
+ * заявок, для УПД — actual_completion_at рейса. Если null/неизвестна — applies=false
+ * (нет базы для расчёта, не пугаем ложной просрочкой).
+ */
+export function checkSfIssueDeadline(args: {
+    invoiceType: InvoiceType;
+    realizationDate: Date | string | null | undefined;
+    issuedAt: Date | string;
+}): SfDeadlineCheck {
+    const none: SfDeadlineCheck = {
+        applies: false, overdue: false, daysLate: 0, deadlineDate: null, realizationDate: null,
+    };
+    if (!FIVE_DAY_DEADLINE_TYPES.includes(args.invoiceType)) return none;
+    if (args.realizationDate == null) return none;
+
+    const realization = new Date(args.realizationDate);
+    const issued = new Date(args.issuedAt);
+    if (Number.isNaN(realization.getTime()) || Number.isNaN(issued.getTime())) return none;
+
+    const deadline = new Date(realization.getTime() + SF_ISSUE_DEADLINE_DAYS * MS_PER_DAY);
+    const elapsedDays = Math.floor((issued.getTime() - realization.getTime()) / MS_PER_DAY);
+    const daysLate = Math.max(0, elapsedDays - SF_ISSUE_DEADLINE_DAYS);
+
+    return {
+        applies: true,
+        overdue: daysLate > 0,
+        daysLate,
+        deadlineDate: deadline.toISOString(),
+        realizationDate: realization.toISOString(),
+    };
+}
+
 // ============================================================
 // FSM матрица переходов (spec §2)
 // ============================================================
@@ -190,6 +262,9 @@ export const InvoiceIssueSchema = z.object({
     // Для sf/upd — обязательная ставка НДС, проверим в service.
     vatRate: z.number().optional(),
     includesVat: z.boolean().optional(),
+    // spec §6 — причина выпуска СФ/УПД с просрочкой (>5 дней от реализации).
+    // Без неё просроченный выпуск возвращает SF_OVERDUE_WARNING.
+    overdueReason: z.string().min(3).max(1000).optional(),
     invoiceOrders: z.array(z.object({
         orderId: z.string().uuid(),
         allocatedAmount: z.number().positive(),

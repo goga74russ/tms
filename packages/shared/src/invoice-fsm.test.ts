@@ -7,7 +7,63 @@ import {
     canIssueInvoiceType,
     defaultIncludesVat,
     allowedVatRates,
+    checkSfIssueDeadline,
+    isVatPayingRegime,
+    SF_ISSUE_DEADLINE_DAYS,
 } from './invoice-fsm.js';
+
+const DAY = 24 * 60 * 60 * 1000;
+
+describe('checkSfIssueDeadline — 5-дневный срок СФ/УПД (spec §6)', () => {
+    const realization = new Date('2026-05-01T10:00:00Z');
+
+    it('payment/act не подпадают под правило (applies=false)', () => {
+        for (const t of ['payment', 'act'] as const) {
+            const r = checkSfIssueDeadline({ invoiceType: t, realizationDate: realization, issuedAt: new Date(realization.getTime() + 30 * DAY) });
+            expect(r.applies).toBe(false);
+            expect(r.overdue).toBe(false);
+        }
+    });
+
+    it('нет даты реализации → applies=false (не пугаем ложной просрочкой)', () => {
+        const r = checkSfIssueDeadline({ invoiceType: 'sf', realizationDate: null, issuedAt: new Date() });
+        expect(r.applies).toBe(false);
+        expect(r.overdue).toBe(false);
+    });
+
+    it('СФ в срок (ровно 5 дней) — не просрочено', () => {
+        const r = checkSfIssueDeadline({ invoiceType: 'sf', realizationDate: realization, issuedAt: new Date(realization.getTime() + SF_ISSUE_DEADLINE_DAYS * DAY) });
+        expect(r.applies).toBe(true);
+        expect(r.overdue).toBe(false);
+        expect(r.daysLate).toBe(0);
+    });
+
+    it('СФ на 7-й день — просрочка 2 дня', () => {
+        const r = checkSfIssueDeadline({ invoiceType: 'sf', realizationDate: realization, issuedAt: new Date(realization.getTime() + 7 * DAY) });
+        expect(r.overdue).toBe(true);
+        expect(r.daysLate).toBe(2);
+        expect(r.deadlineDate).toBe(new Date(realization.getTime() + 5 * DAY).toISOString());
+    });
+
+    it('УПД тоже подпадает под 5-дневное правило', () => {
+        const r = checkSfIssueDeadline({ invoiceType: 'upd', realizationDate: realization, issuedAt: new Date(realization.getTime() + 10 * DAY) });
+        expect(r.overdue).toBe(true);
+        expect(r.daysLate).toBe(5);
+    });
+});
+
+describe('isVatPayingRegime (spec §6)', () => {
+    it('osno и usn_with_vat — плательщики НДС', () => {
+        expect(isVatPayingRegime('osno')).toBe(true);
+        expect(isVatPayingRegime('usn_with_vat')).toBe(true);
+    });
+    it('спецрежимы без НДС и unspecified/null — нет', () => {
+        for (const r of ['usn_income', 'ausn', 'patent', 'npd', 'unspecified'] as const) {
+            expect(isVatPayingRegime(r)).toBe(false);
+        }
+        expect(isVatPayingRegime(null)).toBe(false);
+    });
+});
 
 describe('canTransitionInvoice — FSM matrix (spec §2)', () => {
     it('draft → issued разрешено для всех типов', () => {

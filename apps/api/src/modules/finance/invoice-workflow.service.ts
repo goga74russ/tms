@@ -17,11 +17,13 @@
 // CHECK Σ allocated_amount = total — DEFERRED trigger на БД.
 // ============================================================
 import { db } from '../../db/connection.js';
-import { invoices, invoiceOrders, invoiceHistory, organizations } from '../../db/schema.js';
-import { eq, and, sql } from 'drizzle-orm';
+import { invoices, invoiceOrders, invoiceHistory, organizations, orders, trips, events } from '../../db/schema.js';
+import { eq, and, sql, inArray, gte, lte, ne, isNotNull, desc } from 'drizzle-orm';
 import {
     canTransitionInvoice,
     canIssueInvoiceType,
+    checkSfIssueDeadline,
+    FIVE_DAY_DEADLINE_TYPES,
     type InvoiceType,
     type InvoiceCorrectionKind,
     type TaxRegime,
@@ -131,10 +133,46 @@ export async function createDraftInvoice(
 // 2) issueDraftInvoice — draft → issued
 // ============================================================
 export class InvoiceWorkflowError extends Error {
-    constructor(public code: string, message: string, public httpStatus: number = 422) {
+    constructor(
+        public code: string,
+        message: string,
+        public httpStatus: number = 422,
+        /** Доп. payload для клиента (например, детали 5-дневной просрочки). */
+        public details?: Record<string, unknown>,
+    ) {
         super(message);
         this.name = 'InvoiceWorkflowError';
     }
+}
+
+/**
+ * spec §6 — дата реализации для 5-дневного срока выпуска СФ/УПД.
+ * СФ привязана к заявкам → MAX(unloading_date) фактической разгрузки.
+ * УПД может быть привязан к рейсам → fallback MAX(trips.actual_completion_at).
+ * Возвращает null, если ни одну дату определить нельзя (не пугаем ложной просрочкой).
+ */
+async function resolveRealizationDate(
+    orderIds: string[],
+    tripIds: string[],
+): Promise<Date | null> {
+    let max: Date | null = null;
+    if (orderIds.length > 0) {
+        const rows = await db.select({ unloadingDate: orders.unloadingDate })
+            .from(orders)
+            .where(inArray(orders.id, orderIds));
+        for (const r of rows) {
+            if (r.unloadingDate && (!max || r.unloadingDate > max)) max = r.unloadingDate;
+        }
+    }
+    if (!max && tripIds.length > 0) {
+        const rows = await db.select({ done: trips.actualCompletionAt })
+            .from(trips)
+            .where(inArray(trips.id, tripIds));
+        for (const r of rows) {
+            if (r.done && (!max || r.done > max)) max = r.done;
+        }
+    }
+    return max;
 }
 
 export async function issueDraftInvoice(
@@ -145,9 +183,12 @@ export async function issueDraftInvoice(
         vatRate?: number;
         includesVat?: boolean;
         issuedAt?: string;
+        /** spec §6 — причина выпуска с просрочкой (>5 дней). Без неё выпуск
+         *  просроченного СФ/УПД блокируется soft-warning'ом SF_OVERDUE_WARNING. */
+        overdueReason?: string;
     },
     author: Author,
-): Promise<{ id: string; number: string; total: number }> {
+): Promise<{ id: string; number: string; total: number; overdue?: boolean; daysLate?: number }> {
     const ctx = await getInvoiceWithOrgRegime(invoiceId);
     if (!ctx) throw new InvoiceWorkflowError('NOT_FOUND', 'Счёт не найден', 404);
     const { invoice, taxRegime } = ctx;
@@ -190,6 +231,37 @@ export async function issueDraftInvoice(
     const vatAmount = input.invoiceOrders.reduce((s, o) => s + (o.allocatedVat ?? 0), 0);
     const subtotal = total - vatAmount;
 
+    // spec §6 — 5-дневный срок выпуска СФ/УПД (ст. 168 ч. 3 НК).
+    // Soft-warning, НЕ block: при просрочке без указанной причины возвращаем
+    // SF_OVERDUE_WARNING (422) с деталями — UI показывает диалог «Подтвердить
+    // выпуск с просрочкой» и обязательным полем причины. С причиной — выпускаем
+    // и фиксируем факт+причину в аудит-журнале (для отчёта «СФ с просрочкой»).
+    const issuedAtDate = input.issuedAt ? new Date(input.issuedAt) : new Date();
+    const realizationDate = await resolveRealizationDate(
+        input.invoiceOrders.map((o) => o.orderId),
+        (invoice.tripIds as string[] | null) ?? [],
+    );
+    const deadline = checkSfIssueDeadline({
+        invoiceType: invoice.type as InvoiceType,
+        realizationDate,
+        issuedAt: issuedAtDate,
+    });
+    const overdueReason = input.overdueReason?.trim();
+    if (deadline.overdue && !overdueReason) {
+        throw new InvoiceWorkflowError(
+            'SF_OVERDUE_WARNING',
+            `Выпуск СФ/УПД позже ${5} дней от даты реализации (просрочка ${deadline.daysLate} дн.). `
+            + 'Укажите причину просрочки для подтверждения выпуска.',
+            422,
+            {
+                daysLate: deadline.daysLate,
+                realizationDate: deadline.realizationDate,
+                deadlineDate: deadline.deadlineDate,
+                requiresOverdueReason: true,
+            },
+        );
+    }
+
     await db.transaction(async (tx) => {
         // 1. Insert invoice_orders
         await tx.insert(invoiceOrders).values(
@@ -207,7 +279,7 @@ export async function issueDraftInvoice(
         await tx.update(invoices).set({
             status: 'issued',
             basisText: input.basisText,
-            issuedAt: input.issuedAt ? new Date(input.issuedAt) : new Date(),
+            issuedAt: issuedAtDate,
             vatRate: input.vatRate ?? null,
             includesVat: input.includesVat ?? false,
             total,
@@ -217,6 +289,7 @@ export async function issueDraftInvoice(
     });
 
     // 3. recordEvent — кроме DB-trigger который пишет invoice_history.
+    // spec §6 — при просрочке фиксируем факт+причину в аудит-журнале.
     await recordEvent({
         authorId: author.userId,
         authorRole: author.role,
@@ -229,10 +302,133 @@ export async function issueDraftInvoice(
             total,
             vatAmount,
             basisText: input.basisText,
+            ...(deadline.overdue
+                ? {
+                    sfOverdue: true,
+                    sfDaysLate: deadline.daysLate,
+                    sfRealizationDate: deadline.realizationDate,
+                    sfOverdueReason: overdueReason,
+                }
+                : {}),
         },
     });
 
-    return { id: invoiceId, number: invoice.number, total };
+    return {
+        id: invoiceId, number: invoice.number, total,
+        ...(deadline.overdue ? { overdue: true, daysLate: deadline.daysLate } : {}),
+    };
+}
+
+// ============================================================
+// Отчёт «СФ/УПД выпущенные с просрочкой» (spec §6)
+// ============================================================
+export interface OverdueInvoiceRow {
+    id: string;
+    number: string;
+    type: InvoiceType;
+    status: string;
+    total: number;
+    issuedAt: string;
+    realizationDate: string | null;
+    deadlineDate: string | null;
+    daysLate: number;
+    overdueReason: string | null;
+}
+
+/**
+ * spec §6 — список СФ/УПД, выпущенных позже 5-дневного срока от даты реализации.
+ * Для контроля бухгалтером (дашборд). Org-scoped по payee. Дата реализации
+ * вычисляется так же, как при выпуске: MAX(unloading_date) связанных заявок,
+ * fallback — MAX(trips.actual_completion_at). Причина просрочки берётся из
+ * аудит-журнала (событие invoice.issued, data.sfOverdueReason).
+ */
+export async function getOverdueInvoices(
+    organizationId: string,
+    range?: { from?: string; to?: string },
+): Promise<OverdueInvoiceRow[]> {
+    const conds = [
+        eq(invoices.payeeOrganizationId, organizationId),
+        inArray(invoices.type, FIVE_DAY_DEADLINE_TYPES),
+        isNotNull(invoices.issuedAt),
+        ne(invoices.status, 'draft'),
+        ne(invoices.status, 'cancelled'),
+    ];
+    if (range?.from) conds.push(gte(invoices.issuedAt, new Date(range.from)));
+    if (range?.to) conds.push(lte(invoices.issuedAt, new Date(range.to)));
+
+    const candidates = await db.select({
+        id: invoices.id,
+        number: invoices.number,
+        type: invoices.type,
+        status: invoices.status,
+        total: invoices.total,
+        issuedAt: invoices.issuedAt,
+        tripIds: invoices.tripIds,
+    }).from(invoices).where(and(...conds));
+
+    if (candidates.length === 0) return [];
+
+    const ids = candidates.map((c) => c.id);
+
+    // realization per invoice: MAX(unloading_date) связанных заявок
+    const orderRows = await db.select({
+        invoiceId: invoiceOrders.invoiceId,
+        unloadingDate: orders.unloadingDate,
+    })
+        .from(invoiceOrders)
+        .innerJoin(orders, eq(orders.id, invoiceOrders.orderId))
+        .where(inArray(invoiceOrders.invoiceId, ids));
+    const realizationByInvoice = new Map<string, Date>();
+    for (const r of orderRows) {
+        if (!r.unloadingDate) continue;
+        const cur = realizationByInvoice.get(r.invoiceId);
+        if (!cur || r.unloadingDate > cur) realizationByInvoice.set(r.invoiceId, r.unloadingDate);
+    }
+
+    // overdue reasons из аудит-журнала
+    const issuedEvents = await db.select({ entityId: events.entityId, data: events.data })
+        .from(events)
+        .where(and(
+            eq(events.entityType, 'invoice'),
+            eq(events.eventType, 'invoice.issued'),
+            inArray(events.entityId, ids),
+        ))
+        .orderBy(desc(events.timestamp));
+    const reasonByInvoice = new Map<string, string>();
+    for (const e of issuedEvents) {
+        const reason = (e.data as Record<string, unknown>)?.sfOverdueReason;
+        if (typeof reason === 'string' && !reasonByInvoice.has(e.entityId)) {
+            reasonByInvoice.set(e.entityId, reason);
+        }
+    }
+
+    const out: OverdueInvoiceRow[] = [];
+    for (const c of candidates) {
+        let realization = realizationByInvoice.get(c.id) ?? null;
+        if (!realization && (c.tripIds as string[] | null)?.length) {
+            realization = await resolveRealizationDate([], c.tripIds as string[]);
+        }
+        const check = checkSfIssueDeadline({
+            invoiceType: c.type as InvoiceType,
+            realizationDate: realization,
+            issuedAt: c.issuedAt!,
+        });
+        if (!check.overdue) continue;
+        out.push({
+            id: c.id,
+            number: c.number,
+            type: c.type as InvoiceType,
+            status: c.status,
+            total: num(c.total),
+            issuedAt: c.issuedAt!.toISOString(),
+            realizationDate: check.realizationDate,
+            deadlineDate: check.deadlineDate,
+            daysLate: check.daysLate,
+            overdueReason: reasonByInvoice.get(c.id) ?? null,
+        });
+    }
+    out.sort((a, b) => b.daysLate - a.daysLate);
+    return out;
 }
 
 // ============================================================
