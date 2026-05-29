@@ -7,17 +7,17 @@
 
 REST API для системы управления грузоперевозками (TMS). Включает управление заявками, рейсами, автопарком, водителями, финансами, аналитикой и импортом данных.
 
-**Total routes:** 296 across 32 tag(s).
+**Total routes:** 310 across 32 tag(s).
 
 ## Tag index
 
-- [Авторизация](#авторизация) — 8 route(s)
-- [Заявки](#заявки) — 13 route(s)
-- [Рейсы](#рейсы) — 31 route(s)
+- [Авторизация](#авторизация) — 13 route(s)
+- [Заявки](#заявки) — 14 route(s)
+- [Рейсы](#рейсы) — 32 route(s)
 - [Автопарк](#автопарк) — 37 route(s)
 - [Осмотры](#осмотры) — 18 route(s)
 - [Путевые листы](#путевые-листы) — 15 route(s)
-- [Финансы](#финансы) — 21 route(s)
+- [Финансы](#финансы) — 27 route(s)
 - [Аналитика](#аналитика) — 7 route(s)
 - [Импорт](#импорт) — 8 route(s)
 - [Геозоны](#геозоны) — 6 route(s)
@@ -25,7 +25,7 @@ REST API для системы управления грузоперевозка
 - [Уведомления](#уведомления) — 6 route(s)
 - [Аудит](#аудит) — 2 route(s)
 - [Здоровье](#здоровье) — 2 route(s)
-- [Администрирование](#администрирование) — 9 route(s)
+- [Администрирование](#администрирование) — 10 route(s)
 - [Trips](#trips) — 17 route(s)
 - [Attachments](#attachments) — 4 route(s)
 - [Repairs](#repairs) — 12 route(s)
@@ -50,11 +50,16 @@ _Вход, выход, обновление токенов_
 
 | Method | Path | Summary |
 | --- | --- | --- |
+| `POST` | `/api/auth/forgot-password` | Запрос сброса пароля |
 | `POST` | `/api/auth/login` | Вход в систему |
 | `POST` | `/api/auth/logout` | Выход |
 | `GET` | `/api/auth/me` | Текущий пользователь |
+| `DELETE` | `/api/auth/me/organization` | Отвязать пользователя от организации (вернуть super-admin) |
+| `PATCH` | `/api/auth/me/organization` | Обновить реквизиты организации (tax_regime и т.п.) |
+| `POST` | `/api/auth/me/organization` | Создать организацию для текущего пользователя |
 | `POST` | `/api/auth/mobile/login` | Вход (mobile) |
 | `POST` | `/api/auth/resend-code` | Повторная отправка кода |
+| `POST` | `/api/auth/reset-password` | Сброс пароля по токену |
 | `POST` | `/api/auth/signup` | Самостоятельная регистрация |
 | `POST` | `/api/auth/verify-email` | Подтверждение email |
 | `GET` | `/api/auth/ws-token` | WS токен |
@@ -78,6 +83,7 @@ _CRUD заявок на перевозку_
 | `GET` | `/api/orders/{id}/ttn` | PDF ТТН |
 | `POST` | `/api/orders/from-template` | Создать из шаблона |
 | `GET` | `/api/orders/kanban` | Kanban доска |
+| `GET` | `/api/orders/list` | Список заявок (denormalized) |
 
 ## Рейсы
 
@@ -116,6 +122,7 @@ _Управление рейсами и маршрутами_
 | `GET` | `/api/trips/{id}/transport-documents/{documentId}/exchange` | Transport document exchange |
 | `GET` | `/api/trips/available-drivers` | Доступные водители |
 | `GET` | `/api/trips/available-vehicles` | Доступные ТС |
+| `GET` | `/api/trips/volume-preview` | Предпросмотр проверки кубов |
 
 ## Автопарк
 
@@ -223,8 +230,11 @@ _Счета, тарифы, KPI_
 | `GET` | `/api/finance/invoices` | Список счетов |
 | `POST` | `/api/finance/invoices` | Сформировать счёт |
 | `GET` | `/api/finance/invoices/{id}` | Детали счёта/акта |
+| `POST` | `/api/finance/invoices/{id}/cancel` | Отменить счёт |
+| `POST` | `/api/finance/invoices/{id}/corrections` | Выпустить корректировочный СФ или ИСФ |
+| `POST` | `/api/finance/invoices/{id}/issue` | Выпустить счёт (draft → issued) |
 | `GET` | `/api/finance/invoices/{id}/pdf` | PDF счёта/акта |
-| `PUT` | `/api/finance/invoices/{id}/status` | Сменить статус счёта |
+| `POST` | `/api/finance/invoices/{id}/register-payment` | Регистрация оплаты счёта |
 | `GET` | `/api/finance/invoices/{id}/upd` | PDF УПД |
 | `POST` | `/api/finance/invoices/{invoiceId}/1c-reconciliation` | Сверка с 1С |
 | `POST` | `/api/finance/invoices/{invoiceId}/additional-services` | Добавить допуслугу |
@@ -232,6 +242,9 @@ _Счета, тарифы, KPI_
 | `POST` | `/api/finance/invoices/{invoiceId}/adjustments` | Создать корректировку счёта |
 | `POST` | `/api/finance/invoices/{invoiceId}/payments` | Зафиксировать частичную оплату |
 | `POST` | `/api/finance/invoices/bulk-generate` | Пакетная генерация счетов |
+| `POST` | `/api/finance/invoices/bulk-pdf` | Bulk PDF archive |
+| `POST` | `/api/finance/invoices/draft` | Создать черновик счёта (новый workflow) |
+| `GET` | `/api/finance/invoices/overdue` | СФ/УПД выпущенные с просрочкой (>5 дней) |
 | `GET` | `/api/finance/kpi` | KPI метрики |
 | `POST` | `/api/finance/tariff-rules/evaluate` | Расчёт тарифного правила |
 | `GET` | `/api/finance/trips/{id}/cost` | Стоимость рейса |
@@ -325,6 +338,7 @@ _Health check и readiness_
 | `GET` | `/api/auth/checklist-templates` | Шаблоны чек-листов |
 | `POST` | `/api/auth/checklist-templates` | Создать шаблон |
 | `PUT` | `/api/auth/checklist-templates/{id}` | Обновить шаблон чек-листа |
+| `GET` | `/api/auth/contracts` | Список договоров |
 | `GET` | `/api/auth/tariffs` | Список тарифов |
 | `POST` | `/api/auth/tariffs` | Создать тариф |
 | `PUT` | `/api/auth/tariffs/{id}` | Обновить тариф |
@@ -500,7 +514,7 @@ _Health check и readiness_
 
 | Method | Path | Summary |
 | --- | --- | --- |
-| `GET` | `/api/admin/billing/overview` | Все организации (admin) |
+| `GET` | `/api/admin/billing/overview` | Все организации (super-admin) |
 | `POST` | `/api/billing/cancel` | Отменить продление |
 | `GET` | `/api/billing/payments` | История платежей |
 | `GET` | `/api/billing/plans` | Список тарифов |

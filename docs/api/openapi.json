@@ -83,6 +83,44 @@
         }
       }
     },
+    "/api/auth/me/organization": {
+      "post": {
+        "summary": "Создать организацию для текущего пользователя",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Доступно только если у пользователя ещё нет organizationId. После создания выписывается новый JWT. Только admin.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "patch": {
+        "summary": "Обновить реквизиты организации (tax_regime и т.п.)",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Частичное обновление организации. Только admin. tax_regime изменение логируется в events.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Отвязать пользователя от организации (вернуть super-admin)",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Сбрасывает organizationId=NULL для текущего admin-пользователя. Перевыпускает JWT.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/auth/ws-token": {
       "get": {
         "summary": "WS токен",
@@ -166,6 +204,20 @@
           "Администрирование"
         ],
         "description": "Новый тариф с модификаторами (ночь, выходные, НДС).",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/contracts": {
+      "get": {
+        "summary": "Список договоров",
+        "tags": [
+          "Администрирование"
+        ],
+        "description": "Для дропдауна при создании тарифа.",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -289,6 +341,34 @@
         }
       }
     },
+    "/api/auth/forgot-password": {
+      "post": {
+        "summary": "Запрос сброса пароля",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Отправляет ссылку для сброса пароля на email (если адрес зарегистрирован). Enumeration-safe: всегда возвращает success. Rate limit: 5/15min.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "summary": "Сброс пароля по токену",
+        "tags": [
+          "Авторизация"
+        ],
+        "description": "Валидирует одноразовый токен из письма, сохраняет новый пароль (bcrypt), удаляет токен.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/orders": {
       "get": {
         "summary": "Список заявок",
@@ -308,6 +388,20 @@
           "Заявки"
         ],
         "description": "Создание новой заявки на перевозку. Валидация через Zod. Автоматическая генерация номера.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/orders/list": {
+      "get": {
+        "summary": "Список заявок (denormalized)",
+        "tags": [
+          "Заявки"
+        ],
+        "description": "Заявки с прикреплённым контрагентом и назначенным рейсом. Поиск по номеру, адресам и имени контрагента.",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -611,6 +705,19 @@
           "Рейсы"
         ],
         "description": "Создание нового рейса. Автогенерация номера. Валидация Zod.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trips/volume-preview": {
+      "get": {
+        "summary": "Предпросмотр проверки кубов",
+        "tags": [
+          "Рейсы"
+        ],
         "responses": {
           "200": {
             "description": "Default Response"
@@ -3142,13 +3249,108 @@
         }
       }
     },
-    "/api/finance/invoices/{id}/status": {
-      "put": {
-        "summary": "Сменить статус счёта",
+    "/api/finance/invoices/draft": {
+      "post": {
+        "summary": "Создать черновик счёта (новый workflow)",
         "tags": [
           "Финансы"
         ],
-        "description": "draft→sent→paid/overdue. Валидация переходов.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{id}/issue": {
+      "post": {
+        "summary": "Выпустить счёт (draft → issued)",
+        "tags": [
+          "Финансы"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{id}/corrections": {
+      "post": {
+        "summary": "Выпустить корректировочный СФ или ИСФ",
+        "tags": [
+          "Финансы"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{id}/register-payment": {
+      "post": {
+        "summary": "Регистрация оплаты счёта",
+        "tags": [
+          "Финансы"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/overdue": {
+      "get": {
+        "summary": "СФ/УПД выпущенные с просрочкой (>5 дней)",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "spec §6 — отчёт для бухгалтера: документы, выпущенные позже 5 дней от даты реализации.",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/{id}/cancel": {
+      "post": {
+        "summary": "Отменить счёт",
+        "tags": [
+          "Финансы"
+        ],
         "parameters": [
           {
             "schema": {
@@ -3235,6 +3437,20 @@
             "required": true
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/finance/invoices/bulk-pdf": {
+      "post": {
+        "summary": "Bulk PDF archive",
+        "tags": [
+          "Финансы"
+        ],
+        "description": "Сборка PDF выбранных счетов/актов в один zip-архив. Максимум 50 ID за вызов. RLS: каждый ID проверяется через ensureInvoiceAccess.",
         "responses": {
           "200": {
             "description": "Default Response"
@@ -5376,7 +5592,7 @@
     },
     "/api/admin/billing/overview": {
       "get": {
-        "summary": "Все организации (admin)",
+        "summary": "Все организации (super-admin)",
         "tags": [
           "Биллинг"
         ],
