@@ -8,7 +8,7 @@ import { redisConnectionConfig } from '../redis.js';
 import { sendMessage, formatEventMessage, isNotifiableEvent } from '../telegram.service.js';
 import { db } from '../../db/connection.js';
 import { notificationSubscriptions } from '../../db/schema.js';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and } from 'drizzle-orm';
 
 export const QUEUE_NOTIFICATIONS = 'notifications';
 
@@ -31,21 +31,31 @@ interface NotificationJobData {
     data: Record<string, any>;
     authorId: string;
     authorRole: string;
+    // P0-S2: организация-источник события — рассылаем только её подписчикам.
+    organizationId?: string | null;
 }
 
 // --- Worker ---
 export async function processNotification(job: Job<NotificationJobData>) {
-    const { eventType, entityType, entityId, data } = job.data;
+    const { eventType, entityType, entityId, data, organizationId } = job.data;
 
     // Skip non-notifiable events
     if (!isNotifiableEvent(eventType)) {
         return { skipped: true, reason: 'not_notifiable' };
     }
 
-    // Get all active subscriptions that include this event type
+    // P0-S2: рассылаем ТОЛЬКО подписчикам организации-источника события.
+    // Без organizationId (системные события) — не рассылаем (иначе утечка во
+    // все тенанты, как было). Подписки без org тоже не получают org-событий.
+    if (!organizationId) {
+        return { skipped: true, reason: 'no_organization_scope' };
+    }
     const subs = await db.select()
         .from(notificationSubscriptions)
-        .where(eq(notificationSubscriptions.isActive, true));
+        .where(and(
+            eq(notificationSubscriptions.isActive, true),
+            eq(notificationSubscriptions.organizationId, organizationId),
+        ));
 
     const message = formatEventMessage(eventType, entityType, entityId, data);
     let sent = 0;

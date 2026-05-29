@@ -98,8 +98,19 @@ describe('processNotification', () => {
             data: {},
             authorId: 'u',
             authorRole: 'admin',
+            organizationId: 'org-1',
         }));
         expect(result).toEqual({ skipped: true, reason: 'not_notifiable' });
+        expect(capture.sentTo).toHaveLength(0);
+    });
+
+    it('P0-S2: skips when event has no organizationId (no cross-tenant broadcast)', async () => {
+        capture.subs = [{ id: 's1', telegramChatId: 'chat-1', eventTypes: ['*'], isActive: true }];
+        const result = await processNotification(fakeJob({
+            eventType: 'trip.created', entityType: 'trip', entityId: 't-1',
+            data: {}, authorId: 'u', authorRole: 'admin', organizationId: null,
+        }));
+        expect(result).toEqual({ skipped: true, reason: 'no_organization_scope' });
         expect(capture.sentTo).toHaveLength(0);
     });
 
@@ -115,6 +126,7 @@ describe('processNotification', () => {
             data: {},
             authorId: 'u',
             authorRole: 'admin',
+            organizationId: 'org-1',
         }));
         expect(result).toEqual({ sent: 2, failed: 0, eventType: 'trip.created' });
         expect(capture.sentTo.map((s) => s.chatId)).toEqual(['chat-1', 'chat-2']);
@@ -132,6 +144,7 @@ describe('processNotification', () => {
             data: {},
             authorId: 'u',
             authorRole: 'admin',
+            organizationId: 'org-1',
         }));
         expect(result.sent).toBe(1);
         expect(capture.sentTo).toHaveLength(1);
@@ -150,6 +163,7 @@ describe('processNotification', () => {
             data: {},
             authorId: 'u',
             authorRole: 'admin',
+            organizationId: 'org-1',
         }));
         expect(result).toEqual({ sent: 0, failed: 1, eventType: 'trip.created' });
     });
@@ -172,6 +186,7 @@ describe('processNotification', () => {
             data: {},
             authorId: 'u',
             authorRole: 'admin',
+            organizationId: 'org-1',
         }));
         expect(result.sent).toBe(1);
         expect(result.failed).toBe(1);

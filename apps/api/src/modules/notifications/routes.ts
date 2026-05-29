@@ -5,7 +5,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { requireAbility } from '../../auth/rbac.js';
 import { db } from '../../db/connection.js';
-import { notificationSubscriptions } from '../../db/schema.js';
+import { notificationSubscriptions, users } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { sendMessage, getMe, setWebhook, deleteWebhook } from '../../integrations/telegram.service.js';
 
@@ -38,9 +38,19 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
             const parts = update.message.text.split(' ');
             const userId = parts[1] || null;
 
+            // P0-S2: привязываем подписку к организации пользователя из deep-link.
+            // Воркер рассылает события только подписчикам той же орг.
+            let organizationId: string | null = null;
+            if (userId) {
+                const [u] = await db.select({ organizationId: users.organizationId })
+                    .from(users).where(eq(users.id, userId)).limit(1);
+                organizationId = u?.organizationId ?? null;
+            }
+
             // Upsert subscription
             await db.insert(notificationSubscriptions).values({
                 userId,
+                organizationId,
                 telegramChatId: String(chatId),
                 telegramUsername: username,
                 eventTypes: ['*'],
@@ -49,6 +59,7 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
                 target: notificationSubscriptions.telegramChatId,
                 set: {
                     userId,
+                    organizationId,
                     telegramUsername: username,
                     isActive: true,
                 },

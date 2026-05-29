@@ -1128,6 +1128,8 @@ export const medAccessLog = pgTable('med_access_log', {
 export const notificationSubscriptions = pgTable('notification_subscriptions', {
     id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id').references(() => users.id),
+    // P0-S2: tenant-scope. Воркер рассылает событие только подписчикам той же орг.
+    organizationId: uuid('organization_id').references(() => organizations.id),
     telegramChatId: varchar('telegram_chat_id', { length: 50 }).notNull(),
     telegramUsername: varchar('telegram_username', { length: 100 }),
     eventTypes: jsonb('event_types').$type<string[]>().notNull().default(['*']),
@@ -1136,6 +1138,7 @@ export const notificationSubscriptions = pgTable('notification_subscriptions', {
 }, (table) => [
     uniqueIndex('notification_subs_chat_id_idx').on(table.telegramChatId),
     index('notification_subs_user_id_idx').on(table.userId),
+    index('notification_subs_org_idx').on(table.organizationId, table.isActive),
 ]);
 
 // ================================================================

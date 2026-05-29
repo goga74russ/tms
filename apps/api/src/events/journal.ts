@@ -82,6 +82,8 @@ export async function recordEvent(params: CreateEventParams, tx?: any) {
                     data: params.data,
                     authorId: params.authorId,
                     authorRole: params.authorRole,
+                    // P0-S2: org-scope рассылки — берём резолвнутый orgId события.
+                    organizationId: orgId ?? null,
                 });
             } catch {
                 // Silently ignore — notifications are best-effort
