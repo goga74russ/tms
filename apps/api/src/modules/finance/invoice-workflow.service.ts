@@ -17,7 +17,7 @@
 // CHECK Σ allocated_amount = total — DEFERRED trigger на БД.
 // ============================================================
 import { db } from '../../db/connection.js';
-import { invoices, invoiceOrders, invoiceHistory, organizations, orders, trips, events } from '../../db/schema.js';
+import { invoices, invoiceOrders, invoiceHistory, organizations, orders, trips, events, contractors } from '../../db/schema.js';
 import { eq, and, sql, inArray, gte, lte, ne, isNotNull, desc } from 'drizzle-orm';
 import {
     canTransitionInvoice,
@@ -44,16 +44,27 @@ function num(v: unknown): number {
 // Helpers
 // ============================================================
 
-async function getInvoiceWithOrgRegime(invoiceId: string) {
+async function getInvoiceWithOrgRegime(invoiceId: string, author?: Author) {
     const [row] = await db.select({
         invoice: invoices,
         taxRegime: organizations.taxRegime,
+        // P0-S1: владелец счёта = payee-организация ИЛИ организация контрагента-плательщика.
+        payerOrgId: contractors.organizationId,
     })
         .from(invoices)
         .leftJoin(organizations, eq(invoices.payeeOrganizationId, organizations.id))
+        .leftJoin(contractors, eq(invoices.contractorId, contractors.id))
         .where(eq(invoices.id, invoiceId))
         .limit(1);
     if (!row) return null;
+
+    // P0-S1: cross-tenant guard. Если у actor есть organizationId (не super-admin),
+    // он может оперировать только счетами своей орг. Иначе — IDOR (плати/отменяй/
+    // корректируй чужие счета по UUID).
+    const ownerOrgId = row.invoice.payeeOrganizationId ?? row.payerOrgId ?? null;
+    if (author?.organizationId && ownerOrgId && author.organizationId !== ownerOrgId) {
+        throw new InvoiceWorkflowError('FORBIDDEN', 'Счёт принадлежит другой организации', 403);
+    }
     return { invoice: row.invoice, taxRegime: (row.taxRegime ?? 'unspecified') as TaxRegime };
 }
 
@@ -99,6 +110,19 @@ export async function createDraftInvoice(
     },
     author: Author,
 ): Promise<{ id: string; number: string }> {
+    // P0-S1: плательщик (контрагент) должен принадлежать организации actor'а —
+    // иначе можно создать счёт на чужого контрагента. payeeOrganizationId не
+    // доверяем из тела запроса: фиксируем по actor'у.
+    if (author.organizationId) {
+        const [payer] = await db.select({ id: contractors.id })
+            .from(contractors)
+            .where(and(eq(contractors.id, input.payerId), eq(contractors.organizationId, author.organizationId)))
+            .limit(1);
+        if (!payer) {
+            throw new InvoiceWorkflowError('FORBIDDEN', 'Контрагент-плательщик не найден в вашей организации', 403);
+        }
+    }
+
     const number = await generateInvoiceNumber(input.invoiceType);
 
     const [created] = await db.insert(invoices).values({
@@ -114,7 +138,8 @@ export async function createDraftInvoice(
         periodEnd: new Date(),
         payerId: input.payerId,
         payeeId: input.payeeId,
-        payeeOrganizationId: input.payeeOrganizationId ?? author.organizationId ?? null,
+        // P0-S1: payee-орг = всегда орг actor'а (не из тела запроса).
+        payeeOrganizationId: author.organizationId ?? null,
     }).returning({ id: invoices.id, number: invoices.number });
 
     await recordEvent({
@@ -189,7 +214,7 @@ export async function issueDraftInvoice(
     },
     author: Author,
 ): Promise<{ id: string; number: string; total: number; overdue?: boolean; daysLate?: number }> {
-    const ctx = await getInvoiceWithOrgRegime(invoiceId);
+    const ctx = await getInvoiceWithOrgRegime(invoiceId, author);
     if (!ctx) throw new InvoiceWorkflowError('NOT_FOUND', 'Счёт не найден', 404);
     const { invoice, taxRegime } = ctx;
 
@@ -228,8 +253,23 @@ export async function issueDraftInvoice(
 
     // Сумма allocated_amount → total. CHECK на БД дополнительно подтвердит.
     const total = input.invoiceOrders.reduce((s, o) => s + o.allocatedAmount, 0);
-    const vatAmount = input.invoiceOrders.reduce((s, o) => s + (o.allocatedVat ?? 0), 0);
-    const subtotal = total - vatAmount;
+    // P0-F1: НДС. Если строки несут явный allocatedVat — берём его. Иначе (UI
+    // присылает только allocatedAmount) считаем НДС из vatRate уровня счёта.
+    // Раньше vatAmount всегда выходил 0 → СФ/УПД сохранялись с нулевым НДС
+    // (юридически недействительны, неверный 1С-экспорт/PDF).
+    const explicitVat = input.invoiceOrders.reduce((s, o) => s + (o.allocatedVat ?? 0), 0);
+    const rate = input.vatRate ?? 0;
+    let vatAmount: number;
+    if (explicitVat > 0 || rate === 0) {
+        vatAmount = explicitVat;
+    } else if (input.includesVat) {
+        // НДС «в том числе»: выделяем из total. total = subtotal*(1+rate/100).
+        vatAmount = Math.round((total - total / (1 + rate / 100)) * 100) / 100;
+    } else {
+        // НДС «сверху»: total уже включает начисленный НДС от суммы заявок.
+        vatAmount = Math.round((total - total / (1 + rate / 100)) * 100) / 100;
+    }
+    const subtotal = Math.round((total - vatAmount) * 100) / 100;
 
     // spec §6 — 5-дневный срок выпуска СФ/УПД (ст. 168 ч. 3 НК).
     // Soft-warning, НЕ block: при просрочке без указанной причины возвращаем
@@ -447,7 +487,7 @@ export async function createCorrection(
     },
     author: Author,
 ): Promise<{ id: string; number: string; correctionKind: InvoiceCorrectionKind }> {
-    const orig = await getInvoiceWithOrgRegime(input.relatedInvoiceId);
+    const orig = await getInvoiceWithOrgRegime(input.relatedInvoiceId, author);
     if (!orig) throw new InvoiceWorkflowError('NOT_FOUND', 'Исходный счёт не найден', 404);
     const { invoice: orig_inv, taxRegime } = orig;
 
@@ -542,7 +582,7 @@ export async function registerPayment(
     input: { amount: number; paymentDate?: string; paymentReference?: string },
     author: Author,
 ): Promise<{ id: string; status: string; paidAmount: number; total: number }> {
-    const ctx = await getInvoiceWithOrgRegime(invoiceId);
+    const ctx = await getInvoiceWithOrgRegime(invoiceId, author);
     if (!ctx) throw new InvoiceWorkflowError('NOT_FOUND', 'Счёт не найден', 404);
     const { invoice } = ctx;
 
@@ -596,7 +636,7 @@ export async function cancelInvoice(
     input: { cancellationReason: string },
     author: Author,
 ): Promise<{ id: string }> {
-    const ctx = await getInvoiceWithOrgRegime(invoiceId);
+    const ctx = await getInvoiceWithOrgRegime(invoiceId, author);
     if (!ctx) throw new InvoiceWorkflowError('NOT_FOUND', 'Счёт не найден', 404);
     const { invoice } = ctx;
 
