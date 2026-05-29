@@ -185,7 +185,7 @@ jobs:
 
       - name: Setup test database (migrate + seed-demo)
         run: |
-          pnpm --filter @tms/api exec drizzle-kit migrate
+          pnpm --filter @tms/api db:migrate
           pnpm --filter @tms/api exec tsx src/db/seed-demo.ts
 
       - name: Start API
@@ -294,7 +294,7 @@ jobs:
 
       - name: Setup test database (migrate + seed-demo)
         run: |
-          pnpm --filter @tms/api exec drizzle-kit migrate
+          pnpm --filter @tms/api db:migrate
           pnpm --filter @tms/api exec tsx src/db/seed-demo.ts
 
       - name: Start API
