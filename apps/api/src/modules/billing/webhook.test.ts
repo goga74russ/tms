@@ -45,32 +45,37 @@ function updateStub(table: { _name?: string } | unknown) {
     };
 }
 
-vi.mock('../../db/connection.js', () => ({
-    db: {
+// Select result is awaitable AND carries .for('update') (P1-C: FOR UPDATE).
+function selectResult() {
+    // Call-order heuristic: payments queried first, subscriptions second.
+    const isFirst = (selectCallCount.n === 0);
+    selectCallCount.n += 1;
+    const rows = isFirst
+        ? (dbState.paymentRow ? [dbState.paymentRow] : [])
+        : (dbState.subRow ? [dbState.subRow] : []);
+    const p: any = Promise.resolve(rows);
+    p.for = () => Promise.resolve(rows); // .for('update') → same rows
+    return p;
+}
+
+vi.mock('../../db/connection.js', () => {
+    const stub: any = {
         select: () => ({
-            from: (tbl: any) => ({
+            from: () => ({
                 where: () => ({
-                    limit: () => {
-                        // Heuristic: alternate between paymentRow and subRow
-                        // based on table reference identity is too brittle.
-                        // We rely on call-order: handlePaymentCallback queries
-                        // payments first, subscriptions second.
-                        const isFirst = (selectCallCount.n === 0);
-                        selectCallCount.n += 1;
-                        return Promise.resolve(isFirst
-                            ? (dbState.paymentRow ? [dbState.paymentRow] : [])
-                            : (dbState.subRow ? [dbState.subRow] : []));
-                    },
+                    limit: () => selectResult(),
                 }),
             }),
         }),
         update: updateStub,
         insert: () => ({ values: () => ({ returning: () => Promise.resolve([]) }) }),
         execute: () => Promise.resolve([]),
-        transaction: async (fn: any) => fn({}),
-    },
-    sql: () => 'SQL',
-}));
+        // P1-C: handlePaymentCallback теперь оборачивает всё в db.transaction —
+        // прокидываем тот же стаб как tx.
+        transaction: async (fn: any) => fn(stub),
+    };
+    return { db: stub, sql: () => 'SQL' };
+});
 
 // Track how many db.select() chains have been resolved per test.
 const selectCallCount = { n: 0 };

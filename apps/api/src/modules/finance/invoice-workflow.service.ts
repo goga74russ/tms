@@ -22,6 +22,7 @@ import { eq, and, sql, inArray, gte, lte, ne, isNotNull, desc } from 'drizzle-or
 import {
     canTransitionInvoice,
     canIssueInvoiceType,
+    allowedVatRates,
     checkSfIssueDeadline,
     FIVE_DAY_DEADLINE_TYPES,
     type InvoiceType,
@@ -68,9 +69,21 @@ async function getInvoiceWithOrgRegime(invoiceId: string, author?: Author) {
     return { invoice: row.invoice, taxRegime: (row.taxRegime ?? 'unspecified') as TaxRegime };
 }
 
-async function generateInvoiceNumber(type: InvoiceType, tx: typeof db = db): Promise<string> {
+// H5 (P1-C): генерация номера счёта.
+// ВАЖНО: вызывать ВНУТРИ транзакции (tx) — функция берёт advisory-xact-lock
+// по серии, чтобы конкурентные выпуски не получили один номер (гонка ловилась
+// только глобальным unique-индексом → второй insert падал). Лок снимается на
+// COMMIT/ROLLBACK, поэтому number-gen и insert должны быть в одной транзакции.
+//
+// Серия пока ГЛОБАЛЬНАЯ по (type, year). Полностью per-org нумерация (п.5.1
+// ст.169 НК — у каждой орг свой ряд с 1) требует замены глобального
+// unique(number) на composite unique(payee_organization_id, number) —
+// отдельная миграция, см. full-audit P1-C #17 (отложено, риск на проде).
+// Тип транзакционного executor'а (db.transaction callback arg).
+type InvoiceTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function generateInvoiceNumber(type: InvoiceType, tx: InvoiceTx): Promise<string> {
     // Spec §3 «Нумерация раздельная по invoice_type» (п. 5.1 ст. 169 НК).
-    // Для каждого типа — свой числовой ряд.
     const year = new Date().getFullYear();
     const prefix = {
         payment: `СЧ-${year}-`,
@@ -82,18 +95,19 @@ async function generateInvoiceNumber(type: InvoiceType, tx: typeof db = db): Pro
         act: `АКТ-${year}-`,
     }[type];
 
-    const [last] = await tx.select({ number: invoices.number })
-        .from(invoices)
-        .where(sql`${invoices.number} LIKE ${prefix + '%'}`)
-        .orderBy(sql`${invoices.number} DESC`)
-        .limit(1);
+    // Сериализуем конкурентную генерацию для этой серии (lock живёт до конца tx).
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${prefix})::bigint)`);
 
-    let seq = 1;
-    if (last?.number) {
-        const parts = last.number.split('-');
-        const lastSeq = parseInt(parts[parts.length - 1], 10);
-        if (!isNaN(lastSeq)) seq = lastSeq + 1;
-    }
+    // Числовой максимум суффикса (не лексический — иначе после 99999 «100000»
+    // сортируется ниже «99999» и ряд ломается). Берём цифры после последнего '-'.
+    const [row] = await tx.execute<{ maxseq: number | null }>(sql`
+        SELECT COALESCE(MAX(CAST(regexp_replace(${invoices.number}, '^.*-', '') AS INTEGER)), 0) AS maxseq
+        FROM ${invoices}
+        WHERE ${invoices.number} LIKE ${prefix + '%'}
+          AND regexp_replace(${invoices.number}, '^.*-', '') ~ '^[0-9]+$'
+    `) as unknown as Array<{ maxseq: number | null }>;
+
+    const seq = Number(row?.maxseq ?? 0) + 1;
     return `${prefix}${String(seq).padStart(5, '0')}`;
 }
 
@@ -123,24 +137,27 @@ export async function createDraftInvoice(
         }
     }
 
-    const number = await generateInvoiceNumber(input.invoiceType);
-
-    const [created] = await db.insert(invoices).values({
-        number,
-        contractorId: input.payerId, // backward compat
-        contractId: input.contractId,
-        type: input.invoiceType,
-        status: 'draft',
-        subtotal: 0,
-        vatAmount: 0,
-        total: 0,
-        periodStart: new Date(),
-        periodEnd: new Date(),
-        payerId: input.payerId,
-        payeeId: input.payeeId,
-        // P0-S1: payee-орг = всегда орг actor'а (не из тела запроса).
-        payeeOrganizationId: author.organizationId ?? null,
-    }).returning({ id: invoices.id, number: invoices.number });
+    // H5 (P1-C): номер + insert в одной транзакции — advisory-lock в
+    // generateInvoiceNumber защищает от гонки только в пределах tx.
+    const [created] = await db.transaction(async (tx) => {
+        const number = await generateInvoiceNumber(input.invoiceType, tx);
+        return tx.insert(invoices).values({
+            number,
+            contractorId: input.payerId, // backward compat
+            contractId: input.contractId,
+            type: input.invoiceType,
+            status: 'draft',
+            subtotal: 0,
+            vatAmount: 0,
+            total: 0,
+            periodStart: new Date(),
+            periodEnd: new Date(),
+            payerId: input.payerId,
+            payeeId: input.payeeId,
+            // P0-S1: payee-орг = всегда орг actor'а (не из тела запроса).
+            payeeOrganizationId: author.organizationId ?? null,
+        }).returning({ id: invoices.id, number: invoices.number });
+    });
 
     await recordEvent({
         authorId: author.userId,
@@ -249,6 +266,18 @@ export async function issueDraftInvoice(
     const isVatDoc = ['sf', 'upd', 'corrective_sf', 'corrective_upd'].includes(invoice.type);
     if (isVatDoc && input.vatRate == null) {
         throw new InvoiceWorkflowError('VAT_RATE_REQUIRED', 'Для СФ/УПД ставка НДС обязательна');
+    }
+    // H3 (P1-C): ставка НДС должна соответствовать налоговому режиму орг.
+    // Без этого ОСНО мог выпустить СФ под 5/7% (ставки УСН-с-НДС) или любую
+    // произвольную ставку → неверный НДС в книге продаж/1С-экспорте.
+    if (isVatDoc && input.vatRate != null) {
+        const allowed = allowedVatRates(taxRegime);
+        if (!allowed.includes(input.vatRate)) {
+            throw new InvoiceWorkflowError(
+                'VAT_RATE_NOT_ALLOWED',
+                `Ставка НДС ${input.vatRate}% недопустима для режима ${taxRegime}. Допустимые: ${allowed.length ? allowed.join('/') + '%' : 'нет (режим без НДС)'}`,
+            );
+        }
     }
 
     // Сумма allocated_amount → total. CHECK на БД дополнительно подтвердит.
@@ -500,11 +529,18 @@ export async function createCorrection(
     if (orig_inv.status === 'cancelled') {
         throw new InvoiceWorkflowError('ORIGINAL_CANCELLED', 'Исходный документ аннулирован');
     }
+    // H1 (P1-C): гейт двойной корректировки на уровне API (UI-гейт !hasCorrections
+    // был, серверного — нет). Повторный КСФ/ИСФ к уже скорректированному документу
+    // запрещён: корректируется новый (последний) документ цепочки, не оригинал.
+    if (orig_inv.hasCorrections || orig_inv.status === 'corrected') {
+        throw new InvoiceWorkflowError('ALREADY_CORRECTED', 'Документ уже скорректирован — выпускайте корректировку к последнему документу цепочки');
+    }
 
     const newType = orig_inv.type === 'sf' ? 'corrective_sf' : 'corrective_upd';
-    const number = await generateInvoiceNumber(newType);
 
-    await db.transaction(async (tx) => {
+    const createdId = await db.transaction(async (tx) => {
+        // H5 (P1-C): номер — внутри tx (advisory-lock).
+        const number = await generateInvoiceNumber(newType, tx);
         // 1. Insert новый corrective invoice (сразу в статусе issued — корректировки
         //    создаются как выпуск, не draft, per spec §5).
         const [created] = await tx.insert(invoices).values({
@@ -543,7 +579,8 @@ export async function createCorrection(
 
         // 3. Effect на исходный документ (spec §5):
         //    - ИСФ (replacement) → исходный cancelled (replaced_by:<new_id>)
-        //    - КСФ (adjustment)  → исходный остаётся issued, has_corrections=true
+        //    - КСФ (adjustment)  → исходный помечается corrected (H2: статус
+        //      'corrected' раньше не выставлялся, оригинал оставался issued).
         if (input.correctionKind === 'replacement') {
             await tx.update(invoices).set({
                 status: 'cancelled',
@@ -551,9 +588,11 @@ export async function createCorrection(
             }).where(eq(invoices.id, input.relatedInvoiceId));
         } else {
             await tx.update(invoices).set({
+                status: 'corrected',
                 hasCorrections: true,
             }).where(eq(invoices.id, input.relatedInvoiceId));
         }
+        return { id: created.id, number: created.number };
     });
 
     await recordEvent({
@@ -565,13 +604,12 @@ export async function createCorrection(
         data: {
             correctionKind: input.correctionKind,
             relatedNumber: orig_inv.number,
-            newNumber: number,
+            newNumber: createdId.number,
             reason: input.correctionReason,
         },
     });
 
-    const [created] = await db.select({ id: invoices.id }).from(invoices).where(eq(invoices.number, number)).limit(1);
-    return { id: created.id, number, correctionKind: input.correctionKind };
+    return { id: createdId.id, number: createdId.number, correctionKind: input.correctionKind };
 }
 
 // ============================================================

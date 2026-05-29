@@ -240,11 +240,18 @@ export interface PaymentCallbackResult {
 }
 
 export async function handlePaymentCallback(payload: PaymentCallbackPayload): Promise<PaymentCallbackResult> {
-    const [paymentRow] = await db
+  // B-P1-2 (P1-C): весь callback — в одной транзакции с FOR UPDATE на payment.
+  // Иначе dedupe-проверка и продление подписки — TOCTOU: два конкурентных
+  // ретрая вебхука оба читают старую metadata, оба проходят dedupe и оба
+  // катят период вперёд (двойное продление). FOR UPDATE сериализует ретраи:
+  // второй ждёт COMMIT первого, затем видит записанный lastWebhookEventId.
+  return db.transaction(async (tx) => {
+    const [paymentRow] = await tx
         .select()
         .from(payments)
         .where(eq(payments.providerPaymentId, payload.externalId))
-        .limit(1);
+        .limit(1)
+        .for('update');
     if (!paymentRow) {
         return { paymentId: null, subscriptionId: null, receiptUrl: null };
     }
@@ -265,7 +272,7 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
         } catch { /* malformed metadata — fall through and process */ }
     }
 
-    const [subRow] = await db
+    const [subRow] = await tx
         .select()
         .from(subscriptions)
         .where(eq(subscriptions.id, paymentRow.subscriptionId))
@@ -283,7 +290,7 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
     if (payload.status === 'succeeded') {
         // 1) Mark the payment as succeeded.
         const paidAt = new Date();
-        await db
+        await tx
             .update(payments)
             .set({
                 status: 'succeeded',
@@ -297,7 +304,7 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
         if (subRow) {
             const periodStart = paidAt;
             const periodEnd = new Date(paidAt.getTime() + 30 * 24 * 60 * 60 * 1000);
-            await db
+            await tx
                 .update(subscriptions)
                 .set({
                     status: 'active',
@@ -321,7 +328,7 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
                     vatCode: 'vat_none',
                 });
                 receiptUrl = receipt.receiptUrl;
-                await db
+                await tx
                     .update(payments)
                     .set({ receiptUrl })
                     .where(eq(payments.id, paymentRow.id));
@@ -334,7 +341,7 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
     }
 
     if (payload.status === 'failed' || payload.status === 'canceled') {
-        await db
+        await tx
             .update(payments)
             .set({
                 status: 'failed',
@@ -343,7 +350,7 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
             })
             .where(eq(payments.id, paymentRow.id));
         if (subRow) {
-            await db
+            await tx
                 .update(subscriptions)
                 .set({ status: 'past_due', updatedAt: new Date() })
                 .where(eq(subscriptions.id, subRow.id));
@@ -352,7 +359,7 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
     }
 
     if (payload.status === 'refunded') {
-        await db
+        await tx
             .update(payments)
             .set({
                 status: 'refunded',
@@ -364,6 +371,7 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
 
     // 'pending' / 'waiting_for_capture' — no-op.
     return { paymentId: paymentRow.id, subscriptionId: subRow?.id ?? null, receiptUrl: null };
+  });
 }
 
 // ---------- Usage ----------

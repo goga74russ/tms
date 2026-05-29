@@ -309,7 +309,7 @@ describe('POST /api/finance/invoices/:id/corrections', () => {
         expect(res.json().code).toBe('NOT_VAT_DOCUMENT');
     });
 
-    it('adjustment (КСФ) — orig stays issued + has_corrections=true', async () => {
+    it('adjustment (КСФ) — orig → corrected + has_corrections=true (H2)', async () => {
         const { draft, order } = await issueSf();
 
         // КСФ: по spec §5 хранится как отдельный документ с НОВОЙ
@@ -335,7 +335,8 @@ describe('POST /api/finance/invoices/:id/corrections', () => {
         const schema = await import('../../src/db/schema.js');
         const { eq } = await import('drizzle-orm');
         const [orig] = await db.select().from(schema.invoices).where(eq(schema.invoices.id, draft.id));
-        expect(orig.status).toBe('issued');
+        // H2 (P1-C): оригинал теперь помечается 'corrected' (раньше оставался issued).
+        expect(orig.status).toBe('corrected');
         expect(orig.hasCorrections).toBe(true);
     });
 
