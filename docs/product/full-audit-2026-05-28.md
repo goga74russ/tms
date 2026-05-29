@@ -49,6 +49,53 @@ finance/tax, ЭТрН/ЭПД-compliance, providers/workers/resilience, web+mobil
 
 ---
 
+## ▶️ P1 EXECUTION PLAN (для следующей сессии — выполнять в этом порядке)
+
+Контекст: P0 закрыты+задеплоены (`472acdc`). Docker локально был недоступен — поднять
+`pnpm --filter @tms/api test:integration:up` и прогнать интеграц.тесты в начале сессии.
+Делать кластерами, tsc+unit после каждого, коммит по кластеру, деплой в конце.
+
+**P1-A — finance-UI (демо-блокеры, регрессии T-16):**
+1. `apps/web/.../finance/InvoiceWorkflowActions.tsx` submitCancel: шлёт `{reason}` →
+   менять на `{cancellationReason}` (схема InvoiceCancelSchema). 422 сейчас всегда.
+2. тот же файл submitPayment: шлёт `{amount, paidAt, paymentRef}` → сервис ждёт
+   `{amount, paymentDate?, paymentReference?}` (invoice-workflow.service.ts:553). Переименовать.
+3. `apps/web/.../finance/page.tsx` handleBulkMarkPaid: PUT /status `status:'paid'` (нет в
+   enum) → убрать действие ИЛИ заменить на register-payment-flow. Рекоменд.: убрать bulk-mark-paid.
+4. `apps/web/.../finance/page.tsx` handleBulkDelete: DELETE /finance/invoices/:id не существует
+   → убрать (счета — неизменяемые юр-документы, bulk-delete не нужен).
+5. `apps/web/.../print/invoice/[id]` — хардкод «НДС 20%» + заголовок «СЧЁТ НА ОПЛАТУ» для
+   всех типов → брать invoice.vatRate + заголовок по invoice.type (СФ/УПД/счёт).
+6. `apps/web/.../client/page.tsx` — фильтр счёта по orderIds (API отдаёт tripIds) → счёт у
+   заказчика не виден. Исправить сопоставление.
+
+**P1-B — security/эксплуатация:**
+7. `apps/api/src/server.ts` — Fastify `{ trustProxy: true }` (rate-limit логина сейчас
+   общий бакет → brute-force/lockout).
+8. `apps/api/src/providers/**` real-адаптеры (yookassa/wialon/diadoc/…) — `healthCheck()`
+   возвращать `ok:false` «not implemented» ИЛИ исключить из realAdapterFactories (go-live капкан).
+9. `providers/email/unisender.ts` + `integrations/telegram.service.ts` — outbound `fetch` без
+   таймаута → через `providers/_http.ts httpFetch({timeoutMs})`.
+10. `apps/api/src/server.ts` `/api/health/ready` → `reply.status(degraded?503:200)`.
+11. `apps/api/src/server.ts` `/metrics` — требовать basic-auth если METRICS_ENABLED в prod.
+12. корневой `./deploy.sh` — удалить (бьёт по старому IP 5.42.102.58 + cost ×200); активный — scripts/deploy.sh.
+13. `integrations/routes.ts` mock-роуты (`/wialon-mock`, dadata, fuel) — env-gate (не prod) + org-scope vehicleId.
+
+**P1-C — finance correctness:**
+14. `invoice-workflow.service.ts:223` — валидировать vatRate против `allowedVatRates(taxRegime)`.
+15. `createCorrection` — гейт двойной корректировки (UI-гейт hasCorrections есть, API — нет).
+16. `createCorrection` — выставлять статус оригинала `corrected` (сейчас остаётся issued).
+17. `generateInvoiceNumber` — FOR UPDATE + парс int (не лексика) + per-(org,type,year) серия.
+18. `billing/service.ts:242` handlePaymentCallback — обернуть в транзакцию + FOR UPDATE dedupe.
+
+**P1-D — multitenancy/прочее:**
+19. `operational-core/write-service.ts:114` lot-assignment capacity — FOR UPDATE на lot.
+20. `settings/service.ts:79` cost-model — ключ с organizationId (сейчас глобальный).
+
+После P1 — повторный быстрый аудит-проход + обновить этот файл (P1 → закрыто).
+
+---
+
 ## 🟠 P1 — высокий (ломает функции / корректность денег / безопасность-эксплуатация)
 
 ### Finance UI — сломанные действия (T-16, в проде):
