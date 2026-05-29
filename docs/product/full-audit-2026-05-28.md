@@ -1,5 +1,11 @@
 # Полный аудит кодовой базы — 2026-05-28
 
+> **СТАТУС (2026-05-28, вечер): все 8×P0 ЗАКРЫТЫ** одним спринтом.
+> S1 (cross-tenant invoice IDOR) `5f9da19` · F1 (нулевой НДС) `5f9da19` · S3 (copilot)
+> `5d37598` · C1+C2+C3 (ЭТрН) `32da51d` · S2 (уведомления, +миграция 0038) `1d2651f` ·
+> INFRA1 (raw-мигратор) `4387582`. tsc(api) + unit(714) clean; +finance-p0 integration
+> тесты (прогон в CI — Docker локально был недоступен). P1/P2 — в бэклоге ниже.
+
 Метод: 7 параллельных глубоких аудит-агентов (security/auth, multitenancy/data/migrations,
 finance/tax, ЭТрН/ЭПД-compliance, providers/workers/resilience, web+mobile, infra/build/test).
 Все находки проверены по реальному коду; CONFIRMED если подтверждено чтением, SUSPECTED иначе.
