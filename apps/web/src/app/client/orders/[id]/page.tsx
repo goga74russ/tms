@@ -99,6 +99,7 @@ interface InvoiceRow {
     total?: number | string;
     createdAt?: string;
     orderIds?: string[];
+    tripIds?: string[];
 }
 
 interface AuditEventRow {
@@ -227,10 +228,14 @@ export default function ClientOrderDetailPage() {
             } catch { /* trip hidden — fine */ }
         }
 
-        // 3. Invoice — pull list and find by orderId association (no single-order endpoint).
+        // 3. Invoice — pull list and find by association (no single-order endpoint).
+        // P1-A (web-P1-5): матчим по orderIds (новая модель T-16 invoice_orders),
+        // с fallback на tripIds (легаси invoice_trips) через tripId заказа.
         try {
             const invRes = await api.get<{ data?: InvoiceRow[] }>('/finance/invoices?limit=100');
-            const inv = (invRes?.data || []).find((i) => Array.isArray(i.orderIds) && i.orderIds.includes(orderId));
+            const rows = invRes?.data || [];
+            const inv = rows.find((i) => Array.isArray(i.orderIds) && i.orderIds.includes(orderId))
+                ?? (ord.tripId ? rows.find((i) => Array.isArray(i.tripIds) && i.tripIds.includes(ord.tripId!)) : undefined);
             if (inv) setInvoice(inv);
         } catch { /* finance hidden for some clients — fine */ }
 

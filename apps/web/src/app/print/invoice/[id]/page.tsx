@@ -64,6 +64,26 @@ export default function InvoicePrintPage() {
     const tripCount = Array.isArray(inv.tripIds) ? inv.tripIds.length : 1;
     const pricePerTrip = tripCount ? Number(inv.subtotal) / tripCount : Number(inv.subtotal);
 
+    // P1-A (web-P1-6): заголовок по типу документа + ставка НДС из данных счёта
+    // (был хардкод «СЧЁТ НА ОПЛАТУ» + «НДС 20%» для всех типов → СФ/УПД печатались
+    // как счёт с неверным НДС).
+    const DOC_TITLES: Record<string, string> = {
+        payment: 'СЧЁТ НА ОПЛАТУ',
+        advance: 'СЧЁТ НА ОПЛАТУ (АВАНС)',
+        sf: 'СЧЁТ-ФАКТУРА',
+        upd: 'УНИВЕРСАЛЬНЫЙ ПЕРЕДАТОЧНЫЙ ДОКУМЕНТ (УПД)',
+        corrective_sf: 'КОРРЕКТИРОВОЧНЫЙ СЧЁТ-ФАКТУРА',
+        corrective_upd: 'КОРРЕКТИРОВОЧНЫЙ УПД',
+        act: 'АКТ ВЫПОЛНЕННЫХ РАБОТ',
+    };
+    const docTitle = DOC_TITLES[inv.type as string] ?? 'СЧЁТ НА ОПЛАТУ';
+    const vatRateNum = Number(inv.vatRate ?? 0);
+    const vatAmountNum = Number(inv.vatAmount ?? 0);
+    const hasVat = vatRateNum > 0 && vatAmountNum > 0;
+    const vatLabel = hasVat ? `НДС ${vatRateNum}%` : 'Без НДС';
+    // «Счёт действителен 10 дней» — только для платёжных/авансовых счетов.
+    const isPayable = inv.type === 'payment' || inv.type === 'advance';
+
     return (
         <>
             <div className="print-actions no-print">
@@ -89,7 +109,7 @@ export default function InvoicePrintPage() {
                 </div>
 
                 {/* Заголовок */}
-                <div className="doc-title">СЧЁТ НА ОПЛАТУ</div>
+                <div className="doc-title">{docTitle}</div>
                 <div className="doc-subtitle">№ {inv.number} от {fmt(inv.createdAt)}</div>
                 <hr />
 
@@ -138,16 +158,18 @@ export default function InvoicePrintPage() {
                 {/* Итого */}
                 <div className="totals-block">
                     <div className="total-row"><span>Итого без НДС:</span><span>{money(inv.subtotal)} ₽</span></div>
-                    <div className="total-row"><span>НДС 20%:</span><span>{money(inv.vatAmount)} ₽</span></div>
+                    <div className="total-row"><span>{vatLabel}:</span><span>{hasVat ? `${money(inv.vatAmount)} ₽` : '—'}</span></div>
                     <div className="total-row-bold"><span>К ОПЛАТЕ:</span><span>{money(inv.total)} ₽</span></div>
                 </div>
 
                 <div style={{ marginTop: 10, fontSize: '9pt', color: '#444' }}>
-                    Всего к оплате: {money(inv.total)} руб. (включая НДС 20%: {money(inv.vatAmount)} руб.)
+                    Всего к оплате: {money(inv.total)} руб. {hasVat ? `(включая НДС ${vatRateNum}%: ${money(inv.vatAmount)} руб.)` : '(НДС не облагается)'}
                 </div>
-                <div style={{ marginTop: 4, fontSize: '9pt', color: '#e65c00' }}>
-                    Счёт действителен 10 дней с даты выставления.
-                </div>
+                {isPayable && (
+                    <div style={{ marginTop: 4, fontSize: '9pt', color: '#e65c00' }}>
+                        Счёт действителен 10 дней с даты выставления.
+                    </div>
+                )}
 
                 {/* Подписи */}
                 <hr style={{ marginTop: 16 }} />

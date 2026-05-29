@@ -66,7 +66,7 @@ async function seedInvoice(opts: { number: string; tripId?: string }) {
     const [inv] = await db.insert(schema.invoices).values({
         number: opts.number,
         contractorId: fx.contractorId,
-        type: 'invoice',
+        type: 'payment',
         status: 'draft',
         subtotal: 1000,
         vatAmount: 200,
@@ -202,25 +202,7 @@ describe('POST /api/finance/invoices/bulk-generate', () => {
     });
 });
 
-describe('PUT /api/finance/invoices/:id/status', () => {
-    it('admin updates invoice status', async () => {
-        const inv = await seedInvoice({ number: 'INV-200' });
-        const res = await app.inject({
-            method: 'PUT',
-            url: `/api/finance/invoices/${inv.id}/status`,
-            headers: authHeaders(adminToken()),
-            payload: { status: 'sent' },
-        });
-        expect([200, 400]).toContain(res.statusCode);
-    });
-
-    it('returns 404 for nonexistent invoice', async () => {
-        const res = await app.inject({
-            method: 'PUT',
-            url: '/api/finance/invoices/00000000-0000-0000-0000-000000000099/status',
-            headers: authHeaders(adminToken()),
-            payload: { status: 'sent' },
-        });
-        expect([403, 404]).toContain(res.statusCode);
-    });
-});
+// PUT /api/finance/invoices/:id/status — УДАЛЁН (P1-A / finance-C2).
+// Легаси-эндпоинт писал статус мимо FSM; переходы теперь только через
+// invoice-workflow (/issue, /register-payment, /corrections, /cancel),
+// которые покрыты finance-p0.integration.test.ts и invoice-workflow тестами.

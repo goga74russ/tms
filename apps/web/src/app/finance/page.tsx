@@ -23,7 +23,7 @@ import { SkeletonTable } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { BulkActionsBar } from "@/components/ui/bulk-actions-bar";
-import { FileDown, Printer, Wallet, Receipt, AlertCircle, CheckCircle2, Banknote, FileSpreadsheet, Plus, Archive, CheckSquare, Trash2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { FileDown, Printer, Wallet, Receipt, AlertCircle, CheckCircle2, Banknote, FileSpreadsheet, Plus, Archive, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 
 async function downloadPdfAuth(apiPath: string, filename: string) {
     const res = await fetch(apiPath, {
@@ -603,55 +603,9 @@ export default function FinanceDashboard() {
         }
     };
 
-    const handleBulkMarkPaid = async () => {
-        const ids = Array.from(selectedIds);
-        if (ids.length === 0) return;
-        setBulkBusy(true);
-        try {
-            // No bulk endpoint exists — per-id loop via existing /status endpoint.
-            const results = await Promise.allSettled(
-                ids.map(id => api.put(`/finance/invoices/${id}/status`, { status: 'paid' })),
-            );
-            const ok = results.filter(r => r.status === 'fulfilled').length;
-            const failed = results.length - ok;
-            await fetchInvoices();
-            setSelectedIds(new Set());
-            toast({
-                variant: failed === 0 ? 'success' : 'warning',
-                title: 'Отмечено оплаченными',
-                description: failed === 0 ? `Обновлено счетов: ${ok}` : `Успешно: ${ok}, ошибок: ${failed}`,
-            });
-        } catch (err: any) {
-            toast({ variant: 'error', title: 'Ошибка', description: err?.message });
-        } finally {
-            setBulkBusy(false);
-        }
-    };
-
-    const handleBulkDelete = async () => {
-        const ids = Array.from(selectedIds);
-        if (ids.length === 0) return;
-        setBulkBusy(true);
-        try {
-            // No bulk endpoint — per-id DELETE loop.
-            const results = await Promise.allSettled(
-                ids.map(id => api.delete(`/finance/invoices/${id}`)),
-            );
-            const ok = results.filter(r => r.status === 'fulfilled').length;
-            const failed = results.length - ok;
-            await fetchInvoices();
-            setSelectedIds(new Set());
-            toast({
-                variant: failed === 0 ? 'success' : 'warning',
-                title: 'Удалено',
-                description: failed === 0 ? `Удалено счетов: ${ok}` : `Удалено: ${ok}, ошибок: ${failed} (возможно, эндпоинт DELETE не реализован)`,
-            });
-        } catch (err: any) {
-            toast({ variant: 'error', title: 'Ошибка', description: err?.message });
-        } finally {
-            setBulkBusy(false);
-        }
-    };
+    // P1-A: handleBulkMarkPaid / handleBulkDelete удалены — соответствующие
+    // bulk-действия убраны (см. BulkActionsBar ниже). Оплата идёт через FSM
+    // (register-payment в карточке), счета не удаляются (только cancel).
 
     // ================================================================
     const pendingCount = periodInvoices.filter(i => i.status === 'issued' || i.status === 'paid_partial').length;
@@ -1083,21 +1037,10 @@ export default function FinanceDashboard() {
                         variant: 'primary',
                         disabled: bulkBusy,
                     },
-                    {
-                        label: 'Отметить оплаченными',
-                        onClick: handleBulkMarkPaid,
-                        icon: CheckSquare,
-                        disabled: bulkBusy,
-                        confirm: true,
-                    },
-                    {
-                        label: 'Удалить',
-                        onClick: handleBulkDelete,
-                        icon: Trash2,
-                        variant: 'danger',
-                        confirm: true,
-                        disabled: bulkBusy,
-                    },
+                    // P1-A: bulk «Отметить оплаченными» (писал несуществующий status:'paid')
+                    // и bulk «Удалить» (DELETE /finance/invoices/:id не существует, счёт —
+                    // неизменяемый юр-документ) удалены. Оплата — через FSM register-payment
+                    // в карточке счёта; удаление счетов недопустимо (только cancel).
                 ]}
             />
         </div>

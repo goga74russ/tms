@@ -22,7 +22,7 @@ import {
     InvoiceWorkflowError,
 } from './invoice-workflow.service.js';
 import { db } from '../../db/connection.js';
-import { invoices, invoiceTrips, invoiceAdjustments, contractors as contractorsTable, organizations } from '../../db/schema.js';
+import { invoices, invoiceTrips, invoiceOrders, invoiceAdjustments, contractors as contractorsTable, organizations } from '../../db/schema.js';
 import { z } from 'zod';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { PRIVILEGED_ROLES, hasPrivilege } from '@tms/shared';
@@ -70,20 +70,35 @@ async function ensureInvoiceAccess(
 async function attachTripIds<T extends { id: string; subtotal: unknown; vatAmount: unknown; total: unknown }>(list: T[]) {
     if (list.length === 0) return [];
 
-    const links = await db.select({ invoiceId: invoiceTrips.invoiceId, tripId: invoiceTrips.tripId })
-        .from(invoiceTrips)
-        .where(inArray(invoiceTrips.invoiceId, list.map((item) => item.id)));
+    const ids = list.map((item) => item.id);
 
+    // Легаси-связь рейсов (invoice_trips).
+    const tripLinks = await db.select({ invoiceId: invoiceTrips.invoiceId, tripId: invoiceTrips.tripId })
+        .from(invoiceTrips)
+        .where(inArray(invoiceTrips.invoiceId, ids));
     const tripIdsByInvoice = new Map<string, string[]>();
-    for (const link of links) {
+    for (const link of tripLinks) {
         const existing = tripIdsByInvoice.get(link.invoiceId) ?? [];
         existing.push(link.tripId);
         tripIdsByInvoice.set(link.invoiceId, existing);
     }
 
+    // P1-A (web-P1-5): новая модель T-16 линкует счета через invoice_orders.
+    // Отдаём orderIds, иначе клиентский портал (order-centric) не видит счёт.
+    const orderLinks = await db.select({ invoiceId: invoiceOrders.invoiceId, orderId: invoiceOrders.orderId })
+        .from(invoiceOrders)
+        .where(inArray(invoiceOrders.invoiceId, ids));
+    const orderIdsByInvoice = new Map<string, string[]>();
+    for (const link of orderLinks) {
+        const existing = orderIdsByInvoice.get(link.invoiceId) ?? [];
+        existing.push(link.orderId);
+        orderIdsByInvoice.set(link.invoiceId, existing);
+    }
+
     return list.map((item) => ({
         ...serializeInvoice(item),
         tripIds: tripIdsByInvoice.get(item.id) ?? [],
+        orderIds: orderIdsByInvoice.get(item.id) ?? [],
     }));
 }
 
@@ -234,55 +249,11 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         }
     );
 
-    // 4. PUT /finance/invoices/:id/status — Смена статуса счёта
-    fastify.put<{ Params: { id: string } }>(
-        '/finance/invoices/:id/status',
-        { schema: { tags: ['Финансы'], summary: 'Сменить статус счёта', description: 'draft→sent→paid/overdue. Валидация переходов.' }, preHandler: [fastify.authenticate, requireAbility('update', 'Invoice')] },
-        async (request, reply) => {
-            try {
-                const parseResult = z.object({ status: z.string().min(1) }).safeParse(request.body);
-                if (!parseResult.success) {
-                    return reply.code(400).send({ success: false, error: 'Ошибка валидации данных', details: parseResult.error.flatten() });
-                }
-
-                const access = await ensureInvoiceAccess(request.params.id, request.user as { userId: string; roles: string[]; organizationId?: string });
-                if (access.error) {
-                    return reply.code(access.error.status).send(access.error.body);
-                }
-
-                // J1.6 — guard выпуска счёта: tax_regime обязателен.
-                // Любой переход из draft → не-draft означает выпуск
-                // (sent/issued) — это юр-публикация документа. Без явного
-                // налогового режима логика НДС/типа документа некорректна.
-                if (parseResult.data.status !== 'draft') {
-                    const userOrgId = (request.user as { organizationId?: string }).organizationId;
-                    if (userOrgId) {
-                        const [org] = await db.select({ taxRegime: organizations.taxRegime })
-                            .from(organizations).where(eq(organizations.id, userOrgId)).limit(1);
-                        if (org?.taxRegime === 'unspecified') {
-                            // L3 — invoice-spec.md §4 говорит 422 (Unprocessable Entity).
-                            // 412 (Precondition Failed) был неточным для бизнес-валидации.
-                            return reply.code(422).send({
-                                success: false,
-                                error: 'Заполните налоговый режим организации перед выпуском счёта',
-                                code: 'TAX_REGIME_REQUIRED',
-                            });
-                        }
-                    }
-                }
-
-                const updated = await financeService.updateInvoiceStatus(
-                    request.params.id,
-                    parseResult.data.status,
-                    request.user.userId,
-                    request.user.roles[0]
-                );
-                return { success: true, data: serializeInvoice(updated) };
-            } catch (error: any) {
-                return reply.code(400).send({ success: false, error: error.message });
-            }
-        }
-    );
+    // 4. PUT /finance/invoices/:id/status — УДАЛЁН (P1-A / finance-C2).
+    // Легаси-эндпоинт писал произвольный invoice.status сырым `as any` без FSM
+    // (можно было draft→paid_full, un-issue выпущенного, отмена оплаченного СФ;
+    // 'paid' вообще не входит в enum). Все легальные переходы покрыты workflow-
+    // эндпоинтами ниже: /issue, /register-payment, /corrections, /cancel.
 
     // ============================================================
     // M (Этап 3) — Invoice workflow per invoice-spec.md

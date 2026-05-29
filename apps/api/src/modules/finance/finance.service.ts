@@ -225,26 +225,8 @@ export class FinanceService {
     }
 
     // === INVOICE STATUS ===
-    async updateInvoiceStatus(invoiceId: string, newStatus: string, authorId: string, authorRole: string) {
-        const [updated] = await db.update(invoices)
-            .set({ status: newStatus as any })
-            .where(eq(invoices.id, invoiceId))
-            .returning();
-
-        if (!updated) throw new Error('Invoice not found');
-
-        const eventType = newStatus === 'paid' ? 'invoice.paid' : 'invoice.updated';
-        await recordEvent({
-            authorId,
-            authorRole,
-            eventType,
-            entityType: 'invoice',
-            entityId: updated.id,
-            data: { status: newStatus }
-        });
-
-        return updated;
-    }
+    // updateInvoiceStatus — УДАЛЁН (P1-A / finance-C2): писал произвольный
+    // status сырым `as any` без FSM. Переходы — только через invoice-workflow.
 
     // === FUEL ANALYSIS (with coefficients) ===
     async analyzeFuel(startDate?: Date, endDate?: Date, vehicleId?: string, organizationId?: string | null) {

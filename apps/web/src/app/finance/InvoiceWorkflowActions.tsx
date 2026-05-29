@@ -174,7 +174,9 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
         setBusy(true);
         try {
             await api.post(`/finance/invoices/${invoice.id}/register-payment`, {
-                amount, paidAt: new Date().toISOString(), paymentRef: payRef || null,
+                amount,
+                paymentDate: new Date().toISOString(),
+                ...(payRef.trim() ? { paymentReference: payRef.trim() } : {}),
             });
             toast({ variant: "success", title: "Оплата зафиксирована" });
             setModal(null); onDone();
@@ -207,7 +209,7 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
         if (cancelReason.trim().length < 5) { toast({ variant: "warning", title: "Причина", description: "Укажите причину отмены (≥5 симв.)" }); return; }
         setBusy(true);
         try {
-            await api.post(`/finance/invoices/${invoice.id}/cancel`, { reason: cancelReason });
+            await api.post(`/finance/invoices/${invoice.id}/cancel`, { cancellationReason: cancelReason.trim() });
             toast({ variant: "success", title: "Счёт отменён" });
             setModal(null); onDone();
         } catch (err: any) {
