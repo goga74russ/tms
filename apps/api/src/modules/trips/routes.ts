@@ -989,6 +989,17 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         });
 
         await assertTripAccess(id, user);
+        // P0-C2: единый ЭТрН-гейт — подпись ЭТрН по субподряд-рейсу запрещена
+        // (раньше этот путь минул субподряд-блок sign-endpoint'а).
+        try {
+            const { assertEtrnAllowed } = await import('../waybills/etrn-guard.js');
+            await assertEtrnAllowed(id);
+        } catch (e: any) {
+            if (e?.name === 'EtrnNotAllowedError') {
+                return reply.status(e.statusCode ?? 422).send({ success: false, code: e.code, error: e.message });
+            }
+            throw e;
+        }
         const parsed = bodySchema.safeParse(request.body ?? {});
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });

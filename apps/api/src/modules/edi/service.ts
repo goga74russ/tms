@@ -127,6 +127,7 @@ export async function sendDocumentToEdi(
             id: transportDocuments.id,
             titleType: transportDocuments.titleType,
             payload: transportDocuments.payload,
+            tripId: transportDocuments.tripId,
         })
         .from(transportDocuments)
         .where(eq(transportDocuments.id, documentId))
@@ -134,6 +135,11 @@ export async function sendDocumentToEdi(
     if (!doc) {
         throw new Error('Документ не найден');
     }
+
+    // P0-C2: единый ЭТрН-гейт — не отправляем ЭТрН в ЭДО по субподряд-рейсу
+    // (раньше EDI-путь минул субподряд-блок).
+    const { assertEtrnAllowed } = await import('../waybills/etrn-guard.js');
+    await assertEtrnAllowed(doc.tripId);
 
     // Gate: structural XSD validation for ETrN titles before mutating state.
     // payload here is the persisted JSON snapshot; the XML may be embedded

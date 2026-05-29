@@ -140,7 +140,7 @@ export function generateETrN(input: ETrNInput): string {
     const xml = `<?xml version="1.0" encoding="windows-1251"?>
 <Файл ВерсФорм="5.01" ВерсПрог="TMS-1.0" ИдФайл="${escapeXml(docId)}">
   <Документ ДатаДок="${docDate}" НомДок="${escapeXml(input.waybillNumber)}">
-    <СвТранworthy>
+    <СведТранспортнойНакладной>
 
       <!-- Сведения об участниках -->
       <СвУчаст>
@@ -180,7 +180,7 @@ export function generateETrN(input: ETrNInput): string {
       <!-- Путевой лист -->
       <ПутЛист Номер="${escapeXml(input.waybillNumber)}" ДатаВыд="${docDate}"${input.odometerOut ? ` ПоказОдомВыезд="${input.odometerOut}"` : ''}/>
 
-    </СвТранworthy>
+    </СведТранспортнойНакладной>
   </Документ>
 </Файл>`;
 

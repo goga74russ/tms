@@ -463,7 +463,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
     // ЭПД / ЭТрН вЂ” Электронная транспортная накладная (Sprint 6)
     // ================================================================
     const { generateETrN, generateETrNTitle4, encodeWindows1251 } = await import('./etrn-generator.js');
-    const { trips, orders, vehicles: vehiclesTable, contractors } = await import('../../db/schema.js');
+    const { trips, orders, vehicles: vehiclesTable, contractors, organizations: organizationsTable } = await import('../../db/schema.js');
 
     /**
      * GET /api/waybills/:id/etrn
@@ -489,6 +489,20 @@ export default async function waybillRoutes(app: FastifyInstance) {
             const [driver] = waybill.driverId ? await db.select().from(drivers).where(eq(drivers.id, waybill.driverId)).limit(1) : [null];
             const [contractor] = order?.order.contractorId ? await db.select().from(contractors).where(eq(contractors.id, order.order.contractorId)).limit(1) : [null];
 
+            // P0-C3: перевозчик в ЭТрН — реквизиты ОРГАНИЗАЦИИ рейса, не глобальный
+            // process.env.CARRIER_* (иначе в мульти-тенанте все ЭТрН заявляют одного
+            // перевозчика / нулевой ИНН). Без ИНН организации ЭТрН выпускать нельзя.
+            const [carrierOrg] = trip?.organizationId
+                ? await db.select().from(organizationsTable).where(eq(organizationsTable.id, trip.organizationId)).limit(1)
+                : [null];
+            if (!carrierOrg?.inn) {
+                return reply.status(422).send({
+                    success: false,
+                    code: 'CARRIER_REQUISITES_MISSING',
+                    error: 'Не заполнены реквизиты организации-перевозчика (ИНН). Заполните их в Настройках → Реквизиты перед выпуском ЭТрН.',
+                });
+            }
+
             // Sprint 14: Use separate consignee contractor if specified on order
             const consigneeContractorId = order?.order.consigneeContractorId ?? order?.order.contractorId;
             const [consigneeContractor] = consigneeContractorId && consigneeContractorId !== order?.order.contractorId
@@ -508,9 +522,10 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 shipperName: contractor?.name || 'вЂ”',
                 shipperInn: contractor?.inn || '0000000000',
                 shipperAddress: contractor?.legalAddress || 'вЂ”',
-                carrierName: process.env.CARRIER_NAME || 'ООО «ТМС Логистик»',
-                carrierInn: process.env.CARRIER_INN || '0000000000',
-                carrierAddress: process.env.CARRIER_ADDRESS || 'г. Москва',
+                carrierName: carrierOrg.name,
+                carrierInn: carrierOrg.inn,
+                carrierKpp: carrierOrg.kpp || undefined,
+                carrierAddress: carrierOrg.legalAddress || 'вЂ”',
                 consigneeName: consigneeContractor?.name || order?.order.unloadingAddress || 'вЂ”',
                 consigneeInn: consigneeContractor?.inn || '0000000000',
                 consigneeKpp: consigneeContractor?.kpp || undefined,
@@ -556,6 +571,18 @@ export default async function waybillRoutes(app: FastifyInstance) {
             const [order] = trip ? await db.select({ order: orders }).from(tripOrders).innerJoin(orders, eq(tripOrders.orderId, orders.id)).where(eq(tripOrders.tripId, trip.id)).limit(1) : [null];
             const [contractor] = order?.order.contractorId ? await db.select().from(contractors).where(eq(contractors.id, order.order.contractorId)).limit(1) : [null];
 
+            // P0-C3: перевозчик — реквизиты организации рейса, не process.env.CARRIER_*.
+            const [carrierOrg] = trip?.organizationId
+                ? await db.select().from(organizationsTable).where(eq(organizationsTable.id, trip.organizationId)).limit(1)
+                : [null];
+            if (!carrierOrg?.inn) {
+                return reply.status(422).send({
+                    success: false,
+                    code: 'CARRIER_REQUISITES_MISSING',
+                    error: 'Не заполнены реквизиты организации-перевозчика (ИНН). Заполните их в Настройках → Реквизиты перед выпуском ЭТрН.',
+                });
+            }
+
             // Sprint 14: Use separate consignee contractor if specified
             const consigneeContractorId = order?.order.consigneeContractorId ?? order?.order.contractorId;
             const [consigneeContractor] = consigneeContractorId && consigneeContractorId !== order?.order.contractorId
@@ -578,9 +605,10 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 shipperName: contractor?.name || 'вЂ”',
                 shipperInn: contractor?.inn || '0000000000',
                 shipperAddress: contractor?.legalAddress || 'вЂ”',
-                carrierName: process.env.CARRIER_NAME || 'ООО «ТМС Логистик»',
-                carrierInn: process.env.CARRIER_INN || '0000000000',
-                carrierAddress: process.env.CARRIER_ADDRESS || 'г. Москва',
+                carrierName: carrierOrg.name,
+                carrierInn: carrierOrg.inn,
+                carrierKpp: carrierOrg.kpp || undefined,
+                carrierAddress: carrierOrg.legalAddress || 'вЂ”',
                 consigneeName: consigneeContractor?.name || order?.order.unloadingAddress || 'вЂ”',
                 consigneeInn: consigneeContractor?.inn || '0000000000',
                 consigneeKpp: consigneeContractor?.kpp || undefined,
