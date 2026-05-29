@@ -109,6 +109,11 @@ const app = Fastify({
     },
     // A-P0-7: stable request-id helps correlate logs <-> client-side reports.
     genReqId: (req) => (req.headers['x-request-id'] as string) || crypto.randomUUID(),
+    // SEC-P1: за nginx без trustProxy request.ip == IP прокси для ВСЕХ клиентов →
+    // rate-limit логина (5/min) превращается в общий бакет (brute-force одним
+    // клиентом лочит всех; распределённый перебор обходит лимит). Включаем
+    // доверие X-Forwarded-For — nginx ставит реальный client IP.
+    trustProxy: true,
 });
 
 // A-P0-7: global error handler. Default Fastify echoes err.message to clients,
@@ -228,11 +233,17 @@ await app.register(rateLimit, {
 // `Authorization: Basic ...`; without those vars it serves unauthenticated
 // (assumes Prometheus and the API live on the same internal docker network).
 const metricsEnabled = process.env.METRICS_ENABLED === 'true';
-if (metricsEnabled) {
-    const metricsUser = process.env.METRICS_BASIC_AUTH_USER;
-    const metricsPass = process.env.METRICS_BASIC_AUTH_PASS;
-    const metricsAuthRequired = Boolean(metricsUser && metricsPass);
-
+const metricsUser = process.env.METRICS_BASIC_AUTH_USER;
+const metricsPass = process.env.METRICS_BASIC_AUTH_PASS;
+const metricsAuthRequired = Boolean(metricsUser && metricsPass);
+// SEC-P1 (#11): в production /metrics без basic-auth = открытая выдача
+// внутренних таймингов/глубин очередей наружу. Требуем creds; если их нет —
+// НЕ публикуем endpoint (fail-safe), а не отдаём его анонимно.
+const metricsExposable = metricsEnabled && (process.env.NODE_ENV !== 'production' || metricsAuthRequired);
+if (metricsEnabled && !metricsExposable) {
+    app.log.error('METRICS_ENABLED=true в production без METRICS_BASIC_AUTH_USER/PASS — /metrics НЕ опубликован (защита от анонимной выдачи метрик). Задайте creds.');
+}
+if (metricsExposable) {
     if (metricsAuthRequired) {
         app.addHook('onRequest', (request, reply, done) => {
             if (request.url !== '/metrics' && !request.url.startsWith('/metrics?')) {
@@ -407,7 +418,7 @@ app.get('/api/health', { schema: { tags: ['Здоровье'], summary: 'Health 
 }));
 
 // --- Readiness check (DB + Redis) ---
-app.get('/api/health/ready', { schema: { tags: ['Здоровье'], summary: 'Readiness check', description: 'Проверка готовности: БД + Redis.' } }, async (request) => {
+app.get('/api/health/ready', { schema: { tags: ['Здоровье'], summary: 'Readiness check', description: 'Проверка готовности: БД + Redis.' } }, async (request, reply) => {
     let dbOk = false;
     let redisOk = false;
     try {
@@ -416,7 +427,9 @@ app.get('/api/health/ready', { schema: { tags: ['Здоровье'], summary: 'R
     } catch { }
     redisOk = await testRedisConnection(request.log);
     const status = dbOk && redisOk ? 'ok' : 'degraded';
-    return { status, db: dbOk, redis: redisOk, timestamp: new Date().toISOString() };
+    // INFRA-P1-4: при degraded (БД/Redis down) отдаём 503, иначе LB/K8s readiness
+    // считает инстанс готовым и продолжает слать на него трафик при мёртвой БД.
+    return reply.status(status === 'ok' ? 200 : 503).send({ status, db: dbOk, redis: redisOk, timestamp: new Date().toISOString() });
 });
 
 // --- Local uploads static serving (dev only — in prod, MinIO serves files directly) ---

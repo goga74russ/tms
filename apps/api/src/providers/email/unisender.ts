@@ -22,6 +22,7 @@
 //   UNISENDER_LIST_ID        — числовой id списка контактов
 // ============================================================
 import { nowIso, type ProviderHealth } from '../base.js';
+import { httpFetch } from '../_http.js';
 import type { EmailCredentials, EmailMessage, EmailProvider } from './interface.js';
 
 export const UNISENDER_API_URL = 'https://api.unisender.com/ru/api';
@@ -122,11 +123,13 @@ export class UnisenderEmailProvider implements EmailProvider {
         body.set('lang', 'ru');
         if (text) body.set('text_body', text);
 
-        const res = await fetch(url, {
+        // PROV-P1-1: через httpFetch с таймаутом (15s) + ретраями на 5xx —
+        // голый fetch без таймаута вешал signup-запрос при зависшем Unisender.
+        const res = await httpFetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: body.toString(),
-        });
+        }, { timeoutMs: 15000, retries: 1 });
 
         if (!res.ok) {
             // Transport-level failure (5xx, network). Distinct from API-level

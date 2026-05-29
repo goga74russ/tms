@@ -1,7 +1,10 @@
 // ============================================================
 // Telegram Bot Service — Sprint 6 Phase 1
-// Sends notifications via Telegram Bot API (native fetch, no deps)
+// Sends notifications via Telegram Bot API.
+// PROV-P1-1: все outbound — через httpFetch с таймаутом (10s). Голый fetch
+// без таймаута вешал notification-worker / webhook-setup при зависшем TG API.
 // ============================================================
+import { httpFetch } from '../providers/_http.js';
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 const API_BASE = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -37,11 +40,11 @@ export async function sendMessage(chatId: string | number, text: string, options
     };
 
     try {
-        const res = await fetch(`${API_BASE}/sendMessage`, {
+        const res = await httpFetch(`${API_BASE}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
-        });
+        }, { timeoutMs: 10000, retries: 1 });
         return await res.json() as TelegramResponse;
     } catch (err: any) {
         console.error('❌ Telegram sendMessage failed:', err.message);
@@ -53,7 +56,7 @@ export async function sendMessage(chatId: string | number, text: string, options
  * Get bot info (for /start verification).
  */
 export async function getMe(): Promise<TelegramResponse> {
-    const res = await fetch(`${API_BASE}/getMe`);
+    const res = await httpFetch(`${API_BASE}/getMe`, {}, { timeoutMs: 10000, retries: 1 });
     return await res.json() as TelegramResponse;
 }
 
@@ -61,11 +64,11 @@ export async function getMe(): Promise<TelegramResponse> {
  * Set webhook URL for receiving updates.
  */
 export async function setWebhook(url: string): Promise<TelegramResponse> {
-    const res = await fetch(`${API_BASE}/setWebhook`, {
+    const res = await httpFetch(`${API_BASE}/setWebhook`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, secret_token: WEBHOOK_SECRET || undefined }),
-    });
+    }, { timeoutMs: 10000, retries: 1 });
     return await res.json() as TelegramResponse;
 }
 
@@ -73,7 +76,7 @@ export async function setWebhook(url: string): Promise<TelegramResponse> {
  * Delete webhook (switch to polling).
  */
 export async function deleteWebhook(): Promise<TelegramResponse> {
-    const res = await fetch(`${API_BASE}/deleteWebhook`);
+    const res = await httpFetch(`${API_BASE}/deleteWebhook`, {}, { timeoutMs: 10000, retries: 1 });
     return await res.json() as TelegramResponse;
 }
 

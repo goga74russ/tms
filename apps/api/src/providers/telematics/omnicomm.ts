@@ -36,9 +36,10 @@ export class OmnicommTelematicsProvider implements TelematicsProvider {
 
     async healthCheck(): Promise<ProviderHealth> {
         return {
-            ok: Boolean(this.creds.user && this.creds.password),
+            // PROV-P0-2: skeleton — методы не реализованы.
+            ok: false,
             mode: 'production',
-            detail: 'omnicomm credentials present',
+            detail: 'omnicomm adapter not implemented (skeleton) — integration not live',
             checkedAt: nowIso(),
         };
     }

@@ -38,9 +38,10 @@ export class WialonTelematicsProvider implements TelematicsProvider {
 
     async healthCheck(): Promise<ProviderHealth> {
         return {
-            ok: Boolean(this.creds.token),
+            // PROV-P0-2: skeleton — методы не реализованы (см. mock-одометр).
+            ok: false,
             mode: 'production',
-            detail: 'wialon token present',
+            detail: 'wialon adapter not implemented (skeleton) — integration not live',
             checkedAt: nowIso(),
         };
     }

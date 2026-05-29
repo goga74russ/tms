@@ -27,9 +27,10 @@ export class CrptMarkingProvider implements MarkingProvider {
 
     async healthCheck(): Promise<ProviderHealth> {
         return {
-            ok: Boolean(this.creds.omsToken && this.creds.organizationInn),
+            // PROV-P0-2: skeleton — методы не реализованы.
+            ok: false,
             mode: 'production',
-            detail: 'crpt credentials present',
+            detail: 'crpt adapter not implemented (skeleton) — integration not live',
             checkedAt: nowIso(),
         };
     }

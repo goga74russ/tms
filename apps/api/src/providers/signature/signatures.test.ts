@@ -65,20 +65,17 @@ describe('GosklyuchSignatureProvider.sign — deeplink builder', () => {
 });
 
 describe('GosklyuchSignatureProvider.healthCheck', () => {
-    it('reports ok when credentials are present, not-ok when missing', async () => {
-        const okProv = new GosklyuchSignatureProvider({
+    // PROV-P0-2 (P1-B): адаптер — skeleton (нет live API ping, verify() кидает).
+    // healthCheck теперь честно отдаёт ok:false вне зависимости от наличия
+    // creds, чтобы админка не показывала ложный «production healthy» / go-live.
+    it('reports not-ok (skeleton, not implemented) даже при наличии creds', async () => {
+        const prov = new GosklyuchSignatureProvider({
             clientId: 'c', clientSecret: 's', organizationOgrn: 'o',
         });
-        const okHealth = await okProv.healthCheck();
-        expect(okHealth.ok).toBe(true);
-        expect(okHealth.mode).toBe('production');
-
-        const missingProv = new GosklyuchSignatureProvider({
-            clientId: '', clientSecret: '', organizationOgrn: '',
-        });
-        const missingHealth = await missingProv.healthCheck();
-        expect(missingHealth.ok).toBe(false);
-        expect(missingHealth.detail).toMatch(/missing/i);
+        const health = await prov.healthCheck();
+        expect(health.ok).toBe(false);
+        expect(health.mode).toBe('production');
+        expect(health.detail).toMatch(/not implemented|skeleton/i);
     });
 });
 

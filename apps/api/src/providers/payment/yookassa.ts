@@ -54,9 +54,11 @@ export class YookassaPaymentProvider implements PaymentProvider {
 
     async healthCheck(): Promise<ProviderHealth> {
         return {
-            ok: Boolean(this.creds.shopId && this.creds.secretKey),
+            // PROV-P0-2: skeleton — create/get/refund кидают "not implemented".
+            // healthCheck не должен рапортовать ok:true (go-live капкан).
+            ok: false,
             mode: 'production',
-            detail: 'yookassa credentials present',
+            detail: 'yookassa adapter not implemented (skeleton) — integration not live',
             checkedAt: nowIso(),
         };
     }

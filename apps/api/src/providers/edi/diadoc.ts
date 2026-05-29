@@ -28,9 +28,11 @@ export class DiadocEdiProvider implements EdiProvider {
 
     async healthCheck(): Promise<ProviderHealth> {
         return {
-            ok: Boolean(this.creds.apiClientId && this.creds.authToken && this.creds.boxId),
+            // PROV-P0-2: skeleton — методы не реализованы. healthCheck не должен
+            // рапортовать ok:true, иначе админка показывает ложный «production healthy».
+            ok: false,
             mode: 'production',
-            detail: 'diadoc credentials present',
+            detail: 'diadoc adapter not implemented (skeleton) — integration not live',
             checkedAt: nowIso(),
         };
     }

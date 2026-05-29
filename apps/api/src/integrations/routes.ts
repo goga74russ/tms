@@ -15,6 +15,29 @@ import { z } from 'zod';
 
 export default async function integrationRoutes(app: FastifyInstance) {
 
+    // PROV-P1-7: mock-симуляторы (wialon-mock/*, fuel-card-mock/sync) пишут
+    // синтетику в реальные таблицы. В production открыты — гейтим за явным
+    // env-флагом (оператор включает только для демо/наладки). Возвращаем 404
+    // (не 403), чтобы не раскрывать существование mock-эндпоинтов.
+    const mocksEnabled = process.env.NODE_ENV !== 'production'
+        || process.env.INTEGRATION_MOCKS_ENABLED === 'true';
+    function mockGate(reply: import('fastify').FastifyReply): boolean {
+        if (mocksEnabled) return true;
+        reply.status(404).send({ success: false, error: 'Ресурс не найден' });
+        return false;
+    }
+    // PROV-P1-7: org-scope vehicleId — без него любой залогиненный мог
+    // стартовать симуляцию / читать позиции / лить топливо на ЧУЖОЕ ТС.
+    // Возвращает true, если ТС существует и принадлежит орг пользователя
+    // (orgId null/глобал-роль → пропускаем). false → вызывающий шлёт 404.
+    async function vehicleInOrg(vehicleId: string, orgId?: string): Promise<boolean> {
+        const [v] = await db.select({ org: vehicles.organizationId })
+            .from(vehicles).where(eq(vehicles.id, vehicleId)).limit(1);
+        if (!v) return false;
+        if (orgId && v.org && v.org !== orgId) return false;
+        return true;
+    }
+
     // ──────────────────────────────────────────────
     // POST /integrations/wialon/sync — manual trigger
     // ──────────────────────────────────────────────
@@ -135,17 +158,20 @@ export default async function integrationRoutes(app: FastifyInstance) {
     }, async (request, reply) => {
         const { vehicleId } = request.params as { vehicleId: string };
         const { days } = request.query as { days?: string };
+        const orgId = (request.user as { organizationId?: string }).organizationId;
 
         const [vehicle] = await db
             .select({
                 plateNumber: vehicles.plateNumber,
                 currentOdometerKm: vehicles.currentOdometerKm,
+                organizationId: vehicles.organizationId,
             })
             .from(vehicles)
             .where(eq(vehicles.id, vehicleId))
             .limit(1);
 
-        if (!vehicle) {
+        // PROV-P1-7: org-scope — чужое ТС → 404 (не раскрываем существование).
+        if (!vehicle || (orgId && vehicle.organizationId && vehicle.organizationId !== orgId)) {
             return reply.status(404).send({ success: false, error: 'ТС не найдено' });
         }
 
@@ -181,10 +207,14 @@ export default async function integrationRoutes(app: FastifyInstance) {
         schema: { tags: ['Интеграции'], summary: 'Старт mock-трека Wialon', description: 'Запускает фоновый симулятор: каждые ~10 с пишет позицию ТС в vehicle_positions.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
     }, async (request, reply) => {
-        const user = request.user as { userId: string; roles: string[] };
+        if (!mockGate(reply)) return;
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string };
         const parsed = StartSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
+        }
+        if (!(await vehicleInOrg(parsed.data.vehicleId, user.organizationId))) {
+            return reply.status(404).send({ success: false, error: 'ТС не найдено' });
         }
         try {
             const status = await WialonMockRunner.startSimulation(parsed.data.vehicleId, parsed.data.tripId, {
@@ -211,10 +241,14 @@ export default async function integrationRoutes(app: FastifyInstance) {
         schema: { tags: ['Интеграции'], summary: 'Остановить mock-трек Wialon', description: 'Останавливает фоновый симулятор для ТС.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
     }, async (request, reply) => {
-        const user = request.user as { userId: string; roles: string[] };
+        if (!mockGate(reply)) return;
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string };
         const parsed = StopSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
+        }
+        if (!(await vehicleInOrg(parsed.data.vehicleId, user.organizationId))) {
+            return reply.status(404).send({ success: false, error: 'ТС не найдено' });
         }
         const stopped = await WialonMockRunner.stopSimulation(parsed.data.vehicleId);
         await recordEvent({
@@ -241,6 +275,10 @@ export default async function integrationRoutes(app: FastifyInstance) {
         const parsed = PositionsQuerySchema.safeParse(request.query ?? {});
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
+        }
+        const orgId = (request.user as { organizationId?: string }).organizationId;
+        if (!(await vehicleInOrg(parsed.data.vehicleId, orgId))) {
+            return reply.status(404).send({ success: false, error: 'ТС не найдено' });
         }
         const where = parsed.data.since
             ? and(eq(vehiclePositions.vehicleId, parsed.data.vehicleId), gte(vehiclePositions.recordedAt, new Date(parsed.data.since)))
@@ -281,7 +319,8 @@ export default async function integrationRoutes(app: FastifyInstance) {
         },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
     }, async (request, reply) => {
-        const user = request.user as { userId: string; roles: string[] };
+        if (!mockGate(reply)) return;
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string };
         const parsed = FuelCardSyncSchema.safeParse(request.body ?? {});
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
@@ -304,7 +343,8 @@ export default async function integrationRoutes(app: FastifyInstance) {
             .where(eq(vehicles.id, vehicleId))
             .limit(1);
 
-        if (!vehicle) {
+        // PROV-P1-7: org-scope — нельзя лить топливо на чужое ТС.
+        if (!vehicle || (user.organizationId && vehicle.organizationId && vehicle.organizationId !== user.organizationId)) {
             return reply.status(404).send({ success: false, error: 'ТС не найдено' });
         }
 
@@ -349,7 +389,8 @@ export default async function integrationRoutes(app: FastifyInstance) {
     app.get('/integrations/wialon-mock/status', {
         schema: { tags: ['Интеграции'], summary: 'Активные mock-симуляции', description: 'Возвращает список активных Wialon-mock симуляторов.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
-    }, async () => {
+    }, async (_request, reply) => {
+        if (!mockGate(reply)) return;
         return { success: true, data: { simulations: WialonMockRunner.listSimulations() } };
     });
 }

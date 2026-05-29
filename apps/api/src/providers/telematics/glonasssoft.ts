@@ -37,9 +37,10 @@ export class GlonasssoftTelematicsProvider implements TelematicsProvider {
 
     async healthCheck(): Promise<ProviderHealth> {
         return {
-            ok: Boolean(this.creds.user && this.creds.password),
+            // PROV-P0-2: skeleton — методы не реализованы.
+            ok: false,
             mode: 'production',
-            detail: 'glonasssoft credentials present',
+            detail: 'glonasssoft adapter not implemented (skeleton) — integration not live',
             checkedAt: nowIso(),
         };
     }

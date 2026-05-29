@@ -32,12 +32,14 @@ export class GosklyuchSignatureProvider implements SignatureProvider {
     constructor(private readonly creds: GosklyuchCredentials) { }
 
     async healthCheck(): Promise<ProviderHealth> {
-        // TODO: GET /health on Госключ API once token is available.
-        const ok = Boolean(this.creds.clientId && this.creds.clientSecret);
+        // PROV-P0-2: skeleton — sign() возвращает заглушечный deeplink, verify()
+        // кидает, live-ping к Госключ API не реализован. Демо-флоу идёт через
+        // публичный callback, но healthCheck не должен рапортовать «production
+        // healthy» — это вводит оператора в заблуждение о готовности к go-live.
         return {
-            ok,
+            ok: false,
             mode: 'production',
-            detail: ok ? 'credentials present (no live ping yet)' : 'missing clientId/secret',
+            detail: 'gosklyuch adapter not implemented (skeleton) — no live API ping; callback-driven flow only',
             checkedAt: nowIso(),
         };
     }
