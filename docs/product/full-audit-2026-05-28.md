@@ -4,7 +4,16 @@
 > S1 (cross-tenant invoice IDOR) `5f9da19` · F1 (нулевой НДС) `5f9da19` · S3 (copilot)
 > `5d37598` · C1+C2+C3 (ЭТрН) `32da51d` · S2 (уведомления, +миграция 0038) `1d2651f` ·
 > INFRA1 (raw-мигратор) `4387582`. tsc(api) + unit(714) clean; +finance-p0 integration
-> тесты (прогон в CI — Docker локально был недоступен). P1/P2 — в бэклоге ниже.
+> тесты (прогон в CI — Docker локально был недоступен).
+>
+> **СТАТУС (2026-05-29): весь P1 EXECUTION PLAN (20 пунктов A→D) ЗАКРЫТ** — отдельная сессия.
+> A finance-UI `4bc4657` · B security/ops `3bf8681` · C finance-correctness `78112a1` ·
+> D multitenancy `511ed50`. P0-integration верифицированы локально (Docker поднят):
+> finance-p0 5/5, invoice-workflow 17/17, finance 9/9, **полный integration 132/132**,
+> unit 714, tsc(api+web) чисто. **Отложено (требует решения владельца):**
+> P1-C #17 — per-org нумерация счетов (нужен дроп глобального `unique(invoices.number)`
+> → composite `(payee_organization_id, number)`, риск на проде; сейчас сделаны
+> advisory-lock против гонки + numeric-parse, серия глобальная). P2 — в бэклоге ниже.
 
 Метод: 7 параллельных глубоких аудит-агентов (security/auth, multitenancy/data/migrations,
 finance/tax, ЭТрН/ЭПД-compliance, providers/workers/resilience, web+mobile, infra/build/test).
@@ -49,7 +58,7 @@ finance/tax, ЭТрН/ЭПД-compliance, providers/workers/resilience, web+mobil
 
 ---
 
-## ▶️ P1 EXECUTION PLAN (для следующей сессии — выполнять в этом порядке)
+## ✅ P1 EXECUTION PLAN — ВЫПОЛНЕН 2026-05-29 (A `4bc4657` · B `3bf8681` · C `78112a1` · D `511ed50`)
 
 Контекст: P0 закрыты+задеплоены (`472acdc`). Docker локально был недоступен — поднять
 `pnpm --filter @tms/api test:integration:up` и прогнать интеграц.тесты в начале сессии.
@@ -85,7 +94,9 @@ finance/tax, ЭТрН/ЭПД-compliance, providers/workers/resilience, web+mobil
 14. `invoice-workflow.service.ts:223` — валидировать vatRate против `allowedVatRates(taxRegime)`.
 15. `createCorrection` — гейт двойной корректировки (UI-гейт hasCorrections есть, API — нет).
 16. `createCorrection` — выставлять статус оригинала `corrected` (сейчас остаётся issued).
-17. `generateInvoiceNumber` — FOR UPDATE + парс int (не лексика) + per-(org,type,year) серия.
+17. `generateInvoiceNumber` — ✅ advisory-xact-lock (гонка) + numeric-parse (>99999) сделаны;
+    ⚠️ per-(org) серия ОТЛОЖЕНА — требует дропа глобального `unique(invoices.number)` на
+    composite `(payee_organization_id, number)` (риск на проде, решение владельца).
 18. `billing/service.ts:242` handlePaymentCallback — обернуть в транзакцию + FOR UPDATE dedupe.
 
 **P1-D — multitenancy/прочее:**
