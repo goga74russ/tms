@@ -146,7 +146,8 @@ export class TarificationService {
                 : Promise.resolve(0),
         ]);
 
-        const costSettings = await getCostModelSettings();
+        // P1-D: cost-model — per-org (tripRecord несёт organizationId).
+        const costSettings = await getCostModelSettings(tripRecord.organizationId);
 
         // 6. Delegate to pure computation
         return this.computeTripCost(tripRecord, tariff, points, vehicleForFuel, tollsCost, costSettings);
@@ -209,7 +210,9 @@ export class TarificationService {
 
         const vehiclesById = new Map(allVehicles.map((vehicle) => [vehicle.id, vehicle]));
         const tollsByWaybillId = new Map(allTollRows.map((row) => [row.waybillId, Number(row.total) || 0]));
-        const costSettings = await getCostModelSettings();
+        // P1-D: batch обычно в пределах одной орг (вызывается из org-scoped
+        // bulk-операции) — берём орг первого рейса для per-org cost-model.
+        const costSettings = await getCostModelSettings(allTrips[0]?.organizationId);
 
         // Calculate costs in-memory for each trip
         const results = new Map<string, TripCostBreakdown>();

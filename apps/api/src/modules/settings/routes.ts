@@ -17,8 +17,9 @@ const settingsRoutes: FastifyPluginAsync = async (fastify) => {
             description: 'Текущие настройки себестоимости для тарификации: топливо, ставка водителя, амортизация.',
         },
         preHandler: [fastify.authenticate, requireAbility('manage', 'Settings')],
-    }, async () => {
-        const data = await getCostModelSettings();
+    }, async (request) => {
+        const orgId = (request.user as { organizationId?: string }).organizationId;
+        const data = await getCostModelSettings(orgId);
         return { success: true, data };
     });
 
@@ -35,7 +36,8 @@ const settingsRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(422).send({ success: false, error: parsed.error.flatten() });
         }
 
-        const data = await updateCostModelSettings(parsed.data, request.user.userId);
+        const orgId = (request.user as { organizationId?: string }).organizationId;
+        const data = await updateCostModelSettings(parsed.data, request.user.userId, orgId);
         return { success: true, data };
     });
 

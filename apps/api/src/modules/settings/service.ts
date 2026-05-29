@@ -10,6 +10,14 @@ export const COST_SETTING_KEYS = {
 
 type CostSettingField = keyof typeof COST_SETTING_KEYS;
 
+// settings cost-model глобальный (P1-D): ключ был общий для всех орг —
+// tenant-admin перезаписывал топливо/зарплату/амортизацию для ВСЕХ тенантов.
+// Делаем per-org ключ `<baseKey>:<orgId>`. Чтение: org-ключ → глобальный
+// (legacy/общий дефолт оператора) → env → захардкоженный default.
+function orgKey(baseKey: string, orgId?: string | null): string {
+    return orgId ? `${baseKey}:${orgId}` : baseKey;
+}
+
 const DEFAULT_COST_SETTINGS = {
     fuelPricePerLiter: 60,
     driverSalaryPerHour: 350,
@@ -27,18 +35,23 @@ function toFiniteNumber(value: unknown, fallback: number) {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-export async function getCostModelSettings() {
+export async function getCostModelSettings(orgId?: string | null) {
+    // Грузим и org-scoped, и глобальные ключи — fallback идёт org → global.
+    const wantedKeys = Object.values(COST_SETTING_KEYS).flatMap((k) =>
+        orgId ? [orgKey(k, orgId), k] : [k]);
     const rows = await db.select()
         .from(appSettings)
-        .where(inArray(appSettings.key, Object.values(COST_SETTING_KEYS)));
+        .where(inArray(appSettings.key, wantedKeys));
 
     const map = new Map(rows.map((row) => [row.key, row]));
 
     const readSetting = (field: CostSettingField, envName: string) => {
-        const dbRow = map.get(COST_SETTING_KEYS[field]);
+        const baseKey = COST_SETTING_KEYS[field];
+        // org-ключ приоритетнее глобального.
+        const dbRow = (orgId ? map.get(orgKey(baseKey, orgId)) : undefined) ?? map.get(baseKey);
         if (dbRow) {
             return {
-                key: COST_SETTING_KEYS[field],
+                key: baseKey,
                 value: toFiniteNumber(dbRow.value, DEFAULT_COST_SETTINGS[field]),
                 source: 'database' as const,
                 description: dbRow.description ?? COST_SETTING_DESCRIPTIONS[field],
@@ -79,12 +92,14 @@ export async function getCostModelSettings() {
 export async function updateCostModelSettings(
     input: Partial<Record<CostSettingField, number>>,
     updatedBy?: string,
+    orgId?: string | null,
 ) {
+    // P1-D: пишем в org-scoped ключ — tenant-admin меняет ТОЛЬКО свою орг.
     const patches = (Object.keys(input) as CostSettingField[])
         .filter((field) => input[field] !== undefined)
         .map((field) => ({
             field,
-            key: COST_SETTING_KEYS[field],
+            key: orgKey(COST_SETTING_KEYS[field], orgId),
             value: String(input[field]!),
             description: COST_SETTING_DESCRIPTIONS[field],
         }));
@@ -114,7 +129,7 @@ export async function updateCostModelSettings(
         }
     }
 
-    return getCostModelSettings();
+    return getCostModelSettings(orgId);
 }
 
 export async function listRecentSettings() {

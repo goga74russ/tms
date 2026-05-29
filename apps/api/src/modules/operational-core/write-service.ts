@@ -95,11 +95,15 @@ export async function splitOrderIntoLots(orderId: string, input: { maxWeightKg?:
 }
 export async function assignLotToTrip(tripId: string, input: { shipmentLotId: string; assignedWeightKg?: number; assignedVolumeM3?: number; assignedPlaces?: number; allowOverCapacity?: boolean }, actor: Actor) {
     return db.transaction(async (tx) => {
-        const [trip] = await tx.select().from(trips).where(eq(trips.id, tripId)).limit(1);
+        // B-P1-4 (P1-D): FOR UPDATE на trip и lot — capacity-проверка ниже читает
+        // sum(assignedWeight) и затем вставляет. Без блокировки две конкурентные
+        // привязки к одному лоту/рейсу обе читают старую сумму → over-assignment
+        // сверх planned-веса лота и вместимости ТС. Лок сериализует их.
+        const [trip] = await tx.select().from(trips).where(eq(trips.id, tripId)).limit(1).for('update');
         if (!trip) throw new Error('Trip not found');
         assertOrg(trip.organizationId, actor, 'Trip');
 
-        const [lot] = await tx.select().from(shipmentLots).where(eq(shipmentLots.id, input.shipmentLotId)).limit(1);
+        const [lot] = await tx.select().from(shipmentLots).where(eq(shipmentLots.id, input.shipmentLotId)).limit(1).for('update');
         if (!lot) throw new Error('Shipment lot not found');
         assertOrg(lot.organizationId, actor, 'Shipment lot');
 
