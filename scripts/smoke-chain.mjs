@@ -295,13 +295,16 @@ ok(`bulk-generate: created ${bulk.data?.created?.length ?? 0}, skipped ${bulk.da
 header('Test AI co-pilot (mock fallback ok)');
 const copilot = await http('POST', '/api/copilot/chat', {
     message: 'Сколько активных рейсов?',
-}, [200, 401, 402]); // 401 if no org, 402 if plan-guard blocks
+}, [200, 401, 402, 404]); // 401 no org, 402 plan-guard, 404 AI flag off (T-0)
 if (copilot.success === true) {
     ok('copilot responded (mock or real)');
 } else if (copilot.error === 'PLAN_FEATURE_LOCKED') {
     info('copilot gated by plan — expected on Free');
 } else if (copilot.error === 'No organization in token') {
     info('copilot requires org-scoped user — super-user has no org (expected)');
+} else if (copilot.error === 'Not Found') {
+    // T-0: AI_COPILOT_ENABLED!=true → роут не регистрируется (404). Штатно.
+    info('copilot disabled (AI_COPILOT_ENABLED!=true) — route 404, expected');
 } else {
     info(`copilot: ${JSON.stringify(copilot).slice(0, 200)}`);
 }

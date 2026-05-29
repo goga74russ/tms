@@ -36,13 +36,15 @@ const DISPATCHER_PASSWORD = process.env.E2E_DISPATCHER_PASSWORD ?? SUPER_PASSWOR
 
 async function login(page: Page, email: string, password: string) {
     await page.goto('/login');
-    await expect(page.getByRole('heading', { name: /TMS Вход/i })).toBeVisible();
+    // Логин-страница переделана (AuthSplitLayout): заголовок «Войти в ТрансПульт»,
+    // плейсхолдер email «your@company.ru», кнопка «Войти» — обновлено под текущий UI.
+    await expect(page.getByRole('heading', { name: /Войти в ТрансПульт/i })).toBeVisible();
 
-    await page.getByPlaceholder('admin@tms.local').fill(email);
+    await page.getByPlaceholder('your@company.ru').fill(email);
     // The password input is the only `type="password"` on the page.
     await page.locator('input[type="password"]').fill(password);
 
-    await page.getByRole('button', { name: /Войти в систему/i }).click();
+    await page.getByRole('button', { name: /^Войти$/i }).click();
 
     // After login, the app redirects to a role-based dashboard.
     // We wait for the URL to leave /login.

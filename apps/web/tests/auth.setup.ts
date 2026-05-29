@@ -19,9 +19,11 @@ setup('authenticate all roles', async ({ browser }) => {
         const page = await context.newPage();
         try {
             await page.goto('/login');
-            await page.getByPlaceholder('admin@tms.local').fill(ru.email);
+            // Логин-страница переделана (AuthSplitLayout): плейсхолдер email и
+            // текст кнопки изменились — обновлено под текущий UI.
+            await page.getByPlaceholder('your@company.ru').fill(ru.email);
             await page.locator('input[type="password"]').fill(SEED_PASSWORD);
-            await page.getByRole('button', { name: /Войти в систему/i }).click();
+            await page.getByRole('button', { name: /^Войти$/i }).click();
             await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 20_000 });
 
             // Save cookies + localStorage в файл — Playwright переиспользует его
