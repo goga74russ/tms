@@ -34,6 +34,23 @@ export interface CopilotToolContext {
     organizationId?: string | null;
 }
 
+// P0-S3: org-ownership guards для by-id инструментов. Сервисы под ними
+// (getTransportDossier/getDriverHosStatus/calculateTripCost) грузят по PK без
+// org-фильтра → без этой проверки copilot отдавал чужие рейсы/водителей/маржу
+// по угаданному UUID. orgId=null/undefined (super-admin) — без ограничения.
+async function tripInOrg(tripId: string, orgId?: string | null): Promise<boolean> {
+    if (!orgId) return true;
+    const [row] = await db.select({ id: trips.id }).from(trips)
+        .where(and(eq(trips.id, tripId), eq(trips.organizationId, orgId))).limit(1);
+    return !!row;
+}
+async function driverInOrg(driverId: string, orgId?: string | null): Promise<boolean> {
+    if (!orgId) return true;
+    const [row] = await db.select({ id: drivers.id }).from(drivers)
+        .where(and(eq(drivers.id, driverId), eq(drivers.organizationId, orgId))).limit(1);
+    return !!row;
+}
+
 export interface CopilotToolHandlerResult<TData = unknown> {
     success: boolean;
     data?: TData;
@@ -133,7 +150,9 @@ const getTripDetailsTool: CopilotTool<z.infer<typeof GetTripDetailsInput>> = {
     description: 'Полная карточка рейса: маршрут, заявки, водитель, ТС, документы.',
     inputSchema: GetTripDetailsInput,
     input_schema: zodToJsonSchema(GetTripDetailsInput),
-    handler: async (input) => {
+    handler: async (input, ctx) => {
+        // P0-S3: by-id tool — проверяем принадлежность рейса орг actor'а до загрузки.
+        if (!(await tripInOrg(input.tripId, ctx.organizationId))) return { success: false, error: 'Trip not found' };
         const dossier = await getTransportDossier(input.tripId);
         if (!dossier) return { success: false, error: 'Trip not found' };
         return { success: true, data: dossier };
@@ -148,7 +167,9 @@ const driverHosTool: CopilotTool<z.infer<typeof DriverHosInput>> = {
     description: 'Текущий статус режима труда и отдыха (РТО) водителя — часы за сегодня и rolling 7 дней, превышения лимитов.',
     inputSchema: DriverHosInput,
     input_schema: zodToJsonSchema(DriverHosInput),
-    handler: async (input) => {
+    handler: async (input, ctx) => {
+        // P0-S3: проверяем принадлежность водителя орг actor'а.
+        if (!(await driverInOrg(input.driverId, ctx.organizationId))) return { success: false, error: 'Driver not found' };
         const status = await getDriverHosStatus(input.driverId);
         return { success: true, data: status };
     },
@@ -240,7 +261,9 @@ const computeTripCostTool: CopilotTool<z.infer<typeof ComputeTripCostInput>> = {
     description: 'Расчёт себестоимости и тарифа рейса (топливо, водитель, амортизация, ночная надбавка, платные дороги).',
     inputSchema: ComputeTripCostInput,
     input_schema: zodToJsonSchema(ComputeTripCostInput),
-    handler: async (input) => {
+    handler: async (input, ctx) => {
+        // P0-S3: рейс должен принадлежать орг actor'а (calculateTripCost org-blind).
+        if (!(await tripInOrg(input.tripId, ctx.organizationId))) return { success: false, error: 'Trip not found' };
         try {
             const cost = await tarificationService.calculateTripCost(input.tripId);
             return { success: true, data: cost };
@@ -268,7 +291,11 @@ const proposeReassignmentTool: CopilotTool<z.infer<typeof ProposeReassignmentInp
             })
             .from(drivers)
             .innerJoin(users, eq(drivers.userId, users.id))
-            .where(eq(drivers.id, input.driverId))
+            .where(and(
+                eq(drivers.id, input.driverId),
+                // P0-S3: целевой водитель — только из орг actor'а.
+                ctx.organizationId ? eq(drivers.organizationId, ctx.organizationId) : undefined,
+            ))
             .limit(1);
         if (!target) return { success: false, error: 'Driver not found' };
 
