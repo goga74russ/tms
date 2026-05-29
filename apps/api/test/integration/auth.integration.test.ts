@@ -58,7 +58,9 @@ describe('POST /api/auth/login', () => {
             payload: { email: 'admin@test.local', password: 'wrong-password' },
         });
         expect(res.statusCode).toBe(401);
-        expect(res.json().error).toBe('Invalid credentials');
+        // Сообщение локализовано (RU-facing продукт); enumeration-safe — одинаковое
+        // для несуществующего email и неверного пароля.
+        expect(res.json().error).toBe('Неверный email или пароль');
     });
 
     it('returns 401 on unknown email (no enumeration leak)', async () => {
