@@ -92,7 +92,16 @@ function renderInline(text: string): React.ReactNode[] {
         }
         const link = rest.match(/^\[([^\]]+)\]\(([^)]+)\)/);
         if (link) {
-            out.push(<a key={key++} href={link[2]} className="text-brand-600 hover:text-brand-700 underline" target="_blank" rel="noopener noreferrer">{link[1]}</a>);
+            // P2-E5: whitelist схем — иначе [text](javascript:...) даёт latent XSS.
+            // Разрешаем http/https/mailto/tel + относительные (/, #, ./, ../).
+            const url = link[2].trim();
+            const safe = /^(https?:|mailto:|tel:)/i.test(url) || /^(\/|#|\.\/|\.\.\/)/.test(url);
+            if (safe) {
+                out.push(<a key={key++} href={url} className="text-brand-600 hover:text-brand-700 underline" target="_blank" rel="noopener noreferrer">{link[1]}</a>);
+            } else {
+                // Небезопасная схема → рендерим только текст ссылки, без href.
+                out.push(<span key={key++}>{link[1]}</span>);
+            }
             rest = rest.slice(link[0].length);
             continue;
         }

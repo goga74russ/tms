@@ -123,12 +123,19 @@ const STATUS_MAP: Record<string, { label: string; tone: PillTone }> = {
     cancelled: { label: 'Отменена', tone: 'danger' },
 };
 
+// P2-E4: enum синхронизирован с invoice-fsm (M/T-16). Старые sent/paid/overdue
+// оставлены как fallback для легаси-данных, но новые статусы — основные.
 const INVOICE_STATUS_MAP: Record<string, { label: string; tone: PillTone }> = {
     draft: { label: 'Черновик', tone: 'neutral' },
-    sent: { label: 'Отправлен', tone: 'info' },
+    issued: { label: 'Выставлен', tone: 'info' },
+    paid_partial: { label: 'Частично оплачен', tone: 'info' },
+    paid_full: { label: 'Оплачен', tone: 'success' },
+    corrected: { label: 'Скорректирован', tone: 'neutral' },
+    cancelled: { label: 'Отменён', tone: 'neutral' },
+    // legacy fallback:
+    sent: { label: 'Выставлен', tone: 'info' },
     paid: { label: 'Оплачен', tone: 'success' },
     overdue: { label: 'Просрочен', tone: 'danger' },
-    cancelled: { label: 'Отменён', tone: 'neutral' },
 };
 
 function formatMoney(value: number | string | null | undefined) {
