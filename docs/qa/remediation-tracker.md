@@ -6,9 +6,21 @@
 
 ## Зачем этот файл
 
-Аудит нашёл **280 находок** (7×P0, 92×P1, 135×P2, 46×P3) + **32 пометки «ЗАКРЫТО-НО-ОТКРЫТО»**.
+Аудит нашёл **280 находок** (7×P0, 92×P1, 135×P2, 46×P3) + **11 пометок «ЗАКРЫТО-НО-ОТКРЫТО» (CBO)**
+(8 raw до дедупа — источник: шапка аудита §«ЗАКРЫТО-НО-ОТКРЫТО (11)»).
 «ЗАКРЫТО-НО-ОТКРЫТО» = места, где прошлый фикс (S2/S3/C2/E2/E6) объявлен закрытым, но реально
 ушёл в один роут, а тот же класс остался в соседних. Цель этого трекера — **не повторить эту ошибку**.
+
+> **11 CBO уже регрессировали один раз** (фикс был и отвалился). Каждому — **именной**
+> regression-тест (не общий инвариант класса): самая дешёвая страховка от второго рецидива.
+> CBO-находки помечены `(CBO)` в классах ниже.
+
+> **⚠️ Платформенного super-admin в системе НЕТ.** `APP_ROLES` (rbac.ts) = admin(org-scoped)/
+> manager/dispatcher/logist/accountant/mechanic/medic/repair_service/client/driver. Легитимного
+> «org=null видит все тенанты» актора не существует. Поэтому **org-less привилегированный аккаунт =
+> всегда мисконфиг/seed → DENY (403/пусто), НИКОГДА не bypass.** Это инвариант для всех org-scope фиксов
+> (C3/C4). Именно `else if (user.organizationId)` без else-ветки сделал ensureInvoiceAccess/GET tariffs
+> эксплуатируемыми.
 
 ## Метод (анти-рецидив) — обязателен для каждого класса
 
@@ -42,16 +54,17 @@
 | **C2** | Деньги: billing-replay + НДС-корректность + нумерация | Single-tenant real, реальные суммы/чеки | 0 | 10 | TODO |
 | **C3** | Org-scope sweep (cross-tenant IDOR/leak) | Гейт мульти-тенант пилота. Самый большой класс | 5 | 23 | TODO |
 | **C4** | Глобально-unique индексы → per-org | 1 миграция, ломает multitenancy | 0 | 4 | TODO |
-| **C5** | TOCTOU / read-modify-write без транзакции | Гонки на деньгах/подписи/статусах | 0 | 12 | TODO |
+| **C5** | TOCTOU / read-modify-write без транзакции | Гонки на деньгах/подписи/статусах | 0 | 13 | TODO |
 | **C6** | Субподряд-ЭТрН-гейт (centralize assertEtrnAllowed) | Юр-блок обходится. Юр-оценка → /jurist | 1 | 1 | TODO |
 | **C7** | Auth / JWT-revocation корректность | E6 неполон, ломает сессии | 0 | 3 | TODO |
 | **C8** | Утечка raw-PG-ошибок клиенту | Раскрытие структуры БД | 0 | 4 | TODO |
-| **C9** | Correctness / unfinished / perf / misc (catch-all) | Всё остальное P1; разнести по мере разбора | 0 | 24 | TODO |
+| **C9** | Correctness / unfinished / perf / misc (catch-all) | Всё остальное P1; разнести по мере разбора | 0 | 27 | TODO |
 
-**Сверка P0/P1:** 7 P0 + (7+10+23+4+12+1+3+4+24=88 P1). Остаток до 92 P1 (≈4) — добираются в C9 при
-разборе хвоста (правило: любая не-разнесённая находка по умолчанию падает в C9, дом есть у каждой).
-**P2 (135) + P3 (46)** — подтягиваются по классам через ссылку на сегмент аудита (см. «Sweep P2/P3»
-в каждом классе) либо чистятся отдельным проходом C9 в конце. Сумма = 280, источник — аудит `776c8be`.
+**Сверка P0/P1 (все названы поимённо):** 7 P0 + (7+10+23+4+13+1+3+4+27 = **92 P1**). Все 92 P1 из
+severity-секции аудита разнесены по классам — безымянного остатка нет (свод проверен grep'ом по аудиту).
+**P2 (135) + P3 (46) = 181** — подтягиваются по классам через ссылку на сегмент аудита (см. «Sweep P2/P3»
+в каждом классе); финальный проход **C9** обязан пройти весь список P2/P3 из аудита и по каждой
+вынести `VERIFIED`/`DEFER+причина` (см. DoD C9). Сумма = 280, источник — аудит `776c8be`.
 
 ---
 
@@ -101,8 +114,22 @@ mapInvoiceStatus stale enum (xml-export:151), deferred-триггер не св�
 
 ## C3 — Org-scope sweep (cross-tenant IDOR/leak)  `TODO`
 
-**Инвариант:** каждый роут/сервис, читающий/пишущий tenant-данные, фильтруется по organizationId
-(super-admin org=null → осознанный bypass). Матрица-тест: роут × cross-tenant → 403/404.
+> **⚠️ C3 — это ТРИ разных корневых механизма, не один. «Добавь org-фильтр + хелпер» НЕ закроет
+> класс** (сам станет рецидивом). Каждый инстанс отнести к механизму, якорный матрица-тест ОБЯЗАН
+> покрыть все три, иначе «починим общий случай, пропустим NULL-FK» — ровно тот класс, против которого весь трекер.
+
+**Три механизма (помечать каждый инстанс ниже):**
+- **(а) фильтра нет вообще** — запрос без `.where(org)` (adr, settings/recent, telegram-subscriptions, execution idempotency).
+- **(б) org-less обход** — `organizationId=null` коротит гейт (`else if (user.organizationId)` без else; ensureInvoiceAccess, claims:156, GET /tariffs). **Фикс:** org-less привилегированный аккаунт → DENY, НЕ bypass (super-admin-роли нет — см. шапку).
+- **(в) NULL-FK выпадает из subquery-скоупа** — скоуп через `inArray(fk, subquery)`, строка с `fk=null` не отсеивается и видна всем (incidents с vehicleId=null, orphaned claims без contractorId, sprint9 trailers).
+
+**Инвариант:** каждый роут/сервис tenant-данных скоупится по `organizationId` НАПРЯМУЮ (не через FK-subquery,
+где это оставляет NULL-дыру); org-less аккаунт без явной платформенной роли (которой нет) → доступ запрещён.
+
+**Якорный матрица-тест (3 обязательных кейса на каждый защищаемый роут):**
+1. **cross-tenant:** актор орг-A по ресурсу орг-B → 403/404/пусто.
+2. **org-less аккаунт:** привилегированная роль с `organizationId=null` → НЕ видит чужое (403/пусто), не all-tenants.
+3. **NULL-FK строка:** ресурс с `fk=null` (vehicleId/contractorId) создан орг-A → НЕ виден орг-B.
 
 - [ ] **P0** `compliance/adr/service.ts:70-82` — listAdrOrders игнорирует organizationId
 - [ ] **P0** `edi/routes.ts:154-186` — mock-progress форсит ЭТрН-статус чужого документа (нет assertTripAccess)
@@ -137,7 +164,9 @@ mapInvoiceStatus stale enum (xml-export:151), deferred-триггер не св�
 fleet getDriver fines (fleet:380), analytics profitability vehicle-subquery (misc1:249), sprint9 trailers
 unscoped (misc2:66), sync events без org (misc2:99/185), cold-chain resolveTripSla (repairs-insp:44),
 fines.worker без org (integrations), mchd_number oracle (signatures:294), copilot list_pending_invoices (misc1:365).
-**Реко:** единый хелпер row-level org-scope + матрица-тест по всем роутам разом.
+**Реко:** хелпер row-level org-scope ПРИМЕНЯЕТ все три механизма (прямой org-фильтр вместо FK-subquery;
+явный DENY для org-less; покрытие NULL-FK). Один хелпер допустим, только если он закрывает все три —
+иначе не закрывает класс. Каждый из 28 инстансов прогнать через 3-кейсовый матрица-тест.
 
 ---
 
@@ -172,6 +201,7 @@ org_id теряет уникальность для NULL-строк (api-db 0039
 - [ ] **P1** `apps/mobile/.../offlineQueue.ts:149-206` — replayQueue без блокировки → двойная отправка/потеря очереди
 - [ ] **P1** `apps/web/.../repair/RepairKanban.tsx:1252-1279` — handlePlan/ReceiveParts: updateRepair+changeStatus два запроса без tx
 - [ ] **P1** `apps/web/.../logist/CreateTripModal.tsx:152-186` — two-step create без rollback → orphan unassigned trips
+- [ ] **P1** `apps/web/.../dispatcher/page.tsx:486-493` — force-close two-step без rollback → trip с delivery-confirmation остаётся in_transit при сбое шага статуса
 
 **Sweep P2/P3:** sign-endpoint read-modify-write (signatures:302), settings updateCostModel upsert вне tx
 (onboarding:107), trips assignTrip двойное назначение (trips-core:626), orders generateOrderNumber без lock
@@ -248,6 +278,13 @@ opcore (opcore:70), copilot SSE (misc1:337). **Реко:** единый error-ma
 - [ ] **P1** `apps/web/.../components/TemperaturePanel.tsx:80` — client-side RBAC расходится с сервером
 - [ ] **P1** `apps/web/.../dispatcher/page.tsx:598` cockpit (см. выше) / `apps/mobile/.../AppNavigator` мульти-роль (sweep)
 - [ ] **P1** `packages/shared/src/schemas.ts:116` — VehicleSchema.plateNumber regex отвергает все валидные госномера РФ (`\\d` вместо `\d`)
+- [ ] **P1** `apps/web/.../admin/integrations/page.tsx:227-232` — DPA acceptance-check 404/error молча проваливается в CredentialModal → обход DPA-гейта в проде (security)
+- [ ] **P1** `apps/web/.../admin/layout.tsx:51-65` — admin-RBAC только клиентский: SSR отдаёт контент до редиректа (security)
+- [ ] **P1** `apps/web/.../dispatcher/page.tsx:573` — handleSelectTrip ищет ТС в устаревшем `vehicles` вместо `enrichedVehicles` → фокус карты молча не срабатывает при активных WS-позициях
+
+**DoD C9 (обязательно для закрытия класса):** помимо перечисленных P1 — **пройти ВЕСЬ список P2 (135) и
+P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по каждой находке выставить `VERIFIED` (fixed)
+либо `DEFER` с письменной причиной. Без этого 181 находка тихо сольётся. Вести подсчёт: закрыто/отложено = 181.
 
 **Sweep P3 (46):** косметика по сегментам — пройти финальным заходом, см. аудит §«P3».
 
@@ -258,4 +295,5 @@ opcore (opcore:70), copilot SSE (misc1:337). **Реко:** единый error-ma
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
-| 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | _(этот коммит)_ |
+| 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
+| 2026-06-02 | — | Правки по ревью QA: 32→11 CBO (был артефакт грепа); C3 разбит на 3 механизма (нет-фильтра / org-less-обход / NULL-FK) + 3-кейсовый матрица-тест; убран опасный «super-admin org=null → bypass» (super-admin-роли в системе НЕТ → org-less = DENY); названы 4 пропущенных P1 (dispatcher:486→C5, integrations:227/admin-layout:51/dispatcher:573→C9); DoD C9 = пройти все 181 P2/P3; CBO → именные regression-тесты | _(этот коммит)_ |
