@@ -55,23 +55,26 @@
 
 ---
 
-## C1 — Подпись / ПЭП-верификация / immutability осмотров  `TODO`
+## C1 — Подпись / ПЭП-верификация / immutability осмотров  `WIP`
 
 **Инвариант:** ПЭП-подпись не сохраняется без `verifyPassword`; запечатанный подписанный осмотр
 неизменяем; публичная подпись верифицируется по содержимому; решение осмотра — только уполномоченной ролью.
 
-- [ ] **P0** `inspections/service.ts:285-295, 588` — ПЭП (signature) пишется в БД без `verifyPassword` (plaintext пароль / неверифицированная подпись)
+- [x] **P0** `inspections/service.ts` — ПЭП без `verifyPassword`. ✅ FIX+VERIFIED (`5e09a5c`+):
+  helper `verifyPepSignature` (сверка пароля подписанта → 403, хранит необратимый `pep:v1:<fp>`, не plaintext).
+  **Sweep нашёл 4 места, не 2:** аудит назвал 294/588 (pre-trip), пропустил **1088/1201 (post-trip)** — починены все 4.
+  Инвариант-тест (матрица tech/med × wrong→403+нет записи / correct→201+pep:v1:*) + grep-acceptance (анти-паттерн=0). bcrypt-примитивы вынесены в `auth/password.ts` (убран JWT-сайд-эффект).
+- [x] **P1** `apps/web/.../medic/page.tsx:350-398` — алкотест+approved. ✅ FIX (серверный guard `InspectionRuleError`→422 в createMed/createPostTripMed + тест). Клиентский дубль-guard — опционально.
 - [ ] **P1** `inspections/service.ts:938-983` — `updateTechInspectionDecision` ретро-правка запечатанного осмотра без immutability-guard
 - [ ] **P1** `inspections/service.ts:985-1047` — `updateMedInspectionDecision` тот же gap + approved→rejected flip ретро-разблокирует водителя
 - [ ] **P1** `inspections/routes.ts:608-635` — `POST /inspections/tech/:id/decision` доступен любому с role mechanic без проверки роли-механика
 - [ ] **P1** `signatures/gosklyuch-callback.ts:92-134, 254-356` — публичный callback принимает произвольный signedXml без верификации содержимого/mTLS/IP-allowlist
-- [ ] **P1** `apps/web/.../medic/page.tsx:350-398` — медосмотр с положительным алкотестом + decision='approved' без серверного guard
 - [ ] **P1** `apps/mobile/.../DeliveryConfirmationScreen.tsx:147` — подпись получателя отправляется пустой строкой без валидации
 - [ ] **P1** `apps/web/.../trips/page.tsx:1639-1644` — хардкод signerRole='dispatcher'/signerName='Оператор ТрансПульт' для любого юзера
 
 **Sweep P2/P3:** signerRole free-text (trips-docs:981), signedAt client-supplied (store:1025/1033),
 signatureState scalar/мульти-титул (gosklyuch-callback:286,321), classifiers never called (api-repairs-insp).
-**DoD:** см. метод выше + юр-оценка подписи → /jurist.
+**DoD:** см. метод выше + юр-оценка подписи → /jurist. **Остаток C1:** immutability осмотров (938/985), role-gate (608), gosklyuch (92), mobile-подпись, signerRole.
 
 ---
 
@@ -255,3 +258,4 @@ opcore (opcore:70), copilot SSE (misc1:337). **Реко:** единый error-ma
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | _(этот коммит)_ |

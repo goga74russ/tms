@@ -2,8 +2,8 @@
 // Auth module — JWT + httpOnly cookies + rate limiting
 // ============================================================
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import bcrypt from 'bcryptjs';
 import { randomBytes, randomInt } from 'node:crypto';
+import { hashPassword, verifyPassword } from './password.js';
 import cookie from '@fastify/cookie';
 import { db } from '../db/connection.js';
 import { users, drivers, tariffs, contracts, contractors, checklistTemplates, organizations, emailVerifications } from '../db/schema.js';
@@ -57,7 +57,6 @@ if (!JWT_SECRET) {
 // but should be replaced with access + refresh token pair before scaling.
 // Tracked in audit-2026-05-12-deep.md P2.
 const JWT_EXPIRES_IN = '24h';
-const SALT_ROUNDS = 12;
 const COOKIE_NAME = 'tms_token';
 const COOKIE_MAX_AGE = 86400; // 24h in seconds
 const LOGIN_RATE_LIMIT_MAX = Math.max(
@@ -72,9 +71,9 @@ function isOutsideActorOrganization(actor: AuthenticatedUser, organizationId?: s
     return Boolean(actor.organizationId && organizationId !== actor.organizationId);
 }
 
-export async function hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, SALT_ROUNDS);
-}
+// bcrypt-примитивы вынесены в ./password.ts (без JWT/db сайд-эффектов) и
+// ре-экспортируются здесь для обратной совместимости со старыми импортами.
+export { hashPassword, verifyPassword };
 
 /**
  * A-P0-3: CSPRNG-backed 6-digit code for email verification. Math.random is
@@ -95,9 +94,6 @@ export function generateTempPassword(): string {
     return randomBytes(12).toString('base64url');
 }
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-    return bcrypt.compare(password, hash);
-}
 
 export function registerAuthRoutes(app: FastifyInstance) {
     // Register cookie plugin

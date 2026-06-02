@@ -10,8 +10,11 @@ import {
     buildTestApp,
     signTestToken,
     authHeaders,
+    getTestDb,
     type BaseFixture,
 } from './setup.js';
+import { techInspections, medInspections } from '../../src/db/schema.js';
+import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 
 let app: FastifyInstance;
@@ -124,7 +127,7 @@ describe('POST /api/inspections/tech — RBAC + validation', () => {
                 checklistVersion: '1.0',
                 items: [{ name: 'Tyres', result: 'ok' }],
                 decision: 'approved',
-                signature: 'sig-data',
+                signature: fx.password, // valid ПЭП — wrong password would now 403 (C1)
             },
         });
         // Not 401/403 — proves RBAC passed.
@@ -192,5 +195,87 @@ describe('GET /api/inspections/tech/:id', () => {
             headers: authHeaders(adminToken()),
         });
         expect([403, 404]).toContain(res.statusCode);
+    });
+});
+
+// ============================================================
+// C1 — ПЭП-верификация (P0): подпись = пароль подписанта.
+// Инвариант: неверный пароль → 403 и НЕТ записи; верный → 201 и в БД
+// хранится необратимый маркер pep:v1:*, НЕ plaintext-пароль.
+// Покрывает оба периодических пути (tech/med). Post-trip пути зовут тот
+// же helper verifyPepSignature — см. grep-acceptance в remediation-tracker.
+// ============================================================
+describe('C1: ПЭП-верификация осмотров (P0)', () => {
+    const techPayload = (signature: string) => ({
+        vehicleId: fx.vehicleId,
+        inspectionType: 'periodic' as const,
+        checklistVersion: '1.0',
+        items: [{ name: 'Tyres', result: 'ok' as const }],
+        decision: 'approved' as const,
+        signature,
+    });
+    const medPayload = (signature: string) => ({
+        driverId: fx.driverId,
+        inspectionType: 'periodic' as const,
+        checklistVersion: '1.0',
+        systolicBp: 120, diastolicBp: 80, heartRate: 70, temperature: 36.6,
+        condition: 'удовлетворительное', alcoholTest: 'negative' as const,
+        decision: 'approved' as const,
+        signature,
+    });
+
+    it('tech: неверный пароль → 403 и НЕ создаёт запись', async () => {
+        const res = await app.inject({
+            method: 'POST', url: '/api/inspections/tech',
+            headers: authHeaders(mechanicTok()), payload: techPayload('totally-wrong-password'),
+        });
+        expect(res.statusCode).toBe(403);
+        const db = await getTestDb();
+        const rows = await db.select().from(techInspections).where(eq(techInspections.vehicleId, fx.vehicleId));
+        expect(rows.length).toBe(0);
+    });
+
+    it('tech: верный пароль → 201 и в БД хранится pep:v1:*, не plaintext', async () => {
+        const res = await app.inject({
+            method: 'POST', url: '/api/inspections/tech',
+            headers: authHeaders(mechanicTok()), payload: techPayload(fx.password),
+        });
+        expect(res.statusCode).toBe(201);
+        const db = await getTestDb();
+        const [row] = await db.select().from(techInspections).where(eq(techInspections.vehicleId, fx.vehicleId));
+        expect(row.signature).toMatch(/^pep:v1:/);
+        expect(row.signature).not.toBe(fx.password);
+    });
+
+    it('med: неверный пароль → 403 и НЕ создаёт запись', async () => {
+        const res = await app.inject({
+            method: 'POST', url: '/api/inspections/med',
+            headers: authHeaders(medicTok()), payload: medPayload('totally-wrong-password'),
+        });
+        expect(res.statusCode).toBe(403);
+        const db = await getTestDb();
+        const rows = await db.select().from(medInspections).where(eq(medInspections.driverId, fx.driverId));
+        expect(rows.length).toBe(0);
+    });
+
+    it('med: верный пароль → 201 и в БД хранится pep:v1:*, не plaintext', async () => {
+        const res = await app.inject({
+            method: 'POST', url: '/api/inspections/med',
+            headers: authHeaders(medicTok()), payload: medPayload(fx.password),
+        });
+        expect(res.statusCode).toBe(201);
+        const db = await getTestDb();
+        const [row] = await db.select().from(medInspections).where(eq(medInspections.driverId, fx.driverId));
+        expect(row.signature).toMatch(/^pep:v1:/);
+        expect(row.signature).not.toBe(fx.password);
+    });
+
+    it('med: положительный алкотест + approved → 422 (серверный guard)', async () => {
+        const res = await app.inject({
+            method: 'POST', url: '/api/inspections/med',
+            headers: authHeaders(medicTok()),
+            payload: { ...medPayload(fx.password), alcoholTest: 'positive' },
+        });
+        expect(res.statusCode).toBe(422);
     });
 });

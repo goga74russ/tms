@@ -396,6 +396,8 @@ export async function seedBaseFixture(): Promise<BaseFixture> {
         licenseCategories: ['B', 'C'],
         licenseExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         organizationId: org!.id,
+        personalDataConsent: true,
+        personalDataConsentDate: new Date(),
     }).returning();
 
     const [vehicle] = await db.insert(schema.vehicles).values({

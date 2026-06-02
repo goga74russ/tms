@@ -188,7 +188,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
             return reply.status(201).send({ success: true, data: inspection });
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(500).send({
+            return reply.status(error.statusCode || 500).send({
                 success: false,
                 error: error.message || 'Ошибка при создании осмотра',
             });
@@ -432,7 +432,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
             return reply.status(201).send({ success: true, data: inspection });
         } catch (error: any) {
             request.log.error(error);
-            const statusCode = error.message.includes('Согласие') ? 403 : 500;
+            const statusCode = error.statusCode || (error.message.includes('Согласие') ? 403 : 500);
             return reply.status(statusCode).send({
                 success: false,
                 error: error.message || 'Ошибка при создании осмотра',
@@ -539,7 +539,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
             return reply.status(201).send({ success: true, data: inspection });
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(500).send({
+            return reply.status(error.statusCode || 500).send({
                 success: false,
                 error: error.message || '\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u0438 \u0441\u043e\u0437\u0434\u0430\u043d\u0438\u0438 \u043e\u0441\u043c\u043e\u0442\u0440\u0430',
             });
@@ -594,7 +594,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
             return reply.status(201).send({ success: true, data: inspection });
         } catch (error: any) {
             request.log.error(error);
-            const statusCode = error.message.includes('\u0421\u043e\u0433\u043b\u0430\u0441\u0438\u0435') ? 403 : 500;
+            const statusCode = error.statusCode || (error.message.includes('\u0421\u043e\u0433\u043b\u0430\u0441\u0438\u0435') ? 403 : 500);
             return reply.status(statusCode).send({
                 success: false,
                 error: error.message || '\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u0440\u0438 \u0441\u043e\u0437\u0434\u0430\u043d\u0438\u0438 \u043e\u0441\u043c\u043e\u0442\u0440\u0430',

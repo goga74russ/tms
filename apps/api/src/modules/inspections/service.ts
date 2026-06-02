@@ -10,7 +10,58 @@ import { recordEvent } from '../../events/journal.js';
 import { getBusinessDayBounds } from '../../utils/timezone.js';
 import { toFiniteNumber } from '../../utils/number.js';
 import { syncWaybillStateForTrip } from '../waybills/service.js';
+import { verifyPassword } from '../../auth/password.js';
 import { eq, and, gte, lte, isNull, desc, sql, count, inArray } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
+
+// ================================================================
+// ПЭП (простая электронная подпись) — C1
+// ================================================================
+//
+// Осмотр подписывается ПЭП: подписант повторно вводит пароль своей
+// учётки. Раньше пароль писался в колонку `signature` ОТКРЫТЫМ ТЕКСТОМ
+// без какой-либо проверки (P0: либо plaintext-пароль в БД, либо подпись
+// не верифицировалась вовсе). Теперь:
+//   1) пароль сверяется с хэшем учётки подписанта (verifyPassword);
+//   2) в БД пишется НЕ пароль, а необратимый маркер `pep:v1:<fp>`,
+//      привязанный к учётке (доказывает факт ПЭП без раскрытия секрета).
+
+/** ПЭП-подпись недействительна (неверный пароль подписанта). → HTTP 403. */
+export class InvalidPepError extends Error {
+    statusCode = 403;
+    constructor(message = 'ПЭП-подпись недействительна: неверный пароль') {
+        super(message);
+        this.name = 'InvalidPepError';
+    }
+}
+
+/** Нарушение бизнес-правила осмотра (алкотест/immutability/note). → HTTP 422. */
+export class InspectionRuleError extends Error {
+    statusCode = 422;
+    constructor(message: string) {
+        super(message);
+        this.name = 'InspectionRuleError';
+    }
+}
+
+/**
+ * Сверяет ПЭП (пароль подписанта) с хэшем его учётки и возвращает
+ * необратимый маркер для хранения. НИКОГДА не возвращает/не хранит сам пароль.
+ * @throws InvalidPepError при неверном пароле или отсутствии учётки.
+ */
+async function verifyPepSignature(signerUserId: string, signature: string): Promise<string> {
+    if (!signature) throw new InvalidPepError('ПЭП-подпись обязательна');
+    const [u] = await db
+        .select({ passwordHash: users.passwordHash })
+        .from(users)
+        .where(eq(users.id, signerUserId))
+        .limit(1);
+    if (!u?.passwordHash || !(await verifyPassword(signature, u.passwordHash))) {
+        throw new InvalidPepError();
+    }
+    const fp = createHash('sha256').update(`${signerUserId}:${u.passwordHash}`).digest('hex').slice(0, 16);
+    return `pep:v1:${fp}`;
+}
 
 // ================================================================
 // Types
@@ -273,6 +324,8 @@ export async function createTechInspection(
     if (input.inspectionType !== 'periodic' && !input.tripId) {
         throw new Error('Для предрейсового осмотра необходимо указать рейс (tripId)');
     }
+    // ПЭП: сверяем пароль подписанта до любых записей (fail-fast → 403).
+    const pepMarker = await verifyPepSignature(mechanicId, input.signature);
     const inspection = await db.transaction(async (tx: any) => {
         await recordEvent({
             authorId: mechanicId,
@@ -291,7 +344,7 @@ export async function createTechInspection(
             items: input.items,
             decision: input.decision,
             comment: input.comment,
-            signature: input.signature,
+            signature: pepMarker,
         }).returning();
         await recordEvent({
             authorId: mechanicId,
@@ -561,6 +614,12 @@ export async function createMedInspection(
     if (!driver.personalDataConsent) {
         throw new Error('Водитель не подписал согласие на обработку персональных данных. Обратитесь к кадровой службе.');
     }
+    // Серверный guard: положительный алкотест не может дать допуск.
+    if (input.alcoholTest === 'positive' && input.decision === 'approved') {
+        throw new InspectionRuleError('Положительный алкотест: допуск ("approved") невозможен');
+    }
+    // ПЭП: сверяем пароль подписанта до любых записей (fail-fast → 403).
+    const pepMarker = await verifyPepSignature(medicId, input.signature);
     const inspection = await db.transaction(async (tx: any) => {
         await recordEvent({
             authorId: medicId,
@@ -585,7 +644,7 @@ export async function createMedInspection(
             complaints: input.complaints,
             decision: input.decision,
             comment: input.comment,
-            signature: input.signature,
+            signature: pepMarker,
         }).returning();
         await tx.insert(medAccessLog).values({
             userId: medicId,
@@ -1066,6 +1125,8 @@ export async function createPostTripTechInspection(
     mechanicId: string,
     mechanicRole: string,
 ) {
+    // ПЭП: сверяем пароль подписанта до любых записей (fail-fast → 403).
+    const pepMarker = await verifyPepSignature(mechanicId, input.signature);
     return db.transaction(async (tx: any) => {
         await recordEvent({
             authorId: mechanicId,
@@ -1085,7 +1146,7 @@ export async function createPostTripTechInspection(
             items: input.items,
             decision: input.decision,
             comment: input.comment,
-            signature: input.signature,
+            signature: pepMarker,
         }).returning();
 
         await recordEvent({
@@ -1172,6 +1233,12 @@ export async function createPostTripMedInspection(
     if (!driver.personalDataConsent) {
         throw new Error('Водитель не подписал согласие на обработку персональных данных. Обратитесь к кадровой службе.');
     }
+    // Серверный guard: положительный алкотест не может дать допуск.
+    if (input.alcoholTest === 'positive' && input.decision === 'approved') {
+        throw new InspectionRuleError('Положительный алкотест: допуск ("approved") невозможен');
+    }
+    // ПЭП: сверяем пароль подписанта до любых записей (fail-fast → 403).
+    const pepMarker = await verifyPepSignature(medicId, input.signature);
 
     return db.transaction(async (tx: any) => {
         await recordEvent({
@@ -1198,7 +1265,7 @@ export async function createPostTripMedInspection(
             complaints: input.complaints,
             decision: input.decision,
             comment: input.comment,
-            signature: input.signature,
+            signature: pepMarker,
         }).returning();
 
         await tx.insert(medAccessLog).values({
