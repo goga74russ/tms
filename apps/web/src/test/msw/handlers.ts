@@ -78,6 +78,10 @@ const WAYBILLS = [
     },
 ];
 
+// Даты — относительно «сейчас», иначе тест-таймбомба: /finance дефолтит период
+// на MTD (month-to-date), и фиксированные майские даты выпадали из фильтра при
+// переходе календаря на следующий месяц (INV-300x переставали рендериться).
+const RECENT_ISO = new Date().toISOString();
 const INVOICES = Array.from({ length: 5 }).map((_, i) => ({
     id: `inv-${i + 1}`,
     number: `INV-300${i + 1}`,
@@ -86,9 +90,9 @@ const INVOICES = Array.from({ length: 5 }).map((_, i) => ({
     contractorName: 'ООО «Клиент»',
     amount: '100000.00',
     amountKopecks: 10000000,
-    issuedAt: '2026-05-01T00:00:00Z',
-    dueAt: '2026-05-15T00:00:00Z',
-    createdAt: '2026-05-01T00:00:00Z',
+    issuedAt: RECENT_ISO,
+    dueAt: RECENT_ISO,
+    createdAt: RECENT_ISO,
 }));
 
 export const handlers = [
