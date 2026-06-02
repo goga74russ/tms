@@ -104,9 +104,15 @@ export function checkSfIssueDeadline(args: {
     const issued = new Date(args.issuedAt);
     if (Number.isNaN(realization.getTime()) || Number.isNaN(issued.getTime())) return none;
 
-    const deadline = new Date(realization.getTime() + SF_ISSUE_DEADLINE_DAYS * MS_PER_DAY);
-    const elapsedDays = Math.floor((issued.getTime() - realization.getTime()) / MS_PER_DAY);
+    // P2: срок ст.168 ч.3 НК — в КАЛЕНДАРНЫХ днях по московскому времени, не по
+    // UTC-суткам. Раньше floor по UTC давал ±1 день у полуночи (реализация в
+    // 23:00 UTC = уже след. день в МСК). РФ с 2014 без перехода на летнее время,
+    // поэтому МСК = фиксированный UTC+3 — считаем номер календарного дня в МСК.
+    const MSK_OFFSET_MS = 3 * 60 * 60 * 1000;
+    const mskDayIndex = (d: Date) => Math.floor((d.getTime() + MSK_OFFSET_MS) / MS_PER_DAY);
+    const elapsedDays = mskDayIndex(issued) - mskDayIndex(realization);
     const daysLate = Math.max(0, elapsedDays - SF_ISSUE_DEADLINE_DAYS);
+    const deadline = new Date(realization.getTime() + SF_ISSUE_DEADLINE_DAYS * MS_PER_DAY);
 
     return {
         applies: true,
