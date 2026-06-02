@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, type ReactNode, type KeyboardEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X, Loader2 } from 'lucide-react';
 
 export interface ComboboxProps<T> {
@@ -55,10 +56,33 @@ export function Combobox<T>({
     const listRef = useRef<HTMLDivElement>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Close dropdown on outside click
+    // Design Блок 1.5 — dropdown рендерится через portal в document.body, иначе
+    // он обрезается границей Dialog/Drawer (overflow-auto). Координаты якоря
+    // (input-контейнер) пересчитываем при открытии/скролле/ресайзе.
+    const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+    useEffect(() => {
+        if (!isOpen || !containerRef.current) return;
+        const update = () => {
+            const r = containerRef.current!.getBoundingClientRect();
+            setCoords({ top: r.bottom + 6, left: r.left, width: r.width });
+        };
+        update();
+        window.addEventListener('scroll', update, true);
+        window.addEventListener('resize', update);
+        return () => {
+            window.removeEventListener('scroll', update, true);
+            window.removeEventListener('resize', update);
+        };
+    }, [isOpen]);
+
+    // Close dropdown on outside click. listRef (portal) тоже считается "внутри",
+    // иначе mousedown по опции закрывал бы список до срабатывания onClick.
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+            const t = e.target as Node;
+            const inContainer = containerRef.current?.contains(t);
+            const inList = listRef.current?.contains(t);
+            if (!inContainer && !inList) {
                 setIsOpen(false);
             }
         }
@@ -171,7 +195,7 @@ export function Combobox<T>({
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder}
                     className={`w-full pl-10 pr-9 py-2.5 rounded-xl border text-sm transition-all
-                        focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400
+                        focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 focus:border-brand-400
                         ${selected
                             ? 'border-emerald-300 bg-emerald-50/50'
                             : 'border-neutral-200 bg-white'
@@ -187,11 +211,12 @@ export function Combobox<T>({
                 )}
             </div>
 
-            {/* Dropdown */}
-            {isOpen && (
+            {/* Dropdown — через portal в body (Блок 1.5: не обрезается модалкой) */}
+            {isOpen && typeof document !== 'undefined' && createPortal(
                 <div
                     ref={listRef}
-                    className="absolute z-50 w-full mt-1.5 bg-white border border-neutral-200 rounded-xl shadow-xl max-h-60 overflow-y-auto"
+                    style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
+                    className="z-modal-dropdown bg-white border border-neutral-200 rounded-xl shadow-xl max-h-60 overflow-y-auto"
                 >
                     {options.length === 0 ? (
                         <div className="px-4 py-3 text-sm text-neutral-400 text-center">
@@ -216,7 +241,8 @@ export function Combobox<T>({
                             </button>
                         ))
                     )}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

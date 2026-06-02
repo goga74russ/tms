@@ -47,9 +47,9 @@ function Dialog({ open, onClose, title, description, size = "md", children }: Di
             ref={ref}
             onClose={onClose}
             onClick={handleClick}
-            className={`fixed inset-0 z-50 m-auto max-h-[85vh] w-full ${SIZE_CLASS[size]} overflow-auto rounded-xl border border-neutral-200 bg-white p-0 shadow-xl backdrop:bg-neutral-900/50 backdrop:backdrop-blur-sm`}
+            className={`fixed inset-0 z-modal m-auto max-h-[90dvh] w-full ${SIZE_CLASS[size]} grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-xl border border-neutral-200 bg-white p-0 shadow-xl backdrop:bg-neutral-900/50 backdrop:backdrop-blur-sm`}
         >
-            <div className="flex items-start justify-between border-b border-neutral-200 px-6 py-4 gap-4">
+            <div className="flex items-start justify-between border-b border-neutral-200 px-6 py-4 gap-4 shrink-0">
                 <div className="min-w-0">
                     <h2 className="text-lg font-semibold text-neutral-900 leading-tight">{title}</h2>
                     {description && (
@@ -65,7 +65,7 @@ function Dialog({ open, onClose, title, description, size = "md", children }: Di
                     <X className="w-4 h-4" />
                 </button>
             </div>
-            <div className="px-6 py-4">{children}</div>
+            <div className="overflow-y-auto px-6 py-4">{children}</div>
         </dialog>
     );
 }

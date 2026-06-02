@@ -79,7 +79,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                             'flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm transition-colors',
                             'placeholder:text-neutral-400',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0',
-                            'disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:opacity-60',
+                            'disabled:cursor-not-allowed disabled:bg-neutral-50 disabled:opacity-50',
                             'file:border-0 file:bg-transparent file:text-sm file:font-medium',
                             Boolean(leftAddon) && 'pl-10',
                             Boolean(rightAddon) && 'pr-10',

@@ -154,7 +154,7 @@ export function OnboardingTour({ steps, storageKey, onClose, forceShow }: Onboar
     const isFirst = stepIndex === 0;
 
     return createPortal(
-        <div className="fixed inset-0 z-[9998] pointer-events-none">
+        <div className="fixed inset-0 z-tour pointer-events-none">
             {/* Backdrop with cut-out for the target */}
             <svg className="absolute inset-0 w-full h-full pointer-events-auto" style={{ width: '100vw', height: '100vh' }}>
                 <defs>

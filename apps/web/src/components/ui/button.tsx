@@ -21,21 +21,24 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
     fullWidth?: boolean;
 }
 
+// Design Блок 1.3 — единый focus-ring brand-400 во всех вариантах (был раскол
+// neutral/brand/red-500). Кольцо/offset заданы в базовом классе ниже.
 const variantStyles: Record<string, string> = {
-    default: 'bg-neutral-900 text-white hover:bg-neutral-800 shadow-sm focus-visible:ring-neutral-500',
-    brand: 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm focus-visible:ring-brand-500',
-    outline: 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 focus-visible:ring-neutral-400',
-    ghost: 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:ring-neutral-400',
-    destructive: 'bg-red-600 text-white hover:bg-red-700 shadow-sm focus-visible:ring-red-500',
-    secondary: 'bg-neutral-100 text-neutral-900 hover:bg-neutral-200 focus-visible:ring-neutral-400',
-    link: 'text-brand-600 underline-offset-4 hover:underline focus-visible:ring-brand-500',
+    default: 'bg-neutral-900 text-white hover:bg-neutral-800 shadow-sm focus-visible:ring-brand-400',
+    brand: 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm focus-visible:ring-brand-400',
+    outline: 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 focus-visible:ring-brand-400',
+    ghost: 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:ring-brand-400',
+    destructive: 'bg-red-600 text-white hover:bg-red-700 shadow-sm focus-visible:ring-brand-400',
+    secondary: 'bg-neutral-100 text-neutral-900 hover:bg-neutral-200 focus-visible:ring-brand-400',
+    link: 'text-brand-600 underline-offset-4 hover:underline focus-visible:ring-brand-400',
 };
 
+// Design Блок 1.2 — высоты синхронизированы с Input (h-10/40px эталон).
 const sizeStyles: Record<string, string> = {
-    default: 'h-9 px-4 py-2 text-sm gap-2',
-    sm: 'h-8 px-3 text-xs gap-1.5',
+    default: 'h-10 px-4 py-2 text-sm gap-2',
+    sm: 'h-9 px-3 text-xs gap-1.5',
     lg: 'h-11 px-6 text-base gap-2',
-    icon: 'h-9 w-9',
+    icon: 'h-10 w-10',
 };
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

@@ -6,6 +6,22 @@ module.exports = {
     darkMode: ['class', 'class'],
     theme: {
         extend: {
+            // Design Блок 1.1 — единая z-index шкала (overlay-system.md).
+            // Заменяет хаос z-50/z-[100]/z-[9998]. Порядок слоёв сверху вниз.
+            zIndex: {
+                base: '0',
+                raised: '10',           // sticky headers/columns/footers
+                fixed: '20',            // app header/sidebar
+                overlay: '30',          // map controls, content overlays
+                dropdown: '40',         // Combobox/Select вне модалок
+                toast: '50',            // обычный toast
+                modal: '60',            // Dialog, SideDrawer
+                'modal-dropdown': '70', // Combobox/Select ВНУТРИ модалки
+                'toast-priority': '75', // toast связанный с модалкой
+                tooltip: '80',
+                tour: '85',             // OnboardingTour
+                critical: '100',        // session expired
+            },
             colors: {
                 brand: {
                     50: '#eef2ff',

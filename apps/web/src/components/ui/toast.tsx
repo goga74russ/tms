@@ -122,7 +122,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                     <div
                         aria-live="polite"
                         aria-atomic="true"
-                        className="pointer-events-none fixed top-4 right-4 z-[100] flex flex-col gap-2 w-full max-w-sm"
+                        className="pointer-events-none fixed top-4 right-4 z-toast flex flex-col gap-2 w-full max-w-sm"
                     >
                         {items.map(item => {
                             const v = variantStyles[item.variant];

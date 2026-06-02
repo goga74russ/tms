@@ -703,7 +703,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                             type="button"
                             disabled={currentPage <= 1}
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label="Предыдущая страница"
                         >
                             ←
@@ -716,7 +716,7 @@ export function DataTable<T>(props: DataTableProps<T>) {
                             type="button"
                             disabled={currentPage >= totalPages}
                             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                            className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="inline-flex items-center justify-center h-7 px-2 rounded-md border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label="Следующая страница"
                         >
                             →

@@ -87,7 +87,7 @@ export function SideDrawer({
 
     return (
         <div
-            className="fixed inset-0 z-50"
+            className="fixed inset-0 z-modal"
             role="dialog"
             aria-modal="true"
             aria-label={typeof title === 'string' ? title : undefined}
