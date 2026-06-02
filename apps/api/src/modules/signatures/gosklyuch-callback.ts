@@ -18,6 +18,7 @@ import crypto from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { transportDocuments, transportDocumentEvents, mchd, trips } from '../../db/schema.js';
+import { verifyGosklyuchEnvelope } from './gosklyuch-envelope.js';
 
 const CallbackBodySchema = z.object({
     externalId: z.string().min(4).max(255),
@@ -116,6 +117,16 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
         const parsedBody = parsed.data;
         const { externalId, signedXml, signedAt, signerCertificate } = parsedBody;
         const isProd = process.env.NODE_ENV === 'production';
+
+        // (audit C1, devops-рычаг) IP-allowlist реальных серверов Госуслуг.
+        // Enforced ТОЛЬКО если GOSKLYUCH_CALLBACK_IP_ALLOWLIST задан (CSV) — иначе
+        // no-op для dev/test. Когда задан — fail-closed: чужой IP → 403.
+        const ipAllowlist = (process.env.GOSKLYUCH_CALLBACK_IP_ALLOWLIST ?? '')
+            .split(',').map((s) => s.trim()).filter(Boolean);
+        if (ipAllowlist.length > 0 && !ipAllowlist.includes(request.ip)) {
+            request.log.warn({ ip: request.ip }, 'Госключ callback: IP не в allowlist');
+            return reply.status(403).send({ success: false, error: 'Источник не разрешён' });
+        }
 
         // HMAC tamper check (no-op if GOSKLYUCH_CALLBACK_SECRET unset).
         if (!verifyExternalIdHmac(externalId)) {
@@ -251,6 +262,18 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             ?? null
         );
 
+        // ── Fail-closed seal-гейт (audit C1, go-live) ──────────────────────
+        // Титул помечается 'signed' ТОЛЬКО если (а) МЧД-связка без проблем И
+        // (б) конверт подписи верифицирован. Пока verify не реализован —
+        // envelopeVerified=false → всё в pending_review (нельзя подделать
+        // «подписано» произвольным signedXml). Объединяем все блокирующие причины.
+        const envelopeVerified = await verifyGosklyuchEnvelope(signedXml, signerCertificate);
+        const sealReasons: string[] = [...mchdProblems];
+        if (!envelopeVerified) {
+            sealReasons.push('Конверт подписи не верифицирован (gosklyuch.verify не реализован)');
+        }
+        const sealAsSigned = sealReasons.length === 0;
+
         // Append the signed envelope to metadata.signatures[].
         // rowMetadata уже объявлен выше при резолюции pendingSignatures.
         const existingSignatures = Array.isArray(rowMetadata.signatures)
@@ -271,7 +294,9 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             mchdValid: mchdRecord !== null,
             mchdProblems: mchdProblems.length ? mchdProblems : null,
             titleType, // нужно UI чтобы отметить конкретный титул подписанным
-            state: mchdProblems.length === 0 ? 'signed' : 'pending_review',
+            envelopeVerified, // C1: верифицирован ли конверт подписи (пока всегда false)
+            state: sealAsSigned ? 'signed' : 'pending_review',
+            pendingReasons: sealReasons.length ? sealReasons : null,
             receivedAt: now.toISOString(),
         };
         existingSignatures.push(signatureEntry);
@@ -286,7 +311,7 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
         const prevState = (rowMetadata.signatureState && typeof rowMetadata.signatureState === 'object'
             ? rowMetadata.signatureState as Record<string, unknown>
             : {});
-        const stateStatus = mchdProblems.length === 0 ? 'signed' : 'pending_review';
+        const stateStatus = sealAsSigned ? 'signed' : 'pending_review';
         // После успешной подписи pendingSignatures[externalId] нужно
         // снять — он своё дело сделал и больше не trusted-источник.
         const remainingPending: Record<string, unknown> = { ...pendingMap };
@@ -306,7 +331,7 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
                 // 7.20: lastSignerRole — приоритет pending (из /sign), иначе
                 // оставляем значение из prevState (manual flow).
                 lastSignerRole: pendingSignerRole ?? prevState.lastSignerRole ?? null,
-                problems: mchdProblems.length ? mchdProblems : null,
+                problems: sealReasons.length ? sealReasons : null,
             },
             gosklyuchCallback: {
                 externalId,
@@ -322,7 +347,7 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             await tx.update(transportDocuments)
                 .set({
                     metadata: nextMetadata,
-                    providerStatus: mchdProblems.length === 0 ? 'signed:gosklyuch' : 'pending_review:gosklyuch',
+                    providerStatus: sealAsSigned ? 'signed:gosklyuch' : 'pending_review:gosklyuch',
                     updatedAt: now,
                 })
                 .where(eq(transportDocuments.id, row.id));
@@ -330,15 +355,15 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             await tx.insert(transportDocumentEvents).values({
                 documentId: row.id,
                 eventType: 'signature_recorded',
-                title: mchdProblems.length === 0
+                title: sealAsSigned
                     ? 'Госключ: signed envelope received'
-                    : 'Госключ: подпись принята, но МЧД-связка требует проверки',
+                    : 'Госключ: подпись принята, требует проверки (pending_review)',
                 fromStatus: row.status,
                 toStatus: row.status,
-                severity: mchdProblems.length === 0 ? 'info' : 'critical',
-                message: mchdProblems.length === 0
+                severity: sealAsSigned ? 'info' : 'critical',
+                message: sealAsSigned
                     ? 'Signed XML delivered by Госключ callback'
-                    : `МЧД-проблемы: ${mchdProblems.join('; ')}`,
+                    : `Не помечено signed: ${sealReasons.join('; ')}`,
                 payload: {
                     provider: 'gosklyuch',
                     externalId,
@@ -355,10 +380,10 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             });
         });
 
-        if (mchdProblems.length > 0) {
+        if (!sealAsSigned) {
             request.log.warn(
-                { documentId: row.id, externalId, mchdId, problems: mchdProblems },
-                'Госключ callback: подпись принята с МЧД-проблемами (документ в pending_review)',
+                { documentId: row.id, externalId, mchdId, reasons: sealReasons },
+                'Госключ callback: подпись принята, но НЕ помечена signed (pending_review)',
             );
         } else {
             request.log.info(
@@ -367,7 +392,12 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             );
         }
 
-        return { success: true, mchdProblems: mchdProblems.length ? mchdProblems : undefined };
+        return {
+            success: true,
+            state: sealAsSigned ? 'signed' : 'pending_review',
+            pendingReasons: sealReasons.length ? sealReasons : undefined,
+            mchdProblems: mchdProblems.length ? mchdProblems : undefined,
+        };
     });
 };
 

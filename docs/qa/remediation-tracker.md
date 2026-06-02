@@ -50,7 +50,7 @@
 
 | # | Класс | Почему здесь | P0 | P1 | Статус |
 |---|---|---|---|---|---|
-| **C1** | Подпись / ПЭП-верификация / immutability осмотров | Single-tenant real + юр-сила. Маленький — обкатка метода | 1 | 7 | TODO |
+| **C1** | Подпись / ПЭП-верификация / immutability осмотров | Single-tenant real + юр-сила. Маленький — обкатка метода | 1 | 7 | **VERIFIED*** |
 | **C2** | Деньги: billing-replay + НДС-корректность + нумерация | Single-tenant real, реальные суммы/чеки | 0 | 10 | TODO |
 | **C3** | Org-scope sweep (cross-tenant IDOR/leak) | Гейт мульти-тенант пилота. Самый большой класс | 5 | 23 | TODO |
 | **C4** | Глобально-unique индексы → per-org | 1 миграция, ломает multitenancy | 0 | 4 | TODO |
@@ -68,7 +68,11 @@ severity-секции аудита разнесены по классам — б
 
 ---
 
-## C1 — Подпись / ПЭП-верификация / immutability осмотров  `WIP`
+## C1 — Подпись / ПЭП-верификация / immutability осмотров  `VERIFIED`*
+
+> *VERIFIED по security/correctness-инвариантам (8/8 находок закрыты). Gosklyuch: эксплойт
+> (подделка «подписано») закрыт fail-closed; реальная XAdES-верификация — future-item (ждёт
+> provider API, не уязвимость пока fail-closed), mTLS → /devops, юр-сила подписи → /jurist.
 
 **Инвариант:** ПЭП-подпись не сохраняется без `verifyPassword`; запечатанный подписанный осмотр
 неизменяем; публичная подпись верифицируется по содержимому; решение осмотра — только уполномоченной ролью.
@@ -82,7 +86,7 @@ severity-секции аудита разнесены по классам — б
 - [x] **P1** `inspections/service.ts:985-1047` — med тот же gap + алкотест-flip. ✅ FIX: то же + сообщение про алкотест. Тест.
 - [x] **P1** `inspections/routes.ts:608-635` — tech /decision role-gate. ✅ FIX: явный `mechanic/admin`-гейт (параллель med) + оба /decision маппят statusCode. Тест driver→403.
   - _Бонус: задействована мёртвая `validateDecisionUpdate` из classifiers.ts (была «never called» — отдельная находка api-repairs-insp)._
-- [ ] **P1** `signatures/gosklyuch-callback.ts:92-134, 254-356` — публичный callback принимает произвольный signedXml без верификации содержимого/mTLS/IP-allowlist _(остаток C1; + юр-оценка /jurist)_
+- [x] **P1** `signatures/gosklyuch-callback.ts` — произвольный signedXml → 'signed'. ✅ FIX (fail-closed): `verifyGosklyuchEnvelope()` (новый модуль, пока false) гейтит seal — без верификации конверта титул уходит в `pending_review`, не 'signed' (эксплойт закрыт). + env IP-allowlist (`GOSKLYUCH_CALLBACK_IP_ALLOWLIST`, рычаг /devops). Unit-тест fail-closed. **Handoff:** реальная XAdES-верификация → когда появится provider API; mTLS → /devops; юр-сила → /jurist.
 - [x] **P1** `apps/mobile/.../DeliveryConfirmationScreen.tsx:147` — пустая подпись. ✅ FIX: guard в submitConfirmation (пустая/не-data:image → Alert, нет submit/queue). Сервер уже защищён regex (`data:image;base64`) — фикс закрывает тихую потерю в офлайн-очереди.
 - [x] **P1** `apps/web/.../trips/page.tsx:1639-1644` — хардкод подписанта. ✅ FIX: signerRole/signerName из реального `useUser()` в signature + refusal. web tsc ✓.
 
@@ -297,6 +301,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
-| 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | _(этот коммит)_ |
+| 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
+| 2026-06-02 | C1 | **C1 ЗАКРЫТ (8/8)**: gosklyuch fail-closed (verifyGosklyuchEnvelope→pending_review, эксплойт закрыт) + env IP-allowlist. unit 718 ✓. Handoff: XAdES-verify(future)/mTLS(devops)/юр-сила(jurist) | _(этот коммит)_ |
 | 2026-06-02 | C1 | immutability решений осмотра (938/985) + role-gate tech /decision (608): rejected→approved блок (422), note-required (задействована мёртвая validateDecisionUpdate), mechanic/admin-гейт. unit-717/integration-20 зелёные | _(этот коммит)_ |
 | 2026-06-02 | — | Правки по ревью QA: 32→11 CBO (был артефакт грепа); C3 разбит на 3 механизма (нет-фильтра / org-less-обход / NULL-FK) + 3-кейсовый матрица-тест; убран опасный «super-admin org=null → bypass» (super-admin-роли в системе НЕТ → org-less = DENY); названы 4 пропущенных P1 (dispatcher:486→C5, integrations:227/admin-layout:51/dispatcher:573→C9); DoD C9 = пройти все 181 P2/P3; CBO → именные regression-тесты | _(этот коммит)_ |

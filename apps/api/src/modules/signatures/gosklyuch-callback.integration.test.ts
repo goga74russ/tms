@@ -382,7 +382,10 @@ describe.skip('POST /api/signatures/gosklyuch/callback — pendingSignatures', (
             expect(sigs[0]!.mchdId).toBe(MCHD_ID);
             expect(sigs[0]!.signerInn).toBe('7707083893');
             expect(sigs[0]!.titleType).toBe('T02');
-            expect(sigs[0]!.state).toBe('signed');
+            // C1 fail-closed: даже при валидной МЧД конверт не верифицирован
+            // (verify не реализован) → pending_review, не 'signed'.
+            expect(sigs[0]!.state).toBe('pending_review');
+            expect(sigs[0]!.envelopeVerified).toBe(false);
         } finally {
             if (oldSecret !== undefined) process.env.GOSKLYUCH_CALLBACK_SECRET = oldSecret;
             process.env.NODE_ENV = oldEnv;
