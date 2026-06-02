@@ -611,6 +611,9 @@ export default async function inspectionRoutes(app: FastifyInstance) {
     }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+            if (!user.roles.includes('mechanic') && !user.roles.includes('admin')) {
+                return reply.status(403).send({ success: false, error: '\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0442\u043e\u043b\u044c\u043a\u043e \u043c\u0435\u0445\u0430\u043d\u0438\u043a\u0443' });
+            }
             const { id } = request.params as { id: string };
             const body = request.body as { decision?: string; notes?: string };
             if (body.decision !== 'approved' && body.decision !== 'rejected') {
@@ -630,7 +633,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
             return { success: true, data: result };
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(500).send({ success: false, error: error.message || '\u041e\u0448\u0438\u0431\u043a\u0430' });
+            return reply.status(error.statusCode || 500).send({ success: false, error: error.message || '\u041e\u0448\u0438\u0431\u043a\u0430' });
         }
     });
 
@@ -662,7 +665,7 @@ export default async function inspectionRoutes(app: FastifyInstance) {
             return { success: true, data: result };
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(500).send({ success: false, error: error.message || '\u041e\u0448\u0438\u0431\u043a\u0430' });
+            return reply.status(error.statusCode || 500).send({ success: false, error: error.message || '\u041e\u0448\u0438\u0431\u043a\u0430' });
         }
     });
 }

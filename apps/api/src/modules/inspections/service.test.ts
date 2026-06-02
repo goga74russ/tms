@@ -123,25 +123,46 @@ beforeEach(() => {
 
 describe('updateTechInspectionDecision', () => {
     it('updates only decision + comment on an existing tech inspection', async () => {
-        // First select: getTechInspectionById fetches existing row.
+        // First select: getTechInspectionById fetches existing row (approved).
         // organizationId is null so the org-scope sub-select is skipped.
-        capture.selectResults.push([baseTechRow]);
-        updatedRow = { ...baseTechRow, decision: 'approved', comment: 'old\nALL OK' };
+        // Allowed direction: approved→rejected (tightening) with a note.
+        capture.selectResults.push([{ ...baseTechRow, decision: 'approved' }]);
+        updatedRow = { ...baseTechRow, decision: 'rejected', comment: 'old\nALL OK' };
 
         const out = await updateTechInspectionDecision(
             'insp-1',
-            { decision: 'approved', notes: 'ALL OK' },
+            { decision: 'rejected', notes: 'ALL OK' },
             { userId: 'u1', role: 'mechanic', organizationId: null },
         );
 
-        expect(out).toEqual({ id: 'insp-1', decision: 'approved', tripId: 'trip-1' });
+        expect(out).toEqual({ id: 'insp-1', decision: 'rejected', tripId: 'trip-1' });
         expect(capture.txUpdateCalled).toBe(true);
         expect(capture.updateSetArgs).toHaveLength(1);
         const setPayload = capture.updateSetArgs[0];
         // Must touch only decision + comment — nothing else.
         expect(Object.keys(setPayload).sort()).toEqual(['comment', 'decision']);
-        expect(setPayload.decision).toBe('approved');
+        expect(setPayload.decision).toBe('rejected');
         expect(setPayload.comment).toContain('ALL OK');
+    });
+
+    it('C1: rejected→approved заблокирован (immutability) — throws, без UPDATE', async () => {
+        capture.selectResults.push([{ ...baseTechRow, decision: 'rejected' }]);
+        await expect(updateTechInspectionDecision(
+            'insp-1',
+            { decision: 'approved', notes: 'передумал' },
+            { userId: 'u1', role: 'mechanic', organizationId: null },
+        )).rejects.toThrow(/ретроактивно одобрить/);
+        expect(capture.txUpdateCalled).toBe(false);
+    });
+
+    it('C1: rejection без notes — throws (note required)', async () => {
+        capture.selectResults.push([{ ...baseTechRow, decision: 'approved' }]);
+        await expect(updateTechInspectionDecision(
+            'insp-1',
+            { decision: 'rejected' },
+            { userId: 'u1', role: 'mechanic', organizationId: null },
+        )).rejects.toThrow();
+        expect(capture.txUpdateCalled).toBe(false);
     });
 
     it('returns null when the inspection cannot be found', async () => {
@@ -158,18 +179,29 @@ describe('updateTechInspectionDecision', () => {
 
 describe('updateMedInspectionDecision', () => {
     it('updates only decision + comment on an existing med inspection', async () => {
-        capture.selectResults.push([baseMedRow]); // initial fetch
-        updatedRow = { ...baseMedRow, decision: 'approved', comment: 'старое\nдопустить' };
+        // Allowed direction: approved→rejected with a note.
+        capture.selectResults.push([{ ...baseMedRow, decision: 'approved' }]); // initial fetch
+        updatedRow = { ...baseMedRow, decision: 'rejected', comment: 'старое\nне допустить' };
 
         const out = await updateMedInspectionDecision(
             'insp-2',
-            { decision: 'approved', notes: 'допустить' },
+            { decision: 'rejected', notes: 'не допустить' },
             { userId: 'm1', role: 'medic', organizationId: null },
         );
 
-        expect(out).toEqual({ id: 'insp-2', decision: 'approved', tripId: 'trip-2' });
+        expect(out).toEqual({ id: 'insp-2', decision: 'rejected', tripId: 'trip-2' });
         const setPayload = capture.updateSetArgs[0];
         expect(Object.keys(setPayload).sort()).toEqual(['comment', 'decision']);
+    });
+
+    it('C1: rejected→approved заблокирован (immutability) — throws, без UPDATE', async () => {
+        capture.selectResults.push([{ ...baseMedRow, decision: 'rejected', alcoholTest: 'positive' }]);
+        await expect(updateMedInspectionDecision(
+            'insp-2',
+            { decision: 'approved', notes: 'x' },
+            { userId: 'm1', role: 'medic', organizationId: null },
+        )).rejects.toThrow(/ретроактивно одобрить/);
+        expect(capture.txUpdateCalled).toBe(false);
     });
 
     it('returns null when med inspection is missing', async () => {

@@ -11,6 +11,7 @@ import { getBusinessDayBounds } from '../../utils/timezone.js';
 import { toFiniteNumber } from '../../utils/number.js';
 import { syncWaybillStateForTrip } from '../waybills/service.js';
 import { verifyPassword } from '../../auth/password.js';
+import { validateDecisionUpdate } from './classifiers.js';
 import { eq, and, gte, lte, isNull, desc, sql, count, inArray } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 
@@ -1003,6 +1004,15 @@ export async function updateTechInspectionDecision(
     const existing = await getTechInspectionById(inspectionId, actor.organizationId);
     if (!existing) return null;
 
+    // Note-required-on-reject (мёртвая validateDecisionUpdate теперь вызывается).
+    const v = validateDecisionUpdate({ decision: input.decision, notes: input.notes });
+    if (!v.ok) throw new InspectionRuleError(v.message ?? 'Некорректное решение осмотра');
+    // Immutability: отклонённый осмотр уже заблокировал ТС + создал repair — ретроактивное
+    // одобрение фальсифицирует подписанную запись. Правильно — оформить новый осмотр.
+    if (existing.decision === 'rejected' && input.decision === 'approved') {
+        throw new InspectionRuleError('Отклонённый осмотр нельзя ретроактивно одобрить — оформите новый осмотр');
+    }
+
     const result = await db.transaction(async (tx: any) => {
         const previous = existing.decision;
         const merged = mergeDecisionComment(existing.comment, input.notes);
@@ -1061,6 +1071,16 @@ export async function updateMedInspectionDecision(
         .where(and(...conditions))
         .limit(1);
     if (!existing) return null;
+
+    // Note-required-on-reject.
+    const v = validateDecisionUpdate({ decision: input.decision, notes: input.notes });
+    if (!v.ok) throw new InspectionRuleError(v.message ?? 'Некорректное решение осмотра');
+    // Immutability: отклонённый медосмотр нельзя ретроактивно одобрить (152-ФЗ). Алкотест-positive
+    // — всегда жёсткий блок. Правильно — оформить новый осмотр.
+    if (existing.decision === 'rejected' && input.decision === 'approved') {
+        const why = existing.alcoholTest === 'positive' ? ' (положительный алкотест)' : '';
+        throw new InspectionRuleError(`Отклонённый медосмотр нельзя ретроактивно одобрить${why} — оформите новый осмотр`);
+    }
 
     const result = await db.transaction(async (tx: any) => {
         const previous = existing.decision;

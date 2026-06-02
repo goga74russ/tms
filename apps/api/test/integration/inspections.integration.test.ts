@@ -279,3 +279,70 @@ describe('C1: ПЭП-верификация осмотров (P0)', () => {
         expect(res.statusCode).toBe(422);
     });
 });
+
+// ============================================================
+// C1 — immutability + note для /decision эндпоинтов (P1: 938/985 + role-gate 608).
+// Инвариант: отклонённое решение нельзя ретроактивно одобрить; reject требует note;
+// tech /decision — только mechanic/admin.
+// ============================================================
+describe('C1: immutability/note решений осмотра', () => {
+    const createTech = (decision: 'approved' | 'rejected') => app.inject({
+        method: 'POST', url: '/api/inspections/tech', headers: authHeaders(mechanicTok()),
+        payload: {
+            vehicleId: fx.vehicleId, inspectionType: 'periodic', checklistVersion: '1.0',
+            items: decision === 'rejected'
+                ? [{ name: 'Тормоза', result: 'fault', comment: 'неисправны' }]
+                : [{ name: 'Шины', result: 'ok' }],
+            decision, signature: fx.password,
+        },
+    });
+    const createMed = (decision: 'approved' | 'rejected', alcoholTest: 'negative' | 'positive' = 'negative') => app.inject({
+        method: 'POST', url: '/api/inspections/med', headers: authHeaders(medicTok()),
+        payload: {
+            driverId: fx.driverId, inspectionType: 'periodic', checklistVersion: '1.0',
+            systolicBp: 120, diastolicBp: 80, heartRate: 70, temperature: 36.6,
+            condition: 'удовлетворительное', alcoholTest, decision, signature: fx.password,
+        },
+    });
+
+    it('tech: смена решения на rejected без notes → 422', async () => {
+        const created = await createTech('approved');
+        expect(created.statusCode).toBe(201);
+        const id = created.json().data.id;
+        const res = await app.inject({
+            method: 'POST', url: `/api/inspections/tech/${id}/decision`,
+            headers: authHeaders(mechanicTok()), payload: { decision: 'rejected' },
+        });
+        expect(res.statusCode).toBe(422);
+    });
+
+    it('tech: rejected→approved заблокирован (immutability) → 422', async () => {
+        const created = await createTech('rejected');
+        expect(created.statusCode).toBe(201);
+        const id = created.json().data.id;
+        const res = await app.inject({
+            method: 'POST', url: `/api/inspections/tech/${id}/decision`,
+            headers: authHeaders(mechanicTok()), payload: { decision: 'approved', notes: 'передумал' },
+        });
+        expect(res.statusCode).toBe(422);
+    });
+
+    it('med: rejected(алкоголь+)→approved заблокирован → 422', async () => {
+        const created = await createMed('rejected', 'positive');
+        expect(created.statusCode).toBe(201);
+        const id = created.json().data.id;
+        const res = await app.inject({
+            method: 'POST', url: `/api/inspections/med/${id}/decision`,
+            headers: authHeaders(medicTok()), payload: { decision: 'approved', notes: 'x' },
+        });
+        expect(res.statusCode).toBe(422);
+    });
+
+    it('tech /decision: роль без прав (driver) → 403', async () => {
+        const res = await app.inject({
+            method: 'POST', url: '/api/inspections/tech/00000000-0000-0000-0000-000000000001/decision',
+            headers: authHeaders(driverTok()), payload: { decision: 'approved', notes: 'x' },
+        });
+        expect(res.statusCode).toBe(403);
+    });
+});
