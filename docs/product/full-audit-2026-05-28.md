@@ -144,7 +144,17 @@ finance/tax, ЭТрН/ЭПД-compliance, providers/workers/resilience, web+mobil
 
 ---
 
-## 🟡 P2 — средний (отложить на после демо/P0)
+## 🟡 P2 — ✅ ЗАКРЫТ 2026-06-02 (кластеры E1–E6, прод `1ccdd62`)
+
+> Закрыто: web-middleware RBAC (E3), sign-endpoint role-гейт (E3), client-портал enum (E4),
+> 5-дн СФ в Europe/Moscow (E4), markdown href XSS-whitelist (E5), `.env.example` PII → плейсхолдеры
+> (E5), events.external_id per-org (E2, миграция 0039), JWT revocation (E6, миграция 0040,
+> закрывает «JWT 24ч без revocation»). `/metrics` без auth и Swagger — закрыты ещё в P1-B.
+> **Остаток P3 (косметика, не делалось):** `as-any` ×~70 (money-путь сокращён удалением легаси
+> updateInvoiceStatus), wialon mock-одометр, 6 skipped gosklyuch-тестов, `@tms/shared` без
+> тест-раннера, `margin.ts` FX. На демо/пилот не влияют.
+>
+> Исходный список P2 ниже — историческая запись находок аудита.
 
 - JWT 24ч без revocation (деактивация юзера живёт до суток) — known tradeoff.
 - `sign-endpoint` без role-гейта (org-scope есть) — любой член орг инициирует подпись.

@@ -30,11 +30,28 @@ Tests: `subcontract-gating.integration.test.ts` (4/4).
 S1/F1 `5f9da19`, S3 `5d37598`, C1+C2+C3 `32da51d`, S2 (+миграция 0038) `1d2651f`, INFRA1 `4387582`.
 ✅ **ВЕСЬ P1 ЗАКРЫТ** (2026-05-29, 20 пунктов A→D): finance-UI `4bc4657`, security/ops `3bf8681`,
 finance-correctness `78112a1`, multitenancy `511ed50`. Локально верифицировано: integration 132/132,
-unit 714, tsc(api+web). **Отложено (решение владельца):** per-org нумерация счетов (P1-C #17 —
-дроп глобального unique(invoices.number)). P2 — в бэклоге (см. full-audit-2026-05-28.md). ↓ детали ниже.
+unit 714, tsc(api+web).
+
+✅ **ВЕСЬ P2 + отложенное P1 ЗАКРЫТЫ** (2026-06-02, кластеры E1–E6, прод `1ccdd62`):
+- **E1** — P0 Gate приведён в зелёный + вычищена накопленная CI-гниль (OpenAPI-дрейф, e2e-дрейф под
+  редизайн UI [login починен, остальное в `test.fixme` → QA-задача], тайм-бомба MSW-фикстуры).
+- **E2** — per-org нумерация счетов (P1-C #17 БОЛЬШЕ НЕ ОТЛОЖЕНО) + per-org idempotency событий,
+  **миграция 0039** (composite unique `invoices(payee_organization_id,number)` и
+  `events(organization_id,external_id)`). Прод был демо-данными одного тенанта — конфликтов нет.
+- **E3** — web-middleware RBAC (+10 маршрутов синхронно sidebar) + sign-endpoint role-гейт.
+- **E4** — 5-дн срок СФ в Europe/Moscow (был ±1 у полуночи) + клиент-портал invoice-enum.
+- **E5** — `.env.example` → плейсхолдеры (убраны реальные ИНН/р-счёт) + markdown href XSS-whitelist.
+- **E6** — JWT revocation (Вариант A): **миграция 0040** `users.token_version`; authenticate сверяет
+  с БД; бамп при reset-password/деактивации → старые токены мгновенно мертвы.
+- CI зелёный на каждом шаге; api unit 714; tsc(api+web) чисто; миграции 0039+0040 применены на проде.
+
+**Остаток P3 (косметика, не делалось — на демо/пилот не влияет):** `as-any` в money-пути, wialon
+mock-одометр (адаптер и так not-implemented), 6 skipped gosklyuch-тестов (нужен стек), `@tms/shared`
+без тест-раннера, `margin.ts` FX (known-tradeoff). + QA-задача: ремонт e2e-сьюта под редизайн (чип).
 
 **Где мы:** длинная сессия закрыла W1 → W2 → W3 → W3.5 → **весь W4** (T-9, субподряд MVP-gate,
-T-7, T-2, T-14, T-16) + полировку. Прод стабилен.
+T-7, T-2, T-14, T-16) + полировку + **P0 + P1 + P2 (E1–E6)**. Прод `1ccdd62`, стабилен, CI зелёный.
+Код-долг практически вычищен → следующий этап: дизайнер → демо (web).
 
 **Прод синхронизирован с origin** (оба на `286fbb5`, deploy 2026-05-28). Нет pending-разницы.
 Health OK, AI-флаг off (404). Все W4-правки без новых миграций (логика + UI; T-14 использует
