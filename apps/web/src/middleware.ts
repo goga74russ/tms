@@ -23,6 +23,10 @@ const publicRoutes = ['/', '/about', '/status', '/login', '/_not-found', '/signu
 const publicPrefixes = ['/legal/'];
 const excludedPrefixes = ['/api', '/_next/static', '/_next/image', '/favicon.ico'];
 
+// Роли синхронизированы с sidebar.tsx (источник истины по видимости пунктов).
+// P2-SEC: раньше /kpi,/analytics,/import,/claims,/drivers,/fleet,/waybills,/orders,
+// /trips,/incidents НЕ были перечислены → hasAccess() возвращал true и страница
+// рендерилась любому залогиненному (API-гейт ловил данные, но UI открывался).
 const routeRoles: Array<[string, string[]]> = [
     ['/admin', ['admin']],
     ['/client', ['client']],
@@ -34,6 +38,16 @@ const routeRoles: Array<[string, string[]]> = [
     ['/finance', ['accountant', 'manager']],
     ['/tariffs', ['accountant', 'manager', 'logist']],
     ['/contractors', ['accountant', 'logist']],
+    ['/orders', ['logist', 'dispatcher', 'manager', 'accountant']],
+    ['/trips', ['logist', 'dispatcher']],
+    ['/waybills', ['dispatcher', 'logist', 'mechanic', 'medic']],
+    ['/fleet', ['mechanic', 'dispatcher', 'logist', 'manager']],
+    ['/drivers', ['mechanic', 'dispatcher', 'logist', 'manager']],
+    ['/kpi', ['manager']],
+    ['/analytics', ['manager', 'accountant']],
+    ['/import', ['manager']],
+    ['/incidents', ['dispatcher', 'mechanic', 'manager', 'medic']],
+    ['/claims', ['logist', 'dispatcher', 'accountant', 'manager', 'client']],
 ];
 
 function hasAccess(pathname: string, roles: string[]) {

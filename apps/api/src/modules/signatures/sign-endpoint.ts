@@ -22,6 +22,7 @@ import { db } from '../../db/connection.js';
 import { transportDocuments, mchd, trips } from '../../db/schema.js';
 import { getDefaultRegistry, selectAdapter } from '../../providers/index.js';
 import type { SignatureProvider } from '../../providers/signature/interface.js';
+import { requireAbility } from '../../auth/rbac.js';
 
 // ----------------------------- helpers (pure) -----------------------------
 
@@ -133,7 +134,10 @@ const signRoutes: FastifyPluginAsync = async (app) => {
 
     // ---------------- POST /transport-documents/:id/sign -----------------
     app.post('/transport-documents/:id/sign', {
-        preHandler: [app.authenticate],
+        // P2-SEC: role-гейт (раньше был только authenticate + org-scope) — подпись
+        // титула это мутация документов рейса, зеркалим requireAbility('update','Trip')
+        // как в trips/routes recordTransportDocumentSignature.
+        preHandler: [app.authenticate, requireAbility('update', 'Trip')],
         schema: {
             tags: ['Документы'],
             summary: 'Инициировать подписание титула ЭТрН',
@@ -346,7 +350,7 @@ const signRoutes: FastifyPluginAsync = async (app) => {
 
     // ---------------- GET /transport-documents/:id ----------------------
     app.get('/transport-documents/:id', {
-        preHandler: [app.authenticate],
+        preHandler: [app.authenticate, requireAbility('read', 'Trip')],
         schema: {
             tags: ['Документы'],
             summary: 'Получить транспортный документ',
