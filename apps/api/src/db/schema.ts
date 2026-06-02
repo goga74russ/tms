@@ -891,7 +891,8 @@ export const fines = pgTable('fines', {
 // ================================================================
 export const invoices = pgTable('invoices', {
     id: uuid('id').primaryKey().defaultRandom(),
-    number: varchar('number', { length: 50 }).notNull().unique(),
+    // 0039: number уникален per-org (composite index ниже), не глобально.
+    number: varchar('number', { length: 50 }).notNull(),
     // contractor_id остался для backward compat (legacy). Новая модель
     // использует payer_id / payee_id (spec §3) — направление документа
     // определяется через них, не через тип.
@@ -926,7 +927,9 @@ export const invoices = pgTable('invoices', {
     hasCorrections: boolean('has_corrections').notNull().default(false),
     cancellationReason: text('cancellation_reason'),
 }, (table) => [
-    uniqueIndex('idx_invoices_number').on(table.number),
+    // 0039: per-org серия номеров (п.5.1 ст.169 НК) + неуникальный индекс на number.
+    uniqueIndex('idx_invoices_org_number').on(table.payeeOrganizationId, table.number),
+    index('idx_invoices_number').on(table.number),
     index('idx_invoices_contractor').on(table.contractorId),
     index('idx_invoices_status').on(table.status),
     index('idx_invoices_created_at').on(table.createdAt),

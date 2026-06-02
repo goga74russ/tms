@@ -69,20 +69,18 @@ async function getInvoiceWithOrgRegime(invoiceId: string, author?: Author) {
     return { invoice: row.invoice, taxRegime: (row.taxRegime ?? 'unspecified') as TaxRegime };
 }
 
-// H5 (P1-C): генерация номера счёта.
+// H5 (P1-C) + #17 (E2): генерация номера счёта — PER-ORG серия.
 // ВАЖНО: вызывать ВНУТРИ транзакции (tx) — функция берёт advisory-xact-lock
-// по серии, чтобы конкурентные выпуски не получили один номер (гонка ловилась
-// только глобальным unique-индексом → второй insert падал). Лок снимается на
-// COMMIT/ROLLBACK, поэтому number-gen и insert должны быть в одной транзакции.
+// по (серия, орг), чтобы конкурентные выпуски одной орг не получили один номер.
+// Лок снимается на COMMIT/ROLLBACK, поэтому number-gen и insert — в одной tx.
 //
-// Серия пока ГЛОБАЛЬНАЯ по (type, year). Полностью per-org нумерация (п.5.1
-// ст.169 НК — у каждой орг свой ряд с 1) требует замены глобального
-// unique(number) на composite unique(payee_organization_id, number) —
-// отдельная миграция, см. full-audit P1-C #17 (отложено, риск на проде).
+// Серия независима у каждой орг (п.5.1 ст.169 НК — у каждого налогоплательщика
+// свой ряд с 1). Уникальность гарантирует composite unique(payee_organization_id,
+// number) (миграция 0039). orgId null → глобальная серия (legacy/без орг).
 // Тип транзакционного executor'а (db.transaction callback arg).
 type InvoiceTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-async function generateInvoiceNumber(type: InvoiceType, tx: InvoiceTx): Promise<string> {
+async function generateInvoiceNumber(type: InvoiceType, tx: InvoiceTx, orgId?: string | null): Promise<string> {
     // Spec §3 «Нумерация раздельная по invoice_type» (п. 5.1 ст. 169 НК).
     const year = new Date().getFullYear();
     const prefix = {
@@ -95,15 +93,19 @@ async function generateInvoiceNumber(type: InvoiceType, tx: InvoiceTx): Promise<
         act: `АКТ-${year}-`,
     }[type];
 
-    // Сериализуем конкурентную генерацию для этой серии (lock живёт до конца tx).
-    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${prefix})::bigint)`);
+    // Сериализуем генерацию для серии В ПРЕДЕЛАХ ОРГ (lock живёт до конца tx).
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${prefix + '|' + (orgId ?? 'global')})::bigint)`);
 
-    // Числовой максимум суффикса (не лексический — иначе после 99999 «100000»
-    // сортируется ниже «99999» и ряд ломается). Берём цифры после последнего '-'.
+    // Числовой максимум суффикса в серии этой орг (не лексический — иначе после
+    // 99999 «100000» сортируется ниже «99999»). Берём цифры после последнего '-'.
+    const orgFilter = orgId
+        ? sql`${invoices.payeeOrganizationId} = ${orgId}`
+        : sql`${invoices.payeeOrganizationId} IS NULL`;
     const [row] = await tx.execute<{ maxseq: number | null }>(sql`
         SELECT COALESCE(MAX(CAST(regexp_replace(${invoices.number}, '^.*-', '') AS INTEGER)), 0) AS maxseq
         FROM ${invoices}
         WHERE ${invoices.number} LIKE ${prefix + '%'}
+          AND ${orgFilter}
           AND regexp_replace(${invoices.number}, '^.*-', '') ~ '^[0-9]+$'
     `) as unknown as Array<{ maxseq: number | null }>;
 
@@ -140,7 +142,7 @@ export async function createDraftInvoice(
     // H5 (P1-C): номер + insert в одной транзакции — advisory-lock в
     // generateInvoiceNumber защищает от гонки только в пределах tx.
     const [created] = await db.transaction(async (tx) => {
-        const number = await generateInvoiceNumber(input.invoiceType, tx);
+        const number = await generateInvoiceNumber(input.invoiceType, tx, author.organizationId ?? null);
         return tx.insert(invoices).values({
             number,
             contractorId: input.payerId, // backward compat
@@ -540,7 +542,7 @@ export async function createCorrection(
 
     const createdId = await db.transaction(async (tx) => {
         // H5 (P1-C): номер — внутри tx (advisory-lock).
-        const number = await generateInvoiceNumber(newType, tx);
+        const number = await generateInvoiceNumber(newType, tx, orig_inv.payeeOrganizationId ?? null);
         // 1. Insert новый corrective invoice (сразу в статусе issued — корректировки
         //    создаются как выпуск, не draft, per spec §5).
         const [created] = await tx.insert(invoices).values({
