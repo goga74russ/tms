@@ -90,6 +90,13 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
+    // Статические файлы из /public (logo-mark.svg, robots.txt, *.png и т.п.) —
+    // пропускаем без auth. Иначе middleware редиректил их на /login (307), и
+    // лого не грузилось на публичных страницах. Сегмент с расширением = файл.
+    if (/\.[a-zA-Z0-9]+$/.test(pathname)) {
+        return NextResponse.next();
+    }
+
     if (publicRoutes.includes(pathname)) {
         return NextResponse.next();
     }
