@@ -82,9 +82,9 @@ severity-секции аудита разнесены по классам — б
 - [x] **P1** `inspections/service.ts:985-1047` — med тот же gap + алкотест-flip. ✅ FIX: то же + сообщение про алкотест. Тест.
 - [x] **P1** `inspections/routes.ts:608-635` — tech /decision role-gate. ✅ FIX: явный `mechanic/admin`-гейт (параллель med) + оба /decision маппят statusCode. Тест driver→403.
   - _Бонус: задействована мёртвая `validateDecisionUpdate` из classifiers.ts (была «never called» — отдельная находка api-repairs-insp)._
-- [ ] **P1** `signatures/gosklyuch-callback.ts:92-134, 254-356` — публичный callback принимает произвольный signedXml без верификации содержимого/mTLS/IP-allowlist
-- [ ] **P1** `apps/mobile/.../DeliveryConfirmationScreen.tsx:147` — подпись получателя отправляется пустой строкой без валидации
-- [ ] **P1** `apps/web/.../trips/page.tsx:1639-1644` — хардкод signerRole='dispatcher'/signerName='Оператор ТрансПульт' для любого юзера
+- [ ] **P1** `signatures/gosklyuch-callback.ts:92-134, 254-356` — публичный callback принимает произвольный signedXml без верификации содержимого/mTLS/IP-allowlist _(остаток C1; + юр-оценка /jurist)_
+- [x] **P1** `apps/mobile/.../DeliveryConfirmationScreen.tsx:147` — пустая подпись. ✅ FIX: guard в submitConfirmation (пустая/не-data:image → Alert, нет submit/queue). Сервер уже защищён regex (`data:image;base64`) — фикс закрывает тихую потерю в офлайн-очереди.
+- [x] **P1** `apps/web/.../trips/page.tsx:1639-1644` — хардкод подписанта. ✅ FIX: signerRole/signerName из реального `useUser()` в signature + refusal. web tsc ✓.
 
 **Sweep P2/P3:** signerRole free-text (trips-docs:981), signedAt client-supplied (store:1025/1033),
 signatureState scalar/мульти-титул (gosklyuch-callback:286,321), classifiers never called (api-repairs-insp).
@@ -297,5 +297,6 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
+| 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | _(этот коммит)_ |
 | 2026-06-02 | C1 | immutability решений осмотра (938/985) + role-gate tech /decision (608): rejected→approved блок (422), note-required (задействована мёртвая validateDecisionUpdate), mechanic/admin-гейт. unit-717/integration-20 зелёные | _(этот коммит)_ |
 | 2026-06-02 | — | Правки по ревью QA: 32→11 CBO (был артефакт грепа); C3 разбит на 3 механизма (нет-фильтра / org-less-обход / NULL-FK) + 3-кейсовый матрица-тест; убран опасный «super-admin org=null → bypass» (super-admin-роли в системе НЕТ → org-less = DENY); названы 4 пропущенных P1 (dispatcher:486→C5, integrations:227/admin-layout:51/dispatcher:573→C9); DoD C9 = пройти все 181 P2/P3; CBO → именные regression-тесты | _(этот коммит)_ |

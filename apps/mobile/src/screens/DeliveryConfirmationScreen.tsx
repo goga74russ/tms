@@ -109,6 +109,12 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
             Alert.alert('Ошибка', 'Укажите ФИО получателя.');
             return;
         }
+        // Подпись получателя обязательна: иначе сервер вернёт 400 (regex data:image),
+        // а в офлайне пустая подпись молча зависнет в очереди и потеряется на replay.
+        if (!signature || !signature.startsWith('data:image/')) {
+            Alert.alert('Ошибка', 'Поставьте подпись получателя.');
+            return;
+        }
         if (cargoCondition !== 'intact' && !notes.trim()) {
             Alert.alert('Ошибка', 'Опишите состояние груза при расхождениях.');
             return;

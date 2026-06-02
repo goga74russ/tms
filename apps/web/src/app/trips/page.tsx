@@ -1515,9 +1515,13 @@ function OperationalActionsBlock({
 }
 
 function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: boolean }) {
+    const { user } = useUser();
     const transportDocuments = dossier?.transportDocuments;
     const etrn = dossier?.etrn;
     const tripId = dossier?.trip?.id;
+    // Подписант = реальный текущий пользователь, а не захардкоженный «dispatcher / Оператор ТрансПульт».
+    const signerRole = user?.roles?.[0] ?? 'operator';
+    const signerName = user?.fullName?.trim() || user?.email || 'Оператор';
     const [documentActionLoading, setDocumentActionLoading] = useState<string | null>(null);
     const [documentActionResult, setDocumentActionResult] = useState<string | null>(null);
     const [ediActionLoading, setEdiActionLoading] = useState<string | null>(null);
@@ -1637,8 +1641,8 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
         setDocumentActionLoading(`sign-${doc.id}`);
         try {
             await api.post(`/trips/${tripId}/transport-documents/${doc.id}/signatures`, {
-                signerRole: 'dispatcher',
-                signerName: 'Оператор ТрансПульт',
+                signerRole,
+                signerName,
                 authorityType: 'manual_ui',
                 signedAt: new Date().toISOString(),
                 notes: 'Зафиксировано из web dossier',
@@ -1658,8 +1662,8 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
         setDocumentActionLoading(`refuse-${doc.id}`);
         try {
             await api.post(`/trips/${tripId}/transport-documents/${doc.id}/signature-refusals`, {
-                signerRole: 'dispatcher',
-                signerName: 'Оператор ТрансПульт',
+                signerRole,
+                signerName,
                 reason,
                 refusedAt: new Date().toISOString(),
                 notes: 'Отказ зафиксирован из web dossier',
