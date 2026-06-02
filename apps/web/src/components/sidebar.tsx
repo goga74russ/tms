@@ -92,9 +92,8 @@ export function Sidebar() {
             {/* Logo */}
             <div className="flex items-center h-16 px-4 border-b border-neutral-200">
                 <Link href="/" className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-90">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-soft shrink-0">
-                        <Truck className="w-5 h-5 text-white" />
-                    </div>
+                    {/* Design Блок 4 — фирменный знак ТрансПульт (navy для светлой шапки). */}
+                    <img src="/logo-mark.svg" alt="ТрансПульт" className="w-9 h-9 shrink-0" />
                     {!collapsed && (
                         <div className="min-w-0 flex-1">
                             <div className="font-bold text-lg text-neutral-900 leading-none truncate">ТрансПульт</div>

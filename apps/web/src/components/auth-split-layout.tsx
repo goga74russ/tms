@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Truck } from 'lucide-react';
 
 export interface AuthSplitLayoutProps {
     /** Title shown at the top of the left form column. */
@@ -47,9 +46,8 @@ export function AuthSplitLayout({
                         className="inline-flex items-center gap-2 group"
                         aria-label="ТрансПульт — на главную"
                     >
-                        <div className="w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-sm transition-transform group-hover:scale-105">
-                            <Truck className="w-[18px] h-[18px]" />
-                        </div>
+                        {/* Design Блок 4 — фирменный знак (светлый auth-фон → navy). */}
+                        <img src="/logo-mark.svg" alt="" className="w-9 h-9 transition-transform group-hover:scale-105" />
                         <span className="font-bold text-neutral-900 tracking-tight">ТрансПульт</span>
                     </Link>
                     {topRightLink ? (
