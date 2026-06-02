@@ -37,10 +37,14 @@ export default defineConfig({
             testMatch: /auth\.setup\.ts/,
         },
         // Базовый happy-path и любые тесты, которые сами делают login.
+        // testIgnore: role/* и cross-org/* спеки требуют pre-baked storage state
+        // (project.use.storageState) — под chromium без авторизации они падали
+        // на редиректе /login. Их место — в role-*/cross-org проектах ниже.
         {
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
             dependencies: ['setup'],
+            testIgnore: [/e2e\/role\//, /e2e\/cross-org\//],
         },
         // Per-role projects — тесты под этой ролью видят готовое
         // storage state. Тест-файл может сам делать test.use({ storageState })
