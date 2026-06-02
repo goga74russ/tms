@@ -229,6 +229,10 @@ export const users = pgTable('users', {
     phone: varchar('phone', { length: 20 }),
     roles: jsonb('roles').$type<string[]>().notNull().default([]),
     isActive: boolean('is_active').notNull().default(true),
+    // E6 (JWT revocation): монотонный счётчик версии токенов. Кладётся в JWT при
+    // логине; authenticate сверяет с БД и отвергает токены со старой версией.
+    // Бампится при деактивации/смене пароля/ролей → старые токены мгновенно мертвы.
+    tokenVersion: integer('token_version').notNull().default(0),
     // Client RLS: link client users to their contractor
     contractorId: uuid('contractor_id').references(() => contractors.id),
     // Multitenancy (Sprint 14): isolate data by organization

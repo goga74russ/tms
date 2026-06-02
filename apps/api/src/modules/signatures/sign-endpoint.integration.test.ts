@@ -58,6 +58,14 @@ function mapTableLabel(name: string | undefined): SelectEntry['table'] | undefin
 vi.mock('../../db/connection.js', () => {
     const buildSelectChain = (tbl: unknown) => {
         const label = mapTableLabel(tableName(tbl));
+        // E6: authenticate-decorator делает select(users) для проверки
+        // token_version/isActive ДО хендлера. Отдаём активного юзера, не трогая
+        // упорядоченную selectQueue (она настроена под transportDocuments/trips/mchd).
+        if (tableName(tbl) === 'users') {
+            return {
+                where: () => ({ limit: () => Promise.resolve([{ isActive: true, tokenVersion: 0 }]) }),
+            };
+        }
         return {
             where: () => ({
                 limit: () => {

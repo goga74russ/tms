@@ -115,29 +115,30 @@ export function registerAuthRoutes(app: FastifyInstance) {
     // H-15: authenticate decorator — cookie-first, header fallback (for mobile)
     app.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            // Try cookie first (web browser)
+            // Try cookie first (web browser), fallback to Authorization header (mobile).
             const cookieToken = request.cookies?.[COOKIE_NAME];
+            const authHeader = request.headers.authorization;
             if (cookieToken) {
                 await request.jwtVerify({ onlyCookie: true });
-                {
-                    const payload = request.user as { organizationId?: string };
-                    (request as FastifyRequest).orgId = payload?.organizationId ?? null;
-                }
-                return;
-            }
-
-            // Fallback to Authorization header (mobile app)
-            const authHeader = request.headers.authorization;
-            if (authHeader?.startsWith('Bearer ')) {
+            } else if (authHeader?.startsWith('Bearer ')) {
                 await request.jwtVerify();
-                {
-                    const payload = request.user as { organizationId?: string };
-                    (request as FastifyRequest).orgId = payload?.organizationId ?? null;
-                }
-                return;
+            } else {
+                return reply.status(401).send({ success: false, error: 'Требуется авторизация' });
             }
 
-            reply.status(401).send({ success: false, error: 'Требуется авторизация' });
+            // E6 (JWT revocation, Вариант A): сверяем с БД актуальность токена.
+            // Деактивированный/перенастроенный юзер с валидной подписью, но старой
+            // token_version отвергается сразу (не ждём истечения 24ч). Старые токены
+            // без поля tv трактуются как версия 0 (= дефолт БД) → не ломаем сессии
+            // при первом деплое, пока кому-то не бампнут версию.
+            const payload = request.user as { userId?: string; organizationId?: string; tv?: number };
+            const [u] = await db.select({ isActive: users.isActive, tokenVersion: users.tokenVersion })
+                .from(users).where(eq(users.id, payload.userId ?? '')).limit(1);
+            if (!u || !u.isActive || (payload.tv ?? 0) !== u.tokenVersion) {
+                return reply.status(401).send({ success: false, error: 'Сессия недействительна, войдите снова' });
+            }
+
+            (request as FastifyRequest).orgId = payload?.organizationId ?? null;
         } catch (err) {
             reply.status(401).send({ success: false, error: 'Требуется авторизация' });
         }
@@ -180,7 +181,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         }
 
         const token = app.jwt.sign(
-            { userId: user.id, roles: user.roles, organizationId: user.organizationId ?? undefined },
+            { userId: user.id, roles: user.roles, organizationId: user.organizationId ?? undefined, tv: user.tokenVersion ?? 0 },
             { expiresIn: JWT_EXPIRES_IN },
         );
 
@@ -250,7 +251,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         }
 
         const token = app.jwt.sign(
-            { userId: user.id, roles: user.roles, organizationId: user.organizationId ?? undefined },
+            { userId: user.id, roles: user.roles, organizationId: user.organizationId ?? undefined, tv: user.tokenVersion ?? 0 },
             { expiresIn: JWT_EXPIRES_IN },
         );
 
@@ -885,6 +886,11 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (body.roles !== undefined) updateData.roles = body.roles;
         if (body.isActive !== undefined) updateData.isActive = body.isActive;
         if (body.password) updateData.passwordHash = await hashPassword(body.password);
+        // E6: смена пароля или деактивация → бамп token_version, чтобы старые
+        // токены пользователя сразу перестали действовать.
+        if (body.password || body.isActive === false) {
+            updateData.tokenVersion = sql`${users.tokenVersion} + 1`;
+        }
 
         const [updated] = await db.update(users)
             .set(updateData)
@@ -1471,7 +1477,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
             .where(eq(users.id, user.id));
 
         const token = app.jwt.sign(
-            { userId: user.id, roles: user.roles, organizationId: user.organizationId ?? undefined },
+            { userId: user.id, roles: user.roles, organizationId: user.organizationId ?? undefined, tv: user.tokenVersion ?? 0 },
             { expiresIn: JWT_EXPIRES_IN },
         );
         // A-P1-5: sameSite='strict' (see /login for rationale).
@@ -1737,7 +1743,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
         const passwordHash = await hashPassword(password);
         await db.update(users)
-            .set({ passwordHash, updatedAt: new Date() })
+            // E6: смена пароля → бамп token_version (старые токены мертвы).
+            .set({ passwordHash, tokenVersion: sql`${users.tokenVersion} + 1`, updatedAt: new Date() })
             .where(eq(users.id, user.id));
 
         // One-time use — invalidate immediately.
@@ -1761,8 +1768,8 @@ declare module 'fastify' {
 
 declare module '@fastify/jwt' {
     interface FastifyJWT {
-        payload: { userId: string; roles: string[]; organizationId?: string };
-        user: { userId: string; roles: string[]; organizationId?: string };
+        payload: { userId: string; roles: string[]; organizationId?: string; tv?: number };
+        user: { userId: string; roles: string[]; organizationId?: string; tv?: number };
     }
 }
 
