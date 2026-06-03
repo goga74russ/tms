@@ -30,7 +30,7 @@ import {
 } from './transport-documents-store.js';
 import { db } from '../../db/connection.js';
 import { drivers, orders, documentDossierItems, trips, waybills, odometerReadings, routePoints } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import { z } from 'zod';
 import { getTripLoadPlan } from '../operational-core/service.js';
@@ -1376,13 +1376,15 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
         await assertTripAccess(id, user);
         const body = request.body as { reason?: string; metadata?: Record<string, unknown> };
+        // C3 (механизм «а»): item обязан принадлежать ЭТОМУ рейсу (assertTripAccess
+        // проверил рейс, но itemId мог быть из чужого рейса/орг). Скоупим по tripId.
         const [item] = await db.update(documentDossierItems).set({
             status: 'exceptioned',
             blockedReason: body.reason ?? 'Manual exception',
             metadata: body.metadata ?? {},
             completedAt: new Date(),
             updatedAt: new Date(),
-        }).where(eq(documentDossierItems.id, itemId)).returning();
+        }).where(and(eq(documentDossierItems.id, itemId), eq(documentDossierItems.scopeId, id))).returning();
         if (!item) return reply.status(404).send({ success: false, error: 'Dossier item not found' });
         return { success: true, data: item };
     });

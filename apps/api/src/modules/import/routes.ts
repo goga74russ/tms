@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { db } from '../../db/connection.js';
 import { vehicles, drivers, contractors, users, orders } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { hashPassword } from '../../auth/auth.js';
 import { buildTemplate, parseTemplate, type TemplateType } from './templates.js';
@@ -137,9 +137,11 @@ export default async function importRoutes(app: FastifyInstance) {
                     let userId = item.userId as string | undefined;
                     let userCreated = false;
 
-                    if (!userId && item.email) {
+                    if (!userId && item.email && orgId) {
+                        // C3 (механизм «а»): email-lookup скоупим по орг — иначе
+                        // импортируемый водитель линковался к юзеру ЧУЖОЙ орг (hijack).
                         const [existing] = await tx.select({ id: users.id })
-                            .from(users).where(eq(users.email, item.email)).limit(1);
+                            .from(users).where(and(eq(users.email, item.email), eq(users.organizationId, orgId))).limit(1);
                         if (existing) {
                             userId = existing.id;
                         }
@@ -294,10 +296,12 @@ export default async function importRoutes(app: FastifyInstance) {
                 results.errors.push({ index: i, error: errs.join('; ') });
                 continue;
             }
-            const [contractor] = await db.select({ id: contractors.id })
+            // C3 (механизм «а»): contractor по ИНН скоупим по орг — иначе заявка
+            // линковалась к контрагенту ЧУЖОЙ орг (cross-tenant linking). org-less → не найден.
+            const [contractor] = orgId ? await db.select({ id: contractors.id })
                 .from(contractors)
-                .where(eq(contractors.inn, String(item.contractorInn)))
-                .limit(1);
+                .where(and(eq(contractors.inn, String(item.contractorInn)), eq(contractors.organizationId, orgId)))
+                .limit(1) : [];
             if (!contractor) {
                 results.errors.push({ index: i, error: `Контрагент с ИНН ${item.contractorInn} не найден` });
                 continue;

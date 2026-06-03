@@ -11,6 +11,7 @@ import {
     setAdrStrictMode, getAdrStrictMode, validateAdrHard, listAdrOrders,
 } from './service.js';
 import { requireFeature } from '../../../auth/plan-guard.js';
+import { assertOrderAccess, assertVehicleAccess, assertDriverAccess } from '../../../auth/guards.js';
 
 interface AuthUser {
     userId: string;
@@ -88,6 +89,11 @@ const adrComplianceRoutes: FastifyPluginAsync = async (app) => {
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: 'orderId/vehicleId/driverId обязательны' });
         }
+        // C3 (механизм «а»): order/vehicle/driver обязаны принадлежать орг —
+        // иначе cross-tenant probing ADR-совместимости. assert* DENY org-less + чужие.
+        if (parsed.data.orderId) await assertOrderAccess(parsed.data.orderId, user);
+        if (parsed.data.vehicleId) await assertVehicleAccess(parsed.data.vehicleId, user);
+        if (parsed.data.driverId) await assertDriverAccess(parsed.data.driverId, user);
         const out = await validateAdrHard(
             user.organizationId ?? null,
             parsed.data.orderId,

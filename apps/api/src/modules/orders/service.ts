@@ -511,6 +511,11 @@ export async function createOrderFromTemplate(
 ) {
     const template = await getOrderById(templateOrderId);
     if (!template) throw new Error('Шаблон заявки не найден');
+    // C3 (механизм «а»): шаблон обязан принадлежать орг автора — иначе cross-tenant
+    // IDOR (копирование чужой заявки/реквизитов по UUID). org-less → не найден.
+    if (!author.organizationId || template.organizationId !== author.organizationId) {
+        throw new Error('Шаблон заявки не найден');
+    }
 
     const input: CreateOrderInput = {
         contractorId: overrides.contractorId ?? template.contractorId,
