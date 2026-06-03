@@ -466,13 +466,19 @@ export async function changeOrderStatus(
         );
     }
 
-    // Wrap status update + event in transaction
+    // Wrap status update + event in transaction.
+    // C5: оптимистичная блокировка — UPDATE применяется только если статус НЕ
+    // изменился с момента чтения (TOCTOU: два параллельных перехода читали один
+    // статус, оба проходили canTransition и оба писали). Пустой результат = гонка.
     const updated = await db.transaction(async (tx) => {
         const [result] = await tx
             .update(orders)
             .set({ status: newStatus as any, updatedAt: new Date() })
-            .where(eq(orders.id, id))
+            .where(and(eq(orders.id, id), eq(orders.status, order.status as any)))
             .returning();
+        if (!result) {
+            throw new Error('Статус заявки изменился параллельно, повторите операцию');
+        }
 
         // Map status to event type
         const eventMap: Record<string, string> = {

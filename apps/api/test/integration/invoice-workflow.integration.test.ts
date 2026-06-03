@@ -436,6 +436,20 @@ describe('POST /api/finance/invoices/:id/register-payment', () => {
         expect(body.data.paidAmount).toBe(500);
     });
 
+    it('C5: два ПАРАЛЛЕЛЬНЫХ платежа по 600 → paidAmount 1200 (FOR UPDATE, не last-write-wins)', async () => {
+        const inv = await issuedInvoice();
+        // Раньше без tx/FOR UPDATE оба читали paidAmount=0 и писали 600 → терялся платёж.
+        const [r1, r2] = await Promise.all([
+            app.inject({ method: 'POST', url: `/api/finance/invoices/${inv.id}/register-payment`, headers: authHeaders(adminToken()), payload: { amount: 600 } }),
+            app.inject({ method: 'POST', url: `/api/finance/invoices/${inv.id}/register-payment`, headers: authHeaders(adminToken()), payload: { amount: 600 } }),
+        ]);
+        expect([r1.statusCode, r2.statusCode]).toEqual([200, 200]);
+        const get = await app.inject({ method: 'GET', url: `/api/finance/invoices/${inv.id}`, headers: authHeaders(adminToken()) });
+        const invData = get.json().data;
+        expect(Number(invData.paidAmount)).toBe(1200);
+        expect(invData.status).toBe('paid_full');
+    });
+
     it('full payment in 2 steps → paid_full', async () => {
         const inv = await issuedInvoice();
         await app.inject({

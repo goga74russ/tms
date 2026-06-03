@@ -273,8 +273,8 @@ async function appendHistoryEvent(params: {
     errorCode?: string | null;
     payload?: Record<string, unknown>;
     createdBy?: string | null;
-}) {
-    await db.insert(transportDocumentEvents).values({
+}, tx?: any) {
+    await (tx ?? db).insert(transportDocumentEvents).values({
         documentId: params.documentId,
         eventType: params.eventType,
         title: params.title,
@@ -344,8 +344,8 @@ async function appendReceiptRecord(params: {
     message?: string | null;
     payload?: Record<string, unknown>;
     createdBy?: string | null;
-}) {
-    const [row] = await db.insert(transportDocumentReceipts).values({
+}, tx?: any) {
+    const [row] = await (tx ?? db).insert(transportDocumentReceipts).values({
         documentId: params.documentId,
         tripId: params.tripId,
         exchangeId: params.exchangeId ?? null,
@@ -1012,56 +1012,64 @@ export async function recordTransportDocumentSignature(params: {
     createdBy?: string | null;
     notes?: string | null;
 }) {
-    const [row] = await db.select().from(transportDocuments).where(and(
-        eq(transportDocuments.id, params.documentId),
-        eq(transportDocuments.tripId, params.tripId),
-    ));
-    if (!row) return null;
+    // C5: read-modify-write metadata.signatures — в одной транзакции с SELECT ... FOR
+    // UPDATE по документу. Раньше два параллельных POST .../signatures читали один и
+    // тот же массив, каждый пушил свою подпись и перезаписывал → одна подпись терялась
+    // (потеря юр-значимого факта подписи ЭТрН). FOR UPDATE сериализует подписантов.
+    const found = await db.transaction(async (tx) => {
+        const [row] = await tx.select().from(transportDocuments).where(and(
+            eq(transportDocuments.id, params.documentId),
+            eq(transportDocuments.tripId, params.tripId),
+        )).for('update');
+        if (!row) return false;
 
-    const metadata = ((row.metadata as Record<string, unknown> | null) ?? {});
-    const signatures = Array.isArray(metadata.signatures)
-        ? [...metadata.signatures as Array<Record<string, unknown>>]
-        : [];
-    const signedAt = params.signedAt ? new Date(params.signedAt) : new Date();
-    const signature = {
-        signerRole: params.signerRole,
-        signerName: params.signerName,
-        signerInn: params.signerInn ?? null,
-        authorityType: params.authorityType ?? 'manual',
-        certificateThumbprint: params.certificateThumbprint ?? null,
-        powerOfAttorneyId: params.powerOfAttorneyId ?? null,
-        signedAt: signedAt.toISOString(),
-        createdBy: params.createdBy ?? null,
-        notes: params.notes ?? null,
-    };
-    signatures.push(signature);
+        const metadata = ((row.metadata as Record<string, unknown> | null) ?? {});
+        const signatures = Array.isArray(metadata.signatures)
+            ? [...metadata.signatures as Array<Record<string, unknown>>]
+            : [];
+        const signedAt = params.signedAt ? new Date(params.signedAt) : new Date();
+        const signature = {
+            signerRole: params.signerRole,
+            signerName: params.signerName,
+            signerInn: params.signerInn ?? null,
+            authorityType: params.authorityType ?? 'manual',
+            certificateThumbprint: params.certificateThumbprint ?? null,
+            powerOfAttorneyId: params.powerOfAttorneyId ?? null,
+            signedAt: signedAt.toISOString(),
+            createdBy: params.createdBy ?? null,
+            notes: params.notes ?? null,
+        };
+        signatures.push(signature);
 
-    await db.update(transportDocuments).set({
-        metadata: {
-            ...metadata,
-            signatures,
-            signatureState: {
-                status: 'partially_signed',
-                lastSignerRole: params.signerRole,
-                lastSignedAt: signedAt.toISOString(),
+        await tx.update(transportDocuments).set({
+            metadata: {
+                ...metadata,
+                signatures,
+                signatureState: {
+                    status: 'partially_signed',
+                    lastSignerRole: params.signerRole,
+                    lastSignedAt: signedAt.toISOString(),
+                },
             },
-        },
-        providerStatus: `signed:${params.signerRole}`,
-        updatedAt: new Date(),
-    }).where(eq(transportDocuments.id, row.id));
+            providerStatus: `signed:${params.signerRole}`,
+            updatedAt: new Date(),
+        }).where(eq(transportDocuments.id, row.id));
 
-    await appendHistoryEvent({
-        documentId: row.id,
-        eventType: 'signature_recorded',
-        title: 'Document signature recorded',
-        fromStatus: row.status,
-        toStatus: row.status,
-        severity: 'info',
-        message: params.notes ?? `${params.signerRole} signed transport document`,
-        createdBy: params.createdBy ?? null,
-        payload: signature,
+        await appendHistoryEvent({
+            documentId: row.id,
+            eventType: 'signature_recorded',
+            title: 'Document signature recorded',
+            fromStatus: row.status,
+            toStatus: row.status,
+            severity: 'info',
+            message: params.notes ?? `${params.signerRole} signed transport document`,
+            createdBy: params.createdBy ?? null,
+            payload: signature,
+        }, tx);
+        return true;
     });
 
+    if (!found) return null;
     return getPersistedTransportDocumentById(params.tripId, params.documentId);
 }
 
@@ -1076,68 +1084,74 @@ export async function recordTransportDocumentSignatureRefusal(params: {
     createdBy?: string | null;
     notes?: string | null;
 }) {
-    const [row] = await db.select().from(transportDocuments).where(and(
-        eq(transportDocuments.id, params.documentId),
-        eq(transportDocuments.tripId, params.tripId),
-    ));
-    if (!row) return null;
+    // C5: read-modify-write signatureRefusals — в транзакции с SELECT ... FOR UPDATE
+    // (идентичный паттерн потери записи, что и у подписи). Сериализуем подписантов.
+    const found = await db.transaction(async (tx) => {
+        const [row] = await tx.select().from(transportDocuments).where(and(
+            eq(transportDocuments.id, params.documentId),
+            eq(transportDocuments.tripId, params.tripId),
+        )).for('update');
+        if (!row) return false;
 
-    const metadata = ((row.metadata as Record<string, unknown> | null) ?? {});
-    const refusals = Array.isArray(metadata.signatureRefusals)
-        ? [...metadata.signatureRefusals as Array<Record<string, unknown>>]
-        : [];
-    const refusedAt = params.refusedAt ? new Date(params.refusedAt) : new Date();
-    const refusal = {
-        signerRole: params.signerRole,
-        signerName: params.signerName,
-        reason: params.reason,
-        evidenceUrl: params.evidenceUrl ?? null,
-        refusedAt: refusedAt.toISOString(),
-        createdBy: params.createdBy ?? null,
-        notes: params.notes ?? null,
-    };
-    refusals.push(refusal);
+        const metadata = ((row.metadata as Record<string, unknown> | null) ?? {});
+        const refusals = Array.isArray(metadata.signatureRefusals)
+            ? [...metadata.signatureRefusals as Array<Record<string, unknown>>]
+            : [];
+        const refusedAt = params.refusedAt ? new Date(params.refusedAt) : new Date();
+        const refusal = {
+            signerRole: params.signerRole,
+            signerName: params.signerName,
+            reason: params.reason,
+            evidenceUrl: params.evidenceUrl ?? null,
+            refusedAt: refusedAt.toISOString(),
+            createdBy: params.createdBy ?? null,
+            notes: params.notes ?? null,
+        };
+        refusals.push(refusal);
 
-    await db.update(transportDocuments).set({
-        status: TransportDocumentStatus.REJECTED,
-        rejectedAt: refusedAt,
-        providerStatus: `signature_refused:${params.signerRole}`,
-        error: params.reason,
-        metadata: {
-            ...metadata,
-            signatureRefusals: refusals,
-            signatureState: {
-                status: 'refused',
-                lastSignerRole: params.signerRole,
-                lastRefusedAt: refusedAt.toISOString(),
+        await tx.update(transportDocuments).set({
+            status: TransportDocumentStatus.REJECTED,
+            rejectedAt: refusedAt,
+            providerStatus: `signature_refused:${params.signerRole}`,
+            error: params.reason,
+            metadata: {
+                ...metadata,
+                signatureRefusals: refusals,
+                signatureState: {
+                    status: 'refused',
+                    lastSignerRole: params.signerRole,
+                    lastRefusedAt: refusedAt.toISOString(),
+                },
             },
-        },
-        updatedAt: new Date(),
-    }).where(eq(transportDocuments.id, row.id));
+            updatedAt: new Date(),
+        }).where(eq(transportDocuments.id, row.id));
 
-    await appendHistoryEvent({
-        documentId: row.id,
-        eventType: 'signature_refused',
-        title: 'Document signature refused',
-        fromStatus: row.status,
-        toStatus: TransportDocumentStatus.REJECTED,
-        severity: 'critical',
-        message: params.reason,
-        errorCode: 'signature_refusal',
-        createdBy: params.createdBy ?? null,
-        payload: refusal,
+        await appendHistoryEvent({
+            documentId: row.id,
+            eventType: 'signature_refused',
+            title: 'Document signature refused',
+            fromStatus: row.status,
+            toStatus: TransportDocumentStatus.REJECTED,
+            severity: 'critical',
+            message: params.reason,
+            errorCode: 'signature_refusal',
+            createdBy: params.createdBy ?? null,
+            payload: refusal,
+        }, tx);
+
+        await appendReceiptRecord({
+            documentId: row.id,
+            tripId: params.tripId,
+            receiptType: TransportDocumentReceiptType.REJECTION,
+            providerStatus: `signature_refused:${params.signerRole}`,
+            title: 'Signature refusal receipt',
+            message: params.reason,
+            payload: refusal,
+            createdBy: params.createdBy ?? null,
+        }, tx);
+        return true;
     });
 
-    await appendReceiptRecord({
-        documentId: row.id,
-        tripId: params.tripId,
-        receiptType: TransportDocumentReceiptType.REJECTION,
-        providerStatus: `signature_refused:${params.signerRole}`,
-        title: 'Signature refusal receipt',
-        message: params.reason,
-        payload: refusal,
-        createdBy: params.createdBy ?? null,
-    });
-
+    if (!found) return null;
     return getPersistedTransportDocumentById(params.tripId, params.documentId);
 }

@@ -195,18 +195,18 @@ fines.worker без org (integrations), mchd_number oracle (signatures:294), cop
 
 ---
 
-## C5 — TOCTOU / read-modify-write без транзакции  `TODO`
+## C5 — TOCTOU / read-modify-write без транзакции  `WIP`
 
 **Инвариант:** проверка-состояния-и-запись атомарны (tx + FOR UPDATE / advisory-lock); счётчики не теряются при гонке.
 
 - [ ] **P1** `auth/auth.ts:405-419` — me/organization INN-check вне транзакции (дубль орг)
 - [ ] **P1** `carriers/routes.ts:217-221` — assign-carrier финальный UPDATE теряет org-фильтр (TOCTOU write)
-- [ ] **P1** `finance/finance.service.ts:557-601` — recordPartialPayment read→event→re-read→update вне tx
-- [ ] **P1** `finance/invoice-workflow.service.ts:620-652` — registerPayment read-modify-write paidAmount без lock
-- [ ] **P1** `fleet/service.ts:251-264` — updateVehicle plate dup-check вне tx
-- [ ] **P1** `orders/service.ts:460-475` — changeOrderStatus проверка состояния вне tx
-- [ ] **P1** `sync/service.ts:61-68` — processSingleEvent idempotency-check не атомарен
-- [ ] **P1** `trips/transport-documents-store.ts:1015-1051, 1079-1116` — параллельная подпись ЭТрН: read-modify-write metadata.signatures → потеря подписи
+- [x] **P1** `finance/finance.service.ts:557-601` — recordPartialPayment. ✅ FIX: db.transaction + SELECT FOR UPDATE на invoice; event+сумма+update атомарны.
+- [x] **P1** `finance/invoice-workflow.service.ts:620-652` — registerPayment. ✅ FIX: tx + FOR UPDATE, пересчёт из locked-строки. Concurrency-тест (2×600 параллельно → 1200, не 600).
+- [x] **P1** `fleet/service.ts:251-264` — updateVehicle plate. ✅ FIX (бэкстоп): org-scope есть + per-org unique (миг.0041) ловит гонку на уровне БД.
+- [x] **P1** `orders/service.ts:460-475` — changeOrderStatus. ✅ FIX: оптимистичная блокировка (`WHERE status = прочитанный`); пустой результат → гонка → throw.
+- [ ] **P1** `sync/service.ts:61-68` — processSingleEvent idempotency. `DEFER (батч 2)`: нужен advisory-lock + tx-wrap 120-строчной multi-branch функции (проброс tx во все recordEvent). Не money/legal, оффлайн-replay.
+- [x] **P1** `trips/transport-documents-store.ts:1015-1051, 1079-1116` — параллельная подпись/отказ ЭТрН. ✅ FIX: обе функции в db.transaction + SELECT FOR UPDATE; appendHistoryEvent/appendReceiptRecord приняли tx-параметр. Потеря юр-значимой подписи закрыта.
 - [ ] **P1** `apps/mobile/.../temperature.ts:86-145` + `cold-chain/service.ts:122` — нет idempotency-ключа → дубли cold-chain тиков
 - [ ] **P1** `apps/mobile/.../offlineQueue.ts:149-206` — replayQueue без блокировки → двойная отправка/потеря очереди
 - [ ] **P1** `apps/web/.../repair/RepairKanban.tsx:1252-1279` — handlePlan/ReceiveParts: updateRepair+changeStatus два запроса без tx
@@ -307,6 +307,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
+| 2026-06-03 | C5 | Батч 1: registerPayment + recordPartialPayment (tx + FOR UPDATE, деньги), ЭТрН signature+refusal (tx + FOR UPDATE, потеря подписи), changeOrderStatus (оптимистичная блокировка). Concurrency-тест (2×600→1200). unit 722·integration 150. Остаток: sync-idempotency, carriers, me/organization, mobile/web | _(этот коммит)_ |
 | 2026-06-03 | C3-fix | **РЕГРЕССИЯ + фикс:** blanket org-less DENY сломал платформенного super-admin (`admin && !org`) — CI smoke упал (POST /api/trips), прод-super-admin тоже. Хелпер `isPlatformSuperAdmin` (org-less пропускается только для admin&&!org; прочий org-less → DENY) применён во всех C3/C4 org-scope фиксах. Тест: org-less accountant→403, super-admin→не-403. unit 722·integration 149 | _(этот коммит)_ |
 | 2026-06-03 | deploy | **🚀 C3+C4 на проде**: push + deploy `7fdad8c→031407b`, **миграции 0041/0042 применены** (`[apply]`). Health/login 200. Composite-индексы + org-колонки подтверждены интроспекцией прод-БД. origin/main==prod==031407b | `031407b` |
 | 2026-06-03 | C4+C3в | **Миграции 0041/0042**: C4 per-org unique (contractors.inn, vehicles plate/vin — дроп глобальных, composite) + dup-чеки по орг; C3-«в» org-column в incidents/fines (backfill) — GET/POST/PUT incidents + assertIncidentAccess + fines-worker/cold-chain/createFine ставят/скоупят org. Инвариант-тест 4/4. unit 722·integration 149. Индексы подтверждены интроспекцией. **C4 закрыт; C3 cross-tenant полностью закрыт.** | _(этот коммит)_ |

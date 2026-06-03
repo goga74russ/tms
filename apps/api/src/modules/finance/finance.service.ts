@@ -556,50 +556,57 @@ export class FinanceService {
         authorId: string,
         authorRole: string,
     ) {
-        const [invoice] = await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
-        if (!invoice) throw new Error('Invoice not found');
         if (params.amount <= 0) throw new Error('Payment amount must be positive');
 
-        await recordEvent({
-            authorId,
-            authorRole,
-            eventType: 'invoice.partial_payment.recorded',
-            entityType: 'invoice',
-            entityId: invoiceId,
-            data: {
-                amount: params.amount,
-                paidAt: params.paidAt ?? new Date().toISOString(),
-                paymentRef: params.paymentRef ?? null,
-                payerName: params.payerName ?? null,
-                notes: params.notes ?? null,
-            },
+        // C5: read-modify-write (event + сумма всех платежей + update статуса) — в одной
+        // транзакции с SELECT ... FOR UPDATE на invoice. Раньше всё было вне tx → два
+        // параллельных платежа суммировали по таймингу и перетирали paidAmount/статус.
+        return db.transaction(async (tx) => {
+            const [invoice] = await tx.select().from(invoices)
+                .where(eq(invoices.id, invoiceId)).for('update').limit(1);
+            if (!invoice) throw new Error('Invoice not found');
+
+            await recordEvent({
+                authorId,
+                authorRole,
+                eventType: 'invoice.partial_payment.recorded',
+                entityType: 'invoice',
+                entityId: invoiceId,
+                data: {
+                    amount: params.amount,
+                    paidAt: params.paidAt ?? new Date().toISOString(),
+                    paymentRef: params.paymentRef ?? null,
+                    payerName: params.payerName ?? null,
+                    notes: params.notes ?? null,
+                },
+            }, tx);
+
+            const paymentRows = await tx.select({ data: events.data })
+                .from(events)
+                .where(and(
+                    eq(events.entityType, 'invoice'),
+                    eq(events.entityId, invoiceId),
+                    eq(events.eventType, 'invoice.partial_payment.recorded'),
+                ));
+            const paidAmount = paymentRows.reduce((sum, row) => sum + num((row.data as Record<string, unknown>)?.amount), 0);
+            const remainingAmount = Math.max(num(invoice.total) - paidAmount, 0);
+
+            // M (Этап 3) — FSM: issued/paid_partial → paid_full когда полностью оплачено.
+            if (remainingAmount === 0 && invoice.status !== 'paid_full') {
+                await tx.update(invoices).set({ status: 'paid_full', paidAmount: num(invoice.total) }).where(eq(invoices.id, invoiceId));
+            } else if (paidAmount > 0 && remainingAmount > 0 && invoice.status === 'issued') {
+                await tx.update(invoices).set({ status: 'paid_partial', paidAmount }).where(eq(invoices.id, invoiceId));
+            }
+
+            return {
+                invoiceId,
+                invoiceNumber: invoice.number,
+                invoiceTotal: num(invoice.total),
+                paidAmount,
+                remainingAmount,
+                status: remainingAmount === 0 ? 'paid_full' : (paidAmount > 0 ? 'paid_partial' : invoice.status),
+            };
         });
-
-        const paymentRows = await db.select({ data: events.data })
-            .from(events)
-            .where(and(
-                eq(events.entityType, 'invoice'),
-                eq(events.entityId, invoiceId),
-                eq(events.eventType, 'invoice.partial_payment.recorded'),
-            ));
-        const paidAmount = paymentRows.reduce((sum, row) => sum + num((row.data as Record<string, unknown>)?.amount), 0);
-        const remainingAmount = Math.max(num(invoice.total) - paidAmount, 0);
-
-        // M (Этап 3) — 'paid' → 'paid_full'. FSM: issued/paid_partial → paid_full когда полностью оплачено.
-        if (remainingAmount === 0 && invoice.status !== 'paid_full') {
-            await db.update(invoices).set({ status: 'paid_full', paidAmount: num(invoice.total) }).where(eq(invoices.id, invoiceId));
-        } else if (paidAmount > 0 && remainingAmount > 0 && invoice.status === 'issued') {
-            await db.update(invoices).set({ status: 'paid_partial', paidAmount }).where(eq(invoices.id, invoiceId));
-        }
-
-        return {
-            invoiceId,
-            invoiceNumber: invoice.number,
-            invoiceTotal: num(invoice.total),
-            paidAmount,
-            remainingAmount,
-            status: remainingAmount === 0 ? 'paid_full' : (paidAmount > 0 ? 'paid_partial' : invoice.status),
-        };
     }
 
     async addAdditionalService(

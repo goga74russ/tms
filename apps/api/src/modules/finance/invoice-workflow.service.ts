@@ -637,50 +637,59 @@ export async function registerPayment(
     input: { amount: number; paymentDate?: string; paymentReference?: string },
     author: Author,
 ): Promise<{ id: string; status: string; paidAmount: number; total: number }> {
+    // Доступ/орг-скоуп (без блокировки).
     const ctx = await getInvoiceWithOrgRegime(invoiceId, author);
     if (!ctx) throw new InvoiceWorkflowError('NOT_FOUND', 'Счёт не найден', 404);
-    const { invoice } = ctx;
 
-    if (!['issued', 'paid_partial'].includes(invoice.status)) {
-        throw new InvoiceWorkflowError('INVALID_STATE', `Оплата возможна только для issued/paid_partial. Текущий: ${invoice.status}`);
-    }
+    // C5: вся read-modify-write — в одной транзакции с SELECT ... FOR UPDATE.
+    // Раньше paidAmount читался и писался вне tx → два параллельных POST читали
+    // одинаковый paidAmount и оба писали X+amount (один платёж терялся).
+    return db.transaction(async (tx) => {
+        const [invoice] = await tx.select().from(invoices)
+            .where(eq(invoices.id, invoiceId)).for('update').limit(1);
+        if (!invoice) throw new InvoiceWorkflowError('NOT_FOUND', 'Счёт не найден', 404);
 
-    const total = num(invoice.total);
-    const newPaid = num(invoice.paidAmount) + input.amount;
-    const targetStatus = newPaid >= total ? 'paid_full' : 'paid_partial';
+        if (!['issued', 'paid_partial'].includes(invoice.status)) {
+            throw new InvoiceWorkflowError('INVALID_STATE', `Оплата возможна только для issued/paid_partial. Текущий: ${invoice.status}`);
+        }
 
-    const fsmCheck = canTransitionInvoice({
-        from: invoice.status,
-        to: targetStatus,
-        invoiceType: invoice.type as InvoiceType,
-        paidAmount: newPaid,
-        total,
+        const total = num(invoice.total);
+        const newPaid = num(invoice.paidAmount) + input.amount;
+        const targetStatus = newPaid >= total ? 'paid_full' : 'paid_partial';
+
+        const fsmCheck = canTransitionInvoice({
+            from: invoice.status,
+            to: targetStatus,
+            invoiceType: invoice.type as InvoiceType,
+            paidAmount: newPaid,
+            total,
+        });
+        if (!fsmCheck.allowed) {
+            throw new InvoiceWorkflowError('FSM_BLOCKED', fsmCheck.reason ?? 'FSM запретил переход');
+        }
+
+        await tx.update(invoices).set({
+            status: targetStatus,
+            paidAmount: newPaid,
+            paidAt: targetStatus === 'paid_full' ? new Date() : invoice.paidAt,
+        }).where(eq(invoices.id, invoiceId));
+
+        await recordEvent({
+            authorId: author.userId,
+            authorRole: author.role,
+            eventType: 'invoice.payment_registered',
+            entityType: 'invoice',
+            entityId: invoiceId,
+            data: {
+                amount: input.amount,
+                paidAmountTotal: newPaid,
+                newStatus: targetStatus,
+                paymentReference: input.paymentReference,
+            },
+        }, tx);
+
+        return { id: invoiceId, status: targetStatus, paidAmount: newPaid, total };
     });
-    if (!fsmCheck.allowed) {
-        throw new InvoiceWorkflowError('FSM_BLOCKED', fsmCheck.reason ?? 'FSM запретил переход');
-    }
-
-    await db.update(invoices).set({
-        status: targetStatus,
-        paidAmount: newPaid,
-        paidAt: targetStatus === 'paid_full' ? new Date() : invoice.paidAt,
-    }).where(eq(invoices.id, invoiceId));
-
-    await recordEvent({
-        authorId: author.userId,
-        authorRole: author.role,
-        eventType: 'invoice.payment_registered',
-        entityType: 'invoice',
-        entityId: invoiceId,
-        data: {
-            amount: input.amount,
-            paidAmountTotal: newPaid,
-            newStatus: targetStatus,
-            paymentReference: input.paymentReference,
-        },
-    });
-
-    return { id: invoiceId, status: targetStatus, paidAmount: newPaid, total };
 }
 
 // ============================================================
