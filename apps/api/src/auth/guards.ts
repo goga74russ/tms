@@ -37,14 +37,25 @@ function hasStaffAccess(user: GuardUser) {
     return user.roles.some((role) => STAFF_ROLES.has(role));
 }
 
+/**
+ * Платформенный super-admin = роль 'admin' БЕЗ organizationId. По дизайну системы
+ * (см. auth.ts isSuperAdmin, seed-demo super@tms.local «для кросс-tenant аудита»)
+ * он намеренно видит данные всех тенантов. Прочие org-less аккаунты — мисконфиг.
+ */
+export function isPlatformSuperAdmin(user: { roles?: string[]; role?: string; organizationId?: string | null }): boolean {
+    if (user.organizationId) return false;
+    return Boolean(user.roles?.includes('admin') || user.role === 'admin');
+}
+
 function assertOrganizationScope(
     organizationIds: Array<string | null | undefined>,
     user: GuardUser,
 ) {
     // C3 (механизм «б», корень): org-less актор раньше ПРОХОДИЛ scope-проверку
-    // (`return`) — а платформенного super-admin в системе НЕТ (APP_ROLES), значит
-    // org-less = мисконфиг/недо-онбординг и НЕ должен видеть tenant-данные. DENY.
+    // безусловно. Теперь различаем: платформенный super-admin (admin && !org) —
+    // кросс-tenant ПО ДИЗАЙНУ (пропускаем); прочий org-less = мисконфиг → DENY.
     if (!user.organizationId) {
+        if (isPlatformSuperAdmin(user)) return;
         throw new AccessDeniedError('Учётная запись не привязана к организации');
     }
 

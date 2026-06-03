@@ -49,8 +49,9 @@ const settingsRoutes: FastifyPluginAsync = async (fastify) => {
         },
         preHandler: [fastify.authenticate, requireAbility('manage', 'Settings')],
     }, async (request) => {
-        const orgId = (request.user as { organizationId?: string | null }).organizationId;
-        const data = await listRecentSettings(orgId);
+        const u = request.user as { roles?: string[]; organizationId?: string | null };
+        const isSuper = !u.organizationId && Boolean(u.roles?.includes('admin'));
+        const data = await listRecentSettings(u.organizationId, isSuper);
         return { success: true, data };
     });
 };

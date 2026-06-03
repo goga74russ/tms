@@ -18,6 +18,7 @@ import { requireFeature } from '../../../auth/plan-guard.js';
 import { db } from '../../../db/connection.js';
 import { shipmentLots } from '../../../db/schema.js';
 import { and, eq } from 'drizzle-orm';
+import { isPlatformSuperAdmin } from '../../../auth/guards.js';
 
 interface AuthUser {
     userId: string;
@@ -101,12 +102,15 @@ const markingRoutes: FastifyPluginAsync = async (app) => {
             });
         }
         // C3 (механизм «а»): lotId должен принадлежать орг — иначе cross-tenant
-        // привязка кодов к чужой отгрузке. org-less → DENY.
-        if (!user.organizationId) {
+        // привязка кодов к чужой отгрузке. super-admin (admin && !org) — любая отгрузка; прочий org-less → DENY.
+        const isSuper = isPlatformSuperAdmin(user);
+        if (!user.organizationId && !isSuper) {
             return reply.status(403).send({ success: false, error: 'Учётная запись не привязана к организации' });
         }
-        const [lot] = await db.select({ id: shipmentLots.id }).from(shipmentLots)
-            .where(and(eq(shipmentLots.id, parsed.data.lotId), eq(shipmentLots.organizationId, user.organizationId))).limit(1);
+        const lotCond = user.organizationId
+            ? and(eq(shipmentLots.id, parsed.data.lotId), eq(shipmentLots.organizationId, user.organizationId))
+            : eq(shipmentLots.id, parsed.data.lotId);
+        const [lot] = await db.select({ id: shipmentLots.id }).from(shipmentLots).where(lotCond).limit(1);
         if (!lot) {
             return reply.status(404).send({ success: false, error: 'Партия отгрузки не найдена' });
         }

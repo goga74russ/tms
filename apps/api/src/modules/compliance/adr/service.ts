@@ -67,10 +67,13 @@ export async function getAdrStrictMode(organizationId: string): Promise<boolean>
 }
 
 /** List recent orders flagged as ADR (for the dashboard tab). */
-export async function listAdrOrders(organizationId: string) {
+export async function listAdrOrders(organizationId: string, isSuperAdmin = false) {
     // C3 (механизм «а»): org-фильтр обязателен — раньше параметр игнорировался и
-    // отдавались ADR-заявки ВСЕХ тенантов. org-less актор → пусто (super-admin-роли нет).
-    if (!organizationId) return [];
+    // отдавались ADR-заявки ВСЕХ тенантов. super-admin — кросс-tenant; прочий org-less → пусто.
+    if (!organizationId && !isSuperAdmin) return [];
+    const where = organizationId
+        ? and(eq(orders.organizationId, organizationId), isNotNull(orders.adrClass))
+        : isNotNull(orders.adrClass);
     return db
         .select({
             id: orders.id,
@@ -80,6 +83,6 @@ export async function listAdrOrders(organizationId: string) {
             status: orders.status,
         })
         .from(orders)
-        .where(and(eq(orders.organizationId, organizationId), isNotNull(orders.adrClass)))
+        .where(where)
         .limit(200);
 }

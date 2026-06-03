@@ -3,7 +3,7 @@
 // ============================================================
 import { FastifyInstance, FastifyReply } from 'fastify';
 import { requireAbility } from '../../auth/rbac.js';
-import { assertOrderAccess, assertTripAccess, resolveContractorId } from '../../auth/guards.js';
+import { assertOrderAccess, assertTripAccess, resolveContractorId, isPlatformSuperAdmin } from '../../auth/guards.js';
 import { claimsService } from './service.js';
 import { db } from '../../db/connection.js';
 import { contractors } from '../../db/schema.js';
@@ -62,11 +62,13 @@ export default async function claimsRoutes(app: FastifyInstance) {
                 reply.status(403).send({ success: false, error: 'Нет доступа' });
                 return null;
             }
+        } else if (isPlatformSuperAdmin(user)) {
+            // Платформенный super-admin (admin && !org) — кросс-tenant по дизайну.
+            return claim;
         } else {
             // C3: staff видит претензию только своей орг.
             // (б) org-less staff → DENY (раньше `user.organizationId && ...` пропускал).
-            // (в) orphaned claim без contractorId скоупим через tripId→trips.org
-            //     (раньше `&& claim.contractorId` пропускал → виден всем тенантам).
+            // (в) orphaned claim без contractorId скоупим через tripId→trips.org.
             if (!user.organizationId) {
                 reply.status(403).send({ success: false, error: 'Access denied' });
                 return null;

@@ -72,8 +72,9 @@ const adrComplianceRoutes: FastifyPluginAsync = async (app) => {
         preHandler: [app.authenticate, requireFeature('adr')],
     }, async (request) => {
         const user = request.user as AuthUser;
-        if (!user.organizationId) return { success: true, data: [] };
-        const rows = await listAdrOrders(user.organizationId);
+        const isSuper = !user.organizationId && Boolean(user.roles?.includes('admin'));
+        if (!user.organizationId && !isSuper) return { success: true, data: [] };
+        const rows = await listAdrOrders(user.organizationId ?? '', isSuper);
         return { success: true, data: rows };
     });
 

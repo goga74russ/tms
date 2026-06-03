@@ -1,6 +1,6 @@
 ﻿import { FastifyPluginAsync } from 'fastify';
 import { requireAbility } from '../../auth/rbac.js';
-import { resolveContractorId } from '../../auth/guards.js';
+import { resolveContractorId, isPlatformSuperAdmin } from '../../auth/guards.js';
 import { tarificationService } from './tarification.service.js';
 import { financeService } from './finance.service.js';
 import { evaluateTariffRule } from './tariff-rules.service.js';
@@ -54,13 +54,8 @@ async function ensureInvoiceAccess(
         if (invoice.contractorId !== myContractorId) {
             return { error: { status: 403, body: { success: false, error: 'Доступ запрещён' } } as const };
         }
-    } else {
-        // C3 (механизм «б»): staff/привилегированная роль — org-scope ОБЯЗАТЕЛЕН.
-        // Раньше `else if (user.organizationId)` пропускал org-less актора мимо
-        // проверки (IDOR). Super-admin-роли нет → org-less = DENY, не bypass.
-        if (!user.organizationId) {
-            return { error: { status: 403, body: { success: false, error: 'Доступ запрещён' } } as const };
-        }
+    } else if (user.organizationId) {
+        // staff с орг: счёт должен принадлежать контрагенту этой орг.
         const [contractor] = await db.select({ id: contractorsTable.id })
             .from(contractorsTable)
             .where(and(eq(contractorsTable.id, invoice.contractorId), eq(contractorsTable.organizationId, user.organizationId)))
@@ -68,6 +63,10 @@ async function ensureInvoiceAccess(
         if (!contractor) {
             return { error: { status: 403, body: { success: false, error: 'Доступ запрещён' } } as const };
         }
+    } else if (!isPlatformSuperAdmin(user)) {
+        // C3 (механизм «б»): org-less не-super-admin раньше проходил мимо проверки
+        // (IDOR). Платформенный super-admin (admin && !org) — кросс-tenant по дизайну.
+        return { error: { status: 403, body: { success: false, error: 'Доступ запрещён' } } as const };
     }
 
     return { invoice };
@@ -116,12 +115,13 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         { schema: { tags: ['Финансы'], summary: 'Стоимость рейса', description: 'Расчёт по тарифу: стоимость и маржа + модификаторы + НДС.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Trip')] },
         async (request, reply) => {
             try {
-                const user = request.user as { organizationId?: string | null };
-                // C3 (механизм «б»): org-less актор не видит чужие рейсы (super-admin-роли нет).
-                if (!user.organizationId) {
+                const user = request.user as { roles?: string[]; organizationId?: string | null };
+                // C3 (механизм «б»): org-less не-super-admin не видит чужие рейсы.
+                // super-admin (admin && !org) — кросс-tenant (null org → без фильтра).
+                if (!user.organizationId && !isPlatformSuperAdmin(user)) {
                     return reply.code(403).send({ success: false, error: 'Доступ запрещён' });
                 }
-                const cost = await tarificationService.calculateTripCost(request.params.id, user.organizationId);
+                const cost = await tarificationService.calculateTripCost(request.params.id, user.organizationId ?? null);
                 return { success: true, data: cost };
             } catch (error: any) {
                 return reply.code(400).send({ success: false, error: error.message });
@@ -179,18 +179,21 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 return { success: true, data: await attachTripIds(list) };
             }
 
-            // C3 (механизм «б»): org-less staff раньше получал счета ВСЕХ орг
-            // (фильтр под `if (user.organizationId)`). Super-admin-роли нет → пусто.
-            if (!user.organizationId) {
+            // C3 (механизм «б»): org-less не-super-admin раньше получал счета ВСЕХ орг.
+            // Платформенный super-admin (admin && !org) — кросс-tenant по дизайну (видит все);
+            // прочий org-less → пусто.
+            if (!user.organizationId && !isPlatformSuperAdmin(user)) {
                 return { success: true, data: [] };
             }
-            // Org-scoped: filter invoices by contractor's organizationId
+            // Org-scoped: filter invoices by contractor's organizationId (super-admin — без фильтра).
             const conditions = [];
-            conditions.push(
-                inArray(invoices.contractorId,
-                    db.select({ id: contractorsTable.id }).from(contractorsTable).where(eq(contractorsTable.organizationId, user.organizationId))
-                )
-            );
+            if (user.organizationId) {
+                conditions.push(
+                    inArray(invoices.contractorId,
+                        db.select({ id: contractorsTable.id }).from(contractorsTable).where(eq(contractorsTable.organizationId, user.organizationId))
+                    )
+                );
+            }
             if (tripFilterInvoiceIds) {
                 conditions.push(inArray(invoices.id, tripFilterInvoiceIds));
             }

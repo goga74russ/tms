@@ -7,6 +7,7 @@ import { requireAbility } from '../../auth/rbac.js';
 import { db } from '../../db/connection.js';
 import { notificationSubscriptions, users } from '../../db/schema.js';
 import { and, eq } from 'drizzle-orm';
+import { isPlatformSuperAdmin } from '../../auth/guards.js';
 import { sendMessage, getMe, setWebhook, deleteWebhook } from '../../integrations/telegram.service.js';
 
 const telegramRoutes: FastifyPluginAsync = async (app) => {
@@ -164,10 +165,14 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
         schema: { tags: ['Уведомления'], summary: 'Подписки', description: 'Список привязанных Telegram-аккаунтов.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
     }, async (request, reply) => {
-        // C3 (CBO, механизм «б»+«а»): раньше отдавались подписки ВСЕХ тенантов
-        // (chatId/userId — PII). Фильтр по орг; org-less → пусто.
-        const user = request.user as { organizationId?: string | null };
-        if (!user.organizationId) return reply.send({ success: true, data: [] });
+        // C3 (CBO): раньше отдавались подписки ВСЕХ тенантов (chatId/userId — PII).
+        // Фильтр по орг; super-admin (admin && !org) — кросс-tenant (все); прочий org-less → пусто.
+        const user = request.user as { roles?: string[]; organizationId?: string | null };
+        if (!user.organizationId) {
+            if (!isPlatformSuperAdmin(user)) return reply.send({ success: true, data: [] });
+            const all = await db.select().from(notificationSubscriptions);
+            return { success: true, data: all };
+        }
         const subs = await db.select().from(notificationSubscriptions)
             .where(eq(notificationSubscriptions.organizationId, user.organizationId));
         return { success: true, data: subs };
@@ -180,16 +185,17 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
     }, async (request, reply) => {
         const { chatId, message } = request.body as { chatId?: string; message?: string };
         // C3 (CBO, механизм «а»): раньше broadcast уходил подписчикам ВСЕХ тенантов.
-        const user = request.user as { organizationId?: string | null };
-        if (!user.organizationId) return reply.status(403).send({ success: false, error: 'Учётная запись не привязана к организации' });
+        // super-admin (admin && !org) — кросс-tenant; прочий org-less → DENY.
+        const user = request.user as { roles?: string[]; organizationId?: string | null };
+        const isSuper = isPlatformSuperAdmin(user);
+        if (!user.organizationId && !isSuper) return reply.status(403).send({ success: false, error: 'Учётная запись не привязана к организации' });
         if (!chatId) {
-            // Send to all active subscribers ОРГАНИЗАЦИИ.
+            // Активные подписчики орг (super-admin — все).
             const subs = await db.select()
                 .from(notificationSubscriptions)
-                .where(and(
-                    eq(notificationSubscriptions.isActive, true),
-                    eq(notificationSubscriptions.organizationId, user.organizationId),
-                ));
+                .where(user.organizationId
+                    ? and(eq(notificationSubscriptions.isActive, true), eq(notificationSubscriptions.organizationId, user.organizationId))
+                    : eq(notificationSubscriptions.isActive, true));
             let sent = 0;
             for (const sub of subs) {
                 const res = await sendMessage(sub.telegramChatId,
@@ -199,14 +205,16 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
             return { success: true, sent };
         }
         // chatId-путь: разрешаем только если chatId — подписка нашей орг (иначе
-        // можно слать в чужой чат по подсмотренному chatId).
-        const [own] = await db.select({ id: notificationSubscriptions.id })
-            .from(notificationSubscriptions)
-            .where(and(
-                eq(notificationSubscriptions.telegramChatId, chatId),
-                eq(notificationSubscriptions.organizationId, user.organizationId),
-            )).limit(1);
-        if (!own) return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
+        // можно слать в чужой чат по подсмотренному chatId). super-admin — любой chatId.
+        if (!isSuper) {
+            const [own] = await db.select({ id: notificationSubscriptions.id })
+                .from(notificationSubscriptions)
+                .where(and(
+                    eq(notificationSubscriptions.telegramChatId, chatId),
+                    eq(notificationSubscriptions.organizationId, user.organizationId!),
+                )).limit(1);
+            if (!own) return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
+        }
         const result = await sendMessage(chatId, message || '🧪 Тестовое уведомление ТрансПульт');
         return { success: result.ok, data: result };
     });

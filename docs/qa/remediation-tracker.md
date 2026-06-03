@@ -15,12 +15,13 @@
 > regression-тест (не общий инвариант класса): самая дешёвая страховка от второго рецидива.
 > CBO-находки помечены `(CBO)` в классах ниже.
 
-> **⚠️ Платформенного super-admin в системе НЕТ.** `APP_ROLES` (rbac.ts) = admin(org-scoped)/
-> manager/dispatcher/logist/accountant/mechanic/medic/repair_service/client/driver. Легитимного
-> «org=null видит все тенанты» актора не существует. Поэтому **org-less привилегированный аккаунт =
-> всегда мисконфиг/seed → DENY (403/пусто), НИКОГДА не bypass.** Это инвариант для всех org-scope фиксов
-> (C3/C4). Именно `else if (user.organizationId)` без else-ветки сделал ensureInvoiceAccess/GET tariffs
-> эксплуатируемыми.
+> **⚠️ ПОПРАВКА (был неправ, QA прав): платформенный super-admin ЕСТЬ.** Определён как
+> **`admin && !organizationId`** (auth.ts isSuperAdmin, billing isSuperAdmin, seed-demo `super@tms.local`
+> «для кросс-tenant аудита»). Отдельной роли в APP_ROLES нет, но механизм есть. Я сначала закрыл org-less
+> blanket-DENY'ем → **сломал super-admin (CI smoke упал на POST /api/trips, прод-super-admin тоже)**.
+> **Исправлено** хелпером `isPlatformSuperAdmin(user)` (guards.ts): org-less пропускается ТОЛЬКО если
+> `admin && !org` (кросс-tenant по дизайну); прочий org-less (не-admin) → DENY. Применён во ВСЕХ
+> org-scope фиксах C3/C4. Урок: проверять `isSuperAdmin`/seed перед blanket-DENY (ровно пункт 3 ревью QA).
 
 ## Метод (анти-рецидив) — обязателен для каждого класса
 
@@ -306,6 +307,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
+| 2026-06-03 | C3-fix | **РЕГРЕССИЯ + фикс:** blanket org-less DENY сломал платформенного super-admin (`admin && !org`) — CI smoke упал (POST /api/trips), прод-super-admin тоже. Хелпер `isPlatformSuperAdmin` (org-less пропускается только для admin&&!org; прочий org-less → DENY) применён во всех C3/C4 org-scope фиксах. Тест: org-less accountant→403, super-admin→не-403. unit 722·integration 149 | _(этот коммит)_ |
 | 2026-06-03 | deploy | **🚀 C3+C4 на проде**: push + deploy `7fdad8c→031407b`, **миграции 0041/0042 применены** (`[apply]`). Health/login 200. Composite-индексы + org-колонки подтверждены интроспекцией прод-БД. origin/main==prod==031407b | `031407b` |
 | 2026-06-03 | C4+C3в | **Миграции 0041/0042**: C4 per-org unique (contractors.inn, vehicles plate/vin — дроп глобальных, composite) + dup-чеки по орг; C3-«в» org-column в incidents/fines (backfill) — GET/POST/PUT incidents + assertIncidentAccess + fines-worker/cold-chain/createFine ставят/скоупят org. Инвариант-тест 4/4. unit 722·integration 149. Индексы подтверждены интроспекцией. **C4 закрыт; C3 cross-tenant полностью закрыт.** | _(этот коммит)_ |
 | 2026-06-03 | C3 | Батч 5: wialon eta-broadcast (org в payload). **Cross-tenant класс C3 (а+б) закрыт.** Остаток: «в»-NULL-FK (incidents/fines → миграция, батч C4) + 2 within-org DEFER (orders/list driver, repair-page) — не cross-tenant. unit 722·integration 145 | _(этот коммит)_ |

@@ -943,9 +943,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!roles.includes('admin') && !roles.includes('accountant') && !roles.includes('manager')) {
             return reply.status(403).send({ success: false, error: 'Access denied' });
         }
-        // C3 (механизм «б»): org-less актор раньше получал тарифы ВСЕХ тенантов
-        // (фильтр под `if (actor.organizationId)`). Super-admin-роли нет → DENY.
-        if (!actor.organizationId) {
+        // C3 (механизм «б»): org-less не-super-admin раньше получал тарифы ВСЕХ
+        // тенантов (фильтр под `if (actor.organizationId)`). Платформенный super-admin
+        // (admin && !org) — кросс-tenant по дизайну (видит все); прочий org-less → DENY.
+        if (!actor.organizationId && !roles.includes('admin')) {
             return reply.status(403).send({ success: false, error: 'Учётная запись не привязана к организации' });
         }
 

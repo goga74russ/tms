@@ -30,6 +30,7 @@ import {
     type TaxRegime,
 } from '@tms/shared';
 import { recordEvent } from '../../events/journal.js';
+import { isPlatformSuperAdmin } from '../../auth/guards.js';
 
 export interface Author {
     userId: string;
@@ -65,7 +66,7 @@ async function getInvoiceWithOrgRegime(invoiceId: string, author?: Author) {
     const ownerOrgId = row.invoice.payeeOrganizationId ?? row.payerOrgId ?? null;
     // C3 (механизм «б»): org-less actor не может оперировать счетами — super-admin-роли
     // нет, значит org-less = мисконфиг. Раньше guard ниже пропускал его (`author?.organizationId &&`).
-    if (author && !author.organizationId) {
+    if (author && !author.organizationId && !isPlatformSuperAdmin(author)) {
         throw new InvoiceWorkflowError('FORBIDDEN', 'Учётная запись не привязана к организации', 403);
     }
     if (author?.organizationId && ownerOrgId && author.organizationId !== ownerOrgId) {

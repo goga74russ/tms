@@ -10,6 +10,7 @@ import {
 } from '../../db/schema.js';
 import { eq, and, ilike, desc, asc, sql, count, or, isNull, gte, lte, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
+import { isPlatformSuperAdmin } from '../../auth/guards.js';
 import { containsLikePattern } from '../../utils/search.js';
 import { toFiniteNumber, toOptionalFiniteNumber } from '../../utils/number.js';
 import {
@@ -189,22 +190,21 @@ export async function createVehicle(
     const vinResult = validateVin(data.vin);
     if (!vinResult.valid) throw new Error(vinResult.error);
 
-    // C4/C3: создание ТС требует орг (per-org уникальность; org-less = мисконфиг).
+    // C4/C3: создание ТС требует орг; org-less разрешён только платформенному
+    // super-admin (admin && !org, кросс-tenant по дизайну) — он чекает дубль глобально.
     const orgId = user.organizationId;
-    if (!orgId) throw new Error('Учётная запись не привязана к организации');
+    if (!orgId && !isPlatformSuperAdmin(user)) throw new Error('Учётная запись не привязана к организации');
 
     // H-9 FIX: Wrap in transaction for atomicity (insert + event)
     return await db.transaction(async (tx: any) => {
-        // C4: дубль plate/VIN проверяется В ПРЕДЕЛАХ ОРГ (уникальность per-org,
-        // миг.0041) — раньше глобально → тенант B не мог завести ТС с госномером A.
-        const [existingPlate] = await tx.select({ id: vehicles.id })
-            .from(vehicles)
-            .where(and(eq(vehicles.plateNumber, data.plateNumber), eq(vehicles.organizationId, orgId)));
+        // C4: дубль plate/VIN — В ПРЕДЕЛАХ ОРГ (per-org unique, миг.0041); super-admin
+        // без орг — глобально. Раньше глобально для всех → тенант B не мог завести ТС A.
+        const plateCond = orgId ? and(eq(vehicles.plateNumber, data.plateNumber), eq(vehicles.organizationId, orgId)) : eq(vehicles.plateNumber, data.plateNumber);
+        const [existingPlate] = await tx.select({ id: vehicles.id }).from(vehicles).where(plateCond);
         if (existingPlate) throw new Error(`ТС с госномером ${data.plateNumber} уже существует`);
 
-        const [existingVin] = await tx.select({ id: vehicles.id })
-            .from(vehicles)
-            .where(and(eq(vehicles.vin, data.vin), eq(vehicles.organizationId, orgId)));
+        const vinCond = orgId ? and(eq(vehicles.vin, data.vin), eq(vehicles.organizationId, orgId)) : eq(vehicles.vin, data.vin);
+        const [existingVin] = await tx.select({ id: vehicles.id }).from(vehicles).where(vinCond);
         if (existingVin) throw new Error(`ТС с VIN ${data.vin} уже существует`);
 
         const [vehicle] = await tx.insert(vehicles).values({
@@ -657,16 +657,16 @@ export async function createContractor(
     const innResult = validateInn(data.inn);
     if (!innResult.valid) throw new Error(innResult.error);
 
-    // C4/C3: создание контрагента требует орг (per-org уникальность ИНН).
+    // C4/C3: создание контрагента требует орг; org-less — только super-admin.
     const orgId = user.organizationId;
-    if (!orgId) throw new Error('Учётная запись не привязана к организации');
+    if (!orgId && !isPlatformSuperAdmin(user)) throw new Error('Учётная запись не привязана к организации');
 
-    // C4: дубль ИНН проверяется В ПРЕДЕЛАХ ОРГ (уникальность per-org, миг.0041) —
-    // раньше глобально → блокировал легитимную регистрацию того же контрагента
-    // другим тенантом (cross-org false collision).
+    // C4: дубль ИНН — В ПРЕДЕЛАХ ОРГ (per-org unique, миг.0041); super-admin — глобально.
+    // Раньше глобально для всех → блокировал того же контрагента у другого тенанта.
+    const innCond = orgId ? and(eq(contractors.inn, data.inn), eq(contractors.organizationId, orgId)) : eq(contractors.inn, data.inn);
     const [existing] = await db.select({ id: contractors.id, name: contractors.name })
         .from(contractors)
-        .where(and(eq(contractors.inn, data.inn), eq(contractors.organizationId, orgId)));
+        .where(innCond);
     if (existing) {
         throw new Error(`Контрагент с ИНН ${data.inn} уже существует: "${existing.name}". Проверьте, не дубликат ли это.`);
     }

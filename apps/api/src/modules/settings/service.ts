@@ -132,16 +132,17 @@ export async function updateCostModelSettings(
     return getCostModelSettings(orgId);
 }
 
-export async function listRecentSettings(orgId?: string | null) {
+export async function listRecentSettings(orgId?: string | null, isSuperAdmin = false) {
     // C3 (механизм «а»): app_settings скоупится через KEY (`baseKey:orgId`).
     // Раньше возвращались последние 20 строк ВСЕХ орг (org-ключи чужих тенантов).
-    // Отдаём только ключи этой орг (`:orgId`) + глобальные. org-less → пусто.
-    if (!orgId) return [];
-    const globalKeys = new Set<string>(Object.values(COST_SETTING_KEYS));
+    // Отдаём только ключи этой орг (`:orgId`) + глобальные. super-admin — все; прочий org-less → пусто.
+    if (!orgId && !isSuperAdmin) return [];
     const rows = await db.select()
         .from(appSettings)
         .orderBy(desc(appSettings.updatedAt))
         .limit(200);
+    if (!orgId) return rows.slice(0, 20); // super-admin: кросс-tenant
+    const globalKeys = new Set<string>(Object.values(COST_SETTING_KEYS));
     return rows
         .filter((r) => r.key.endsWith(`:${orgId}`) || globalKeys.has(r.key))
         .slice(0, 20);
