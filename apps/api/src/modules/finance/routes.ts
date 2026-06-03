@@ -110,7 +110,12 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         { schema: { tags: ['Финансы'], summary: 'Стоимость рейса', description: 'Расчёт по тарифу: стоимость и маржа + модификаторы + НДС.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Trip')] },
         async (request, reply) => {
             try {
-                const cost = await tarificationService.calculateTripCost(request.params.id);
+                const user = request.user as { organizationId?: string | null };
+                // C3 (механизм «б»): org-less актор не видит чужие рейсы (super-admin-роли нет).
+                if (!user.organizationId) {
+                    return reply.code(403).send({ success: false, error: 'Доступ запрещён' });
+                }
+                const cost = await tarificationService.calculateTripCost(request.params.id, user.organizationId);
                 return { success: true, data: cost };
             } catch (error: any) {
                 return reply.code(400).send({ success: false, error: error.message });

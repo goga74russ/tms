@@ -265,7 +265,8 @@ const computeTripCostTool: CopilotTool<z.infer<typeof ComputeTripCostInput>> = {
         // P0-S3: рейс должен принадлежать орг actor'а (calculateTripCost org-blind).
         if (!(await tripInOrg(input.tripId, ctx.organizationId))) return { success: false, error: 'Trip not found' };
         try {
-            const cost = await tarificationService.calculateTripCost(input.tripId);
+            // C3: defense-in-depth — row-level org-фильтр (поверх tripInOrg pre-check).
+            const cost = await tarificationService.calculateTripCost(input.tripId, ctx.organizationId);
             return { success: true, data: cost };
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : 'Calculation failed';

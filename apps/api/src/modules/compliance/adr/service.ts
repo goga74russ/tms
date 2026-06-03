@@ -7,7 +7,7 @@
 // flag toggle. Trips can adopt the wrapper later by importing
 // `validateAdrHard` at the existing assignment hook.
 // ============================================================
-import { eq, isNotNull } from 'drizzle-orm';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import { db } from '../../../db/connection.js';
 import { organizations, orders } from '../../../db/schema.js';
 import {
@@ -67,7 +67,10 @@ export async function getAdrStrictMode(organizationId: string): Promise<boolean>
 }
 
 /** List recent orders flagged as ADR (for the dashboard tab). */
-export async function listAdrOrders(_organizationId: string) {
+export async function listAdrOrders(organizationId: string) {
+    // C3 (механизм «а»): org-фильтр обязателен — раньше параметр игнорировался и
+    // отдавались ADR-заявки ВСЕХ тенантов. org-less актор → пусто (super-admin-роли нет).
+    if (!organizationId) return [];
     return db
         .select({
             id: orders.id,
@@ -77,6 +80,6 @@ export async function listAdrOrders(_organizationId: string) {
             status: orders.status,
         })
         .from(orders)
-        .where(isNotNull(orders.adrClass))
+        .where(and(eq(orders.organizationId, organizationId), isNotNull(orders.adrClass)))
         .limit(200);
 }

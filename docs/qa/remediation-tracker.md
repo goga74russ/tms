@@ -121,7 +121,7 @@ mapInvoiceStatus stale enum (xml-export:151), deferred-триггер не св�
 
 ---
 
-## C3 — Org-scope sweep (cross-tenant IDOR/leak)  `TODO`
+## C3 — Org-scope sweep (cross-tenant IDOR/leak)  `WIP`
 
 > **⚠️ C3 — это ТРИ разных корневых механизма, не один. «Добавь org-фильтр + хелпер» НЕ закроет
 > класс** (сам станет рецидивом). Каждый инстанс отнести к механизму, якорный матрица-тест ОБЯЗАН
@@ -140,11 +140,13 @@ mapInvoiceStatus stale enum (xml-export:151), deferred-триггер не св�
 2. **org-less аккаунт:** привилегированная роль с `organizationId=null` → НЕ видит чужое (403/пусто), не all-tenants.
 3. **NULL-FK строка:** ресурс с `fk=null` (vehicleId/contractorId) создан орг-A → НЕ виден орг-B.
 
-- [ ] **P0** `compliance/adr/service.ts:70-82` — listAdrOrders игнорирует organizationId
-- [ ] **P0** `edi/routes.ts:154-186` — mock-progress форсит ЭТрН-статус чужого документа (нет assertTripAccess)
-- [ ] **P0** `finance/tarification.service.ts:94` *(CBO)* — calculateTripCost без org-фильтра
-- [ ] **P0** `sprint9/routes.ts:146-152` — GET /incidents: NULL-vehicleId инциденты утекают всем
-- [ ] **P0** `sprint9/routes.ts:272-273` — POST /waybills/:id/drivers: чужой driverId без org-проверки
+- [x] **P0** `compliance/adr/service.ts:70-82` — listAdrOrders. ✅ FIX: org-фильтр + org-less guard (раньше параметр игнорировался → ADR-заявки всех тенантов).
+
+> **🔑 КОРЕНЬ механизма «б» закрыт:** `auth/guards.ts assertOrganizationScope` имел `if (!user.organizationId) return` → org-less актор ПРОХОДИЛ scope-проверку во ВСЕХ assert*-guard'ах (Vehicle/Driver/Trip/Waybill/Order/Trailer/Incident). Теперь `throw AccessDeniedError` (super-admin-роли нет → org-less = DENY). Закрывает org-less-аспект для всех guard-защищённых роутов разом. Матрица-тест (cross-tenant + org-less → 403). unit 722 · integration 142 зелёные (blast-radius чист). _Хэндролл-инстансы (ensureInvoiceAccess/claims/tariffs), что НЕ зовут scope-хелпер — чинятся отдельно ниже._
+- [x] **P0** `edi/routes.ts:154-186` — mock-progress. ✅ FIX: loadDocumentTripId + assertTripAccess (как send/history) → cross-tenant force статуса ЭТрН закрыт.
+- [x] **P0** `finance/tarification.service.ts:94` *(CBO)* — calculateTripCost. ✅ FIX: org-параметр (untrusted роут обязан передать, trusted internal=null), роут + org-less guard (403) + copilot defense-in-depth. Матрица-тест.
+- [ ] **P0** `sprint9/routes.ts:146-152` — GET /incidents: NULL-vehicleId инциденты утекают всем. `(механизм в — нужна МИГРАЦИЯ: org-column в incidents; батч с C4)`
+- [x] **P0** `sprint9/routes.ts:272-273` — POST /waybills/:id/drivers. ✅ FIX: assertDriverAccess (был только existence) → чужой driverId на свой ПЛ закрыт.
 - [ ] **P1** `auth/auth.ts:974-976` — GET /tariffs утечка при super-admin без org
 - [ ] **P1** `auth/guards.ts:54, 185-213` — PUT /incidents/:id IDOR при null FK
 - [ ] **P1** `integrations/mocks/wialon-mock-runner.ts:127` — eta_updated без org
@@ -306,6 +308,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
+| 2026-06-03 | C3 | Батч 1: 4 P0 (adr/edi/tarification-CBO/sprint9-driver) + **корень механизма «б»** (assertOrganizationScope org-less→DENY, чинит ВСЕ assert-guard'ы). Матрица-тест (cross-tenant+org-less→403). unit 722·integration 144 | _(этот коммит)_ |
 | 2026-06-03 | deploy | **🚀 C1+C2 на проде**: ff-merge в main + push, deploy `0b0aaf1→7fdad8c`. Health/login/static 200, AI off, без миграций. origin/main==prod==7fdad8c | `7fdad8c` |
 | 2026-06-03 | C2 | **C2 ЗАКРЫТ по single-tenant-real (8/10)**: НДС-сверху+PDF (`3fa19b9`), enum+1С (`27235fe`), billing-replay (`5bf4afd`), web-НДС (корректировка/АКТ/клиент-enum). 2 DEFER: copilot (AI off), легаси-нумерация (мульти-тенант). tsc(api/web)·unit 721·integration | _(этот коммит)_ |
 | 2026-06-02 | C1 | **C1 ЗАКРЫТ (8/8)**: gosklyuch fail-closed (verifyGosklyuchEnvelope→pending_review, эксплойт закрыт) + env IP-allowlist. unit 718 ✓. Handoff: XAdES-verify(future)/mTLS(devops)/юр-сила(jurist) | _(этот коммит)_ |

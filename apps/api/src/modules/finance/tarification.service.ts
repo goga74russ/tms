@@ -91,9 +91,13 @@ export class TarificationService {
      * Расчёт стоимости рейса для клиента согласно тарифу из договора.
      * Включает все 7 модификаторов, НДС и расчёт себестоимости.
      */
-    async calculateTripCost(tripId: string): Promise<TripCostBreakdown> {
-        // 1. Load trip
-        const [tripRecord] = await db.select().from(trips).where(eq(trips.id, tripId)).limit(1) as any[];
+    async calculateTripCost(tripId: string, organizationId: string | null = null): Promise<TripCostBreakdown> {
+        // 1. Load trip. C3 (CBO): при передаче organizationId — row-level org-фильтр
+        // (cross-tenant IDOR ставок/себестоимости/маржи). Untrusted-входы (роут) ОБЯЗАНЫ
+        // передавать org; trusted-внутренние (auto-billing) уже отскоуплены → null.
+        const conditions = [eq(trips.id, tripId)];
+        if (organizationId) conditions.push(eq(trips.organizationId, organizationId));
+        const [tripRecord] = await db.select().from(trips).where(and(...conditions)).limit(1) as any[];
         if (!tripRecord) throw new Error('Trip not found');
 
         // 2. Load linked orders

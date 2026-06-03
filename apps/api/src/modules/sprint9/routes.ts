@@ -269,8 +269,9 @@ export default async function sprint9Routes(app: FastifyInstance) {
         const [waybill] = await db.select({ id: waybills.id }).from(waybills).where(eq(waybills.id, id)).limit(1);
         if (!waybill) return reply.status(404).send({ success: false, error: 'Путевой лист не найден' });
 
-        const [driver] = await db.select({ id: drivers.id }).from(drivers).where(eq(drivers.id, parsed.data.driverId)).limit(1);
-        if (!driver) return reply.status(404).send({ success: false, error: 'Водитель не найден' });
+        // C3 (P0): driverId должен принадлежать орг actor'а — раньше проверялось
+        // только существование (cross-tenant: чужой водитель на свой ПЛ).
+        await assertDriverAccess(parsed.data.driverId, request.user as { userId: string; roles: string[]; organizationId?: string | null });
 
         const existing = await db.select({ id: waybillDrivers.id }).from(waybillDrivers)
             .where(and(eq(waybillDrivers.waybillId, id), eq(waybillDrivers.driverId, parsed.data.driverId))).limit(1);

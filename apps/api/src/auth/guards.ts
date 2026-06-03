@@ -41,7 +41,12 @@ function assertOrganizationScope(
     organizationIds: Array<string | null | undefined>,
     user: GuardUser,
 ) {
-    if (!user.organizationId) return;
+    // C3 (механизм «б», корень): org-less актор раньше ПРОХОДИЛ scope-проверку
+    // (`return`) — а платформенного super-admin в системе НЕТ (APP_ROLES), значит
+    // org-less = мисконфиг/недо-онбординг и НЕ должен видеть tenant-данные. DENY.
+    if (!user.organizationId) {
+        throw new AccessDeniedError('Учётная запись не привязана к организации');
+    }
 
     const knownOrganizationIds = Array.from(
         new Set(

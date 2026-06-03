@@ -346,3 +346,36 @@ describe('C1: immutability/note решений осмотра', () => {
         expect(res.statusCode).toBe(403);
     });
 });
+
+// ============================================================
+// C3 — org-scope guard (mechanism «б» org-less DENY + cross-tenant).
+// Роут POST /inspections/tech зовёт assertVehicleAccess(body.vehicleId, user)
+// до сервиса → проверяем оба механизма на одном защищённом маршруте.
+// ============================================================
+describe('C3: org-scope guard осмотров', () => {
+    const techBody = () => ({
+        vehicleId: fx.vehicleId, checklistVersion: '1.0',
+        items: [{ name: 'Шины', result: 'ok' as const }], decision: 'approved' as const, signature: 'x',
+    });
+
+    it('cross-tenant: механик ЧУЖОЙ орг на наш vehicle → 403', async () => {
+        const tok = signTestToken(app, {
+            userId: fx.adminUserId, roles: ['mechanic'],
+            organizationId: '00000000-0000-0000-0000-0000000000bb',
+        });
+        const res = await app.inject({
+            method: 'POST', url: '/api/inspections/tech',
+            headers: authHeaders(tok), payload: techBody(),
+        });
+        expect(res.statusCode).toBe(403);
+    });
+
+    it('механизм «б»: механик БЕЗ organizationId → 403 (org-less = DENY, super-admin-роли нет)', async () => {
+        const tok = signTestToken(app, { userId: fx.adminUserId, roles: ['mechanic'] });
+        const res = await app.inject({
+            method: 'POST', url: '/api/inspections/tech',
+            headers: authHeaders(tok), payload: techBody(),
+        });
+        expect(res.statusCode).toBe(403);
+    });
+});

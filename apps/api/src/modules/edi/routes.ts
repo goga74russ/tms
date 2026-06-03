@@ -177,6 +177,18 @@ const ediRoutes: FastifyPluginAsync = async (app) => {
             });
         }
 
+        // C3 (P0): cross-tenant IDOR — admin орг A форсил статус подписания ЭТрН
+        // чужого документа. Гейтим как send/history (assertTripAccess по tripId).
+        const tripId = await loadDocumentTripId(params.data.id);
+        if (!tripId) {
+            return reply.status(404).send({ success: false, error: 'Документ не найден' });
+        }
+        try {
+            await assertTripAccess(tripId, user);
+        } catch (err: any) {
+            return reply.status(403).send({ success: false, error: err.message });
+        }
+
         try {
             const result = await progressEdiManually(params.data.id, body.data.to);
             return { success: true, data: result };
