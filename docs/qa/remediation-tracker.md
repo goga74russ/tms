@@ -104,8 +104,8 @@ signatureState scalar/мульти-титул (gosklyuch-callback:286,321), clas
 - [ ] **P1** `billing/routes.ts:260` *(CBO)* — replay-dedupe мёртв (`event_id` из несуществующего поля) → дубль подписки + дубль чека ОФД
 - [ ] **P1** `billing/service.ts:424,450,384` — лимит copilot_messages суточный, а счётчик помесячный
 - [ ] **P1** `finance/finance.service.ts:116-136` *(CBO)* — легаси-нумерация не per-org + payeeOrganizationId=NULL
-- [ ] **P1** `finance/invoice-workflow.service.ts:286-303` — НДС «сверху» (includesVat=false) не начисляется (обе ветки идентичны)
-- [ ] **P1** `finance/routes.ts:558-575, 738-755, 856-881` — vatRate не передаётся в generate{Invoice,Act,Upd}Pdf → НДС всегда 20%
+- [x] **P1** `finance/invoice-workflow.service.ts:286-303` — НДС «сверху». ✅ FIX: разведены ветки — «сверху» гроссит строки (нетто→gross, Σ allocated_amount==total держит DB CHECK), «в том числе»/explicit/rate=0 без изменений. Тест: нетто 1000 → total 1200/vat 200 (был баг 1000). Существующие 23 теста зелёные.
+- [x] **P1** `finance/routes.ts:558/579/738/764/856` — vatRate не доходил до PDF. ✅ FIX: `vatRate` передан во все **5** вызовов generate{Invoice,Act,Upd}Pdf (sweep: аудит назвал 3, мест 5). tsc ✓.
 - [ ] **P1** `finance/schemas.ts:12` — Zod enum рассинхрон с DB invoice_type (default 'invoice' не существует)
 - [ ] **P1** `finance/xml-export.service.ts:94, 174, 139-149` — 1С-экспорт хардкодит СтавкаНДС=20%, не различает СФ/УПД/КСФ
 - [ ] **P1** `apps/web/.../InvoiceWorkflowActions.tsx:193` — корректировка КСФ/ИСФ всегда 20% (hardcoded)

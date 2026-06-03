@@ -282,25 +282,34 @@ export async function issueDraftInvoice(
         }
     }
 
-    // Сумма allocated_amount → total. CHECK на БД дополнительно подтвердит.
-    const total = input.invoiceOrders.reduce((s, o) => s + o.allocatedAmount, 0);
-    // P0-F1: НДС. Если строки несут явный allocatedVat — берём его. Иначе (UI
-    // присылает только allocatedAmount) считаем НДС из vatRate уровня счёта.
-    // Раньше vatAmount всегда выходил 0 → СФ/УПД сохранялись с нулевым НДС
-    // (юридически недействительны, неверный 1С-экспорт/PDF).
-    const explicitVat = input.invoiceOrders.reduce((s, o) => s + (o.allocatedVat ?? 0), 0);
+    // НДС + суммы. Модель invoice_orders: allocated_amount = GROSS (вкл. НДС),
+    // allocated_vat = НДС внутри строки; Σ allocated_amount == invoice.total (DB CHECK).
+    // C2 (P0-F1): разводим два режима, раньше обе ветки были ИДЕНТИЧНЫ (баг):
+    //  • «НДС в том числе» (includesVat=true): allocatedAmount уже gross, НДС выделяем.
+    //  • «НДС сверху» (includesVat=false): allocatedAmount = НЕТТО → начисляем НДС
+    //    сверху и ГРОССИМ строку, иначе total<Σ нетто·(1+rate) и недосбор НДС.
+    // Строка с явным allocatedVat трактуется как gross (UI прислал готовый разрез).
+    const round2 = (x: number) => Math.round(x * 100) / 100;
     const rate = input.vatRate ?? 0;
-    let vatAmount: number;
-    if (explicitVat > 0 || rate === 0) {
-        vatAmount = explicitVat;
-    } else if (input.includesVat) {
-        // НДС «в том числе»: выделяем из total. total = subtotal*(1+rate/100).
-        vatAmount = Math.round((total - total / (1 + rate / 100)) * 100) / 100;
-    } else {
-        // НДС «сверху»: total уже включает начисленный НДС от суммы заявок.
-        vatAmount = Math.round((total - total / (1 + rate / 100)) * 100) / 100;
-    }
-    const subtotal = Math.round((total - vatAmount) * 100) / 100;
+    const grossUp = !input.includesVat && rate > 0; // «НДС сверху»
+    const computedOrders = input.invoiceOrders.map((o) => {
+        if (o.allocatedVat != null) {
+            return { ...o, allocatedAmount: round2(o.allocatedAmount), allocatedVat: round2(o.allocatedVat) };
+        }
+        if (rate === 0) {
+            return { ...o, allocatedAmount: round2(o.allocatedAmount), allocatedVat: 0 };
+        }
+        if (grossUp) {
+            const vat = round2(o.allocatedAmount * rate / 100);
+            return { ...o, allocatedAmount: round2(o.allocatedAmount + vat), allocatedVat: vat };
+        }
+        // «в том числе»: выделяем НДС из gross.
+        const vat = round2(o.allocatedAmount - o.allocatedAmount / (1 + rate / 100));
+        return { ...o, allocatedAmount: round2(o.allocatedAmount), allocatedVat: vat };
+    });
+    const total = round2(computedOrders.reduce((s, o) => s + o.allocatedAmount, 0));
+    const vatAmount = round2(computedOrders.reduce((s, o) => s + (o.allocatedVat ?? 0), 0));
+    const subtotal = round2(total - vatAmount);
 
     // spec §6 — 5-дневный срок выпуска СФ/УПД (ст. 168 ч. 3 НК).
     // Soft-warning, НЕ block: при просрочке без указанной причины возвращаем
@@ -336,7 +345,7 @@ export async function issueDraftInvoice(
     await db.transaction(async (tx) => {
         // 1. Insert invoice_orders
         await tx.insert(invoiceOrders).values(
-            input.invoiceOrders.map((o) => ({
+            computedOrders.map((o) => ({
                 invoiceId,
                 orderId: o.orderId,
                 allocatedAmount: o.allocatedAmount,

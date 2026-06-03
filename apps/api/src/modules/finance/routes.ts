@@ -571,6 +571,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         }],
                         subtotal: Number(invoice.subtotal),
                         vatAmount: Number(invoice.vatAmount),
+                        vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
                         total: Number(invoice.total),
                     });
                 } else {
@@ -588,6 +589,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         trips: tripRows,
                         subtotal: Number(invoice.subtotal),
                         vatAmount: Number(invoice.vatAmount),
+                        vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
                         total: Number(invoice.total),
                     });
                 }
@@ -751,6 +753,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                             }],
                             subtotal: Number(invoice.subtotal),
                             vatAmount: Number(invoice.vatAmount),
+                            vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
                             total: Number(invoice.total),
                         });
                     } else {
@@ -773,6 +776,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                             trips: tripRows,
                             subtotal: Number(invoice.subtotal),
                             vatAmount: Number(invoice.vatAmount),
+                            vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
                             total: Number(invoice.total),
                         });
                     }
@@ -877,6 +881,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                     })),
                     subtotal: Number(invoice.subtotal),
                     vatAmount: Number(invoice.vatAmount),
+                    vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
                     total: Number(invoice.total),
                 });
 

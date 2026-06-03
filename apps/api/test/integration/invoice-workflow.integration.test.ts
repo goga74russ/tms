@@ -232,6 +232,37 @@ describe('POST /api/finance/invoices/:id/issue', () => {
         expect(body.data.total).toBe(1200);
     });
 
+    it('C2: НДС «сверху» (includesVat=false) — нетто 1000 → total 1200, vat 200, строки грос­сятся', async () => {
+        await setOrgRegime('osno');
+        const draft = await createDraft('sf');
+        const order = await seedOrder({ number: 'ORD-VAT-TOP' });
+
+        const res = await app.inject({
+            method: 'POST', url: `/api/finance/invoices/${draft.id}/issue`,
+            headers: authHeaders(adminToken()),
+            payload: {
+                basisText: 'Договор № 1 от 01.01.2026',
+                vatRate: 20,
+                includesVat: false, // НДС сверху: allocatedAmount = нетто
+                invoiceOrders: [{ orderId: order.id, allocatedAmount: 1000 }],
+            },
+        });
+        expect(res.statusCode).toBe(200);
+        expect(res.json().data.total).toBe(1200); // раньше был баг: 1000
+
+        const db = await getTestDb();
+        const schema = await import('../../src/db/schema.js');
+        const { eq } = await import('drizzle-orm');
+        const [inv] = await db.select().from(schema.invoices).where(eq(schema.invoices.id, draft.id));
+        expect(Number(inv.total)).toBeCloseTo(1200, 2);
+        expect(Number(inv.vatAmount)).toBeCloseTo(200, 2);
+        expect(Number(inv.subtotal)).toBeCloseTo(1000, 2);
+        // Σ allocated_amount должна равняться total (DB CHECK), т.е. строка грос­сена до 1200.
+        const lines = await db.select().from(schema.invoiceOrders).where(eq(schema.invoiceOrders.invoiceId, draft.id));
+        expect(Number(lines[0].allocatedAmount)).toBeCloseTo(1200, 2);
+        expect(Number(lines[0].allocatedVat)).toBeCloseTo(200, 2);
+    });
+
     it('blocks SF for usn_income (no VAT obligation)', async () => {
         await setOrgRegime('usn_income');
         const draft = await createDraft('sf');
