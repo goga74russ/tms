@@ -156,17 +156,16 @@ mapInvoiceStatus stale enum (xml-export:151), deferred-триггер не св�
 - [x] **P1** `claims/routes.ts:59-69` — закрыто вместе с ensureClaimAccess (тот же класс).
 - [ ] **P1** `cold-chain/routes.ts:44-188` — нет RBAC-гейта вообще
 - [ ] **P1** `compliance/adr/routes.ts:79-98` — validate-hard без access-guard на orderId/vehicleId/driverId
-- [ ] **P1** `compliance/marking/routes.ts:80-115` — scan-batch lotId без org-проверки
+- [x] **P1** `compliance/marking/routes.ts:80-115` — scan-batch. ✅ FIX (а): lotId проверяется на принадлежность орг (shipmentLots.org) до привязки кодов; org-less→403.
 - [x] **P1** `finance/routes.ts:52-65` — ensureInvoiceAccess. ✅ FIX (б): `else if (user.organizationId)` → `else {org-less DENY; ...}`. **+ sweep** (regression-тест вскрыл): workflow-guard `getInvoiceWithOrgRegime` (issue/register-payment/corrections/cancel) и список `GET /finance/invoices` тоже org-less-дырявые → закрыты. Регрессион-тест (org-less→403).
 - [ ] **P1** `import/routes.ts:297-300` — contractor INN lookup без org → cross-tenant linking
 - [ ] **P1** `import/routes.ts:140-145` — cross-tenant user hijack через global email lookup
-- [ ] **P1** `operational-core/execution-service.ts:146-153` — idempotency по externalId без org
+- [x] **P1** `operational-core/execution-service.ts:146-153` — ✅ FIX (а): idempotency-lookup скоупится по орг (externalId per-org-unique миг.0039).
 - [ ] **P1** `orders/routes.ts:119-131` — driver видит все заявки орг через GET /orders/list
 - [ ] **P1** `orders/routes.ts:527-555` — POST /orders/from-template IDOR через templateOrderId
-- [ ] **P1** `settings/routes.ts:51-53` — GET /settings/recent без org-фильтра
-- [ ] **P1** `settings/service.ts:135-140` — listRecentSettings отдаёт all-tenant app_settings
-- [ ] **P1** `notifications/routes.ts:163-168` *(CBO)* — GET /telegram/subscriptions: все орг (PII leak)
-- [ ] **P1** `notifications/routes.ts:177-188` *(CBO)* — POST /telegram/test: broadcast всем орг
+- [x] **P1** `settings/routes.ts:51-53` + `service.ts:135-140` — listRecentSettings. ✅ FIX (а): app_settings скоупится через KEY (`baseKey:orgId`) — отдаём только org-ключи + глобальные; org-less→пусто.
+- [x] **P1** `notifications/routes.ts:163-168` *(CBO)* — GET /telegram/subscriptions. ✅ FIX: фильтр по org; org-less→пусто (PII chatId/userId всех орг закрыт).
+- [x] **P1** `notifications/routes.ts:177-188` *(CBO)* — POST /telegram/test. ✅ FIX: broadcast только подписчикам своей орг; chatId-путь проверяет принадлежность орг; org-less→403.
 - [ ] **P1** `sprint9/routes.ts:223-227` — PUT /incidents/:id UPDATE без org-фильтра
 - [ ] **P1** `trips/routes.ts:1371-1388` — dossier item exception по itemId без trip/org-проверки
 - [ ] **P1** `apps/web/.../repair/page.tsx:86-99` — список механиков через /auth/users + клиент-фильтр (утечка всех юзеров орг)
@@ -308,6 +307,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
+| 2026-06-03 | C3 | Батч 3: механизм «а» — settings/recent (KEY-скоуп) + telegram subs/test (CBO, PII) + execution idempotency + marking scan-batch (lot-org). unit 722·integration 145 | _(этот коммит)_ |
 | 2026-06-03 | C3 | Батч 2: хэндролл-«б» — ensureInvoiceAccess + claims (ensureClaimAccess+GET, «б»+«в» orphaned via trip) + GET /tariffs. **Sweep:** workflow-guard (issue/payment/correction/cancel) + список счетов тоже org-less-дырявые (regression-тест вскрыл) → закрыты. unit 722·integration 145 | _(этот коммит)_ |
 | 2026-06-03 | C3 | Батч 1: 4 P0 (adr/edi/tarification-CBO/sprint9-driver) + **корень механизма «б»** (assertOrganizationScope org-less→DENY, чинит ВСЕ assert-guard'ы). Матрица-тест (cross-tenant+org-less→403). unit 722·integration 144 | _(этот коммит)_ |
 | 2026-06-03 | deploy | **🚀 C1+C2 на проде**: ff-merge в main + push, deploy `0b0aaf1→7fdad8c`. Health/login/static 200, AI off, без миграций. origin/main==prod==7fdad8c | `7fdad8c` |

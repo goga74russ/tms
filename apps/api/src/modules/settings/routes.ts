@@ -48,8 +48,9 @@ const settingsRoutes: FastifyPluginAsync = async (fastify) => {
             description: 'Возвращает последние сохраненные системные настройки.',
         },
         preHandler: [fastify.authenticate, requireAbility('manage', 'Settings')],
-    }, async () => {
-        const data = await listRecentSettings();
+    }, async (request) => {
+        const orgId = (request.user as { organizationId?: string | null }).organizationId;
+        const data = await listRecentSettings(orgId);
         return { success: true, data };
     });
 };

@@ -15,6 +15,9 @@ import {
     categorySummary,
 } from './service.js';
 import { requireFeature } from '../../../auth/plan-guard.js';
+import { db } from '../../../db/connection.js';
+import { shipmentLots } from '../../../db/schema.js';
+import { and, eq } from 'drizzle-orm';
 
 interface AuthUser {
     userId: string;
@@ -96,6 +99,16 @@ const markingRoutes: FastifyPluginAsync = async (app) => {
                 error: 'Невалидные параметры',
                 details: parsed.error.flatten().fieldErrors,
             });
+        }
+        // C3 (механизм «а»): lotId должен принадлежать орг — иначе cross-tenant
+        // привязка кодов к чужой отгрузке. org-less → DENY.
+        if (!user.organizationId) {
+            return reply.status(403).send({ success: false, error: 'Учётная запись не привязана к организации' });
+        }
+        const [lot] = await db.select({ id: shipmentLots.id }).from(shipmentLots)
+            .where(and(eq(shipmentLots.id, parsed.data.lotId), eq(shipmentLots.organizationId, user.organizationId))).limit(1);
+        if (!lot) {
+            return reply.status(404).send({ success: false, error: 'Партия отгрузки не найдена' });
         }
         const out = await verifyCodes({
             organizationId: user.organizationId ?? null,

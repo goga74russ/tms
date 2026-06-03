@@ -132,9 +132,17 @@ export async function updateCostModelSettings(
     return getCostModelSettings(orgId);
 }
 
-export async function listRecentSettings() {
-    return db.select()
+export async function listRecentSettings(orgId?: string | null) {
+    // C3 (механизм «а»): app_settings скоупится через KEY (`baseKey:orgId`).
+    // Раньше возвращались последние 20 строк ВСЕХ орг (org-ключи чужих тенантов).
+    // Отдаём только ключи этой орг (`:orgId`) + глобальные. org-less → пусто.
+    if (!orgId) return [];
+    const globalKeys = new Set<string>(Object.values(COST_SETTING_KEYS));
+    const rows = await db.select()
         .from(appSettings)
         .orderBy(desc(appSettings.updatedAt))
-        .limit(20);
+        .limit(200);
+    return rows
+        .filter((r) => r.key.endsWith(`:${orgId}`) || globalKeys.has(r.key))
+        .slice(0, 20);
 }

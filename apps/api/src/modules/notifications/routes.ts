@@ -6,7 +6,7 @@ import { FastifyPluginAsync } from 'fastify';
 import { requireAbility } from '../../auth/rbac.js';
 import { db } from '../../db/connection.js';
 import { notificationSubscriptions, users } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { sendMessage, getMe, setWebhook, deleteWebhook } from '../../integrations/telegram.service.js';
 
 const telegramRoutes: FastifyPluginAsync = async (app) => {
@@ -163,8 +163,13 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
     app.get('/telegram/subscriptions', {
         schema: { tags: ['Уведомления'], summary: 'Подписки', description: 'Список привязанных Telegram-аккаунтов.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
-    }, async () => {
-        const subs = await db.select().from(notificationSubscriptions);
+    }, async (request, reply) => {
+        // C3 (CBO, механизм «б»+«а»): раньше отдавались подписки ВСЕХ тенантов
+        // (chatId/userId — PII). Фильтр по орг; org-less → пусто.
+        const user = request.user as { organizationId?: string | null };
+        if (!user.organizationId) return reply.send({ success: true, data: [] });
+        const subs = await db.select().from(notificationSubscriptions)
+            .where(eq(notificationSubscriptions.organizationId, user.organizationId));
         return { success: true, data: subs };
     });
 
@@ -172,13 +177,19 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
     app.post('/telegram/test', {
         schema: { tags: ['Уведомления'], summary: 'Тест уведомления', description: 'Отправка тестового сообщения в Telegram.' },
         preHandler: [app.authenticate, requireAbility('manage', 'Settings')],
-    }, async (request) => {
+    }, async (request, reply) => {
         const { chatId, message } = request.body as { chatId?: string; message?: string };
+        // C3 (CBO, механизм «а»): раньше broadcast уходил подписчикам ВСЕХ тенантов.
+        const user = request.user as { organizationId?: string | null };
+        if (!user.organizationId) return reply.status(403).send({ success: false, error: 'Учётная запись не привязана к организации' });
         if (!chatId) {
-            // Send to all active subscribers
+            // Send to all active subscribers ОРГАНИЗАЦИИ.
             const subs = await db.select()
                 .from(notificationSubscriptions)
-                .where(eq(notificationSubscriptions.isActive, true));
+                .where(and(
+                    eq(notificationSubscriptions.isActive, true),
+                    eq(notificationSubscriptions.organizationId, user.organizationId),
+                ));
             let sent = 0;
             for (const sub of subs) {
                 const res = await sendMessage(sub.telegramChatId,
@@ -187,6 +198,15 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
             }
             return { success: true, sent };
         }
+        // chatId-путь: разрешаем только если chatId — подписка нашей орг (иначе
+        // можно слать в чужой чат по подсмотренному chatId).
+        const [own] = await db.select({ id: notificationSubscriptions.id })
+            .from(notificationSubscriptions)
+            .where(and(
+                eq(notificationSubscriptions.telegramChatId, chatId),
+                eq(notificationSubscriptions.organizationId, user.organizationId),
+            )).limit(1);
+        if (!own) return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
         const result = await sendMessage(chatId, message || '🧪 Тестовое уведомление ТрансПульт');
         return { success: result.ok, data: result };
     });

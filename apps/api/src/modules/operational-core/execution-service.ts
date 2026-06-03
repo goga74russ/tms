@@ -144,10 +144,14 @@ export async function recordExecutionEvent(input: RecordExecutionEventInput, act
         if (created) return { event: created, duplicate: false };
 
         if (externalId) {
+            // C3 (механизм «а»): idempotency-lookup скоупим по орг — externalId
+            // per-org-unique (миг. 0039), без фильтра возвращалась чужая строка события.
+            const idemConditions = [eq(events.externalId, externalId)];
+            if (actor.organizationId) idemConditions.push(eq(events.organizationId, actor.organizationId));
             const [existing] = await tx
                 .select()
                 .from(events)
-                .where(eq(events.externalId, externalId))
+                .where(and(...idemConditions))
                 .limit(1);
             if (existing) return { event: existing, duplicate: true };
         }
