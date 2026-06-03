@@ -4,6 +4,11 @@
 > Этот файл — **рабочий план починки**, не дубль аудита. Аудит неизменяем; здесь — статусы.
 > Роль: **TransPult**. Запущено: 2026-06-02.
 
+> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-03):** на проде `84b2584` (local==origin==prod, P0 Gate CI зелёный).
+> **Закрыто и на проде: C1 · C2 · C3 · C4 · C5(backend).**
+> Остаток: C5-хвост (sync/mobile/web), C6 (субподряд-ЭТрН), C7 (auth/JWT), C8 (error-leak), C9 (correctness/perf), P2/P3 sweep.
+> DEFER (документированы): C2-копилот, легаси-нумерация per-org, C3 within-org over-exposure, gosklyuch XAdES/mTLS/юр-сила.
+
 ## Зачем этот файл
 
 Аудит нашёл **280 находок** (7×P0, 92×P1, 135×P2, 46×P3) + **11 пометок «ЗАКРЫТО-НО-ОТКРЫТО» (CBO)**
@@ -309,7 +314,8 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
-| 2026-06-03 | C5 | Батч 2: assign-carrier (оптимистичный re-check + org-фильтр) + me/organization INN (advisory-lock в tx, дубль-орг). **Backend-TOCTOU закрыт.** DEFER: sync, mobile, web. unit 722·integration 150 | _(этот коммит)_ |
+| 2026-06-03 | deploy | **🚀 C5 на проде**: deploy `d0a9c63→84b2584` (без новых миграций). Health 200. CI зелёный. **local==origin==prod==84b2584.** | `84b2584` |
+| 2026-06-03 | C5 | Батч 2: assign-carrier (оптимистичный re-check + org-фильтр) + me/organization INN (advisory-lock в tx, дубль-орг). **Backend-TOCTOU закрыт.** DEFER: sync, mobile, web. unit 722·integration 150 | `84b2584` |
 | 2026-06-03 | C5 | Батч 1: registerPayment + recordPartialPayment (tx + FOR UPDATE, деньги), ЭТрН signature+refusal (tx + FOR UPDATE, потеря подписи), changeOrderStatus (оптимистичная блокировка). Concurrency-тест (2×600→1200). unit 722·integration 150. Остаток: sync-idempotency, carriers, me/organization, mobile/web | _(этот коммит)_ |
 | 2026-06-03 | C3-fix | **РЕГРЕССИЯ + фикс:** blanket org-less DENY сломал платформенного super-admin (`admin && !org`) — CI smoke упал (POST /api/trips), прод-super-admin тоже. Хелпер `isPlatformSuperAdmin` (org-less пропускается только для admin&&!org; прочий org-less → DENY) применён во всех C3/C4 org-scope фиксах. Тест: org-less accountant→403, super-admin→не-403. unit 722·integration 149 | _(этот коммит)_ |
 | 2026-06-03 | deploy | **🚀 C3+C4 на проде**: push + deploy `7fdad8c→031407b`, **миграции 0041/0042 применены** (`[apply]`). Health/login 200. Composite-индексы + org-колонки подтверждены интроспекцией прод-БД. origin/main==prod==031407b | `031407b` |
