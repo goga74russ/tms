@@ -187,7 +187,8 @@ const techInspection = await http('POST', '/api/inspections/tech', {
         { name: 'Тахограф', result: 'ok' },
     ],
     decision: 'approved',
-    signature: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+    // C1: ПЭП-подпись осмотра = пароль подписанта (verifyPassword), не картинка.
+    signature: PASSWORD,
     comment: 'Smoke test approval',
 }, 201);
 ok(`tech inspection created: ${techInspection.data?.id}`);
@@ -204,7 +205,8 @@ const medInspection = await http('POST', '/api/inspections/med', {
     condition: 'удовлетворительное',
     alcoholTest: 'negative',
     decision: 'approved',
-    signature: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+    // C1: ПЭП-подпись осмотра = пароль подписанта (verifyPassword), не картинка.
+    signature: PASSWORD,
     comment: 'Smoke test approval',
 }, 201);
 ok(`med inspection created: ${medInspection.data?.id}`);
