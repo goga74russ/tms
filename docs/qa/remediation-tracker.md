@@ -53,7 +53,7 @@
 | **C1** | Подпись / ПЭП-верификация / immutability осмотров | Single-tenant real + юр-сила. Маленький — обкатка метода | 1 | 7 | **VERIFIED*** |
 | **C2** | Деньги: billing-replay + НДС-корректность + нумерация | Single-tenant real, реальные суммы/чеки | 0 | 10 | **VERIFIED*** |
 | **C3** | Org-scope sweep (cross-tenant IDOR/leak) | Гейт мульти-тенант пилота. Самый большой класс | 5 | 23 | TODO |
-| **C4** | Глобально-unique индексы → per-org | 1 миграция, ломает multitenancy | 0 | 4 | TODO |
+| **C4** | Глобально-unique индексы → per-org | 1 миграция, ломает multitenancy | 0 | 4 | **VERIFIED** (миг.0041) |
 | **C5** | TOCTOU / read-modify-write без транзакции | Гонки на деньгах/подписи/статусах | 0 | 13 | TODO |
 | **C6** | Субподряд-ЭТрН-гейт (centralize assertEtrnAllowed) | Юр-блок обходится. Юр-оценка → /jurist | 1 | 1 | TODO |
 | **C7** | Auth / JWT-revocation корректность | E6 неполон, ломает сессии | 0 | 3 | TODO |
@@ -145,10 +145,10 @@ mapInvoiceStatus stale enum (xml-export:151), deferred-триггер не св�
 > **🔑 КОРЕНЬ механизма «б» закрыт:** `auth/guards.ts assertOrganizationScope` имел `if (!user.organizationId) return` → org-less актор ПРОХОДИЛ scope-проверку во ВСЕХ assert*-guard'ах (Vehicle/Driver/Trip/Waybill/Order/Trailer/Incident). Теперь `throw AccessDeniedError` (super-admin-роли нет → org-less = DENY). Закрывает org-less-аспект для всех guard-защищённых роутов разом. Матрица-тест (cross-tenant + org-less → 403). unit 722 · integration 142 зелёные (blast-radius чист). _Хэндролл-инстансы (ensureInvoiceAccess/claims/tariffs), что НЕ зовут scope-хелпер — чинятся отдельно ниже._
 - [x] **P0** `edi/routes.ts:154-186` — mock-progress. ✅ FIX: loadDocumentTripId + assertTripAccess (как send/history) → cross-tenant force статуса ЭТрН закрыт.
 - [x] **P0** `finance/tarification.service.ts:94` *(CBO)* — calculateTripCost. ✅ FIX: org-параметр (untrusted роут обязан передать, trusted internal=null), роут + org-less guard (403) + copilot defense-in-depth. Матрица-тест.
-- [ ] **P0** `sprint9/routes.ts:146-152` — GET /incidents: NULL-vehicleId инциденты утекают всем. `(механизм в — нужна МИГРАЦИЯ: org-column в incidents; батч с C4)`
+- [x] **P0** `sprint9/routes.ts:146-152` — GET /incidents NULL-vehicleId leak. ✅ FIX (в, миг.0042): incidents.organization_id (backfill из vehicle); GET скоупит напрямую `eq(organizationId)`; POST ставит org; org-less→пусто.
 - [x] **P0** `sprint9/routes.ts:272-273` — POST /waybills/:id/drivers. ✅ FIX: assertDriverAccess (был только existence) → чужой driverId на свой ПЛ закрыт.
 - [x] **P1** `auth/auth.ts:974-976` — GET /tariffs. ✅ FIX (б): org-less → 403 (был фильтр под `if (actor.organizationId)` → все тенанты).
-- [ ] **P1** `auth/guards.ts:54, 185-213` (assertIncidentAccess) — org-less закрыт корневым фиксом «б»; NULL-FK incident `→ батч C3-«в»/C4` (нужна org-column в incidents).
+- [x] **P1** `auth/guards.ts:54, 185-213` (assertIncidentAccess) — ✅ FIX (в): getIncidentAccessSnapshot берёт прямой incidents.organizationId (раньше org из FK → при null-FK снапшот пуст → пропускал).
 - [x] **P1** `integrations/workers/wialon.worker.ts:162-163` + `mocks/wialon-mock-runner.ts:127` — eta_updated broadcast всем тенантам. ✅ FIX (а): воркеры передают `organizationId` в payload; `broadcastEvent` уже org-aware (`shouldDeliverEvent`) → событие скоупится по орг.
 - [x] **P1** `claims/routes.ts:53-79` (ensureClaimAccess) — ✅ FIX (б+в): org-less staff→DENY; orphaned claim (contractorId=null) скоупится через tripId→trips.org (assertTripAccess), оба null→DENY.
 - [x] **P1** `claims/routes.ts:156-165` GET /claims/:id — ✅ FIX: дублированный inline-чек заменён на единый `ensureClaimAccess` (та же дыра «б»/«в»).
@@ -165,7 +165,7 @@ mapInvoiceStatus stale enum (xml-export:151), deferred-триггер не св�
 - [x] **P1** `settings/routes.ts:51-53` + `service.ts:135-140` — listRecentSettings. ✅ FIX (а): app_settings скоупится через KEY (`baseKey:orgId`) — отдаём только org-ключи + глобальные; org-less→пусто.
 - [x] **P1** `notifications/routes.ts:163-168` *(CBO)* — GET /telegram/subscriptions. ✅ FIX: фильтр по org; org-less→пусто (PII chatId/userId всех орг закрыт).
 - [x] **P1** `notifications/routes.ts:177-188` *(CBO)* — POST /telegram/test. ✅ FIX: broadcast только подписчикам своей орг; chatId-путь проверяет принадлежность орг; org-less→403.
-- [ ] **P1** `sprint9/routes.ts:223-227` — PUT /incidents/:id. `→ батч C3-«в»/C4`: использует assertIncidentAccess (org-less закрыт корневым фиксом), но NULL-FK incident требует org-column (миграция).
+- [x] **P1** `sprint9/routes.ts:223-227` — PUT /incidents/:id. ✅ FIX (в): assertIncidentAccess теперь по org-column (NULL-FK закрыт) гейтит update.
 - [x] **P1** `trips/routes.ts:1371-1388` — dossier-item exception. ✅ FIX (а): update скоупится по scopeId(=trip) + assertTripAccess (item чужого рейса не обновить).
 - [ ] **P1** `apps/web/.../repair/page.tsx:86-99` — список механиков через /auth/users + клиент-фильтр. `DEFER (не C3-класс)`: список org-scoped (не cross-tenant) — **within-org** over-exposure (полный список юзеров орг в браузер вместо механиков). Нужен server-side фильтр роли/dedicated endpoint. Вынести в RBAC-проход.
 
@@ -179,18 +179,18 @@ fines.worker без org (integrations), mchd_number oracle (signatures:294), cop
 
 ---
 
-## C4 — Глобально-unique индексы → per-org  `TODO`
+## C4 — Глобально-unique индексы → per-org  `VERIFIED` (миг.0041)
 
-**Инвариант:** uniqueness бизнес-ключей (inn/plate/VIN/mchd) — composite `(organizationId, key)`, не глобально.
+**Инвариант:** uniqueness бизнес-ключей (inn/plate/VIN) — composite `(organizationId, key)`, не глобально.
 
-- [ ] **P1** `db/schema.ts:268` + `drizzle/0000_full_schema.sql:647` — contractors.inn глобально-unique
-- [ ] **P1** `fleet/service.ts:195-204` — vehicles plate/VIN dup-check + DB-индекс глобальные (cross-org DoS)
-- [ ] **P1** `fleet/service.ts:656-662` — createContractor INN dup-check cross-org
-- [ ] **P1** `fleet/service.ts:657-662` — дубль того же (web-fleet-1 сегмент)
+- [x] **P1** `db/schema.ts:268` — contractors.inn. ✅ FIX (миг.0041): глобальный idx_contractors_inn → composite idx_contractors_org_inn. schema.ts синхронизирован.
+- [x] **P1** `fleet/service.ts:195-204` — vehicles plate/VIN. ✅ FIX (миг.0041): дропнуты ДВА механизма (inline CONSTRAINT + UNIQUE INDEX) на каждый ключ → composite per-org; dup-check в коде скоупится по орг + org-less guard.
+- [x] **P1** `fleet/service.ts:656-662` — createContractor INN. ✅ FIX: dup-check по орг + org-less guard.
+- [x] **P1** `fleet/service.ts:657-662` — закрыто вместе (та же функция).
 
-**Sweep P2/P3:** mchd_number global unique → existence oracle (signatures:294), per-org unique по nullable
-org_id теряет уникальность для NULL-строк (api-db 0039 SQL:20).
-**Реко:** 1 миграция (composite unique + бэкфилл), затем правка in-code dup-чеков. `drizzle-kit check`.
+**Инвариант-тест:** две орг — один госномер/VIN/ИНН ok; дубль внутри орг — reject (4/4). Миграция применена к тест-PG (индексы подтверждены интроспекцией).
+**Sweep P2/P3 (остаток):** mchd_number global unique → existence oracle (signatures:294) — DEFER; per-org unique по nullable org_id теряет уникальность для NULL-строк (известный tradeoff, на демо нет null-org строк).
+**Реко выполнено:** миграция (composite + backfill) + in-code dup-чеки.
 
 ---
 
@@ -306,6 +306,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
+| 2026-06-03 | C4+C3в | **Миграции 0041/0042**: C4 per-org unique (contractors.inn, vehicles plate/vin — дроп глобальных, composite) + dup-чеки по орг; C3-«в» org-column в incidents/fines (backfill) — GET/POST/PUT incidents + assertIncidentAccess + fines-worker/cold-chain/createFine ставят/скоупят org. Инвариант-тест 4/4. unit 722·integration 149. Индексы подтверждены интроспекцией. **C4 закрыт; C3 cross-tenant полностью закрыт.** | _(этот коммит)_ |
 | 2026-06-03 | C3 | Батч 5: wialon eta-broadcast (org в payload). **Cross-tenant класс C3 (а+б) закрыт.** Остаток: «в»-NULL-FK (incidents/fines → миграция, батч C4) + 2 within-org DEFER (orders/list driver, repair-page) — не cross-tenant. unit 722·integration 145 | _(этот коммит)_ |
 | 2026-06-03 | C3 | Батч 4: механизм «а» — adr validate-hard (access-guards) + import (contractor-INN/user-hijack) + orders from-template (IDOR) + trips dossier-item (scopeId). unit 722·integration 145 | _(этот коммит)_ |
 | 2026-06-03 | C3 | Батч 3: механизм «а» — settings/recent (KEY-скоуп) + telegram subs/test (CBO, PII) + execution idempotency + marking scan-batch (lot-org). unit 722·integration 145 | _(этот коммит)_ |

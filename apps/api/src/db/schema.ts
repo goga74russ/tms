@@ -265,7 +265,8 @@ export const contractors = pgTable('contractors', {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-    uniqueIndex('idx_contractors_inn').on(table.inn),
+    // C4 (миг.0041): per-org уникальность ИНН (был глобальный idx_contractors_inn).
+    uniqueIndex('idx_contractors_org_inn').on(table.organizationId, table.inn),
     index('idx_contractors_is_carrier').on(table.isCarrier),
 ]);
 
@@ -317,8 +318,10 @@ export const tariffs = pgTable('tariffs', {
 // ================================================================
 export const vehicles = pgTable('vehicles', {
     id: uuid('id').primaryKey().defaultRandom(),
-    plateNumber: varchar('plate_number', { length: 15 }).notNull().unique(),
-    vin: varchar('vin', { length: 17 }).notNull().unique(),
+    // C4 (миг.0041): уникальность plate/vin теперь per-org (composite index ниже),
+    // не глобальная — убран inline .unique() (был vehicles_plate_number_unique/_vin_unique).
+    plateNumber: varchar('plate_number', { length: 15 }).notNull(),
+    vin: varchar('vin', { length: 17 }).notNull(),
     make: varchar('make', { length: 100 }).notNull(),
     model: varchar('model', { length: 100 }).notNull(),
     year: integer('year').notNull(),
@@ -354,8 +357,9 @@ export const vehicles = pgTable('vehicles', {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-    uniqueIndex('idx_vehicles_plate').on(table.plateNumber),
-    uniqueIndex('idx_vehicles_vin').on(table.vin),
+    // C4 (миг.0041): per-org уникальность (были глобальные idx_vehicles_plate/_vin).
+    uniqueIndex('idx_vehicles_org_plate').on(table.organizationId, table.plateNumber),
+    uniqueIndex('idx_vehicles_org_vin').on(table.organizationId, table.vin),
     index('idx_vehicles_status').on(table.status),
 ]);
 
@@ -881,6 +885,8 @@ export const fines = pgTable('fines', {
     amount: numeric('amount', { precision: 12, scale: 2 }).$type<number>().notNull(),
     resolutionNumber: varchar('resolution_number', { length: 100 }),
     paidAt: timestamp('paid_at', { withTimezone: true }),
+    // C3 «в» (миг.0042): прямой org-скоуп (раньше только через join fines→vehicles).
+    organizationId: uuid('organization_id').references(() => organizations.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -888,6 +894,7 @@ export const fines = pgTable('fines', {
     index('idx_fines_driver').on(table.driverId),
     index('idx_fines_created_at').on(table.createdAt),
     index('idx_fines_violation_date').on(table.violationDate),
+    index('idx_fines_org').on(table.organizationId),
 ]);
 
 // ================================================================
@@ -1200,6 +1207,9 @@ export const incidents = pgTable('incidents', {
     // Блокировка
     blocksRelease: boolean('blocks_release').notNull().default(false),
     createdBy: uuid('created_by').notNull().references(() => users.id),
+    // C3 «в» (миг.0042): прямой org-скоуп — раньше incidents скоупились через
+    // vehicleId-subquery, и строки с vehicleId=null утекали всем тенантам.
+    organizationId: uuid('organization_id').references(() => organizations.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -1207,6 +1217,7 @@ export const incidents = pgTable('incidents', {
     index('idx_incidents_vehicle').on(table.vehicleId),
     index('idx_incidents_driver').on(table.driverId),
     index('idx_incidents_trip').on(table.tripId),
+    index('idx_incidents_org').on(table.organizationId),
 ]);
 
 // ================================================================

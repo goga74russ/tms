@@ -180,6 +180,7 @@ async function getIncidentAccessSnapshot(incidentId: string) {
             driverId: incidents.driverId,
             vehicleId: incidents.vehicleId,
             tripId: incidents.tripId,
+            organizationId: incidents.organizationId,
         })
         .from(incidents)
         .where(eq(incidents.id, incidentId))
@@ -187,7 +188,10 @@ async function getIncidentAccessSnapshot(incidentId: string) {
 
     if (!incident) return null;
 
-    const organizationIds: Array<string | null | undefined> = [];
+    // C3 «в» (миг.0042): прямой org инцидента — авторитетный скоуп. Раньше org
+    // выводился ТОЛЬКО из FK (vehicle/driver/trip), и при всех null-FK снапшот
+    // был пуст → assertOrganizationScope пропускал (NULL-FK leak).
+    const organizationIds: Array<string | null | undefined> = [incident.organizationId];
 
     if (incident.vehicleId) {
         const [vehicle] = await db

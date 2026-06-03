@@ -142,14 +142,13 @@ export default async function sprint9Routes(app: FastifyInstance) {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string };
         const { page, limit } = toPagination(request.query);
         const { status, severity, type, vehicleId, driverId, tripId, search } = request.query as Record<string, string | undefined>;
-        const conditions = [];
-        if (user.organizationId) {
-            conditions.push(
-                inArray(incidents.vehicleId,
-                    db.select({ id: vehicles.id }).from(vehicles).where(eq(vehicles.organizationId, user.organizationId))
-                )
-            );
+        // C3 «в» (миг.0042): прямой org-скоуп. Раньше — inArray по vehicleId-subquery,
+        // из-за чего incidents с vehicleId=null выпадали из фильтра и были видны ВСЕМ.
+        // org-less → пусто (super-admin-роли нет).
+        if (!user.organizationId) {
+            return { success: true, data: [], total: 0, page, limit };
         }
+        const conditions = [eq(incidents.organizationId, user.organizationId)];
         if (status) conditions.push(eq(incidents.status, status as any));
         if (severity) conditions.push(eq(incidents.severity, severity as any));
         if (type) conditions.push(eq(incidents.type, type as any));
@@ -193,8 +192,13 @@ export default async function sprint9Routes(app: FastifyInstance) {
         if (parsed.data.driverId) await assertDriverAccess(parsed.data.driverId, user);
         if (parsed.data.tripId) await assertTripAccess(parsed.data.tripId, user);
 
+        // C3 «в»: incident привязан к орг создателя (миг.0042). org-less → DENY.
+        if (!user.organizationId) {
+            return reply.status(403).send({ success: false, error: 'Учётная запись не привязана к организации' });
+        }
         const [created] = await db.insert(incidents).values({
             ...parsed.data,
+            organizationId: user.organizationId,
             resolvedAt: parsed.data.resolvedAt ? new Date(parsed.data.resolvedAt) : undefined,
             createdBy: user.userId,
         }).returning();

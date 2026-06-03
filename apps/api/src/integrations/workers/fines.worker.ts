@@ -27,6 +27,7 @@ export async function processFinesSync(job: Job): Promise<{
         .select({
             id: vehicles.id,
             plateNumber: vehicles.plateNumber,
+            organizationId: vehicles.organizationId,
         })
         .from(vehicles)
         .where(eq(vehicles.isArchived, false));
@@ -70,6 +71,7 @@ export async function processFinesSync(job: Job): Promise<{
                 // 4. Insert new fine
                 const [newFine] = await db.insert(fines).values({
                     vehicleId: v.id,
+                    organizationId: v.organizationId, // C3 «в» (миг.0042): прямой org-скоуп
                     violationDate: new Date(f.violationDate),
                     violationType: f.violationType,
                     amount: f.amount,

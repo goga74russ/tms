@@ -149,6 +149,7 @@ export async function recordReading(
                     description: `Нарушение температурного режима. ${slaText}.`,
                     tripId: input.tripId,
                     createdBy: author.userId,
+                    organizationId, // C3 «в» (миг.0042): org рейса (загружен выше)
                 })
                 .returning();
             incidentId = incident?.id;

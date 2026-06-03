@@ -189,18 +189,22 @@ export async function createVehicle(
     const vinResult = validateVin(data.vin);
     if (!vinResult.valid) throw new Error(vinResult.error);
 
+    // C4/C3: создание ТС требует орг (per-org уникальность; org-less = мисконфиг).
+    const orgId = user.organizationId;
+    if (!orgId) throw new Error('Учётная запись не привязана к организации');
+
     // H-9 FIX: Wrap in transaction for atomicity (insert + event)
     return await db.transaction(async (tx: any) => {
-        // Check duplicate plate
+        // C4: дубль plate/VIN проверяется В ПРЕДЕЛАХ ОРГ (уникальность per-org,
+        // миг.0041) — раньше глобально → тенант B не мог завести ТС с госномером A.
         const [existingPlate] = await tx.select({ id: vehicles.id })
             .from(vehicles)
-            .where(eq(vehicles.plateNumber, data.plateNumber));
+            .where(and(eq(vehicles.plateNumber, data.plateNumber), eq(vehicles.organizationId, orgId)));
         if (existingPlate) throw new Error(`ТС с госномером ${data.plateNumber} уже существует`);
 
-        // Check duplicate VIN
         const [existingVin] = await tx.select({ id: vehicles.id })
             .from(vehicles)
-            .where(eq(vehicles.vin, data.vin));
+            .where(and(eq(vehicles.vin, data.vin), eq(vehicles.organizationId, orgId)));
         if (existingVin) throw new Error(`ТС с VIN ${data.vin} уже существует`);
 
         const [vehicle] = await tx.insert(vehicles).values({
@@ -653,10 +657,16 @@ export async function createContractor(
     const innResult = validateInn(data.inn);
     if (!innResult.valid) throw new Error(innResult.error);
 
-    // Check duplicate INN
+    // C4/C3: создание контрагента требует орг (per-org уникальность ИНН).
+    const orgId = user.organizationId;
+    if (!orgId) throw new Error('Учётная запись не привязана к организации');
+
+    // C4: дубль ИНН проверяется В ПРЕДЕЛАХ ОРГ (уникальность per-org, миг.0041) —
+    // раньше глобально → блокировал легитимную регистрацию того же контрагента
+    // другим тенантом (cross-org false collision).
     const [existing] = await db.select({ id: contractors.id, name: contractors.name })
         .from(contractors)
-        .where(eq(contractors.inn, data.inn));
+        .where(and(eq(contractors.inn, data.inn), eq(contractors.organizationId, orgId)));
     if (existing) {
         throw new Error(`Контрагент с ИНН ${data.inn} уже существует: "${existing.name}". Проверьте, не дубликат ли это.`);
     }
@@ -867,6 +877,7 @@ export async function createFine(
         const [fine] = await tx.insert(fines).values({
             vehicleId: data.vehicleId,
             driverId: data.driverId,
+            organizationId: user.organizationId ?? null, // C3 «в» (миг.0042)
             violationDate: new Date(data.violationDate),
             violationType: data.violationType,
             amount: data.amount,
