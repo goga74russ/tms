@@ -58,6 +58,13 @@ export default function ActPrintPage() {
 
     const inv = data;
     const tripRows: any[] = Array.isArray(inv.tripRows) ? inv.tripRows : [];
+    // C2: фактическая ставка НДС (из inv.vatRate или выведенная из сумм), не хардкод 20%.
+    const subtotalNum = Number(inv.subtotal) || 0;
+    const vatNum = Number(inv.vatAmount) || 0;
+    const vatRatePct = inv.vatRate != null
+        ? Number(inv.vatRate)
+        : (subtotalNum > 0 && vatNum > 0 ? Math.round((vatNum / subtotalNum) * 100) : 0);
+    const vatLabel = vatRatePct > 0 ? `НДС ${vatRatePct}%` : 'Без НДС';
 
     return (
         <>
@@ -126,12 +133,12 @@ export default function ActPrintPage() {
                 {/* Итого */}
                 <div className="totals-block no-break">
                     <div className="total-row"><span>Итого без НДС:</span><span>{money(inv.subtotal)} ₽</span></div>
-                    <div className="total-row"><span>НДС 20%:</span><span>{money(inv.vatAmount)} ₽</span></div>
+                    <div className="total-row"><span>{vatLabel}:</span><span>{money(inv.vatAmount)} ₽</span></div>
                     <div className="total-row-bold"><span>ИТОГО:</span><span>{money(inv.total)} ₽</span></div>
                 </div>
 
                 <div style={{ marginTop: 10, fontSize: '9pt', color: '#444' }}>
-                    Всего оказано услуг на сумму {money(inv.total)} руб. (НДС 20% включён).
+                    Всего оказано услуг на сумму {money(inv.total)} руб. ({vatRatePct > 0 ? `${vatLabel} включён` : 'без НДС'}).
                 </div>
 
                 <div style={{ marginTop: 10, fontSize: '9pt' }}>

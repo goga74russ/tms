@@ -51,7 +51,7 @@
 | # | Класс | Почему здесь | P0 | P1 | Статус |
 |---|---|---|---|---|---|
 | **C1** | Подпись / ПЭП-верификация / immutability осмотров | Single-tenant real + юр-сила. Маленький — обкатка метода | 1 | 7 | **VERIFIED*** |
-| **C2** | Деньги: billing-replay + НДС-корректность + нумерация | Single-tenant real, реальные суммы/чеки | 0 | 10 | TODO |
+| **C2** | Деньги: billing-replay + НДС-корректность + нумерация | Single-tenant real, реальные суммы/чеки | 0 | 10 | **VERIFIED*** |
 | **C3** | Org-scope sweep (cross-tenant IDOR/leak) | Гейт мульти-тенант пилота. Самый большой класс | 5 | 23 | TODO |
 | **C4** | Глобально-unique индексы → per-org | 1 миграция, ломает multitenancy | 0 | 4 | TODO |
 | **C5** | TOCTOU / read-modify-write без транзакции | Гонки на деньгах/подписи/статусах | 0 | 13 | TODO |
@@ -96,21 +96,25 @@ signatureState scalar/мульти-титул (gosklyuch-callback:286,321), clas
 
 ---
 
-## C2 — Деньги: billing-replay + НДС-корректность + нумерация  `TODO`
+## C2 — Деньги: billing-replay + НДС-корректность + нумерация  `VERIFIED`*
+
+> *VERIFIED по single-tenant-real (8/10): НДС-расчёт/PDF/1С/web, enum, billing-replay.
+> 2 DEFER (документированы): copilot-квота (AI off на проде), легаси-нумерация per-org
+> (мульти-тенант → пуш с C3/C4).
 
 **Инвариант:** повторный webhook не катит подписку/чек дважды; НДС считается по реальной ставке во всех
 путях (расчёт, PDF, 1С, корректировки); номер счёта per-org.
 
 - [x] **P1** `billing/routes.ts:260` *(CBO)* — replay-dedupe мёртв. ✅ FIX: ключ дедупа из реальных полей конверта (`object.id:status`) + **belt**: guard в сервисе (повторный succeeded на уже-succeeded платёж → no-op, не катит подписку/не фискализирует). Именной regression-тест (CBO).
 - [ ] **P1** `billing/service.ts:424,450,384` — лимит copilot_messages суточный, счётчик помесячный. `DEFER`: copilot AI-флаг **off на проде** (404) → не активен; фикс требует day-vs-month гранулярности в `usage_counters` (рефактор). Не блокирует deploy. Вернуться при включении AI.
-- [ ] **P1** `finance/finance.service.ts:116-136` *(CBO)* — легаси-нумерация не per-org + payeeOrganizationId=NULL
+- [ ] **P1** `finance/finance.service.ts:116-136` *(CBO)* — легаси-нумерация не per-org + payeeOrganizationId=NULL. `DEFER → мульти-тенант пуш (C3/C4)`: это **мульти-тенант**-корректность (одна орг на демо — серии не конфликтуют, payeeOrgId=NULL не влияет на отчёты при 1 орг). Логически в одном пуше с org-scope sweep. Не single-tenant-real.
 - [x] **P1** `finance/invoice-workflow.service.ts:286-303` — НДС «сверху». ✅ FIX: разведены ветки — «сверху» гроссит строки (нетто→gross, Σ allocated_amount==total держит DB CHECK), «в том числе»/explicit/rate=0 без изменений. Тест: нетто 1000 → total 1200/vat 200 (был баг 1000). Существующие 23 теста зелёные.
 - [x] **P1** `finance/routes.ts:558/579/738/764/856` — vatRate не доходил до PDF. ✅ FIX: `vatRate` передан во все **5** вызовов generate{Invoice,Act,Upd}Pdf (sweep: аудит назвал 3, мест 5). tsc ✓.
 - [x] **P1** `finance/schemas.ts:12` — enum drift. ✅ FIX: API-тип 'invoice' маппится в DB-enum 'payment' на insert (раньше PG-ошибка). Prefix INV сохранён.
 - [x] **P1** `finance/xml-export.service.ts:94/195, 139-149` — 1С хардкод 20%. ✅ FIX: `formatVatRate` (из сумм, 0→«Без НДС»); mapInvoiceType расширен (sf/corrective_sf/corrective_upd/advance/payment); mapInvoiceStatus → актуальный FSM (был sweep-item). +3 unit-теста.
-- [ ] **P1** `apps/web/.../InvoiceWorkflowActions.tsx:193` — корректировка КСФ/ИСФ всегда 20% (hardcoded)
-- [ ] **P1** `apps/web/.../print/act/[id]/page.tsx:129, 134` — АКТ: хардкод «НДС 20%» (P1-A частично открыт)
-- [ ] **P1** `apps/web/.../client/page.tsx:67-73, 152-166` *(CBO)* — метрика «Неоплаченных» всегда 0, enum клиент-портала ≠ Invoice FSM
+- [x] **P1** `apps/web/.../InvoiceWorkflowActions.tsx:193` — корректировка. ✅ FIX: НДС по ставке оригинала `invoice.vatRate` (был дефолт формы "20"). web tsc ✓.
+- [x] **P1** `apps/web/.../print/act/[id]/page.tsx:129, 134` — АКТ хардкод «НДС 20%». ✅ FIX: ставка из `inv.vatRate`/сумм, 0→«Без НДС». web tsc ✓.
+- [x] **P1** `apps/web/.../client/page.tsx:67-73, 152-166` *(CBO)* — enum клиент-портала. ✅ FIX: INVOICE_STATUS_LABELS → актуальный FSM (issued/paid_partial/paid_full/corrected); sparkline-фильтр `['issued','paid_partial']`. web tsc ✓.
 
 **Sweep P2/P3:** createAdjustment игнорирует статус (finance-core:472), префикс INV vs СЧ (finance-core:880),
 mapInvoiceStatus stale enum (xml-export:151), deferred-триггер не сверяет allocated_vat (0036 SQL:250).
@@ -302,6 +306,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
+| 2026-06-03 | C2 | **C2 ЗАКРЫТ по single-tenant-real (8/10)**: НДС-сверху+PDF (`3fa19b9`), enum+1С (`27235fe`), billing-replay (`5bf4afd`), web-НДС (корректировка/АКТ/клиент-enum). 2 DEFER: copilot (AI off), легаси-нумерация (мульти-тенант). tsc(api/web)·unit 721·integration | _(этот коммит)_ |
 | 2026-06-02 | C1 | **C1 ЗАКРЫТ (8/8)**: gosklyuch fail-closed (verifyGosklyuchEnvelope→pending_review, эксплойт закрыт) + env IP-allowlist. unit 718 ✓. Handoff: XAdES-verify(future)/mTLS(devops)/юр-сила(jurist) | _(этот коммит)_ |
 | 2026-06-02 | C1 | immutability решений осмотра (938/985) + role-gate tech /decision (608): rejected→approved блок (422), note-required (задействована мёртвая validateDecisionUpdate), mechanic/admin-гейт. unit-717/integration-20 зелёные | _(этот коммит)_ |
 | 2026-06-02 | — | Правки по ревью QA: 32→11 CBO (был артефакт грепа); C3 разбит на 3 механизма (нет-фильтра / org-less-обход / NULL-FK) + 3-кейсовый матрица-тест; убран опасный «super-admin org=null → bypass» (super-admin-роли в системе НЕТ → org-less = DENY); названы 4 пропущенных P1 (dispatcher:486→C5, integrations:227/admin-layout:51/dispatcher:573→C9); DoD C9 = пройти все 181 P2/P3; CBO → именные regression-тесты | _(этот коммит)_ |

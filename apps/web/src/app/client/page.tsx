@@ -64,11 +64,14 @@ const ORDER_STATUS_LABELS: Record<string, { label: string; color: string; icon: 
     cancelled: { label: 'Отменена', color: 'bg-red-100 text-red-700', icon: AlertCircle },
 };
 
+// C2: актуальный invoice-FSM (раньше — устаревшие sent/paid/overdue, которых
+// сервер больше не присылает → бейдж рендерил сырой 'issued').
 const INVOICE_STATUS_LABELS: Record<string, { label: string; color: string }> = {
     draft: { label: 'Черновик', color: 'bg-neutral-100 text-neutral-600' },
-    sent: { label: 'Отправлен', color: 'bg-blue-100 text-blue-700' },
-    paid: { label: 'Оплачен', color: 'bg-green-100 text-green-700' },
-    overdue: { label: 'Просрочен', color: 'bg-red-100 text-red-700' },
+    issued: { label: 'Выставлен', color: 'bg-blue-100 text-blue-700' },
+    paid_partial: { label: 'Частично оплачен', color: 'bg-amber-100 text-amber-700' },
+    paid_full: { label: 'Оплачен', color: 'bg-green-100 text-green-700' },
+    corrected: { label: 'Скорректирован', color: 'bg-neutral-100 text-neutral-600' },
     cancelled: { label: 'Отменён', color: 'bg-neutral-100 text-neutral-500' },
 };
 
@@ -154,7 +157,9 @@ export default function ClientPortalPage() {
         const buckets = new Array<number>(days).fill(0);
         const todayMs = Date.now();
         invoices.forEach((inv) => {
-            if (!['sent', 'overdue'].includes(inv.status)) return;
+            // C2: неоплаченные в актуальном FSM = issued + paid_partial (раньше
+            // фильтр был по sent/overdue, которых сервер больше не присылает → пусто).
+            if (!['issued', 'paid_partial'].includes(inv.status)) return;
             if (!inv.createdAt) return;
             const t = new Date(inv.createdAt).getTime();
             if (!Number.isFinite(t)) return;

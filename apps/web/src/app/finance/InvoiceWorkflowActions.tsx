@@ -190,7 +190,10 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
         if (corrReason.trim().length < 5) { toast({ variant: "warning", title: "Обоснование", description: "Укажите причину корректировки (≥5 симв.)" }); return; }
         if (invoiceOrders.length === 0) { toast({ variant: "warning", title: "Заявки", description: "Добавьте строки корректировки" }); return; }
         const total = invoiceOrders.reduce((s, o) => s + o.allocatedAmount, 0);
-        const vat = VAT_DOC_TYPES.includes(invoice.type) ? Math.round((total - total / (1 + Number(vatRate) / 100)) * 100) / 100 : 0;
+        // C2: корректировка считает НДС по ставке ОРИГИНАЛА (invoice.vatRate),
+        // а не по дефолту формы "20" — иначе КСФ/ИСФ под 10% считались как 20%.
+        const corrRate = invoice.vatRate ?? Number(vatRate);
+        const vat = VAT_DOC_TYPES.includes(invoice.type) ? Math.round((total - total / (1 + corrRate / 100)) * 100) / 100 : 0;
         setBusy(true);
         try {
             await api.post(`/finance/invoices/${invoice.id}/corrections`, {
