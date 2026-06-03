@@ -288,6 +288,16 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
     };
 
     if (payload.status === 'succeeded') {
+        // C2: идемпотентность по СОСТОЯНИЮ платежа (belt поверх eventId-dedup).
+        // Повторный succeeded-вебхук (ретрай ЮKassa) на уже-succeeded платёж НЕ
+        // должен катить подписку второй раз и НЕ должен фискализировать дубль чека.
+        if (paymentRow.status === 'succeeded') {
+            return {
+                paymentId: paymentRow.id,
+                subscriptionId: paymentRow.subscriptionId,
+                receiptUrl: paymentRow.receiptUrl ?? null,
+            };
+        }
         // 1) Mark the payment as succeeded.
         const paidAt = new Date();
         await tx

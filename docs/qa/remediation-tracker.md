@@ -101,8 +101,8 @@ signatureState scalar/мульти-титул (gosklyuch-callback:286,321), clas
 **Инвариант:** повторный webhook не катит подписку/чек дважды; НДС считается по реальной ставке во всех
 путях (расчёт, PDF, 1С, корректировки); номер счёта per-org.
 
-- [ ] **P1** `billing/routes.ts:260` *(CBO)* — replay-dedupe мёртв (`event_id` из несуществующего поля) → дубль подписки + дубль чека ОФД
-- [ ] **P1** `billing/service.ts:424,450,384` — лимит copilot_messages суточный, а счётчик помесячный
+- [x] **P1** `billing/routes.ts:260` *(CBO)* — replay-dedupe мёртв. ✅ FIX: ключ дедупа из реальных полей конверта (`object.id:status`) + **belt**: guard в сервисе (повторный succeeded на уже-succeeded платёж → no-op, не катит подписку/не фискализирует). Именной regression-тест (CBO).
+- [ ] **P1** `billing/service.ts:424,450,384` — лимит copilot_messages суточный, счётчик помесячный. `DEFER`: copilot AI-флаг **off на проде** (404) → не активен; фикс требует day-vs-month гранулярности в `usage_counters` (рефактор). Не блокирует deploy. Вернуться при включении AI.
 - [ ] **P1** `finance/finance.service.ts:116-136` *(CBO)* — легаси-нумерация не per-org + payeeOrganizationId=NULL
 - [x] **P1** `finance/invoice-workflow.service.ts:286-303` — НДС «сверху». ✅ FIX: разведены ветки — «сверху» гроссит строки (нетто→gross, Σ allocated_amount==total держит DB CHECK), «в том числе»/explicit/rate=0 без изменений. Тест: нетто 1000 → total 1200/vat 200 (был баг 1000). Существующие 23 теста зелёные.
 - [x] **P1** `finance/routes.ts:558/579/738/764/856` — vatRate не доходил до PDF. ✅ FIX: `vatRate` передан во все **5** вызовов generate{Invoice,Act,Upd}Pdf (sweep: аудит назвал 3, мест 5). tsc ✓.

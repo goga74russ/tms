@@ -254,10 +254,11 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
         }
         const { object, event } = parsed.data;
         const status = mapYookassaStatus(event, object.status);
-        // Replay dedupe key: ЮKassa events include an `event_id` on the envelope.
-        // Service layer uses this to skip already-processed events (returns 200
-        // to make the webhook idempotent).
-        const eventId = (request.body as { event_id?: string }).event_id;
+        // C2: ключ дедупа из РЕАЛЬНЫХ полей конверта ЮKassa. Раньше читали
+        // body.event_id, которого в конверте {type,event,object} НЕТ → всегда
+        // undefined → dedup мёртв → каждый ретрай succeeded катил подписку +30д
+        // и плодил дубль чека ОФД. object.id+status стабилен между ретраями.
+        const eventId = `${object.id}:${object.status}`;
         const result = await handlePaymentCallback({
             externalId: object.id,
             status,

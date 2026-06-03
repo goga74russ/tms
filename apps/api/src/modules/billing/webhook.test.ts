@@ -256,4 +256,26 @@ describe('handlePaymentCallback — replay dedupe (A-P0-1)', () => {
         });
         expect(out).toEqual({ paymentId: null, subscriptionId: null, receiptUrl: null });
     });
+
+    it('C2: повторный succeeded на уже-succeeded платёж → no-op (нет дубля подписки/чека)', async () => {
+        dbState.paymentRow = {
+            id: 'pay-dup',
+            subscriptionId: 'sub-dup',
+            amountKopecks: 290000,
+            providerMetadata: { lastWebhookEventId: 'old' },
+            status: 'succeeded',                 // платёж уже проведён ранее
+            receiptUrl: 'https://ofd/receipt/1',
+        };
+        dbState.subRow = { id: 'sub-dup' };
+        const out = await handlePaymentCallback({
+            externalId: 'ext-dup',
+            status: 'succeeded',
+            eventId: 'evt-different',             // даже НОВЫЙ eventId — guard по статусу платежа
+        });
+        expect(out.paymentId).toBe('pay-dup');
+        expect(out.receiptUrl).toBe('https://ofd/receipt/1'); // прежний чек, не новый
+        // Подписку НЕ катим второй раз: ни одной update по subscriptions.
+        const subUpdates = dbState.updates.filter((u) => /subscription/i.test(u.table));
+        expect(subUpdates).toHaveLength(0);
+    });
 });
