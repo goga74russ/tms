@@ -148,9 +148,8 @@ mapInvoiceStatus stale enum (xml-export:151), deferred-триггер не св�
 - [ ] **P0** `sprint9/routes.ts:146-152` — GET /incidents: NULL-vehicleId инциденты утекают всем. `(механизм в — нужна МИГРАЦИЯ: org-column в incidents; батч с C4)`
 - [x] **P0** `sprint9/routes.ts:272-273` — POST /waybills/:id/drivers. ✅ FIX: assertDriverAccess (был только existence) → чужой driverId на свой ПЛ закрыт.
 - [x] **P1** `auth/auth.ts:974-976` — GET /tariffs. ✅ FIX (б): org-less → 403 (был фильтр под `if (actor.organizationId)` → все тенанты).
-- [ ] **P1** `auth/guards.ts:54, 185-213` — PUT /incidents/:id IDOR при null FK
-- [ ] **P1** `integrations/mocks/wialon-mock-runner.ts:127` — eta_updated без org
-- [ ] **P1** `integrations/workers/wialon.worker.ts:162-163` — eta_updated broadcast всем тенантам по WS
+- [ ] **P1** `auth/guards.ts:54, 185-213` (assertIncidentAccess) — org-less закрыт корневым фиксом «б»; NULL-FK incident `→ батч C3-«в»/C4` (нужна org-column в incidents).
+- [x] **P1** `integrations/workers/wialon.worker.ts:162-163` + `mocks/wialon-mock-runner.ts:127` — eta_updated broadcast всем тенантам. ✅ FIX (а): воркеры передают `organizationId` в payload; `broadcastEvent` уже org-aware (`shouldDeliverEvent`) → событие скоупится по орг.
 - [x] **P1** `claims/routes.ts:53-79` (ensureClaimAccess) — ✅ FIX (б+в): org-less staff→DENY; orphaned claim (contractorId=null) скоупится через tripId→trips.org (assertTripAccess), оба null→DENY.
 - [x] **P1** `claims/routes.ts:156-165` GET /claims/:id — ✅ FIX: дублированный inline-чек заменён на единый `ensureClaimAccess` (та же дыра «б»/«в»).
 - [x] **P1** `claims/routes.ts:59-69` — закрыто вместе с ensureClaimAccess (тот же класс).
@@ -161,14 +160,14 @@ mapInvoiceStatus stale enum (xml-export:151), deferred-триггер не св�
 - [x] **P1** `import/routes.ts:297-300` — ✅ FIX (а): contractor по ИНН скоупится по орг (cross-tenant linking закрыт); org-less→не найден.
 - [x] **P1** `import/routes.ts:140-145` — ✅ FIX (а): email-lookup скоупится по орг (user hijack чужой орг закрыт).
 - [x] **P1** `operational-core/execution-service.ts:146-153` — ✅ FIX (а): idempotency-lookup скоупится по орг (externalId per-org-unique миг.0039).
-- [ ] **P1** `orders/routes.ts:119-131` — driver видит все заявки орг через GET /orders/list
+- [ ] **P1** `orders/routes.ts:119-131` — driver видит все заявки орг. `DEFER (не C3-класс)`: org-фильтр ПРИМЕНЁН (не cross-tenant) — это **within-org** over-exposure (driver видит все заявки орг, не только свои). RBAC-гранулярность, нужно продуктовое решение (driver-RLS vs deny web). Вынести в отдельный RBAC-проход.
 - [x] **P1** `orders/routes.ts:527-555` — from-template. ✅ FIX (а): createOrderFromTemplate проверяет, что шаблон принадлежит орг автора (IDOR/копирование чужой заявки закрыт).
 - [x] **P1** `settings/routes.ts:51-53` + `service.ts:135-140` — listRecentSettings. ✅ FIX (а): app_settings скоупится через KEY (`baseKey:orgId`) — отдаём только org-ключи + глобальные; org-less→пусто.
 - [x] **P1** `notifications/routes.ts:163-168` *(CBO)* — GET /telegram/subscriptions. ✅ FIX: фильтр по org; org-less→пусто (PII chatId/userId всех орг закрыт).
 - [x] **P1** `notifications/routes.ts:177-188` *(CBO)* — POST /telegram/test. ✅ FIX: broadcast только подписчикам своей орг; chatId-путь проверяет принадлежность орг; org-less→403.
-- [ ] **P1** `sprint9/routes.ts:223-227` — PUT /incidents/:id UPDATE без org-фильтра
+- [ ] **P1** `sprint9/routes.ts:223-227` — PUT /incidents/:id. `→ батч C3-«в»/C4`: использует assertIncidentAccess (org-less закрыт корневым фиксом), но NULL-FK incident требует org-column (миграция).
 - [x] **P1** `trips/routes.ts:1371-1388` — dossier-item exception. ✅ FIX (а): update скоупится по scopeId(=trip) + assertTripAccess (item чужого рейса не обновить).
-- [ ] **P1** `apps/web/.../repair/page.tsx:86-99` — список механиков через /auth/users + клиент-фильтр (утечка всех юзеров орг)
+- [ ] **P1** `apps/web/.../repair/page.tsx:86-99` — список механиков через /auth/users + клиент-фильтр. `DEFER (не C3-класс)`: список org-scoped (не cross-tenant) — **within-org** over-exposure (полный список юзеров орг в браузер вместо механиков). Нужен server-side фильтр роли/dedicated endpoint. Вынести в RBAC-проход.
 
 **Sweep P2/P3:** tariff-rules getTripTariff (finance-invoice:55), trips volume-preview (trips-core:127),
 fleet getDriver fines (fleet:380), analytics profitability vehicle-subquery (misc1:249), sprint9 trailers
@@ -307,6 +306,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
+| 2026-06-03 | C3 | Батч 5: wialon eta-broadcast (org в payload). **Cross-tenant класс C3 (а+б) закрыт.** Остаток: «в»-NULL-FK (incidents/fines → миграция, батч C4) + 2 within-org DEFER (orders/list driver, repair-page) — не cross-tenant. unit 722·integration 145 | _(этот коммит)_ |
 | 2026-06-03 | C3 | Батч 4: механизм «а» — adr validate-hard (access-guards) + import (contractor-INN/user-hijack) + orders from-template (IDOR) + trips dossier-item (scopeId). unit 722·integration 145 | _(этот коммит)_ |
 | 2026-06-03 | C3 | Батч 3: механизм «а» — settings/recent (KEY-скоуп) + telegram subs/test (CBO, PII) + execution idempotency + marking scan-batch (lot-org). unit 722·integration 145 | _(этот коммит)_ |
 | 2026-06-03 | C3 | Батч 2: хэндролл-«б» — ensureInvoiceAccess + claims (ensureClaimAccess+GET, «б»+«в» orphaned via trip) + GET /tariffs. **Sweep:** workflow-guard (issue/payment/correction/cancel) + список счетов тоже org-less-дырявые (regression-тест вскрыл) → закрыты. unit 722·integration 145 | _(этот коммит)_ |

@@ -64,7 +64,7 @@ export async function startSimulation(
     }
 
     // Проверить ТС
-    const [vehicle] = await db.select({ id: vehicles.id }).from(vehicles).where(eq(vehicles.id, vehicleId)).limit(1);
+    const [vehicle] = await db.select({ id: vehicles.id, organizationId: vehicles.organizationId }).from(vehicles).where(eq(vehicles.id, vehicleId)).limit(1);
     if (!vehicle) throw new Error('Vehicle not found');
 
     let waypoints: TrackWaypoint[] = [];
@@ -124,7 +124,8 @@ export async function startSimulation(
                     const eta = await computeTripEta(resolvedTripId);
                     if (eta) {
                         const { broadcastEvent } = await import('../websocket.js');
-                        broadcastEvent('trip.eta_updated', { tripId: resolvedTripId, eta });
+                        // C3 (механизм «а»): org-scoped broadcast (иначе всем тенантам).
+                        broadcastEvent('trip.eta_updated', { tripId: resolvedTripId, eta, organizationId: vehicle.organizationId });
                     }
                 } catch (etaErr) {
                     console.warn('[wialon-mock] ETA recompute failed:', (etaErr as Error).message);

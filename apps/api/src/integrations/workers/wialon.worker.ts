@@ -160,7 +160,9 @@ export async function processWialonSync(job: Job): Promise<{
                                 const eta = await computeTripEta(activeTrip.id);
                                 if (eta) {
                                     const { broadcastEvent } = await import('../websocket.js');
-                                    broadcastEvent('trip.eta_updated', { tripId: activeTrip.id, eta });
+                                    // C3 (механизм «а»): передаём organizationId — иначе
+                                    // broadcastEvent (org-aware) с пустым org уходил ВСЕМ тенантам.
+                                    broadcastEvent('trip.eta_updated', { tripId: activeTrip.id, eta, organizationId: v.organizationId });
                                 }
                             } catch (etaErr) {
                                 job.log(`ETA recompute skipped for ${v.plateNumber}: ${(etaErr as Error).message}`);
