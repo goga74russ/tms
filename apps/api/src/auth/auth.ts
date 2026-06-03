@@ -943,6 +943,11 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!roles.includes('admin') && !roles.includes('accountant') && !roles.includes('manager')) {
             return reply.status(403).send({ success: false, error: 'Access denied' });
         }
+        // C3 (механизм «б»): org-less актор раньше получал тарифы ВСЕХ тенантов
+        // (фильтр под `if (actor.organizationId)`). Super-admin-роли нет → DENY.
+        if (!actor.organizationId) {
+            return reply.status(403).send({ success: false, error: 'Учётная запись не привязана к организации' });
+        }
 
         let tariffsQuery = db
             .select({

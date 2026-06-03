@@ -147,17 +147,17 @@ mapInvoiceStatus stale enum (xml-export:151), deferred-триггер не св�
 - [x] **P0** `finance/tarification.service.ts:94` *(CBO)* — calculateTripCost. ✅ FIX: org-параметр (untrusted роут обязан передать, trusted internal=null), роут + org-less guard (403) + copilot defense-in-depth. Матрица-тест.
 - [ ] **P0** `sprint9/routes.ts:146-152` — GET /incidents: NULL-vehicleId инциденты утекают всем. `(механизм в — нужна МИГРАЦИЯ: org-column в incidents; батч с C4)`
 - [x] **P0** `sprint9/routes.ts:272-273` — POST /waybills/:id/drivers. ✅ FIX: assertDriverAccess (был только existence) → чужой driverId на свой ПЛ закрыт.
-- [ ] **P1** `auth/auth.ts:974-976` — GET /tariffs утечка при super-admin без org
+- [x] **P1** `auth/auth.ts:974-976` — GET /tariffs. ✅ FIX (б): org-less → 403 (был фильтр под `if (actor.organizationId)` → все тенанты).
 - [ ] **P1** `auth/guards.ts:54, 185-213` — PUT /incidents/:id IDOR при null FK
 - [ ] **P1** `integrations/mocks/wialon-mock-runner.ts:127` — eta_updated без org
 - [ ] **P1** `integrations/workers/wialon.worker.ts:162-163` — eta_updated broadcast всем тенантам по WS
-- [ ] **P1** `claims/routes.ts:59-69` — orphaned claims (contractorId null) обходят org-scope
-- [ ] **P1** `claims/routes.ts:156-165` — привилегированная роль без org обходит фильтр
-- [ ] **P1** `claims/routes.ts:53-79` — Claims без contractorId обходят org-scope (тот же класс)
+- [x] **P1** `claims/routes.ts:53-79` (ensureClaimAccess) — ✅ FIX (б+в): org-less staff→DENY; orphaned claim (contractorId=null) скоупится через tripId→trips.org (assertTripAccess), оба null→DENY.
+- [x] **P1** `claims/routes.ts:156-165` GET /claims/:id — ✅ FIX: дублированный inline-чек заменён на единый `ensureClaimAccess` (та же дыра «б»/«в»).
+- [x] **P1** `claims/routes.ts:59-69` — закрыто вместе с ensureClaimAccess (тот же класс).
 - [ ] **P1** `cold-chain/routes.ts:44-188` — нет RBAC-гейта вообще
 - [ ] **P1** `compliance/adr/routes.ts:79-98` — validate-hard без access-guard на orderId/vehicleId/driverId
 - [ ] **P1** `compliance/marking/routes.ts:80-115` — scan-batch lotId без org-проверки
-- [ ] **P1** `finance/routes.ts:52-65` — ensureInvoiceAccess привилегированная роль без org → IDOR
+- [x] **P1** `finance/routes.ts:52-65` — ensureInvoiceAccess. ✅ FIX (б): `else if (user.organizationId)` → `else {org-less DENY; ...}`. **+ sweep** (regression-тест вскрыл): workflow-guard `getInvoiceWithOrgRegime` (issue/register-payment/corrections/cancel) и список `GET /finance/invoices` тоже org-less-дырявые → закрыты. Регрессион-тест (org-less→403).
 - [ ] **P1** `import/routes.ts:297-300` — contractor INN lookup без org → cross-tenant linking
 - [ ] **P1** `import/routes.ts:140-145` — cross-tenant user hijack через global email lookup
 - [ ] **P1** `operational-core/execution-service.ts:146-153` — idempotency по externalId без org
@@ -308,6 +308,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
+| 2026-06-03 | C3 | Батч 2: хэндролл-«б» — ensureInvoiceAccess + claims (ensureClaimAccess+GET, «б»+«в» orphaned via trip) + GET /tariffs. **Sweep:** workflow-guard (issue/payment/correction/cancel) + список счетов тоже org-less-дырявые (regression-тест вскрыл) → закрыты. unit 722·integration 145 | _(этот коммит)_ |
 | 2026-06-03 | C3 | Батч 1: 4 P0 (adr/edi/tarification-CBO/sprint9-driver) + **корень механизма «б»** (assertOrganizationScope org-less→DENY, чинит ВСЕ assert-guard'ы). Матрица-тест (cross-tenant+org-less→403). unit 722·integration 144 | _(этот коммит)_ |
 | 2026-06-03 | deploy | **🚀 C1+C2 на проде**: ff-merge в main + push, deploy `0b0aaf1→7fdad8c`. Health/login/static 200, AI off, без миграций. origin/main==prod==7fdad8c | `7fdad8c` |
 | 2026-06-03 | C2 | **C2 ЗАКРЫТ по single-tenant-real (8/10)**: НДС-сверху+PDF (`3fa19b9`), enum+1С (`27235fe`), billing-replay (`5bf4afd`), web-НДС (корректировка/АКТ/клиент-enum). 2 DEFER: copilot (AI off), легаси-нумерация (мульти-тенант). tsc(api/web)·unit 721·integration | _(этот коммит)_ |

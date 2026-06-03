@@ -63,6 +63,11 @@ async function getInvoiceWithOrgRegime(invoiceId: string, author?: Author) {
     // он может оперировать только счетами своей орг. Иначе — IDOR (плати/отменяй/
     // корректируй чужие счета по UUID).
     const ownerOrgId = row.invoice.payeeOrganizationId ?? row.payerOrgId ?? null;
+    // C3 (механизм «б»): org-less actor не может оперировать счетами — super-admin-роли
+    // нет, значит org-less = мисконфиг. Раньше guard ниже пропускал его (`author?.organizationId &&`).
+    if (author && !author.organizationId) {
+        throw new InvoiceWorkflowError('FORBIDDEN', 'Учётная запись не привязана к организации', 403);
+    }
     if (author?.organizationId && ownerOrgId && author.organizationId !== ownerOrgId) {
         throw new InvoiceWorkflowError('FORBIDDEN', 'Счёт принадлежит другой организации', 403);
     }

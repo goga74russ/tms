@@ -56,22 +56,33 @@ export default async function claimsRoutes(app: FastifyInstance) {
             return null;
         }
 
-        if (user.organizationId && claim.contractorId) {
-            const [contractor] = await db.select({ id: contractors.id })
-                .from(contractors)
-                .where(and(eq(contractors.id, claim.contractorId), eq(contractors.organizationId, user.organizationId)))
-                .limit(1);
-
-            if (!contractor) {
-                reply.status(403).send({ success: false, error: 'Access denied' });
-                return null;
-            }
-        }
-
         if (user.roles.includes('client')) {
             const myContractorId = await resolveContractorId(user.userId);
             if (!myContractorId || claim.contractorId !== myContractorId) {
                 reply.status(403).send({ success: false, error: 'Нет доступа' });
+                return null;
+            }
+        } else {
+            // C3: staff видит претензию только своей орг.
+            // (б) org-less staff → DENY (раньше `user.organizationId && ...` пропускал).
+            // (в) orphaned claim без contractorId скоупим через tripId→trips.org
+            //     (раньше `&& claim.contractorId` пропускал → виден всем тенантам).
+            if (!user.organizationId) {
+                reply.status(403).send({ success: false, error: 'Access denied' });
+                return null;
+            }
+            let belongs = false;
+            if (claim.contractorId) {
+                const [contractor] = await db.select({ id: contractors.id })
+                    .from(contractors)
+                    .where(and(eq(contractors.id, claim.contractorId), eq(contractors.organizationId, user.organizationId)))
+                    .limit(1);
+                belongs = Boolean(contractor);
+            } else if (claim.tripId) {
+                try { await assertTripAccess(claim.tripId, user); belongs = true; } catch { belongs = false; }
+            }
+            if (!belongs) {
+                reply.status(403).send({ success: false, error: 'Access denied' });
                 return null;
             }
         }
@@ -150,27 +161,10 @@ export default async function claimsRoutes(app: FastifyInstance) {
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string };
         const { id } = request.params as { id: string };
-        const claim = await claimsService.getById(id);
-        if (!claim) return reply.status(404).send({ success: false, error: 'Претензия не найдена' });
-
-        if (user.organizationId && claim.contractorId) {
-            const [contractor] = await db.select({ id: contractors.id })
-                .from(contractors)
-                .where(and(eq(contractors.id, claim.contractorId), eq(contractors.organizationId, user.organizationId)))
-                .limit(1);
-
-            if (!contractor) {
-                return reply.status(403).send({ success: false, error: 'Access denied' });
-            }
-        }
-
-        // IDOR protection: client can only see own contractor's claims
-        if (user.roles.includes('client')) {
-            const myContractorId = await resolveContractorId(user.userId);
-            if (!myContractorId || claim.contractorId !== myContractorId) {
-                return reply.status(403).send({ success: false, error: 'Нет доступа' });
-            }
-        }
+        // C3: используем единый ensureClaimAccess (раньше тут был дублированный
+        // inline-чек с дырами «б»/«в» — org-less и orphaned claim проходили).
+        const claim = await ensureClaimAccess(id, user, reply);
+        if (!claim) return;
 
         return { success: true, data: claim };
     });

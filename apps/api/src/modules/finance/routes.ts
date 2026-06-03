@@ -54,7 +54,13 @@ async function ensureInvoiceAccess(
         if (invoice.contractorId !== myContractorId) {
             return { error: { status: 403, body: { success: false, error: 'Доступ запрещён' } } as const };
         }
-    } else if (user.organizationId) {
+    } else {
+        // C3 (механизм «б»): staff/привилегированная роль — org-scope ОБЯЗАТЕЛЕН.
+        // Раньше `else if (user.organizationId)` пропускал org-less актора мимо
+        // проверки (IDOR). Super-admin-роли нет → org-less = DENY, не bypass.
+        if (!user.organizationId) {
+            return { error: { status: 403, body: { success: false, error: 'Доступ запрещён' } } as const };
+        }
         const [contractor] = await db.select({ id: contractorsTable.id })
             .from(contractorsTable)
             .where(and(eq(contractorsTable.id, invoice.contractorId), eq(contractorsTable.organizationId, user.organizationId)))
@@ -173,15 +179,18 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 return { success: true, data: await attachTripIds(list) };
             }
 
+            // C3 (механизм «б»): org-less staff раньше получал счета ВСЕХ орг
+            // (фильтр под `if (user.organizationId)`). Super-admin-роли нет → пусто.
+            if (!user.organizationId) {
+                return { success: true, data: [] };
+            }
             // Org-scoped: filter invoices by contractor's organizationId
             const conditions = [];
-            if (user.organizationId) {
-                conditions.push(
-                    inArray(invoices.contractorId,
-                        db.select({ id: contractorsTable.id }).from(contractorsTable).where(eq(contractorsTable.organizationId, user.organizationId))
-                    )
-                );
-            }
+            conditions.push(
+                inArray(invoices.contractorId,
+                    db.select({ id: contractorsTable.id }).from(contractorsTable).where(eq(contractorsTable.organizationId, user.organizationId))
+                )
+            );
             if (tripFilterInvoiceIds) {
                 conditions.push(inArray(invoices.id, tripFilterInvoiceIds));
             }

@@ -113,6 +113,24 @@ describe('P0-S1 — cross-tenant IDOR заблокирован', () => {
         expect(res.statusCode).toBe(403);
     });
 
+    it('C3 (механизм «б»): org-less admin не может оперировать чужим счётом (workflow guard) → 403', async () => {
+        const draft = await createDraftA();
+        const order = await seedDeliveredOrder('ORD-ORGLESS-1');
+        await app.inject({
+            method: 'POST', url: `/api/finance/invoices/${draft.id}/issue`,
+            headers: authHeaders(tokenA()),
+            payload: { basisText: 'Договор № 1', vatRate: 20, includesVat: true, overdueReason: 'demo', invoiceOrders: [{ orderId: order.id, allocatedAmount: 1200 }] },
+        });
+        // admin без organizationId (мисконфиг/недо-онбординг) — раньше проходил мимо org-чека.
+        const tokenNoOrg = signTestToken(app, { userId: fx.adminUserId, roles: ['admin'] });
+        const res = await app.inject({
+            method: 'POST', url: `/api/finance/invoices/${draft.id}/register-payment`,
+            headers: authHeaders(tokenNoOrg),
+            payload: { amount: 100 },
+        });
+        expect(res.statusCode).toBe(403);
+    });
+
     it('actor орг B не может отменить счёт орг A (403)', async () => {
         const draft = await createDraftA();
         const res = await app.inject({
