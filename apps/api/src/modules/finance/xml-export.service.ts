@@ -91,7 +91,7 @@ export function buildCommerceMLXml(
                     ДатаНачала: formatDate(inv.periodStart),
                     ДатаОкончания: formatDate(inv.periodEnd),
                 },
-                СтавкаНДС: '20%',
+                СтавкаНДС: formatVatRate(inv),
                 СуммаБезНДС: roundTo2(inv.subtotal),
                 СуммаНДС: roundTo2(inv.vatAmount),
                 СуммаВсего: roundTo2(inv.total),
@@ -136,12 +136,30 @@ export function buildCommerceMLXml(
 // Helpers
 // ================================================================
 
+// C2: фактическая ставка НДС из сумм (вместо хардкода '20%'). 0 → «Без НДС».
+function formatVatRate(inv: InvoiceExportRow): string {
+    if (inv.vatAmount <= 0 || inv.subtotal <= 0) return 'Без НДС';
+    const rate = Math.round((inv.vatAmount / inv.subtotal) * 100);
+    return `${rate}%`;
+}
+
 function mapInvoiceType(type: string): { type1c: string; operation: string } {
+    // C2: различаем все DB invoice_type (раньше всё кроме act/upd → СчётНаОплату,
+    // СФ/КСФ теряли юр-тип → расхождение книги продаж в 1С).
     switch (type) {
         case 'act':
             return { type1c: 'АктВыполненныхРабот', operation: 'Реализация услуг' };
         case 'upd':
             return { type1c: 'УниверсальныйПередаточныйДокумент', operation: 'Реализация товаров и услуг' };
+        case 'sf':
+            return { type1c: 'СчётФактура', operation: 'Реализация услуг' };
+        case 'corrective_sf':
+            return { type1c: 'КорректировочныйСчётФактура', operation: 'Корректировка реализации' };
+        case 'corrective_upd':
+            return { type1c: 'КорректировочныйУПД', operation: 'Корректировка реализации' };
+        case 'advance':
+            return { type1c: 'АвансовыйСчётФактура', operation: 'Получение аванса' };
+        case 'payment':
         case 'invoice':
         default:
             return { type1c: 'СчётНаОплату', operation: 'Реализация услуг' };
@@ -149,12 +167,15 @@ function mapInvoiceType(type: string): { type1c: string; operation: string } {
 }
 
 function mapInvoiceStatus(status: string): string {
+    // C2: актуальный invoice-FSM (раньше — устаревшие sent/paid/overdue, которых
+    // больше не приходит → issued/paid_full/… проваливались в default).
     switch (status) {
         case 'draft': return 'Черновик';
-        case 'sent': return 'Отправлен';
-        case 'paid': return 'Оплачен';
-        case 'overdue': return 'Просрочен';
+        case 'issued': return 'Выставлен';
+        case 'paid_partial': return 'ЧастичноОплачен';
+        case 'paid_full': return 'Оплачен';
         case 'cancelled': return 'Отменён';
+        case 'corrected': return 'Скорректирован';
         default: return status;
     }
 }
@@ -171,7 +192,7 @@ function buildLineItems(inv: InvoiceExportRow) {
         Количество: tripCount,
         ЦенаЗаЕдиницу: roundTo2(inv.subtotal / tripCount),
         Сумма: roundTo2(inv.subtotal),
-        СтавкаНДС: '20%',
+        СтавкаНДС: formatVatRate(inv),
         СуммаНДС: roundTo2(inv.vatAmount),
         Итого: roundTo2(inv.total),
     };

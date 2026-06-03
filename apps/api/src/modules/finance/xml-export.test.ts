@@ -9,7 +9,7 @@ const baseInv = (over: Partial<InvoiceExportRow> = {}): InvoiceExportRow => ({
     id: 'inv-1',
     number: 'INV-2026-00001',
     type: 'payment',
-    status: 'sent',
+    status: 'issued',
     subtotal: 1000,
     vatAmount: 200,
     total: 1200,
@@ -63,8 +63,24 @@ describe('buildCommerceMLXml', () => {
     });
 
     it('translates invoice status to Russian label', () => {
-        const xml = buildCommerceMLXml([baseInv({ status: 'paid' })]);
+        const xml = buildCommerceMLXml([baseInv({ status: 'paid_full' })]);
         expect(xml).toContain('Оплачен');
+    });
+
+    it('C2: maps invoice type "sf" → СчётФактура (не СчётНаОплату)', () => {
+        const xml = buildCommerceMLXml([baseInv({ type: 'sf' })]);
+        expect(xml).toContain('СчётФактура');
+    });
+
+    it('C2: СтавкаНДС выводится из сумм (200/1000 → 20%), не хардкод', () => {
+        const xml = buildCommerceMLXml([baseInv({ subtotal: 1000, vatAmount: 100 })]); // 10%
+        expect(xml).toContain('10%');
+        expect(xml).not.toContain('20%');
+    });
+
+    it('C2: нулевой НДС → «Без НДС»', () => {
+        const xml = buildCommerceMLXml([baseInv({ vatAmount: 0 })]);
+        expect(xml).toContain('Без НДС');
     });
 
     it('falls back to "Неизвестный контрагент" when contractor missing', () => {

@@ -106,8 +106,8 @@ signatureState scalar/мульти-титул (gosklyuch-callback:286,321), clas
 - [ ] **P1** `finance/finance.service.ts:116-136` *(CBO)* — легаси-нумерация не per-org + payeeOrganizationId=NULL
 - [x] **P1** `finance/invoice-workflow.service.ts:286-303` — НДС «сверху». ✅ FIX: разведены ветки — «сверху» гроссит строки (нетто→gross, Σ allocated_amount==total держит DB CHECK), «в том числе»/explicit/rate=0 без изменений. Тест: нетто 1000 → total 1200/vat 200 (был баг 1000). Существующие 23 теста зелёные.
 - [x] **P1** `finance/routes.ts:558/579/738/764/856` — vatRate не доходил до PDF. ✅ FIX: `vatRate` передан во все **5** вызовов generate{Invoice,Act,Upd}Pdf (sweep: аудит назвал 3, мест 5). tsc ✓.
-- [ ] **P1** `finance/schemas.ts:12` — Zod enum рассинхрон с DB invoice_type (default 'invoice' не существует)
-- [ ] **P1** `finance/xml-export.service.ts:94, 174, 139-149` — 1С-экспорт хардкодит СтавкаНДС=20%, не различает СФ/УПД/КСФ
+- [x] **P1** `finance/schemas.ts:12` — enum drift. ✅ FIX: API-тип 'invoice' маппится в DB-enum 'payment' на insert (раньше PG-ошибка). Prefix INV сохранён.
+- [x] **P1** `finance/xml-export.service.ts:94/195, 139-149` — 1С хардкод 20%. ✅ FIX: `formatVatRate` (из сумм, 0→«Без НДС»); mapInvoiceType расширен (sf/corrective_sf/corrective_upd/advance/payment); mapInvoiceStatus → актуальный FSM (был sweep-item). +3 unit-теста.
 - [ ] **P1** `apps/web/.../InvoiceWorkflowActions.tsx:193` — корректировка КСФ/ИСФ всегда 20% (hardcoded)
 - [ ] **P1** `apps/web/.../print/act/[id]/page.tsx:129, 134` — АКТ: хардкод «НДС 20%» (P1-A частично открыт)
 - [ ] **P1** `apps/web/.../client/page.tsx:67-73, 152-166` *(CBO)* — метрика «Неоплаченных» всегда 0, enum клиент-портала ≠ Invoice FSM

@@ -188,7 +188,9 @@ export class FinanceService {
             const [invoice] = await tx.insert(invoices).values({
                 number: invoiceNumber,
                 contractorId: params.contractorId,
-                type: params.type,
+                // C2: API-тип 'invoice' (счёт на оплату) → DB-enum 'payment'.
+                // DB invoice_type не содержит 'invoice' → раньше INSERT падал PG-ошибкой.
+                type: params.type === 'invoice' ? 'payment' : params.type,
                 status: 'draft',
                 subtotal: totalSubtotal,
                 vatAmount: totalVat,
