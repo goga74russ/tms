@@ -4,9 +4,9 @@
 > Этот файл — **рабочий план починки**, не дубль аудита. Аудит неизменяем; здесь — статусы.
 > Роль: **TransPult**. Запущено: 2026-06-02.
 
-> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-03):** на проде `84b2584` (local==origin==prod, P0 Gate CI зелёный).
-> **Закрыто и на проде: C1 · C2 · C3 · C4 · C5(backend).**
-> Остаток: C5-хвост (sync/mobile/web), C6 (субподряд-ЭТрН), C7 (auth/JWT), C8 (error-leak), C9 (correctness/perf), P2/P3 sweep.
+> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-03):** на проде `84b2584` (C1–C5); на main +C6 +C7 (CI зелёный, не задеплоено).
+> **Закрыто: C1 · C2 · C3(cross-tenant) · C4 · C5(backend) · C6 · C7.**
+> Остаток: C5-хвост (sync/mobile/web), C8 (error-leak), C9 (correctness/perf), P2/P3 sweep.
 > DEFER (документированы): C2-копилот, легаси-нумерация per-org, C3 within-org over-exposure, gosklyuch XAdES/mTLS/юр-сила.
 
 ## Зачем этот файл
@@ -58,11 +58,11 @@
 |---|---|---|---|---|---|
 | **C1** | Подпись / ПЭП-верификация / immutability осмотров | Single-tenant real + юр-сила. Маленький — обкатка метода | 1 | 7 | **VERIFIED*** |
 | **C2** | Деньги: billing-replay + НДС-корректность + нумерация | Single-tenant real, реальные суммы/чеки | 0 | 10 | **VERIFIED*** |
-| **C3** | Org-scope sweep (cross-tenant IDOR/leak) | Гейт мульти-тенант пилота. Самый большой класс | 5 | 23 | TODO |
+| **C3** | Org-scope sweep (cross-tenant IDOR/leak) | Гейт мульти-тенант пилота. Самый большой класс | 5 | 23 | **VERIFIED** (cross-tenant) |
 | **C4** | Глобально-unique индексы → per-org | 1 миграция, ломает multitenancy | 0 | 4 | **VERIFIED** (миг.0041) |
-| **C5** | TOCTOU / read-modify-write без транзакции | Гонки на деньгах/подписи/статусах | 0 | 13 | TODO |
+| **C5** | TOCTOU / read-modify-write без транзакции | Гонки на деньгах/подписи/статусах | 0 | 13 | **VERIFIED*** (backend) |
 | **C6** | Субподряд-ЭТрН-гейт (centralize assertEtrnAllowed) | Юр-блок обходится. Юр-оценка → /jurist | 1 | 1 | **VERIFIED** |
-| **C7** | Auth / JWT-revocation корректность | E6 неполон, ломает сессии | 0 | 3 | TODO |
+| **C7** | Auth / JWT-revocation корректность | E6 неполон, ломает сессии | 0 | 3 | **VERIFIED** |
 | **C8** | Утечка raw-PG-ошибок клиенту | Раскрытие структуры БД | 0 | 4 | TODO |
 | **C9** | Correctness / unfinished / perf / misc (catch-all) | Всё остальное P1; разнести по мере разбора | 0 | 27 | TODO |
 
@@ -238,14 +238,16 @@ fines.worker без org (integrations), mchd_number oracle (signatures:294), cop
 
 ---
 
-## C7 — Auth / JWT-revocation корректность  `TODO`
+## C7 — Auth / JWT-revocation корректность  `VERIFIED`
 
 **Инвариант:** любое изменение прав/деактивация бампит token_version; перевыпуск JWT сохраняет tv;
 непроверенный аккаунт нельзя перезаписать без аутентификации.
 
-- [ ] **P1** `auth/auth.ts:889-893` *(CBO)* — смена ролей в PUT /users/:id не бампит token_version (E6 неполон для понижения прав)
-- [ ] **P1** `auth/auth.ts:451-454, 636-639` — перевыпуск JWT в me/organization теряет tv → ломает сессию юзерам с tv≠0
-- [ ] **P1** `auth/auth.ts:1364-1381` — POST /signup перезаписывает пароль непроверенного аккаунта без аутентификации
+- [x] **P1** `auth/auth.ts:889-893` *(CBO)* — смена ролей не бампила token_version. ✅ FIX: условие бампа `|| body.roles !== undefined` (понижение прав мгновенно инвалидирует токен). Regression-тест: смена ролей чужого юзера → его старый токен → 401.
+- [x] **P1** `auth/auth.ts:451-454, 636-639` — me/organization JWT терял tv. ✅ FIX: `tv: me.tokenVersion ?? 0` в обоих sign() (+ tokenVersion в select). Юзер с tv>0 больше не выкидывается на 401.
+- [x] **P1** `auth/auth.ts:1364-1381` — signup перезаписывал пароль непроверенного аккаунта. ✅ FIX: ЛЮБОЙ existing-аккаунт → enumeration-safe 201 БЕЗ изменения записи (overwrite-ветка удалена); владелец завершает через /resend-code.
+
+**Sweep P2/P3 (остаток):** WS-канал не сверяет tv/isActive (websocket:154), resend-code timing (auth:1536), mobile легаси api/*.ts не триггерят auto-logout на 401.
 
 **Sweep P2/P3:** WS-канал не сверяет tv/isActive (api-auth websocket:154), resend-code timing side-channel
 (auth:1536), mobile легаси api/*.ts не триггерят auto-logout на 401 (mobile-data).
@@ -314,6 +316,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
+| 2026-06-03 | C7 | **C7 ЗАКРЫТ:** смена ролей бампит token_version (CBO, regression-тест: чужой юзер→старый токен 401); me/organization sign() сохраняет tv; signup не перезаписывает existing-аккаунт (overwrite-ветка удалена). unit 722·integration 151 | _(этот коммит)_ |
 | 2026-06-03 | C6 | **C6 ЗАКРЫТ:** субподряд-ЭТрН-гейт централизован в sendTransportDocumentToProvider (send+exchange) + добавлен в waybills GET /etrn,/etrn-title4. Grep: гейт в 5 точках, ни один путь не минует. subcontract 4/4·unit 722·integration 150 | _(этот коммит)_ |
 | 2026-06-03 | deploy | **🚀 C5 на проде**: deploy `d0a9c63→84b2584` (без новых миграций). Health 200. CI зелёный. **local==origin==prod==84b2584.** | `84b2584` |
 | 2026-06-03 | C5 | Батч 2: assign-carrier (оптимистичный re-check + org-фильтр) + me/organization INN (advisory-lock в tx, дубль-орг). **Backend-TOCTOU закрыт.** DEFER: sync, mobile, web. unit 722·integration 150 | `84b2584` |

@@ -251,6 +251,32 @@ describe('GET /api/auth/me', () => {
         expect(body.data.email).toBe('admin@test.local');
     });
 
+    it('C7 (CBO): смена ролей ЧУЖОГО юзера бампит его token_version → его старый токен → 401', async () => {
+        const cookieOf = (r: { headers: Record<string, unknown> }) => {
+            const sc = r.headers['set-cookie'];
+            return Array.isArray(sc) ? sc[0] : (sc as string) ?? '';
+        };
+        // driver логинится — его токен пока валиден
+        const driverLogin = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'driver@test.local', password: fx.password } });
+        const dCookie = cookieOf(driverLogin);
+        const before = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: dCookie } });
+        expect(before.statusCode).toBe(200);
+
+        // admin меняет роли драйвера (S-2 запрещает менять СВОИ — потому чужой)
+        const adminLogin = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'admin@test.local', password: fx.password } });
+        const put = await app.inject({
+            method: 'PUT', url: `/api/auth/users/${fx.driverUserId}`,
+            headers: { cookie: cookieOf(adminLogin) },
+            payload: { roles: ['driver', 'mechanic'] },
+        });
+        expect(put.statusCode).toBe(200);
+
+        // старый токен драйвера инвалидирован бампом token_version
+        // (раньше смена ролей не бампила → понижение прав ждало 24ч).
+        const after = await app.inject({ method: 'GET', url: '/api/auth/me', headers: { cookie: dCookie } });
+        expect(after.statusCode).toBe(401);
+    });
+
     it('returns 401 without a cookie or bearer', async () => {
         const res = await app.inject({
             method: 'GET',

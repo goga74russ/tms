@@ -369,6 +369,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
             email: users.email,
             roles: users.roles,
             organizationId: users.organizationId,
+            tokenVersion: users.tokenVersion,
         }).from(users).where(eq(users.id, actor.userId)).limit(1);
 
         if (!me) return reply.status(404).send({ success: false, error: 'Пользователь не найден' });
@@ -450,7 +451,9 @@ export function registerAuthRoutes(app: FastifyInstance) {
         // Перевыпускаем JWT с новым organizationId, чтобы клиент
         // не отлогинивался и сразу получил доступ к tenant-данным.
         const token = app.jwt.sign(
-            { userId: me.id, roles: me.roles, organizationId: orgId },
+            // C7: tv ОБЯЗАТЕЛЕН — без него юзер с tokenVersion>0 получает 401 на
+            // следующем запросе (authenticate: (undefined ?? 0) !== N).
+            { userId: me.id, roles: me.roles, organizationId: orgId, tv: me.tokenVersion ?? 0 },
             { expiresIn: JWT_EXPIRES_IN },
         );
         const isSecure = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
@@ -620,6 +623,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
             id: users.id,
             roles: users.roles,
             organizationId: users.organizationId,
+            tokenVersion: users.tokenVersion,
         }).from(users).where(eq(users.id, actor.userId)).limit(1);
 
         if (!me) return reply.status(404).send({ success: false, error: 'Пользователь не найден' });
@@ -635,7 +639,8 @@ export function registerAuthRoutes(app: FastifyInstance) {
             .where(eq(users.id, me.id));
 
         const token = app.jwt.sign(
-            { userId: me.id, roles: me.roles, organizationId: undefined },
+            // C7: tv ОБЯЗАТЕЛЕН (иначе 401 для tokenVersion>0).
+            { userId: me.id, roles: me.roles, organizationId: undefined, tv: me.tokenVersion ?? 0 },
             { expiresIn: JWT_EXPIRES_IN },
         );
         const isSecure = process.env.COOKIE_SECURE !== 'false' && process.env.NODE_ENV === 'production';
@@ -887,9 +892,12 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (body.roles !== undefined) updateData.roles = body.roles;
         if (body.isActive !== undefined) updateData.isActive = body.isActive;
         if (body.password) updateData.passwordHash = await hashPassword(body.password);
-        // E6: смена пароля или деактивация → бамп token_version, чтобы старые
-        // токены пользователя сразу перестали действовать.
-        if (body.password || body.isActive === false) {
+        // E6/C7: смена пароля, деактивация ИЛИ СМЕНА РОЛЕЙ → бамп token_version,
+        // чтобы старые токены пользователя сразу перестали действовать. Раньше смена
+        // ролей бамп не делала → понижение прав (снятие admin) не инвалидировало
+        // текущий JWT (RBAC берёт roles из пейлоада) — демоушен действовал только
+        // через 24ч. Схема (schema.ts:234) и требует бамп «при смене ролей».
+        if (body.password || body.isActive === false || body.roles !== undefined) {
             updateData.tokenVersion = sql`${users.tokenVersion} + 1`;
         }
 
@@ -1346,14 +1354,18 @@ export function registerAuthRoutes(app: FastifyInstance) {
             .where(eq(users.email, email))
             .limit(1);
 
-        if (existing?.emailVerifiedAt) {
-            // A-P2: enumeration-safe. Don't tell the caller the email is
-            // taken — that lets a probe enumerate registered accounts.
-            // Instead, send a notice to the address itself ("you already
-            // have an account") and return the same 201 success shape as
-            // a fresh signup. Rate-limit on the route prevents flooding.
+        if (existing) {
+            // A-P2 + C7: enumeration-safe И защита от захвата аккаунта.
+            // Раньше только verified-аккаунт обрабатывался здесь, а НЕпроверенный
+            // проваливался в ветку с перезаписью passwordHash (анонимный re-signup
+            // чужим email + своим паролем → захват непроверенного аккаунта).
+            // Теперь ЛЮБОЙ существующий аккаунт → enumeration-safe 201 БЕЗ изменения
+            // записи. verified → notice «у вас уже есть аккаунт»; unverified →
+            // владелец завершает регистрацию через /resend-code (пароль не трогаем).
             try {
-                await sendAlreadyRegisteredNotice(email, existing.organizationId ?? null);
+                if (existing.emailVerifiedAt) {
+                    await sendAlreadyRegisteredNotice(email, existing.organizationId ?? null);
+                }
             } catch (err) {
                 request.log.error({ err }, 'Failed to send already-registered notice');
             }
@@ -1375,44 +1387,28 @@ export function registerAuthRoutes(app: FastifyInstance) {
         const code = generateCode();
         const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MIN * 60_000);
 
+        // C7: только НОВЫЙ аккаунт (любой существующий обработан enumeration-safe выше,
+        // без перезаписи — ветка `if (existing)` с overwrite удалена как уязвимая).
         const { organizationId, userId } = await db.transaction(async (tx) => {
-            let orgId: string;
-            let uid: string;
+            const [org] = await tx.insert(organizations).values({
+                name: companyName ?? `Компания (${email})`,
+            }).returning({ id: organizations.id });
+            const orgId = org!.id;
 
-            if (existing) {
-                uid = existing.id;
-                orgId = existing.organizationId!;
-                const passwordHash = await hashPassword(password);
-                await tx.update(users)
-                    .set({ passwordHash, fullName, phone, updatedAt: new Date() })
-                    .where(eq(users.id, uid));
-                if (companyName) {
-                    await tx.update(organizations)
-                        .set({ name: companyName })
-                        .where(eq(organizations.id, orgId));
-                }
-            } else {
-                const [org] = await tx.insert(organizations).values({
-                    name: companyName ?? `Компания (${email})`,
-                }).returning({ id: organizations.id });
-                orgId = org!.id;
-
-                const passwordHash = await hashPassword(password);
-                const [user] = await tx.insert(users).values({
-                    email,
-                    passwordHash,
-                    fullName,
-                    phone,
-                    roles: ['admin'],
-                    isActive: false,
-                    organizationId: orgId,
-                }).returning({ id: users.id });
-                uid = user!.id;
-            }
+            const passwordHash = await hashPassword(password);
+            const [user] = await tx.insert(users).values({
+                email,
+                passwordHash,
+                fullName,
+                phone,
+                roles: ['admin'],
+                isActive: false,
+                organizationId: orgId,
+            }).returning({ id: users.id });
 
             await tx.insert(emailVerifications).values({ email, code, expiresAt });
 
-            return { organizationId: orgId, userId: uid };
+            return { organizationId: orgId, userId: user!.id };
         });
 
         try {
