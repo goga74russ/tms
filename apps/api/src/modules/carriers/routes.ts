@@ -214,11 +214,18 @@ const carriersRoutes: FastifyPluginAsync = async (app) => {
             return reply.code(400).send({ success: false, error: 'Контрагент не является перевозчиком' });
         }
 
+        // C5: финальный UPDATE раньше шёл по `eq(trips.id, id)` — без org-фильтра
+        // и без re-check статуса (TOCTOU: статус мог уйти из planning/assigned между
+        // проверкой и записью). Переиспользуем tripConditions (id + org) + re-check
+        // статуса оптимистичной блокировкой. Пустой результат → гонка/вне доступа.
         const [updated] = await db
             .update(trips)
             .set({ carrierContractorId: parsed.data.carrierContractorId, updatedAt: new Date() })
-            .where(eq(trips.id, id))
+            .where(and(...tripConditions, inArray(trips.status, ['planning', 'assigned'])))
             .returning();
+        if (!updated) {
+            return reply.code(409).send({ success: false, error: 'Рейс изменился параллельно (статус или доступ)' });
+        }
         return { success: true, data: updated };
     });
 };

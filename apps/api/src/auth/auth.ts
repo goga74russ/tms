@@ -398,19 +398,17 @@ export function registerAuthRoutes(app: FastifyInstance) {
         //
         // Race-guard: транзакция + UPDATE с WHERE organization_id IS NULL.
         // Второй параллельный запрос упадёт rowCount=0 → 409.
-        if (inn) {
-            const [existing] = await db.select({ id: organizations.id })
-                .from(organizations).where(eq(organizations.inn, inn)).limit(1);
-            if (existing) {
-                return reply.status(409).send({
-                    success: false,
-                    error: 'Организация с таким ИНН уже зарегистрирована в системе. Чтобы присоединиться, попросите её admin\'а пригласить вас.',
-                    code: 'ORG_INN_TAKEN',
-                });
-            }
-        }
-
         const orgId = await db.transaction(async (tx) => {
+            // C5: проверка уникальности ИНН — ВНУТРИ транзакции с advisory-lock по ИНН.
+            // Раньше проверка была вне tx (TOCTOU: два параллельных запроса с одним
+            // ИНН оба проходили и создавали дубль-орг с одинаковым ИНН). Lock сериализует.
+            if (inn) {
+                await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${'org_inn:' + inn}))`);
+                const [existing] = await tx.select({ id: organizations.id })
+                    .from(organizations).where(eq(organizations.inn, inn)).limit(1);
+                if (existing) throw new Error('ORG_INN_TAKEN');
+            }
+
             const [created] = await tx.insert(organizations)
                 .values({ name, inn: inn ?? null })
                 .returning({ id: organizations.id });
@@ -426,15 +424,22 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
             if (updated.length === 0) {
                 // Параллельный запрос уже привязал пользователя к org.
-                // Транзакция откатится — созданная org не сохранится.
                 throw new Error('ALREADY_ASSIGNED');
             }
             return resolvedOrgId;
         }).catch((err) => {
             if (err instanceof Error && err.message === 'ALREADY_ASSIGNED') return null;
+            if (err instanceof Error && err.message === 'ORG_INN_TAKEN') return 'INN_TAKEN' as const;
             throw err;
         });
 
+        if (orgId === 'INN_TAKEN') {
+            return reply.status(409).send({
+                success: false,
+                error: 'Организация с таким ИНН уже зарегистрирована в системе. Чтобы присоединиться, попросите её admin\'а пригласить вас.',
+                code: 'ORG_INN_TAKEN',
+            });
+        }
         if (orgId === null) {
             return reply.status(409).send({
                 success: false,
