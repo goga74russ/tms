@@ -615,6 +615,13 @@ export async function sendTransportDocumentToProvider(params: {
     errorMessage?: string | null;
     nextRetryAt?: string | null;
 }) {
+    // C6 (P0, CBO): централизованный субподряд-гейт ЭТрН. Раньше /send и
+    // /exchange/attempts отправляли ЭТрН наёмного рейса в ЭДО мимо assertEtrnAllowed
+    // (гейт стоял только в sign-роуте). Теперь любой путь отправки через эту функцию
+    // обязан пройти гейт — нельзя обойти. No-op для own-парка, 422 для subcontract.
+    const { assertEtrnAllowed } = await import('../waybills/etrn-guard.js');
+    await assertEtrnAllowed(params.tripId);
+
     const [row] = await db.select().from(transportDocuments).where(and(
         eq(transportDocuments.id, params.documentId),
         eq(transportDocuments.tripId, params.tripId),

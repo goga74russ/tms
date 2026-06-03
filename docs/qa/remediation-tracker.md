@@ -61,7 +61,7 @@
 | **C3** | Org-scope sweep (cross-tenant IDOR/leak) | Гейт мульти-тенант пилота. Самый большой класс | 5 | 23 | TODO |
 | **C4** | Глобально-unique индексы → per-org | 1 миграция, ломает multitenancy | 0 | 4 | **VERIFIED** (миг.0041) |
 | **C5** | TOCTOU / read-modify-write без транзакции | Гонки на деньгах/подписи/статусах | 0 | 13 | TODO |
-| **C6** | Субподряд-ЭТрН-гейт (centralize assertEtrnAllowed) | Юр-блок обходится. Юр-оценка → /jurist | 1 | 1 | TODO |
+| **C6** | Субподряд-ЭТрН-гейт (centralize assertEtrnAllowed) | Юр-блок обходится. Юр-оценка → /jurist | 1 | 1 | **VERIFIED** |
 | **C7** | Auth / JWT-revocation корректность | E6 неполон, ломает сессии | 0 | 3 | TODO |
 | **C8** | Утечка raw-PG-ошибок клиенту | Раскрытие структуры БД | 0 | 4 | TODO |
 | **C9** | Correctness / unfinished / perf / misc (catch-all) | Всё остальное P1; разнести по мере разбора | 0 | 27 | TODO |
@@ -226,15 +226,15 @@ fines.worker без org (integrations), mchd_number oracle (signatures:294), cop
 
 ---
 
-## C6 — Субподряд-ЭТрН-гейт (centralize assertEtrnAllowed)  `TODO`
+## C6 — Субподряд-ЭТрН-гейт (centralize assertEtrnAllowed)  `VERIFIED`
 
 **Инвариант:** `assertEtrnAllowed` вызывается во ВСЕХ путях оформления/подписи/отправки/выдачи ЭТрН.
-Grep-acceptance: ни один путь генерации/отправки ЭТрН не минует гейт.
 
-- [ ] **P0** `trips/routes.ts:1104, 1226` (→ `transport-documents-store.ts:600`) *(CBO)* — send/exchange отправляют ЭТрН наёмного рейса в ЭДО без гейта
-- [ ] **P1** `waybills/routes.ts:472-549, 555-632` *(CBO)* — GET /etrn и /etrn-title4 отдают XML ЭТрН без гейта
+- [x] **P0** `trips/routes.ts:1104, 1226` *(CBO)* — send/exchange. ✅ FIX: гейт **централизован внутри `sendTransportDocumentToProvider`** (store:623) — оба роута (send + exchange/attempts) идут через неё, обойти нельзя. EtrnNotAllowedError(422) маппится глобальным error-handler'ом.
+- [x] **P1** `waybills/routes.ts:472, 555` *(CBO)* — GET /etrn + /etrn-title4. ✅ FIX: assertEtrnAllowed(waybill.tripId) до генерации XML; catch маппит statusCode→422.
 
-**Реко:** централизовать вызов внутри sendTransportDocumentToProvider/generateETrN, чтобы паттерн нельзя было обойти. Юр-оценка ролей перевозчик/экспедитор → /jurist.
+**Grep-acceptance:** `assertEtrnAllowed` вызывается в 5 точках — sign (trips:996), send/exchange (store:623), XML (waybills:487/574), edi (service:142). Ни один путь генерации/отправки/выдачи ЭТрН не минует гейт. subcontract-gating 4/4 · unit 722 · integration 150.
+**Юр-часть → /jurist:** полное решение (5-мод enum + client_contract_type + двойная ЭТрН перевозчик/экспедитор) — W5+, см. Audit_ALL §-1. Гейт = stop-gate (наёмный flow не продавать до юр-решения).
 
 ---
 
@@ -314,6 +314,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
+| 2026-06-03 | C6 | **C6 ЗАКРЫТ:** субподряд-ЭТрН-гейт централизован в sendTransportDocumentToProvider (send+exchange) + добавлен в waybills GET /etrn,/etrn-title4. Grep: гейт в 5 точках, ни один путь не минует. subcontract 4/4·unit 722·integration 150 | _(этот коммит)_ |
 | 2026-06-03 | deploy | **🚀 C5 на проде**: deploy `d0a9c63→84b2584` (без новых миграций). Health 200. CI зелёный. **local==origin==prod==84b2584.** | `84b2584` |
 | 2026-06-03 | C5 | Батч 2: assign-carrier (оптимистичный re-check + org-фильтр) + me/organization INN (advisory-lock в tx, дубль-орг). **Backend-TOCTOU закрыт.** DEFER: sync, mobile, web. unit 722·integration 150 | `84b2584` |
 | 2026-06-03 | C5 | Батч 1: registerPayment + recordPartialPayment (tx + FOR UPDATE, деньги), ЭТрН signature+refusal (tx + FOR UPDATE, потеря подписи), changeOrderStatus (оптимистичная блокировка). Concurrency-тест (2×600→1200). unit 722·integration 150. Остаток: sync-idempotency, carriers, me/organization, mobile/web | _(этот коммит)_ |

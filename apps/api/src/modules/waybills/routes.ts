@@ -481,6 +481,11 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 return reply.status(404).send({ success: false, error: 'Путевой лист не найден' });
             }
 
+            // C6 (CBO): субподряд-гейт ЭТрН — XML наёмного рейса выдавать нельзя
+            // (раньше GET /etrn миновал assertEtrnAllowed, обходя sign/send-блок).
+            const { assertEtrnAllowed } = await import('./etrn-guard.js');
+            await assertEtrnAllowed(waybill.tripId);
+
             // Assemble ETrNInput from DB
             const { tripOrders } = await import('../../db/schema.js');
             const [trip] = await db.select().from(trips).where(eq(trips.id, waybill.tripId!)).limit(1);
@@ -563,6 +568,10 @@ export default async function waybillRoutes(app: FastifyInstance) {
             if (!waybill) {
                 return reply.status(404).send({ success: false, error: 'Путевой лист не найден' });
             }
+
+            // C6 (CBO): субподряд-гейт ЭТрН — XML Титул 4 наёмного рейса выдавать нельзя.
+            const { assertEtrnAllowed } = await import('./etrn-guard.js');
+            await assertEtrnAllowed(waybill.tripId);
 
             const [vehicle] = waybill.vehicleId ? await db.select().from(vehiclesTable).where(eq(vehiclesTable.id, waybill.vehicleId)).limit(1) : [null];
             const [driver] = waybill.driverId ? await db.select().from(drivers).where(eq(drivers.id, waybill.driverId)).limit(1) : [null];
