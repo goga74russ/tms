@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { requireAbility } from '../../auth/rbac.js';
 import { assertDriverAccess, assertTripAccess, assertVehicleAccess, resolveDriverId } from '../../auth/guards.js';
 import * as fleetService from './service.js';
+import { safeClientError } from '../../utils/safe-error.js';
 import {
     VehicleCreateSchema, DriverCreateSchema, DriverUpdateSchema, ContractorCreateSchema,
     PermitCreateSchema, PermitUpdateSchema, FineCreateSchema, FineUpdateSchema,
@@ -109,7 +110,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const vehicle = await fleetService.createVehicle(parsed.data as z.infer<typeof VehicleCreateSchema>, user);
             return reply.status(201).send({ success: true, data: vehicle });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -126,7 +127,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const vehicle = await fleetService.updateVehicle(id, parsed.data as z.infer<typeof VehicleCreateSchema>, user);
             return { success: true, data: vehicle };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -192,7 +193,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const driver = await fleetService.createDriver(parsed.data as z.infer<typeof DriverCreateSchema>, user);
             return reply.status(201).send({ success: true, data: driver });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -213,7 +214,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const myDriverId = user.roles.includes('driver') ? await resolveDriverId(user.userId) : null;
         return { success: true, data: sanitizeDriverForViewer(driver, user, myDriverId) };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -245,7 +246,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const contractor = await fleetService.createContractor(parsed.data as z.infer<typeof ContractorCreateSchema>, user);
             return reply.status(201).send({ success: true, data: contractor });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -261,7 +262,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const contractor = await fleetService.updateContractor(id, parsed.data as z.infer<typeof ContractorCreateSchema>, user);
             return { success: true, data: contractor };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -288,7 +289,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const address = await fleetService.createContractorAddress(id, parsed.data, organizationId);
             return reply.status(201).send({ success: true, data: address });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -307,7 +308,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const address = await fleetService.updateContractorAddress(id, addressId, parsed.data, organizationId);
             return { success: true, data: address };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -322,7 +323,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const deleted = await fleetService.deleteContractorAddress(id, addressId, organizationId);
             return { success: true, data: deleted };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -378,7 +379,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const permit = await fleetService.createPermit(parsed.data as z.infer<typeof PermitCreateSchema>, user);
             return reply.status(201).send({ success: true, data: permit });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -394,7 +395,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const permit = await fleetService.updatePermit(id, parsed.data as z.infer<typeof PermitUpdateSchema>, user);
             return { success: true, data: permit };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -427,7 +428,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const fine = await fleetService.createFine(parsed.data as z.infer<typeof FineCreateSchema>, user);
             return reply.status(201).send({ success: true, data: fine });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -444,7 +445,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const fine = await fleetService.updateFine(id, parsed.data as z.infer<typeof FineUpdateSchema>, user);
             return { success: true, data: fine };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -510,7 +511,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const record = await fleetService.createFuelRecord({ ...parsed.data, organizationId: user.organizationId, createdBy: user.userId });
             return reply.status(201).send({ success: true, data: record });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -531,7 +532,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             if (!updated) return reply.status(404).send({ success: false, error: 'Запись не найдена' });
             return reply.send({ success: true, data: updated });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -572,7 +573,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const reading = await fleetService.createOdometerReading({ ...parsed.data, organizationId: user.organizationId, createdBy: user.userId });
             return reply.status(201).send({ success: true, data: reading });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -619,7 +620,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const record = await fleetService.createDowntimeRecord({ ...parsed.data, organizationId: user.organizationId, createdBy: user.userId });
             return reply.status(201).send({ success: true, data: record });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -636,7 +637,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             if (!updated) return reply.status(404).send({ success: false, error: 'Запись не найдена' });
             return reply.send({ success: true, data: updated });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -671,7 +672,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const record = await fleetService.createMaintenancePlan({ ...parsed.data, organizationId: user.organizationId, createdBy: user.userId });
             return reply.status(201).send({ success: true, data: record });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -688,7 +689,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
             if (!updated) return reply.status(404).send({ success: false, error: 'Запись не найдена' });
             return reply.send({ success: true, data: updated });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 }

@@ -6,7 +6,7 @@
 
 > **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-03):** **на проде `e79670a`** (local==origin==prod, P0 Gate CI зелёный).
 > **Закрыто и на проде: C1 · C2 · C3(cross-tenant) · C4 · C5(backend) · C6 · C7.** 7 классов.
-> Остаток: C5-хвост (sync/mobile/web), C8 (error-leak), C9 (correctness/perf), P2/P3 sweep.
+> Остаток: C5-хвост (sync/mobile/web), C9 (correctness/perf), P2/P3 sweep. C8 (error-leak) ✅.
 > DEFER (документированы): C2-копилот, легаси-нумерация per-org, C3 within-org over-exposure, gosklyuch XAdES/mTLS/юр-сила.
 
 ## Зачем этот файл
@@ -63,7 +63,7 @@
 | **C5** | TOCTOU / read-modify-write без транзакции | Гонки на деньгах/подписи/статусах | 0 | 13 | **VERIFIED*** (backend) |
 | **C6** | Субподряд-ЭТрН-гейт (centralize assertEtrnAllowed) | Юр-блок обходится. Юр-оценка → /jurist | 1 | 1 | **VERIFIED** |
 | **C7** | Auth / JWT-revocation корректность | E6 неполон, ломает сессии | 0 | 3 | **VERIFIED** |
-| **C8** | Утечка raw-PG-ошибок клиенту | Раскрытие структуры БД | 0 | 4 | TODO |
+| **C8** | Утечка raw-PG-ошибок клиенту | Раскрытие структуры БД | 0 | 4 | ✅ DONE |
 | **C9** | Correctness / unfinished / perf / misc (catch-all) | Всё остальное P1; разнести по мере разбора | 0 | 27 | TODO |
 
 **Сверка P0/P1 (все названы поимённо):** 7 P0 + (7+10+23+4+13+1+3+4+27 = **92 P1**). Все 92 P1 из
@@ -254,18 +254,31 @@ fines.worker без org (integrations), mchd_number oracle (signatures:294), cop
 
 ---
 
-## C8 — Утечка raw-PG-ошибок клиенту  `TODO`
+## C8 — Утечка raw-PG-ошибок клиенту  `✅ DONE` (локально+prod TODO-деплой)
 
-**Инвариант:** клиенту уходит доменное сообщение, не raw error.message от PG/Drizzle. Grep: `error: .*\.message` в send → 0.
+**Инвариант:** клиенту уходит доменное сообщение, не raw error.message от PG/Drizzle. Grep: `error: .*\.message` в send → **0**.
 
-- [ ] **P1** `documents/routes.ts:138` — raw PG constraint в POST /document-returns
-- [ ] **P1** `import/routes.ts:182` — raw DB error в per-row catch (drivers)
-- [ ] **P1** `import/routes.ts:181-183` — POST /import/drivers leaks raw DB error (тот же)
-- [ ] **P1** `sync/routes.ts:176, 204` — pull/push 500 отдают raw error.message
+**Решение (системное, а не точечное):** хелпер `apps/api/src/utils/safe-error.ts` →
+`safeClientError(error, fallback)`. Детектит PG/Drizzle-ошибку по `severity/severity_local/routine/
+constraint_name/table_name/schema_name` ИЛИ `code` = ровно 5-символьный SQLSTATE `[0-9A-Z]{5}`
+(доменные коды приложения длиннее → не пересекаются) → отдаёт `fallback`. Доменный Error → его message.
+Прочее/пустое → fallback. **Fail-safe by default.**
 
-**Sweep P2/P3 (большой):** finance-роуты ×14 (finance-core:116..1136), fleet catch-блоки (fleet:111..431),
-inspections PDF (documents:467/489), orders ttn (orders:367), trips blanket catch (trips-core:168),
-opcore (opcore:70), copilot SSE (misc1:337). **Реко:** единый error-mapper в Fastify error-handler.
+- [x] **P1** `documents/routes.ts:138` — обёрнут `safeClientError`
+- [x] **P1** `import/routes.ts:184` (per-row drivers) + `:242` (XLSX read) — обёрнуты
+- [x] **P1** `sync/routes.ts:177, 205` + `sync/service.ts:52` (per-event) — обёрнуты
+- [x] **Sweep** массовая замена `scripts/apply-safe-error.mjs` → **~121 мест в 18 файлах**
+      (integrations/adr/claims/documents/edi/finance/fleet/inspections/operational-core/operations/
+      orders/repairs/scoring/sync/trips/waybills + demo + finance handleWorkflowError `(err as Error)`).
+- [x] **Anchor-тест** `apps/api/src/utils/safe-error.test.ts` (7 кейсов: PG suppress / SQLSTATE / plain-obj /
+      domain passthrough / long-code passthrough / non-error / empty-message).
+
+**NB (антирецидив):** скрипт ошибочно вставлял import внутрь многострочного `import {...}` блока в 4 файлах
+(fleet/inspections/operations/trips) → tsc-ошибки → починены вручную. Урок: после bulk-codemod ВСЕГДА tsc
+до тестов. **Не-цель C8:** Zod `parsed.error.message` (billing/copilot) — это валидация ввода, не структура БД,
+оставлено осознанно. Запись в колонку `transport_documents.error` (store:871) — не ответ клиенту.
+
+tsc=0, unit 712/712 ✓.
 
 ---
 
@@ -314,6 +327,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | C8 | **C8 ЗАКРЫТ:** системный хелпер `safeClientError` (utils/safe-error.ts) — детект PG/Drizzle по severity/routine/constraint/5-char-SQLSTATE → fallback, доменный Error → message. Codemod `apply-safe-error.mjs` ~121 мест/18 файлов + ручные finance handleWorkflowError `(err as Error)`, demo, import per-row/XLSX. Anchor-тест 7/7. **NB:** скрипт ломал import в 4 файлах (multiline-блок) → починено, урок «tsc после codemod». grep leak=0, tsc=0, unit 712/712 | _(этот коммит)_ |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
 | 2026-06-03 | C7 | **C7 ЗАКРЫТ:** смена ролей бампит token_version (CBO, regression-тест: чужой юзер→старый токен 401); me/organization sign() сохраняет tv; signup не перезаписывает existing-аккаунт (overwrite-ветка удалена). unit 722·integration 151 | _(этот коммит)_ |

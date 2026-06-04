@@ -20,13 +20,14 @@ import { drivers, users, trips } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { getOrderFulfillment } from '../operational-core/service.js';
 import { splitOrderIntoLots } from '../operational-core/write-service.js';
+import { safeClientError } from '../../utils/safe-error.js';
 
 function sendAccessError(reply: any, err: unknown) {
     if (err instanceof AccessDeniedError) {
-        return reply.status(403).send({ success: false, error: err.message });
+        return reply.status(403).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
     }
     if (err instanceof EntityNotFoundError) {
-        return reply.status(404).send({ success: false, error: err.message });
+        return reply.status(404).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
     }
     throw err;
 }
@@ -188,7 +189,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             const lots = await splitOrderIntoLots(id, request.body as { maxWeightKg?: number; lotCount?: number }, { userId: user.userId, role: user.roles[0], organizationId: user.organizationId });
             return reply.status(201).send({ success: true, data: lots });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -366,7 +367,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             return reply.send(pdfBuffer);
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(500).send({ success: false, error: error.message });
+            return reply.status(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -464,9 +465,9 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             return { success: true, data: order };
         } catch (err: any) {
             if (err instanceof AccessDeniedError) {
-                return reply.status(403).send({ success: false, error: err.message });
+                return reply.status(403).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
             }
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -490,9 +491,9 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             return { success: true, data: order };
         } catch (err: any) {
             if (err instanceof AccessDeniedError) {
-                return reply.status(403).send({ success: false, error: err.message });
+                return reply.status(403).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
             }
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -517,9 +518,9 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             return { success: true, data: order };
         } catch (err: any) {
             if (err instanceof AccessDeniedError) {
-                return reply.status(403).send({ success: false, error: err.message });
+                return reply.status(403).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
             }
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -550,7 +551,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
 
             return reply.status(201).send({ success: true, data: order });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 };

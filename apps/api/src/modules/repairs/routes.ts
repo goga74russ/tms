@@ -7,6 +7,7 @@ import { requireAbility } from '../../auth/rbac.js';
 import { assertVehicleAccess } from '../../auth/guards.js';
 import * as repairsService from './service.js';
 import { RepairRequestCreateSchema, RepairRequestSchema } from '@tms/shared';
+import { safeClientError } from '../../utils/safe-error.js';
 
 type RepairQuery = {
     page?: string;
@@ -88,7 +89,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
             const data = await repairsService.createRepairPartCatalogItem(parsed.data, user);
             return reply.status(201).send({ success: true, data });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -104,7 +105,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
             const data = await repairsService.updateRepairPartCatalogItem(id, parsed.data, user);
             return { success: true, data };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -118,7 +119,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
             const data = await repairsService.archiveRepairPartCatalogItem(id, user);
             return { success: true, data };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -147,7 +148,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
             const repair = await repairsService.createRepair(parsed.data as z.infer<typeof RepairRequestCreateSchema>, user);
             return reply.status(201).send({ success: true, data: repair });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -173,7 +174,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
             const repair = await repairsService.updateRepair(id, payload, user);
             return { success: true, data: repair };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -189,7 +190,7 @@ export default async function repairsRoutes(app: FastifyInstance) {
             const repair = await repairsService.updateRepairStatus(id, status, user);
             return { success: true, data: repair };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 

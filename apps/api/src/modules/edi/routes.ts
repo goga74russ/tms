@@ -17,6 +17,7 @@ import {
     type EdiProvider,
 } from './service.js';
 import { isXsdValidationError } from '../../lib/xsd-validator-gate.js';
+import { safeClientError } from '../../utils/safe-error.js';
 
 const ParamsSchema = z.object({ id: z.string().uuid() });
 
@@ -78,7 +79,7 @@ const ediRoutes: FastifyPluginAsync = async (app) => {
         try {
             await assertTripAccess(tripId, user);
         } catch (err: any) {
-            return reply.status(403).send({ success: false, error: err.message });
+            return reply.status(403).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
 
         try {
@@ -95,7 +96,7 @@ const ediRoutes: FastifyPluginAsync = async (app) => {
                     details: err.details,
                 });
             }
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -121,14 +122,14 @@ const ediRoutes: FastifyPluginAsync = async (app) => {
         try {
             await assertTripAccess(tripId, user);
         } catch (err: any) {
-            return reply.status(403).send({ success: false, error: err.message });
+            return reply.status(403).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
 
         try {
             const data = await getEdiHistory(params.data.id);
             return { success: true, data };
         } catch (err: any) {
-            return reply.status(404).send({ success: false, error: err.message });
+            return reply.status(404).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -186,14 +187,14 @@ const ediRoutes: FastifyPluginAsync = async (app) => {
         try {
             await assertTripAccess(tripId, user);
         } catch (err: any) {
-            return reply.status(403).send({ success: false, error: err.message });
+            return reply.status(403).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
 
         try {
             const result = await progressEdiManually(params.data.id, body.data.to);
             return { success: true, data: result };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 };

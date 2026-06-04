@@ -9,6 +9,7 @@ import { db } from '../../db/connection.js';
 import { contractors } from '../../db/schema.js';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { safeClientError } from '../../utils/safe-error.js';
 
 const ClaimCreateSchema = z.object({
     tripId: z.string().uuid().optional().nullable(),
@@ -215,7 +216,7 @@ export default async function claimsRoutes(app: FastifyInstance) {
             });
             return reply.status(201).send({ success: true, data: claim });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 

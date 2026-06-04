@@ -18,6 +18,7 @@ import { db } from '../../db/connection.js';
 import { drivers, waybills, waybillAttachments, deliveryConfirmations } from '../../db/schema.js';
 import { and, eq } from 'drizzle-orm';
 import { hasPrivilege } from '@tms/shared';
+import { safeClientError } from '../../utils/safe-error.js';
 
 const WAYBILL_UPLOADS_DIR = resolve(process.cwd(), 'uploads', 'waybills');
 const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
@@ -84,7 +85,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             request.log.error(error);
             return reply.status(error.statusCode || 500).send({
                 success: false,
-                error: error.message || 'Ошибка',
+                error: safeClientError(error, 'Ошибка'),
             });
         }
     });
@@ -113,7 +114,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             request.log.error(error);
             return reply.status(500).send({
                 success: false,
-                error: error.message || 'Ошибка',
+                error: safeClientError(error, 'Ошибка'),
             });
         }
     });
@@ -138,7 +139,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             const statusCode = error.statusCode || (error.message.includes('Нет допуска') ? 409 : 500);
             return reply.status(statusCode).send({
                 success: false,
-                error: error.message || 'Ошибка при формировании путевого листа',
+                error: safeClientError(error, 'Ошибка при формировании путевого листа'),
             });
         }
     });
@@ -175,7 +176,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             const statusCode = error.statusCode || (error.message.includes('уже закрыт') ? 400 : error.message.includes('не найден') ? 404 : 500);
             return reply.status(statusCode).send({
                 success: false,
-                error: error.message || 'Ошибка при закрытии путевого листа',
+                error: safeClientError(error, 'Ошибка при закрытии путевого листа'),
             });
         }
     });
@@ -208,7 +209,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             request.log.error(error);
             return reply.status(error.statusCode || 500).send({
                 success: false,
-                error: error.message || 'Ошибка синхронизации статуса',
+                error: safeClientError(error, 'Ошибка синхронизации статуса'),
             });
         }
     });
@@ -228,7 +229,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
         } catch (error: any) {
             request.log.error(error);
             const statusCode = error.statusCode || 500;
-            return reply.status(statusCode).send({ success: false, error: error.message || 'Failed to load attachments' });
+            return reply.status(statusCode).send({ success: false, error: safeClientError(error, 'Failed to load attachments') });
         }
     });
 
@@ -281,7 +282,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
         } catch (error: any) {
             request.log.error(error);
             const statusCode = error.statusCode || 500;
-            return reply.status(statusCode).send({ success: false, error: error.message || 'Failed to upload attachment' });
+            return reply.status(statusCode).send({ success: false, error: safeClientError(error, 'Failed to upload attachment') });
         }
     });
 
@@ -339,7 +340,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
         } catch (error: any) {
             request.log.error(error);
             const statusCode = error.statusCode || 500;
-            return reply.status(statusCode).send({ success: false, error: error.message || 'Failed to delete attachment' });
+            return reply.status(statusCode).send({ success: false, error: safeClientError(error, 'Failed to delete attachment') });
         }
     });
     // ================================================================
@@ -455,7 +456,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             return reply.send(pdfBuffer);
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(error.statusCode || 500).send({ success: false, error: error.message });
+            return reply.status(error.statusCode || 500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -549,7 +550,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             return reply.send(xmlBuffer);
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(error.statusCode || 500).send({ success: false, error: error.message });
+            return reply.status(error.statusCode || 500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -636,7 +637,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             return reply.send(xmlBuffer);
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(error.statusCode || 500).send({ success: false, error: error.message });
+            return reply.status(error.statusCode || 500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
         }
     });
 }

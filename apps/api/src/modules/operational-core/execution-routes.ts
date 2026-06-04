@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAbility } from '../../auth/rbac.js';
 import { assertOrderAccess, assertTripAccess } from '../../auth/guards.js';
 import { EXECUTION_EVENT_TYPES, recordExecutionEvent } from './execution-service.js';
+import { safeClientError } from '../../utils/safe-error.js';
 
 const attachmentSchema = z.union([z.string().min(1), z.record(z.string(), z.unknown())]);
 
@@ -67,7 +68,7 @@ async function handleCreateExecutionEvent(
         );
         return reply.status(result.duplicate ? 200 : 201).send({ success: true, data: result });
     } catch (err: any) {
-        return reply.status(400).send({ success: false, error: err.message });
+        return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
     }
 }
 

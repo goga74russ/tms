@@ -12,6 +12,7 @@ import { and, desc, eq, gte } from 'drizzle-orm';
 import { requireAbility } from '../auth/rbac.js';
 import { recordEvent } from '../events/journal.js';
 import { z } from 'zod';
+import { safeClientError } from '../utils/safe-error.js';
 
 export default async function integrationRoutes(app: FastifyInstance) {
 
@@ -50,7 +51,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
             return { success: true, data: { jobId, message: 'Wialon sync job queued' } };
         } catch (error: any) {
             app.log.error(error);
-            return reply.status(500).send({ success: false, error: error.message });
+            return reply.status(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -66,7 +67,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
             return { success: true, data: { jobId, message: 'Fines sync job queued' } };
         } catch (error: any) {
             app.log.error(error);
-            return reply.status(500).send({ success: false, error: error.message });
+            return reply.status(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -231,7 +232,7 @@ export default async function integrationRoutes(app: FastifyInstance) {
             });
             return { success: true, data: status };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 

@@ -10,6 +10,7 @@ import { db } from '../../db/connection.js';
 import { documentReturns, trips } from '../../db/schema.js';
 import { recordEvent } from '../../events/journal.js';
 import { syncTransportDocumentsForTrip } from '../trips/transport-documents-store.js';
+import { safeClientError } from '../../utils/safe-error.js';
 
 // Wave 1 schema accepts a wider documentType set than the underlying enum.
 // The DB enum is ['ttn','upd','act','other'] — anything outside is collapsed to 'other'
@@ -135,7 +136,7 @@ const documentRoutes: FastifyPluginAsync = async (app) => {
             return reply.status(201).send({ success: true, data: row });
         } catch (err: any) {
             // Likely unique-constraint conflict on (tripId, docType)
-            return reply.status(409).send({ success: false, error: err.message ?? 'Не удалось создать запись' });
+            return reply.status(409).send({ success: false, error: safeClientError(err, 'Не удалось создать запись') });
         }
     });
 

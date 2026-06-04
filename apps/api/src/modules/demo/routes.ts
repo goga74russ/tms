@@ -3,6 +3,7 @@
 // ============================================================
 import type { FastifyPluginAsync } from 'fastify';
 import { generateDemoData, cleanupDemoData } from './service.js';
+import { safeClientError } from '../../utils/safe-error.js';
 
 interface AuthUser {
     userId: string;
@@ -68,7 +69,7 @@ const demoRoutes: FastifyPluginAsync = async (app) => {
             return { success: true, data: result };
         } catch (err: any) {
             request.log.error({ err }, 'demo.generate failed');
-            return reply.status(500).send({ success: false, error: err?.message ?? 'Не удалось создать демо-данные' });
+            return reply.status(500).send({ success: false, error: safeClientError(err, 'Не удалось создать демо-данные') });
         }
     });
 
@@ -99,7 +100,7 @@ const demoRoutes: FastifyPluginAsync = async (app) => {
             return { success: true, data: result };
         } catch (err: any) {
             request.log.error({ err }, 'demo.cleanup failed');
-            return reply.status(500).send({ success: false, error: err?.message ?? 'Не удалось удалить демо-данные' });
+            return reply.status(500).send({ success: false, error: safeClientError(err, 'Не удалось удалить демо-данные') });
         }
     });
 };

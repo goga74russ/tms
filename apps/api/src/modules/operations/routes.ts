@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireAbility } from '../../auth/rbac.js';
 import { assertDriverAccess, assertOrderAccess, assertTrailerAccess, assertTripAccess, assertVehicleAccess } from '../../auth/guards.js';
 import { listOperationExceptions } from './exceptions-service.js';
+import { safeClientError } from '../../utils/safe-error.js';
 import {
     cancelTripAfterArrival,
     completePostTripReturn,
@@ -119,7 +120,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
             });
             return reply.status(201).send({ success: true, data });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -146,7 +147,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
             });
             return reply.status(201).send({ success: true, data });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -173,7 +174,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
             });
             return reply.status(201).send({ success: true, data });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -202,7 +203,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
             });
             return reply.status(201).send({ success: true, data });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -232,7 +233,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
             });
             return reply.status(201).send({ success: true, data });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -262,7 +263,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
             });
             return reply.status(201).send({ success: true, data });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -294,7 +295,7 @@ export default async function operationsRoutes(app: FastifyInstance) {
             });
             return reply.status(201).send({ success: true, data });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 

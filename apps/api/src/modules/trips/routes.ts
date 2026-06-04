@@ -40,6 +40,7 @@ import { registerTripCompatibilityRoutes } from '../operational-core/compatibili
 import { assignLotToTrip, captureShipmentFact } from '../operational-core/write-service.js';
 import { registerExecutionRoutes } from '../operational-core/execution-routes.js';
 import { evaluateDossierCloseGate, getDossierItemsForTrip, syncDossierItemsForTrip } from '../operational-core/dossier-service.js';
+import { safeClientError } from '../../utils/safe-error.js';
 import {
     TripCreateSchema,
     TripUpdateSchema,
@@ -166,7 +167,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             const result = await assignLotToTrip(id, request.body as { shipmentLotId: string; assignedWeightKg?: number; assignedVolumeM3?: number; assignedPlaces?: number; allowOverCapacity?: boolean }, { userId: user.userId, role: user.roles[0], organizationId: user.organizationId });
             return reply.status(201).send({ success: true, data: result });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -182,7 +183,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             const result = await captureShipmentFact(id, request.body as any, { userId: user.userId, role: user.roles[0], organizationId: user.organizationId });
             return reply.status(201).send({ success: true, data: result });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -309,7 +310,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
             return reply.status(201).send({ success: true, data: trip, volumeCheck });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -423,7 +424,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
                 volumeCheck,
             };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -458,7 +459,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
             return { success: true, data: trip };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -481,7 +482,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
             return { success: true, data: trip };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -561,7 +562,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
             return { success: true, data: updatedTrip };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -617,7 +618,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
             return { success: true, data: updatedTrip };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -787,7 +788,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
             return { success: true, data: { sortedPoints: updated, warnings } };
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -877,7 +878,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
                 },
             });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -907,7 +908,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             });
             return reply.status(201).send({ success: true, data: confirmation });
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: err.message });
+            return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
     });
 
@@ -996,7 +997,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             await assertEtrnAllowed(id);
         } catch (e: any) {
             if (e?.name === 'EtrnNotAllowedError') {
-                return reply.status(e.statusCode ?? 422).send({ success: false, code: e.code, error: e.message });
+                return reply.status(e.statusCode ?? 422).send({ success: false, code: e.code, error: safeClientError(e, 'Внутренняя ошибка сервера') });
             }
             throw e;
         }

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { requireAbility } from '../../auth/rbac.js';
 import { assertDriverAccess } from '../../auth/guards.js';
 import { computeDriverScore, computeScoreboard } from './service.js';
+import { safeClientError } from '../../utils/safe-error.js';
 
 const ParamsSchema = z.object({ id: z.string().uuid() });
 
@@ -53,7 +54,7 @@ const scoringRoutes: FastifyPluginAsync = async (app) => {
         try {
             await assertDriverAccess(params.data.id, user);
         } catch (err: any) {
-            return reply.status(403).send({ success: false, error: err.message });
+            return reply.status(403).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }
 
         const fromDate = query.data.from ? new Date(query.data.from) : undefined;

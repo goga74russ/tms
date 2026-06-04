@@ -7,6 +7,7 @@ import { trips, routePoints, drivers, events } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { changeTripStatus, updateRoutePoint } from '../trips/service.js';
 import { recordEvent } from '../../events/journal.js';
+import { safeClientError } from '../../utils/safe-error.js';
 
 export type SyncEvent = {
     id: string; // client-side event id
@@ -48,7 +49,7 @@ export async function processSyncEvents(events: SyncEvent[], user: { userId: str
             results.processed++;
         } catch (error: any) {
             results.failed++;
-            results.errors.push({ eventId: event.id, error: error.message });
+            results.errors.push({ eventId: event.id, error: safeClientError(error, 'Внутренняя ошибка сервера') });
         }
     }
 

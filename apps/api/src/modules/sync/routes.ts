@@ -4,6 +4,7 @@ import { and, eq, gt, inArray } from 'drizzle-orm';
 import * as syncService from './service.js';
 import { db } from '../../db/connection.js';
 import { trips, routePoints, drivers } from '../../db/schema.js';
+import { safeClientError } from '../../utils/safe-error.js';
 
 const TripStatusPayloadSchema = z.object({
     tripId: z.string().uuid(),
@@ -173,7 +174,7 @@ export default async function syncRoutes(app: FastifyInstance) {
             };
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(500).send({ success: false, error: error.message || 'Sync pull failed' });
+            return reply.status(500).send({ success: false, error: safeClientError(error, 'Sync pull failed') });
         }
     });
 
@@ -201,7 +202,7 @@ export default async function syncRoutes(app: FastifyInstance) {
             return { success: true, data: results };
         } catch (error: any) {
             app.log.error(error);
-            return reply.status(500).send({ success: false, error: error.message });
+            return reply.status(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
         }
     });
 }

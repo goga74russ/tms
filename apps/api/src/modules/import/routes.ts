@@ -6,6 +6,7 @@ import { randomBytes } from 'crypto';
 import { hashPassword } from '../../auth/auth.js';
 import { buildTemplate, parseTemplate, type TemplateType } from './templates.js';
 import { validate, validateOrder, mapPgErrorToFriendlyRu } from './validators.js';
+import { safeClientError } from '../../utils/safe-error.js';
 
 const TEMPLATE_TYPES: TemplateType[] = ['contractors', 'vehicles', 'drivers', 'orders'];
 
@@ -181,7 +182,7 @@ export default async function importRoutes(app: FastifyInstance) {
                 if (importResult.userCreated) results.usersCreated++;
                 results.created++;
             } catch (err: any) {
-                results.errors.push({ index: i, error: `${item.fullName || '?'}: ${err?.message}` });
+                results.errors.push({ index: i, error: `${item.fullName || '?'}: ${safeClientError(err, 'ошибка создания записи')}` });
             }
         }
 
@@ -239,7 +240,7 @@ export default async function importRoutes(app: FastifyInstance) {
         try {
             rows = parseTemplate(type, buf);
         } catch (err: any) {
-            return reply.status(400).send({ success: false, error: `Ошибка чтения XLSX: ${err?.message ?? err}` });
+            return reply.status(400).send({ success: false, error: `Ошибка чтения XLSX: ${safeClientError(err, 'некорректный формат файла')}` });
         }
 
         if (rows.length > 200) {

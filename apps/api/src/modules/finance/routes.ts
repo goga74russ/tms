@@ -26,6 +26,7 @@ import { invoices, invoiceTrips, invoiceOrders, invoiceAdjustments, contractors 
 import { z } from 'zod';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { PRIVILEGED_ROLES, hasPrivilege } from '@tms/shared';
+import { safeClientError } from '../../utils/safe-error.js';
 
 function num(value: unknown): number {
     return typeof value === 'number' ? value : Number(value ?? 0);
@@ -124,7 +125,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const cost = await tarificationService.calculateTripCost(request.params.id, user.organizationId ?? null);
                 return { success: true, data: cost };
             } catch (error: any) {
-                return reply.code(400).send({ success: false, error: error.message });
+                return reply.code(400).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -222,7 +223,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const invoice = await financeService.generateInvoices(parsed.data, user.userId, user.roles[0], user.organizationId);
                 return reply.code(201).send({ success: true, data: invoice });
             } catch (error: any) {
-                return reply.code(400).send({ success: false, error: error.message });
+                return reply.code(400).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -261,7 +262,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 });
                 return reply.code(201).send({ success: true, data: result });
             } catch (error: any) {
-                return reply.code(400).send({ success: false, error: error.message });
+                return reply.code(400).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -280,12 +281,12 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
         if (err instanceof InvoiceWorkflowError) {
             return reply.code(err.httpStatus).send({
                 success: false,
-                error: err.message,
+                error: safeClientError(err, 'Внутренняя ошибка сервера'),
                 code: err.code,
                 ...(err.details ? { details: err.details } : {}),
             });
         }
-        return reply.code(500).send({ success: false, error: (err as Error).message });
+        return reply.code(500).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
     }
 
     // 4a. POST /finance/invoices/draft — создать draft invoice (новый workflow)
@@ -521,7 +522,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 };
             } catch (error: any) {
                 request.log.error(error);
-                return reply.code(500).send({ success: false, error: error.message });
+                return reply.code(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -618,7 +619,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.send(pdfBuffer);
             } catch (error: any) {
                 request.log.error(error);
-                return reply.code(500).send({ success: false, error: error.message });
+                return reply.code(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -835,7 +836,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.send(zipBuf);
             } catch (error: any) {
                 request.log.error(error);
-                return reply.code(500).send({ success: false, error: error.message });
+                return reply.code(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         },
     );
@@ -906,7 +907,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.send(pdfBuffer);
             } catch (error: any) {
                 request.log.error(error);
-                return reply.code(500).send({ success: false, error: error.message });
+                return reply.code(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -943,7 +944,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 reply.header('Content-Disposition', `attachment; filename="${filename}"`);
                 return reply.send(xml);
             } catch (error: any) {
-                return reply.code(500).send({ success: false, error: error.message });
+                return reply.code(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -975,7 +976,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 );
                 return reply.code(201).send({ success: true, data: adjustment });
             } catch (error: any) {
-                return reply.code(400).send({ success: false, error: error.message });
+                return reply.code(400).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -1030,7 +1031,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 );
                 return reply.code(201).send({ success: true, data: result });
             } catch (error: any) {
-                return reply.code(400).send({ success: false, error: error.message });
+                return reply.code(400).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -1069,7 +1070,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 );
                 return reply.code(201).send({ success: true, data: result });
             } catch (error: any) {
-                return reply.code(400).send({ success: false, error: error.message });
+                return reply.code(400).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -1104,7 +1105,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 );
                 return reply.code(201).send({ success: true, data: result });
             } catch (error: any) {
-                return reply.code(400).send({ success: false, error: error.message });
+                return reply.code(400).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -1126,7 +1127,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const adjustments = await financeService.listAdjustments(invoiceId);
                 return { success: true, data: adjustments };
             } catch (error: any) {
-                return reply.code(400).send({ success: false, error: error.message });
+                return reply.code(400).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -1155,7 +1156,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const result = await financeService.deleteAdjustment(id, user.userId);
                 return { success: true, data: result };
             } catch (error: any) {
-                return reply.code(400).send({ success: false, error: error.message });
+                return reply.code(400).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
