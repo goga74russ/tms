@@ -18,6 +18,7 @@ import {
     invalidateAdapterCache,
 } from '../../../providers/index.js';
 import { CredentialsCreateSchema as CreateSchema } from './validators.js';
+import { assertDpaAccepted, DpaNotAcceptedError } from '../../dpa/guard.js';
 
 interface AuthUser {
     userId: string;
@@ -93,6 +94,19 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         const { providerType, providerName, credentials, status } = parsed.data;
+
+        // C9 (security): серверный DPA-гейт. Клиентская проверка fail-open и
+        // обходится прямым POST. Блокируем сохранение, если согласие требуется,
+        // но не дано. DPA providerId === providerName (как в UI /dpa/:name).
+        try {
+            await assertDpaAccepted(providerName, user);
+        } catch (err) {
+            if (err instanceof DpaNotAcceptedError) {
+                return reply.status(403).send({ success: false, error: err.message, code: err.code });
+            }
+            throw err;
+        }
+
         const encrypted = encryptCredentials(credentials);
 
         const existing = await db

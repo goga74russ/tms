@@ -317,8 +317,8 @@ waybills odometer (все reason'ы), Госключ externalId (частичн�
 - [ ] **P1** `apps/web/.../components/TemperaturePanel.tsx:80` — client-side RBAC расходится с сервером
 - [ ] **P1** `apps/web/.../dispatcher/page.tsx:598` cockpit (см. выше) / `apps/mobile/.../AppNavigator` мульти-роль (sweep)
 - [x] **P1** `packages/shared/src/schemas.ts:116` — plateNumber regex `\\d`→`\d` (отвергал ВСЕ госномера РФ, ломал POST /fleet/vehicles); anchor-тест 9/9 в api-пакете (shared в CI не тестируется)
-- [ ] **P1** `apps/web/.../admin/integrations/page.tsx:227-232` — DPA acceptance-check 404/error молча проваливается в CredentialModal → обход DPA-гейта в проде (security)
-- [ ] **P1** `apps/web/.../admin/layout.tsx:51-65` — admin-RBAC только клиентский: SSR отдаёт контент до редиректа (security)
+- [x] **P1** `apps/web/.../admin/integrations/page.tsx:227-232` — DPA-гейт был только клиентский (fail-open) → **серверный enforcement**: `assertDpaAccepted(providerName, user)` в POST /credentials (новый `dpa/guard.ts`, 403 DPA_NOT_ACCEPTED). Клиентский fail-open теперь безвреден — сервер авторитетен. Anchor 5/5
+- [x] **P1** `apps/web/.../admin/layout.tsx:51-65` — **VERIFIED (уже безопасно):** `useUser` стартует loading=true → SSR отдаёт спиннер, не контент; не-admin → `return null` (стр.65). Контент не рендерится ни на SSR, ни для не-admin. Авторитетная граница — серверный API-RBAC (C3)
 - [ ] **P1** `apps/web/.../dispatcher/page.tsx:573` — handleSelectTrip ищет ТС в устаревшем `vehicles` вместо `enrichedVehicles` → фокус карты молча не срабатывает при активных WS-позициях
 
 **DoD C9 (обязательно для закрытия класса):** помимо перечисленных P1 — **пройти ВЕСЬ список P2 (135) и
@@ -334,6 +334,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | C9 | **DPA серверный гейт (security):** `assertDpaAccepted` (`dpa/guard.ts`) в POST /credentials — раньше DPA-согласие проверялось ТОЛЬКО в UI (fail-open) → обход прямым POST. Теперь 403 DPA_NOT_ACCEPTED если согласие требуется-но-не-дано (провайдеры без DPA/vendor-infra проходят). Anchor 5/5. + admin/layout VERIFIED (loading=true→спиннер, return null; не leak). unit +5 | _(этот коммит)_ |
 | 2026-06-04 | C9 | **Stop-gate 54-ФЗ** (продуктовое решение TransPult): онлайн-приём оплаты `createPayment` закрыт по умолчанию (`ALLOW_ONLINE_PAYMENTS`, fail-closed) → пилот юр-чист на B2B-юрлица+банк-перевод (счёт через finance/invoices, 54-ФЗ-чек не нужен). Anchor 3/3. OFD-находка ЗАКРЫТА; ЮKassa-фискализация → DEFER Q4+. unit 730/730 | _(этот коммит)_ |
 | 2026-06-04 | C9 | **Батч 2 (backend, 4 P1):** credentials health-check инстанцирует реальный адаптер из кредов (`instantiateRealAdapter`) — нет ложного status='error'; scoring computeScoreboard bounded-concurrency ×8 (было N×5 последовательно); waybills closeWaybill throw на любой !ok (invalid_value/unrealistic_delta, не только rollback); Госключ sign-endpoint сохраняет adapter-externalId (частично, DEFER prod-HMAC). tsc=0, unit 727/727 | _(этот коммит)_ |
 | 2026-06-04 | C9 | **Батч 1 (backend, 7 P1):** margin NaN (string-numeric коэрция + чистый reduceTripMargin + anchor 6/6); plate regex `\\d`→`\d` (anchor 9/9); import batch-limit 200 (drivers+contractors, sweep); fleet PUT fuel-records Zod; inspections parseDays + 2 mojibake-403; transport-doc signatureState ≥2-подписанта→'signed'; OFD billing fail-closed (ALLOW_MOCK_OFD) — реал OFD.ru DEFER (ждёт креды). tsc=0, unit 727/727 | _(этот коммит)_ |
