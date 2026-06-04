@@ -332,7 +332,9 @@ export default function AdminTariffsPage() {
             const result = await api.get<{ success: boolean; data: Tariff[] }>('/auth/tariffs');
             if (result.success) setTariffs(result.data);
         } catch (err) {
+            // C9: раньше ошибка загрузки молча глоталась → пустая таблица без причины.
             console.error(err);
+            toastFn({ variant: 'error', title: 'Ошибка загрузки тарифов', description: (err as Error)?.message });
         } finally {
             setLoading(false);
         }

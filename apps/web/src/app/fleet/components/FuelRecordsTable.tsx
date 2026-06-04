@@ -8,6 +8,7 @@ import { formatDateTime, formatMoney, getRowRecord } from './deepFleetShared';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/ui/data-table';
+import { useToast } from '@/components/ui/toast';
 
 type FuelRow = {
     id: string;
@@ -38,6 +39,8 @@ const FUEL_TYPE_LABELS: Record<string, string> = {
 };
 
 export function FuelRecordsTable() {
+    // C9: показываем ошибку загрузки (была молча проглочена)
+    const { toast } = useToast();
     const [rows, setRows] = useState<any[]>([]);
     const [vehicles, setVehicles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -68,6 +71,7 @@ export function FuelRecordsTable() {
             setVehicles(vehiclesRes.data || []);
         } catch (err) {
             console.error('Failed to load fuel records', err);
+            toast({ variant: 'error', title: 'Ошибка загрузки заправок', description: (err as Error)?.message });
         } finally {
             setLoading(false);
         }

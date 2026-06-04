@@ -6,6 +6,7 @@ import { Plus, ShieldCheck } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
+import { useToast } from '@/components/ui/toast';
 import { AddPermitModal } from './AddPermitModal';
 
 interface Permit {
@@ -48,6 +49,8 @@ function urgencyForDays(days: number): Urgency {
 }
 
 export function PermitsTable() {
+    // C9: показываем ошибку загрузки (была молча проглочена)
+    const { toast } = useToast();
     const [permits, setPermits] = useState<Permit[]>([]);
     const [vehicles, setVehicles] = useState<VehicleLink[]>([]);
     const [loading, setLoading] = useState(true);
@@ -68,6 +71,7 @@ export function PermitsTable() {
             setVehicles(vehiclesRes.data || []);
         } catch (err) {
             console.error('Failed to load permits:', err);
+            toast({ variant: 'error', title: 'Ошибка загрузки пропусков', description: (err as Error)?.message });
         } finally {
             setLoading(false);
         }

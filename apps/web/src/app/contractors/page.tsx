@@ -192,7 +192,9 @@ export default function ContractorsPage() {
             const result = await api.get<any>(`/fleet/contractors?limit=200`);
             setContractors(result.data || []);
         } catch (err) {
+            // C9: ошибка загрузки больше не молчит (была пустая таблица без причины).
             console.error('Failed to load contractors:', err);
+            toast({ variant: 'error', title: 'Ошибка загрузки контрагентов', description: (err as Error)?.message });
         } finally {
             setLoading(false);
         }

@@ -72,7 +72,9 @@ export function DowntimeRecordsTable() {
             setRows(recordsRes.data || []);
             setVehicles(vehiclesRes.data || []);
         } catch (err) {
+            // C9: ошибка загрузки больше не молчит (пустая таблица ≠ нет ошибки).
             console.error('Failed to load downtime records', err);
+            toast({ variant: 'error', title: 'Ошибка загрузки простоев', description: (err as Error)?.message });
         } finally {
             setLoading(false);
         }

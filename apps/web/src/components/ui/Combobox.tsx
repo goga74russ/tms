@@ -49,6 +49,8 @@ export function Combobox<T>({
     const [options, setOptions] = useState<T[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    // C9: ошибка поиска больше не молчит (была пустота, неотличимая от «ничего не найдено»).
+    const [searchError, setSearchError] = useState(false);
     const [highlightIndex, setHighlightIndex] = useState(-1);
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -98,13 +100,18 @@ export function Combobox<T>({
             return;
         }
         setIsLoading(true);
+        setSearchError(false);
         try {
             const results = await onSearch(q);
             setOptions(results);
             setIsOpen(true);
             setHighlightIndex(-1);
         } catch {
+            // Показываем ошибку в дропдауне (а не молча пустоту); toast на каждый
+            // keystroke был бы шумным.
             setOptions([]);
+            setSearchError(true);
+            setIsOpen(true);
         } finally {
             setIsLoading(false);
         }
@@ -218,7 +225,11 @@ export function Combobox<T>({
                     style={{ position: 'fixed', top: coords.top, left: coords.left, width: coords.width }}
                     className="z-modal-dropdown bg-white border border-neutral-200 rounded-xl shadow-xl max-h-60 overflow-y-auto"
                 >
-                    {options.length === 0 ? (
+                    {searchError ? (
+                        <div className="px-4 py-3 text-sm text-rose-600 text-center">
+                            Ошибка загрузки. Повторите ввод.
+                        </div>
+                    ) : options.length === 0 ? (
                         <div className="px-4 py-3 text-sm text-neutral-400 text-center">
                             {emptyMessage}
                         </div>

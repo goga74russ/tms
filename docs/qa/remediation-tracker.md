@@ -330,7 +330,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 
 ### DoD-леджер P2/P3 (181) — в работе
 
-**Прогресс: ~22/181 (security S + correctness C + уже-закрытое C8/C9).**
+**Прогресс: ~33/181 (security S + correctness C + swallow-error SE + уже-закрытое C8/C9).**
 
 **Батч S (cross-tenant security) — FIXED:**
 - [x] `finance/tariff-rules.service.ts:55` getTripTariff — добавлен org-фильтр (тариф чужого тенанта по tripId); route передаёт user.organizationId
@@ -360,8 +360,14 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 - [x] **VERIFIED** `operations/routes.ts:42` refine trailerId:null — консистентно со service-гардом (null=отцепить прицеп, by design)
 - [~] **DEFER** `providers/edi/diadoc.ts:95` Sign→signed_by_client — для различения перевозчик/клиент нужна реальная Diadoc-payload-схема (integration ждёт подключения)
 
-**Остаток (~160):** swallow-error class (web ~10), pagination class (~12), dead-code, fake-INN→/jurist,
-TZ/MSK, N+1 perf, E6-revocation (WS/middleware/mobile-403), CSPRNG. Разбираю батчами далее.
+**Батч SE (swallow-error, web) — FIXED (11):** во всех load/submit-catch добавлен toast (был только
+console.error → пустая таблица неотличима от ошибки): `admin/tariffs`, `admin/checklists`, `contractors`,
+`fleet/VehiclesTable`, `fleet/DowntimeRecordsTable`, `fleet/MaintenanceScheduleTable` (load + submitComplete),
+`fleet/FuelRecordsTable`, `fleet/FinesTable`, `fleet/PermitsTable` (4 последних — добавлен useToast).
+`ui/Combobox` — ошибка поиска показывается в дропдауне (toast на keystroke был бы шумным). web 199, tsc=0.
+
+**Остаток (~150):** pagination class (~12), dead-code, fake-INN→/jurist, TZ/MSK, N+1 perf,
+E6-revocation (WS/middleware/mobile-403), CSPRNG, layer-drift, i18n. Разбираю батчами далее.
 
 **Sweep P3 (46):** косметика по сегментам — пройти финальным заходом, см. аудит §«P3».
 
@@ -372,6 +378,7 @@ TZ/MSK, N+1 perf, E6-revocation (WS/middleware/mobile-403), CSPRNG. Разбир
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | C9-DoD | **Батч SE (swallow-error web, 11):** toast во всех load/submit-catch (tariffs/checklists/contractors/VehiclesTable/Downtime/Maintenance×2/Fuel/Fines/Permits) + Combobox показывает ошибку поиска в дропдауне. web 199, tsc=0 | _(этот коммит)_ |
 | 2026-06-04 | deploy | **🚀 C9-DoD S+C на проде**: pull `e72cd9c→7da6c2f`, build api+web, recreate (без миграций). api/web 200, login(wrong)=401, healthy. CI green. **local==origin==prod==7da6c2f.** | `7da6c2f` |
 | 2026-06-04 | C9-DoD | **Батч C (correctness one-liners, 9 fix + 1 VERIFIED + 1 DEFER):** onboardingStep GREATEST; claims mojibake; cancelTripAfterArrival opt-in; scoring date-or-datetime; web ₴→₽, дельта-знак, sparkline useId, repair RBAC+manager, orders STATUS+completed. refine VERIFIED; diadoc DEFER. tsc api+web=0, unit 735 | _(этот коммит)_ |
 | 2026-06-04 | C9-DoD | **Батч S (cross-tenant security, 5 fixes):** getTripTariff org-фильтр; volume-preview assertVehicle/Trailer/Order; resolveTripSla orderId↔tripId-гейт; sprint9 trailers org-less→пусто; telegram formatEventMessage HTML-escape. Старт DoD-леджера P2/P3 (~11/181, с учётом перекрытого C8/C9). tsc=0, unit 735 | _(этот коммит)_ |

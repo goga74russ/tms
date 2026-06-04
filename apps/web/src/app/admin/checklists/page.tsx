@@ -252,7 +252,11 @@ export default function AdminChecklistsPage() {
             setLoading(true);
             const result = await api.get<{ success: boolean; data: ChecklistTemplate[] }>('/auth/checklist-templates');
             if (result.success) setTemplates(result.data);
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            // C9: ошибка загрузки больше не молчит (была пустая таблица без причины).
+            console.error(err);
+            toastFn({ variant: 'error', title: 'Ошибка загрузки шаблонов', description: (err as Error)?.message });
+        }
         finally { setLoading(false); }
     }, []);
 

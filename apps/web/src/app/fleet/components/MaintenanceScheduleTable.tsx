@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
+import { useToast } from '@/components/ui/toast';
 
 type MaintenanceRecord = {
     id: string;
@@ -50,6 +51,8 @@ const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
 };
 
 export function MaintenanceScheduleTable() {
+    // C9: показываем ошибку загрузки (была молча проглочена)
+    const { toast } = useToast();
     const [rows, setRows] = useState<MaintenanceRecord[]>([]);
     const [vehicles, setVehicles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -74,6 +77,7 @@ export function MaintenanceScheduleTable() {
             setVehicles(vehiclesRes.data || []);
         } catch (err) {
             console.error('Failed to load maintenance schedule', err);
+            toast({ variant: 'error', title: 'Ошибка загрузки графика ТО', description: (err as Error)?.message });
         } finally {
             setLoading(false);
         }
@@ -112,7 +116,9 @@ export function MaintenanceScheduleTable() {
             setCompleteDraft({ actualDate: '', actualOdometerKm: '', cost: '' });
             await loadData();
         } catch (err) {
+            // C9: ошибка отметки ТО больше не молчит (была без toast, в отличие от DowntimeRecordsTable).
             console.error('Failed to mark maintenance done', err);
+            toast({ variant: 'error', title: 'Не удалось отметить ТО', description: (err as Error)?.message });
         } finally {
             setSubmitting(false);
         }
