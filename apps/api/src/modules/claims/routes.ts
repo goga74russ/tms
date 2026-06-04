@@ -139,7 +139,7 @@ export default async function claimsRoutes(app: FastifyInstance) {
         if (user.roles.includes('client')) {
             const myContractorId = await resolveContractorId(user.userId);
             if (!myContractorId) {
-                return reply.status(403).send({ success: false, error: 'Ð ÑœÐ ÂµÐ¡â€š Ð Ñ—Ð¡Ð‚Ð Ñ‘Ð Ð†Ð¡ÐÐ Â·Ð Ñ”Ð Ñ‘ Ð Ñ” Ð Ñ”Ð Ñ•Ð Ð…Ð¡â€šÐ¡Ð‚Ð Â°Ð Ñ–Ð ÂµÐ Ð…Ð¡â€šÐ¡Ñ“' });
+                return reply.status(403).send({ success: false, error: 'Нет привязки к контрагенту' });
             }
             effectiveContractorId = myContractorId;
         }

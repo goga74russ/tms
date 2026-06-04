@@ -655,7 +655,7 @@ function PlanPartsDialog({
                         <p className="text-sm font-semibold text-neutral-900">{template.name}</p>
                         <p className="text-xs text-neutral-500">{template.description}</p>
                       </div>
-                      <span className="text-[11px] font-medium text-emerald-700">{formatMoney(template.totalSuggestedCost)} ₴</span>
+                      <span className="text-[11px] font-medium text-emerald-700">{formatMoney(template.totalSuggestedCost)} ₽</span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {template.items.slice(0, 4).map((item) => (

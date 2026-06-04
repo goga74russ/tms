@@ -5,7 +5,7 @@
 // All routes require auth — they're called after /verify-email.
 // ============================================================
 import type { FastifyPluginAsync } from 'fastify';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { organizations, users, providerCredentials } from '../../db/schema.js';
 import { encryptCredentials, invalidateCredentialsCache } from '../../providers/base.js';
@@ -138,7 +138,9 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
             legalAddress: data.legalAddress ?? null,
             bankBik: data.bankBik ?? null,
             bankAccount: data.bankAccount ?? null,
-            onboardingStep: Math.max(2, 0),
+            // C9: было `Math.max(2, 0)` — константа 2, регрессила юзеров,
+            // прошедших дальше (step 5 → откат в 2). GREATEST не даёт регресс.
+            onboardingStep: sql`GREATEST(${organizations.onboardingStep}, 2)`,
         }).where(eq(organizations.id, orgId));
         return { success: true };
     });

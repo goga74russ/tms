@@ -265,7 +265,7 @@ export function OdometerHistoryTable() {
             accessor: (r) => r.delta ?? 0,
             cell: (r) => (
                 <span className="text-neutral-600">
-                    {r.delta !== undefined ? `+${r.delta.toLocaleString('ru-RU')} км` : <span className="text-neutral-400">—</span>}
+                    {r.delta !== undefined ? `${r.delta >= 0 ? '+' : ''}${r.delta.toLocaleString('ru-RU')} км` : <span className="text-neutral-400">—</span>}
                 </span>
             ),
             sortable: true,

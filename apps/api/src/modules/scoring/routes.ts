@@ -10,14 +10,22 @@ import { safeClientError } from '../../utils/safe-error.js';
 
 const ParamsSchema = z.object({ id: z.string().uuid() });
 
+// C9: было z.string().datetime() — отвергало date-only 'YYYY-MM-DD', а kpi-страница
+// шлёт именно их → запросы скоринга всегда 400. Принимаем date ИЛИ datetime
+// (сервис парсит через new Date()).
+const dateOrDatetime = z
+    .string()
+    .refine((s) => !Number.isNaN(Date.parse(s)), { message: 'Некорректная дата' })
+    .optional();
+
 const QuerySchema = z.object({
-    from: z.string().datetime().optional(),
-    to: z.string().datetime().optional(),
+    from: dateOrDatetime,
+    to: dateOrDatetime,
 });
 
 const ScoreboardQuerySchema = z.object({
-    from: z.string().datetime().optional(),
-    to: z.string().datetime().optional(),
+    from: dateOrDatetime,
+    to: dateOrDatetime,
     limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 

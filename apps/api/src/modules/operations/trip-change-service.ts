@@ -379,7 +379,11 @@ export async function cancelTripAfterArrival(tripId: string, input: CancelAfterA
         }
 
         const [updatedTrip] = await tx.update(trips).set({
-            status: input.cancelTrip === false ? trip.status : 'cancelled',
+            // C9: было opt-OUT (undefined → 'cancelled') — деструктивный дефолт.
+            // Теперь opt-IN: отменяем ТОЛЬКО при явном cancelTrip===true. Web всегда
+            // шлёт флаг явно (чекбокс, default true) → поведение UI не меняется;
+            // прямой API-вызов без флага больше не отменяет рейс молча.
+            status: input.cancelTrip === true ? 'cancelled' : trip.status,
             updatedAt: new Date(),
         }).where(eq(trips.id, tripId)).returning();
         const tariffRule = await evaluateTariffRule({

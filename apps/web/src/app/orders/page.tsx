@@ -68,6 +68,7 @@ const STATUS_LABEL: Record<string, string> = {
     assigned: 'Назначена',
     in_transit: 'В пути',
     delivered: 'Доставлена',
+    completed: 'Завершена', // C9: отсутствовал → сырое 'completed' в badge
     cancelled: 'Отменена',
 };
 
@@ -79,6 +80,7 @@ const STATUS_TONE: Record<string, PillTone> = {
     assigned: 'info',
     in_transit: 'warning',
     delivered: 'success',
+    completed: 'success',
     cancelled: 'danger',
 };
 

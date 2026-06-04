@@ -31,6 +31,10 @@ export function Sparkline({
     className,
 }: SparklineProps) {
     const color = TONE_COLOR[tone];
+    // C9: id градиента был `spark-grad-${tone}` — НЕ уникален. Несколько спарклайнов
+    // одного тона на странице делили один SVG-id → ломалась заливка. useId() даёт
+    // per-instance уникальность (двоеточия убираем — невалидны в url(#...)).
+    const gradId = `spark-grad-${React.useId().replace(/:/g, '')}`;
     if (!data || data.length === 0) {
         return <div className={className} style={{ width, height }} aria-hidden="true" />;
     }
@@ -41,7 +45,7 @@ export function Sparkline({
                 {showArea ? (
                     <AreaChart data={chartData} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
                         <defs>
-                            <linearGradient id={`spark-grad-${tone}`} x1="0" y1="0" x2="0" y2="1">
+                            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" stopColor={color} stopOpacity={0.3} />
                                 <stop offset="100%" stopColor={color} stopOpacity={0} />
                             </linearGradient>
@@ -51,7 +55,7 @@ export function Sparkline({
                             dataKey="v"
                             stroke={color}
                             strokeWidth={1.5}
-                            fill={`url(#spark-grad-${tone})`}
+                            fill={`url(#${gradId})`}
                             isAnimationActive={false}
                             dot={false}
                         />

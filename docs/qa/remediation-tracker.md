@@ -330,7 +330,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 
 ### DoD-леджер P2/P3 (181) — в работе
 
-**Прогресс: ~11/181 (security-кластер + уже-закрытое C8/C9).**
+**Прогресс: ~22/181 (security S + correctness C + уже-закрытое C8/C9).**
 
 **Батч S (cross-tenant security) — FIXED:**
 - [x] `finance/tariff-rules.service.ts:55` getTripTariff — добавлен org-фильтр (тариф чужого тенанта по tripId); route передаёт user.organizationId
@@ -347,7 +347,20 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 - [x] `VehiclesTable isBlocked` (P3) → совпадает с DEFER P1 (вычисляемое поле)
 - [x] `trips RBAC redirect flicker` (P3 1266) → **VERIFIED** (аудит сам: «Паттерн корректен», loading=true)
 
-**Остаток (~170):** correctness one-liners, swallow-error class (web), pagination class, dead-code, fake-INN→/jurist,
+**Батч C (correctness one-liners) — FIXED:**
+- [x] `onboarding/routes.ts:141` onboardingStep `Math.max(2,0)`→`GREATEST(onboarding_step,2)` (не регрессит прошедших дальше)
+- [x] `claims/routes.ts:142` mojibake-403 → «Нет привязки к контрагенту» (через Python — байты не матчились Edit'ом)
+- [x] `operations/trip-change-service.ts:382` cancelTripAfterArrival: opt-OUT→opt-IN (`cancelTrip===true`; web всегда шлёт флаг явно, поведение UI не меняется)
+- [x] `scoring/routes.ts:13` from/to `z.datetime()`→date-or-datetime (kpi слал date-only → было always 400)
+- [x] `web repair/RepairKanban.tsx:658` валюта ₴→₽
+- [x] `web fleet/OdometerHistoryTable.tsx:268` дельта: знак условный (был `+-500`)
+- [x] `web ui/sparkline.tsx:44` gradient-id через `useId()` (был общий `spark-grad-${tone}` → ломал заливку при N спарклайнах)
+- [x] `web repair/page.tsx:257` ALLOWED_ROLES +manager (менеджеров редиректило с /repair)
+- [x] `web orders/page.tsx:65` STATUS_LABEL/TONE +completed (был сырой badge)
+- [x] **VERIFIED** `operations/routes.ts:42` refine trailerId:null — консистентно со service-гардом (null=отцепить прицеп, by design)
+- [~] **DEFER** `providers/edi/diadoc.ts:95` Sign→signed_by_client — для различения перевозчик/клиент нужна реальная Diadoc-payload-схема (integration ждёт подключения)
+
+**Остаток (~160):** swallow-error class (web ~10), pagination class (~12), dead-code, fake-INN→/jurist,
 TZ/MSK, N+1 perf, E6-revocation (WS/middleware/mobile-403), CSPRNG. Разбираю батчами далее.
 
 **Sweep P3 (46):** косметика по сегментам — пройти финальным заходом, см. аудит §«P3».
@@ -359,6 +372,7 @@ TZ/MSK, N+1 perf, E6-revocation (WS/middleware/mobile-403), CSPRNG. Разбир
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | C9-DoD | **Батч C (correctness one-liners, 9 fix + 1 VERIFIED + 1 DEFER):** onboardingStep GREATEST; claims mojibake; cancelTripAfterArrival opt-in; scoring date-or-datetime; web ₴→₽, дельта-знак, sparkline useId, repair RBAC+manager, orders STATUS+completed. refine VERIFIED; diadoc DEFER. tsc api+web=0, unit 735 | _(этот коммит)_ |
 | 2026-06-04 | C9-DoD | **Батч S (cross-tenant security, 5 fixes):** getTripTariff org-фильтр; volume-preview assertVehicle/Trailer/Order; resolveTripSla orderId↔tripId-гейт; sprint9 trailers org-less→пусто; telegram formatEventMessage HTML-escape. Старт DoD-леджера P2/P3 (~11/181, с учётом перекрытого C8/C9). tsc=0, unit 735 | _(этот коммит)_ |
 | 2026-06-04 | deploy | **🚀 C9 на проде**: pull `e9562bd→7ce7645`, build api+web, recreate (без миграций). api 200 (int+ext), web 200, login(wrong)=401, оба контейнера healthy. CI green. **local==origin==prod==7ce7645.** Включает весь C9 + stop-gate + DPA-гейт. NB: ALLOW_ONLINE_PAYMENTS не задан → онлайн-оплата закрыта (пилот B2B+счёт, как задумано). | `7ce7645` |
 | 2026-06-04 | C9 | **Mobile батч (3 P1):** database onSetUpError логирует сбой БД (был молчаливый `()=>{}`); TripDetailsScreen легаси-кнопка сужена до in_transit (была в любом статусе); два пути completeTrip разъяснены — сходятся на changeTripStatus (онлайн /complete vs офлайн /sync/events), не дубль (минорный gap: sync не пишет odometerReadings). mobile tsc=0, мои тесты PASS (LoginScreen/MyWaybill — прежние parse-fail, continue-on-error). **ВСЕ 27 C9-P1 закрыты/VERIFIED/DEFER.** Остаётся DoD: P2(135)+P3(46) | _(этот коммит)_ |

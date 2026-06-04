@@ -254,7 +254,8 @@ function CreateRepairModal({
     );
 }
 
-const ALLOWED_ROLES = ['repair_service', 'mechanic', 'admin'];
+// C9: 'manager' отсутствовал → менеджеров редиректило с /repair на '/'.
+const ALLOWED_ROLES = ['repair_service', 'mechanic', 'admin', 'manager'];
 
 export default function RepairPage() {
     const { user, loading: userLoading } = useUser();
