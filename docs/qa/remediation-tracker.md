@@ -330,7 +330,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 
 ### DoD-леджер P2/P3 (181) — в работе
 
-**Прогресс: ~42/181 (S + C + SE + M + уже-закрытое C8/C9).**
+**Прогресс: ~48/181 (S+C+SE+M+F + уже-закрытое C8/C9).**
 
 **Батч S (cross-tenant security) — FIXED:**
 - [x] `finance/tariff-rules.service.ts:55` getTripTariff — добавлен org-фильтр (тариф чужого тенанта по tripId); route передаёт user.organizationId
@@ -374,9 +374,13 @@ console.error → пустая таблица неотличима от ошиб
 - [x] `waybills/etrn-generator.ts:120` GUID документа ЭТрН: Math.random → `crypto.randomUUID()` (CSPRNG)
 - [~] **DEFER** `demo/service.ts:113` rndPlate Math.random — демо-данные, не security-критично
 
-**Остаток (~140):** pagination class (~12 → большинство DEFER «нужна фича»), dead-code (~8 → DEFER cleanup),
-N+1 perf (~10), fake-INN→/jurist (~5), TZ/MSK api-сторона (~4), layer-drift (~10), i18n→/desing, прочее.
-Разбираю батчами далее.
+**Батч F (correctness, web+api) — FIXED (6):**
+- [x] `analytics/routes.ts:251` profitability tenant-скоуп → `trips.organizationId` (исключал субподряд vehicleId=null)
+- [x] `web admin/users:400` bulk-деактивация: label-счётчик `active`, не `rows` (показывал total вместо активных)
+- [x] `web layout-shell:11` +/reset-password в PUBLIC_PATH_PREFIXES (сайдбар рендерился на сбросе пароля)
+- [x] `web error-boundary:52` raw error.message только в dev (в проде — generic, не раскрываем внутренности)
+- [x] `web AssignmentPanel:476` кнопка «Назначить» блокируется при volume overflow (warning обещал, но не блокировал)
+- [x] `web period-selector:93` guard from>to (не эмитим инвертированный диапазон)
 
 **Sweep P3 (46):** косметика по сегментам — пройти финальным заходом, см. аудит §«P3».
 

@@ -8,7 +8,7 @@ import { ToastProvider } from './ui/toast';
 const NO_SIDEBAR_ROUTES = ['/login'];
 
 // Public path prefixes — render without the main app shell (no sidebar, no padding)
-const PUBLIC_PATH_PREFIXES = ['/landing', '/signup', '/onboarding', '/legal', '/login', '/forgot-password'];
+const PUBLIC_PATH_PREFIXES = ['/landing', '/signup', '/onboarding', '/legal', '/login', '/forgot-password', '/reset-password'];
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();

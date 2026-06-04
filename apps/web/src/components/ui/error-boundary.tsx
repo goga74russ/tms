@@ -49,7 +49,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                 </div>
                 <h3 className="text-base font-semibold text-neutral-800">Что-то пошло не так</h3>
                 <p className="mt-1.5 text-sm text-neutral-500 max-w-md">
-                    {error.message || 'Произошла непредвиденная ошибка. Попробуйте перезагрузить страницу.'}
+                    {/* C9: raw error.message мог раскрыть внутренние детали (путь/SQL)
+                        в проде. Показываем его только в dev. */}
+                    {(process.env.NODE_ENV === 'development' && error.message)
+                        ? error.message
+                        : 'Произошла непредвиденная ошибка. Попробуйте перезагрузить страницу.'}
                 </p>
                 <div className="mt-4 flex gap-2">
                     <button

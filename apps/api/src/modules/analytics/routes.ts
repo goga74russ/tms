@@ -248,7 +248,10 @@ export default async function analyticsRoutes(app: FastifyInstance) {
         // Get completed trips
         const tripConditions = [eq(trips.status, 'completed')];
         if (user.organizationId) {
-            tripConditions.push(inArray(trips.vehicleId, db.select({ id: vehicles.id }).from(vehicles).where(eq(vehicles.organizationId, user.organizationId))));
+            // C9: было inArray(trips.vehicleId, vehicles WHERE org) — исключало
+            // рейсы с vehicleId=null (субподряд). trips.organizationId — корректный
+            // tenant-скоуп (как C3в), без потери субподрядных рейсов.
+            tripConditions.push(eq(trips.organizationId, user.organizationId));
         }
         const completedTrips = await db.select().from(trips)
             .where(and(...tripConditions))

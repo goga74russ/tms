@@ -91,6 +91,9 @@ export function PeriodSelector({ value, onChange, presets = ALL_PRESETS, classNa
         const f = new Date(fromStr + 'T00:00:00');
         const t = new Date(toStr + 'T23:59:59');
         if (isNaN(f.getTime()) || isNaN(t.getTime())) return;
+        // C9: не эмитим инвертированный диапазон (from > to) — раньше при правке
+        // даты начала «за» дату конца сразу уходил битый период.
+        if (f.getTime() > t.getTime()) return;
         onChange({ from: f, to: t, label: 'Свой период', preset: 'custom' });
     };
 

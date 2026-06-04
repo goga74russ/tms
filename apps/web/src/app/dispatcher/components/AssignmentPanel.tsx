@@ -473,7 +473,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
             <div className="p-3 border-t border-neutral-100">
                 <button
                     onClick={handleAssign}
-                    disabled={!selectedOrder || !selectedVehicle || isAssigning}
+                    disabled={!selectedOrder || !selectedVehicle || isAssigning || !!volumeCheck?.overflow}
                     title={
                         !selectedOrder && !selectedVehicle
                             ? 'Выберите заказ и автомобиль, чтобы назначить'

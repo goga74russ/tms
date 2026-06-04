@@ -397,7 +397,7 @@ export default function AdminUsersPage() {
                                 });
                             }}
                         >
-                            Деактивировать ({rows.length})
+                            Деактивировать ({rows.filter(u => u.isActive).length})
                         </Button>
                     </>
                 )}
