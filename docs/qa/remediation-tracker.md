@@ -282,7 +282,7 @@ tsc=0, unit 712/712 ✓.
 
 ---
 
-## C9 — Correctness / unfinished / perf / misc (catch-all)  `IN PROGRESS`
+## C9 — Correctness / unfinished / perf / misc (catch-all)  `P1 ГОТОВ — остаётся DoD P2/P3`
 
 Разнородный хвост P1. Разбирать после C1–C8; часть подтянется попутно. Дом для любой не-разнесённой находки.
 
@@ -303,9 +303,9 @@ waybills odometer (все reason'ы), Госключ externalId (частичн�
 - [x] **P1** `trips/transport-documents-store.ts:1043-1047` — signatureState: ≥2 различных подписанта → `'signed'` (было хардкод 'partially_signed'); NB(/jurist) точный набор ролей по типу документа
 - [x] **P1** `waybills/service.ts:622-672` — closeWaybill throw'ил только на 'rollback'; теперь на любой `!validation.ok` (invalid_value negative/NaN, unrealistic_delta >5000км). Оба блока (pre-tx + in-tx FOR UPDATE)
 - [x] **P1** `import/routes.ts:111-113` — batch-limit 200 добавлен в `/import/drivers` + `/import/contractors` (sweep: vehicles/orders уже имели)
-- [ ] **P1** `apps/mobile/.../database/index.ts:14` — onSetUpError проглочен (БД в broken state молча)
-- [ ] **P1** `apps/mobile/.../TripDetailsScreen.tsx:639-648` — кнопка «Завершить (легаси)» в любом нетривиальном статусе
-- [ ] **P1** `apps/mobile/.../TripDetailsScreen.tsx:249-291` — два независимых пути completeTrip с разными payload
+- [x] **P1** `apps/mobile/.../database/index.ts:14` — onSetUpError теперь логирует сбой инициализации БД с контекстом (был `() => {}` → broken state молча). Crash-reporter'а в mobile нет → console.error
+- [x] **P1** `apps/mobile/.../TripDetailsScreen.tsx:639-648` — легаси-кнопка показывалась при `!canStart && !canComplete` (в ЛЮБОМ статусе: completed/cancelled/planning). Сужена до `tripStatus === 'in_transit'` (легитимный override-кейс: точки не закрыты → экран TripCompletion с correction-reason)
+- [x] **P1** `apps/mobile/.../TripDetailsScreen.tsx:249-291` — **разъяснено + сужено:** два «пути» — это два ТРАНСПОРТА (онлайн `POST /trips/:id/complete` vs офлайн-синкаемый `POST /sync/events`), оба сходятся на `changeTripStatus('completed', {odometerEnd,fuelEnd})` (trip→completed, ПЛ→closed). Не дублирующая логика. Минорный gap (low-pri): sync-путь не пишет `odometerReadings`-строку (одометр всё равно в trip+ПЛ)
 - [~] **P1** `apps/web/.../dispatcher/page.tsx:598-618` — cockpit assignment без driverId → **DEFER (продукт/UX):** в cockpit нет данных водителя для auto-assign; нужен driver-selection в assign-диалоге ИЛИ решение «водитель назначается позже на trips-странице» (валидный intermediate-статус). Рекомендация: добавить выбор водителя в диалог (/desing)
 - [x] **P1** `apps/web/.../fleet/ContractorsTable.tsx:189` — **VERIFIED (уже реализовано):** addresses-роут активен (стр.189 GET + PUT/POST/DELETE), backend имеет все 4 (`/fleet/contractors/:id/addresses` POST/PUT/DELETE/GET). Модалка грузит реальные данные
 - [~] **P1** `apps/web/.../fleet/VehiclesTable.tsx:263-270` — toggleBlock no-op → **DEFER (продуктовое решение):** `isBlocked` — ВЫЧИСЛЯЕМОЕ поле (`hasExpiredDocuments`), колонки нет; назначение не гейтит (косметика-бейдж). Ручной block концептуально отсутствует в бэкенде. Варианты: (а) построить real manual-block (миграция+схема+семантика) ИЛИ (б) убрать вводящую-в-заблуждение UI-кнопку (UX/desing). Рекомендация: (б) если manual-block не нужен бизнесу
@@ -334,6 +334,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | C9 | **Mobile батч (3 P1):** database onSetUpError логирует сбой БД (был молчаливый `()=>{}`); TripDetailsScreen легаси-кнопка сужена до in_transit (была в любом статусе); два пути completeTrip разъяснены — сходятся на changeTripStatus (онлайн /complete vs офлайн /sync/events), не дубль (минорный gap: sync не пишет odometerReadings). mobile tsc=0, мои тесты PASS (LoginScreen/MyWaybill — прежние parse-fail, continue-on-error). **ВСЕ 27 C9-P1 закрыты/VERIFIED/DEFER.** Остаётся DoD: P2(135)+P3(46) | _(этот коммит)_ |
 | 2026-06-04 | C9 | **Web батч 2 (4 P1 + 2 VERIFIED + 1 DEFER):** SignTitleButton истёкшие МЧД дизейблятся+бейдж; dispatcher handleSelectTrip→enrichedVehicles (фокус карты с live WS); TemperaturePanel mock-tick RBAC→admin-only (сервер admin-only, было +dispatcher→403). VERIFIED: ContractorsTable addresses (роут активен+backend есть), admin/layout (return null, не leak). DEFER: cockpit driverId (нужен UI/продукт). web 199, tsc=0 | _(этот коммит)_ |
 | 2026-06-04 | C9 | **Web батч 1 (4 P1 + 1 DEFER):** login/page route-drift дедуплицирован (канон lib/routing.ts, driver=/trips); logist dateFrom/dateTo фильтры применены; trips search/status через encodeURIComponent; **N+1 устранён** — GET /trips обогащён orderNumbers+coldChainRequired батч-запросом (наследует RLS), фронт без 100×GET /trips/:id. DEFER: VehiclesTable toggleBlock (isBlocked вычисляемое, нужно продуктовое решение). api 735·web 199, tsc api+web=0 | _(этот коммит)_ |
 | 2026-06-04 | C9 | **DPA серверный гейт (security):** `assertDpaAccepted` (`dpa/guard.ts`) в POST /credentials — раньше DPA-согласие проверялось ТОЛЬКО в UI (fail-open) → обход прямым POST. Теперь 403 DPA_NOT_ACCEPTED если согласие требуется-но-не-дано (провайдеры без DPA/vendor-infra проходят). Anchor 5/5. + admin/layout VERIFIED (loading=true→спиннер, return null; не leak). unit +5 | _(этот коммит)_ |

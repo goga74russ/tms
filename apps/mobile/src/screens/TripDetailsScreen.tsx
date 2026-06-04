@@ -636,9 +636,14 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                         onPress={() => openOdometerModal('complete')}
                     />
                 )}
-                {!canStart && !canComplete && (
+                {/* C9: раньше легаси-кнопка показывалась при `!canStart && !canComplete`
+                    — то есть в ЛЮБОМ статусе (planning/completed/cancelled тоже),
+                    предлагая «завершить» уже завершённый/отменённый/не начатый рейс.
+                    Легитимный кейс легаси — рейс in_transit, но точки не закрыты
+                    (нужен экран TripCompletion с correction-reason). Сужаем до него. */}
+                {!canStart && !canComplete && tripStatus === 'in_transit' && (
                     <Button
-                        title="Завершить рейс (легаси)"
+                        title="Завершить рейс (исправление)"
                         variant={canCompleteTrip ? 'success' : 'warning'}
                         size="lg"
                         fullWidth
