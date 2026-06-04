@@ -16,6 +16,12 @@ export interface GeocodeResult extends GeoPoint {
     source: 'dictionary' | 'mock' | 'nominatim';
     confidence: number; // 0..1
     matchedCity?: string;
+    /**
+     * true когда город не распознан и координаты — это mock-фоллбэк
+     * (центр Москвы), а не реальный матч. Позволяет вызывающему
+     * отличить фоллбэк от настоящего совпадения.
+     */
+    fallback?: boolean;
 }
 
 // ================================================================
@@ -143,8 +149,12 @@ export function geocodeAddress(address: string): GeocodeResult {
         lon: Number((city.lon + lonJ).toFixed(6)),
         address,
         source: matched ? 'dictionary' : 'mock',
-        confidence: matched ? 0.85 : 0.2,
-        matchedCity: city.name,
+        // Нераспознанный адрес → mock-фоллбэк (центр Москвы):
+        // confidence 0 + fallback:true, чтобы вызывающий мог отличить
+        // фоллбэк от реального матча. matchedCity не проставляем —
+        // распознанного города нет.
+        confidence: matched ? 0.85 : 0,
+        ...(matched ? { matchedCity: city.name } : { fallback: true }),
     };
 }
 

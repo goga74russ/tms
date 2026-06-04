@@ -77,6 +77,11 @@ const INVOICE_STATUS_LABELS: Record<string, { label: string; color: string }> = 
 
 const ALLOWED_ROLES = ['client', 'admin'];
 
+// Серверный лимит выборки (см. /orders?limit=50 и /finance/invoices?limit=50).
+// Агрегаты на этой странице считаются по загруженной выборке, поэтому при
+// усечении показываем предупреждение, чтобы цифры не вводили в заблуждение.
+const PAGE_LIMIT = 50;
+
 export default function ClientPortalPage() {
     const { user, loading: userLoading } = useUser();
     const router = useRouter();
@@ -89,6 +94,9 @@ export default function ClientPortalPage() {
 
     const [orders, setOrders] = useState<Order[]>([]);
     const [invoices, setInvoices] = useState<Invoice[]>([]);
+    // total из ответа сервера (orders отдаёт `total`; invoices — нет, тогда null).
+    const [ordersTotal, setOrdersTotal] = useState<number | null>(null);
+    const [invoicesTotal, setInvoicesTotal] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'orders' | 'invoices'>('orders');
     const [search, setSearch] = useState('');
@@ -98,11 +106,15 @@ export default function ClientPortalPage() {
         setLoading(true);
         try {
             const [ordersRes, invoicesRes] = await Promise.all([
-                api.get<any>('/orders?limit=50'),
-                api.get<any>('/finance/invoices?limit=50'),
+                api.get<any>(`/orders?limit=${PAGE_LIMIT}`),
+                api.get<any>(`/finance/invoices?limit=${PAGE_LIMIT}`),
             ]);
             setOrders(ordersRes.data || []);
             setInvoices(invoicesRes.data || []);
+            // total присылает только /orders; для invoices остаётся null → усечение
+            // определяем по достижению лимита (см. ниже ordersTruncated/invoicesTruncated).
+            setOrdersTotal(typeof ordersRes.total === 'number' ? ordersRes.total : null);
+            setInvoicesTotal(typeof invoicesRes.total === 'number' ? invoicesRes.total : null);
         } catch (err) {
             console.error('Failed to load client data:', err);
         } finally {
@@ -170,6 +182,16 @@ export default function ClientPortalPage() {
         return buckets;
     })();
 
+    // Усечение выборки: total (если есть) больше загруженного, либо total неизвестен
+    // и загрузка уперлась в лимит. Влияет на корректность агрегатов и счётчиков.
+    const ordersTruncated = ordersTotal !== null
+        ? ordersTotal > orders.length
+        : orders.length >= PAGE_LIMIT;
+    const invoicesTruncated = invoicesTotal !== null
+        ? invoicesTotal > invoices.length
+        : invoices.length >= PAGE_LIMIT;
+    const anyTruncated = ordersTruncated || invoicesTruncated;
+
     return (
         <div className="space-y-6">
             <DashboardHeader
@@ -199,6 +221,32 @@ export default function ClientPortalPage() {
                     changeGood={false}
                 />
             </div>
+
+            {/* Предупреждение об усечении: агрегаты и счётчики выше посчитаны по
+                загруженной выборке (лимит {PAGE_LIMIT}), а данных на сервере больше. */}
+            {!loading && anyTruncated && (
+                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    <div>
+                        <p className="font-medium">Показаны не все данные</p>
+                        <p className="mt-0.5 text-amber-700">
+                            {ordersTruncated && (
+                                <span>
+                                    Заявки: показано {orders.length}
+                                    {ordersTotal !== null ? ` из ${ordersTotal}` : ` из более чем ${PAGE_LIMIT}`}.{' '}
+                                </span>
+                            )}
+                            {invoicesTruncated && (
+                                <span>
+                                    Счета: показано {invoices.length}
+                                    {invoicesTotal !== null ? ` из ${invoicesTotal}` : ` из более чем ${PAGE_LIMIT}`}.{' '}
+                                </span>
+                            )}
+                            Метрики и счётчики рассчитаны по загруженной части и могут быть неполными.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Order Funnel */}
             <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">

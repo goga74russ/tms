@@ -55,6 +55,9 @@ export function computeRange(preset: Exclude<Period, 'custom'>, now: Date = new 
         case 'all':
         default:
             from = new Date(2000, 0, 1);
+            // 'all' охватывает всё: to фиксируем на конец текущего дня, иначе
+            // записи, созданные после now (сегодня, но позже), выпадали из «Всё».
+            to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
             break;
     }
     return { from, to, label: PRESET_LABELS[preset], preset };

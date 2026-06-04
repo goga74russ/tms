@@ -40,16 +40,43 @@ export function validateInn(inn: string): { valid: boolean; error?: string } {
 }
 
 /**
- * Validate Russian vehicle plate number format: А000АА00 or А000АА000
- * Accepts both Cyrillic and Latin chars common on plates
+ * Latin → Cyrillic map for visually identical plate letters.
+ * Russian plates use only the 12 letters with Latin look-alikes (А В Е К М Н О Р С Т У Х).
+ * Drivers/operators often type the Latin equivalent (A B E K M H O P C T Y X), producing
+ * a different string for a visually identical plate. We canonicalise to Cyrillic.
  */
-export function validatePlateNumber(plate: string): { valid: boolean; error?: string } {
-    // Acceptable letters on Russian plates (Cyrillic + Latin equivalents)
-    const regex = /^[АВЕКМНОРСТУХABEKMHOPCTYX]\d{3}[АВЕКМНОРСТУХABEKMHOPCTYX]{2}\d{2,3}$/i;
-    if (!regex.test(plate)) {
+const PLATE_LATIN_TO_CYRILLIC: Record<string, string> = {
+    A: 'А', B: 'В', E: 'Е', K: 'К', M: 'М', H: 'Н',
+    O: 'О', P: 'Р', C: 'С', T: 'Т', Y: 'У', X: 'Х',
+};
+
+/**
+ * Normalise a plate to its canonical Cyrillic, upper-case form:
+ * trims surrounding/inner whitespace, upper-cases, then maps Latin look-alikes to Cyrillic.
+ * Visually identical plates ('A000АА77' and 'А000АА77') collapse to the same string.
+ */
+export function normalizePlateNumber(plate: string): string {
+    return plate
+        .replace(/\s+/g, '')
+        .toUpperCase()
+        .split('')
+        .map(ch => PLATE_LATIN_TO_CYRILLIC[ch] ?? ch)
+        .join('');
+}
+
+/**
+ * Validate Russian vehicle plate number format: А000АА00 or А000АА000
+ * Input is normalised to canonical Cyrillic before validation; the canonical
+ * form is returned so callers can persist a single visual representation.
+ */
+export function validatePlateNumber(plate: string): { valid: boolean; error?: string; normalized?: string } {
+    const normalized = normalizePlateNumber(plate);
+    // After normalisation only Cyrillic plate letters remain.
+    const regex = /^[АВЕКМНОРСТУХ]\d{3}[АВЕКМНОРСТУХ]{2}\d{2,3}$/;
+    if (!regex.test(normalized)) {
         return { valid: false, error: 'Формат госномера: А000АА00 или А000АА000' };
     }
-    return { valid: true };
+    return { valid: true, normalized };
 }
 
 /**

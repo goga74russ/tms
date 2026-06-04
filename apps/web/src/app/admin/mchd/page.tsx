@@ -133,8 +133,15 @@ function CreateMchdModal({ open, onClose, onSuccess }: CreateModalProps) {
             setError('Заполните все обязательные поля');
             return;
         }
-        if (!form.certificateXml.trimStart().startsWith('<?xml')) {
+        const xmlTrimmed = form.certificateXml.trim();
+        if (!xmlTrimmed.startsWith('<?xml')) {
             setError('XML должен начинаться с <?xml');
+            return;
+        }
+        // Beyond the prologue должен присутствовать непустой корневой элемент.
+        const afterProlog = xmlTrimmed.replace(/^<\?xml[^>]*\?>/, '').trim();
+        if (!/<[A-Za-z_][\w.-]*(\s[^>]*)?>/.test(afterProlog)) {
+            setError('XML должен содержать корневой элемент');
             return;
         }
         if (new Date(form.expiresAt).getTime() <= new Date(form.issuedAt).getTime()) {
@@ -850,7 +857,7 @@ export default function AdminMchdPage() {
                 onConfirm={handleDelete}
                 title="Удалить МЧД?"
                 description={deleteTarget
-                    ? `МЧД ${deleteTarget.mchdNumber} (${deleteTarget.granteeFullName}) будет помечена как отозванная и скрыта из активного реестра.`
+                    ? `МЧД ${deleteTarget.mchdNumber} (${deleteTarget.granteeFullName}) будет удалена из реестра без возможности восстановления. Это не отзыв с указанием причины — для отзыва используйте действие «Отозвать».`
                     : undefined}
                 destructive
                 loading={deleting}

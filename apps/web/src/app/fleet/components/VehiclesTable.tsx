@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { Plus, Truck, History, ShieldOff, ShieldCheck, Edit2, Pencil, CheckCircle2, UserCheck, Wrench, AlertCircle, Ban, Download } from 'lucide-react';
+import { Plus, Truck, ShieldOff, ShieldCheck, Edit2, Pencil, CheckCircle2, UserCheck, Wrench, AlertCircle, Ban, Download } from 'lucide-react';
 import { VehicleCard } from './VehicleCard';
 import { AddVehicleModal, type EditableVehicle } from './AddVehicleModal';
 import { getVehicleProfile, getVehicleWaybillCue } from './vehicleProfile';
@@ -492,12 +492,6 @@ export function VehiclesTable() {
                             icon: row.isBlocked ? <ShieldCheck className="w-4 h-4" /> : <ShieldOff className="w-4 h-4" />,
                             onClick: () => toggleBlock(row, !row.isBlocked),
                             tone: row.isBlocked ? 'default' : 'danger',
-                        },
-                        {
-                            id: 'history',
-                            label: 'История одометра',
-                            icon: <History className="w-4 h-4" />,
-                            onClick: () => setSelectedId(row.id),
                         },
                     ]}
                     emptyState={

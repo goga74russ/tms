@@ -63,6 +63,19 @@ export async function ingestDddBuffer(args: {
     if (driverId) {
         const daily = aggregateToDailyRecords(parsed);
         for (const d of daily) {
+            // Идемпотентность: повторная загрузка того же .DDD не должна
+            // дублировать записи. Уникального индекса на (driver_id, date,
+            // source) нет, поэтому проверяем существование перед insert.
+            const existing = await db
+                .select({ id: tachographRecords.id })
+                .from(tachographRecords)
+                .where(and(
+                    eq(tachographRecords.driverId, driverId),
+                    eq(tachographRecords.date, d.date),
+                    eq(tachographRecords.source, 'ddd'),
+                ))
+                .limit(1);
+            if (existing.length > 0) continue;
             await db.insert(tachographRecords).values({
                 driverId,
                 date: d.date,

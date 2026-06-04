@@ -20,6 +20,12 @@ async function generateOrderNumber(tx: any): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `ORD-${year}-`;
 
+    // Сериализуем генерацию номера в пределах серии (год). Lock живёт до конца
+    // tx — параллельные createOrder ждут друг друга, исключая race по max(number)
+    // (паттерн как в invoice-workflow.service.ts / auth.ts). Retry по UNIQUE ниже
+    // остаётся как страховка.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${'order_number|' + prefix})::bigint)`);
+
     let seq = 1;
     const [lastOrder] = await tx
         .select({ number: orders.number })

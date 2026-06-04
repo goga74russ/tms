@@ -111,15 +111,29 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
     }, [vehicleId]);
 
     useEffect(() => {
+        let cancelled = false;
         (async () => {
+            // Прицеп ссылается на ТС через currentVehicleId; обратного эндпоинта
+            // (прицеп по vehicleId / прицеп по id) нет, поэтому ищем по списку.
+            // Сервер клампит limit до 100 — при >100 прицепов назначенный мог не
+            // попасть в одну страницу, поэтому листаем постранично до совпадения.
+            const PAGE_LIMIT = 100;
             try {
-                const result = await api.get<any>('/fleet/trailers?limit=200');
-                const trailer = (result.data || []).find((item: TrailerLink) => item.currentVehicleId === vehicleId) || null;
-                setAssignedTrailer(trailer);
+                let found: TrailerLink | null = null;
+                for (let page = 1; ; page += 1) {
+                    const result = await api.get<any>(`/fleet/trailers?limit=${PAGE_LIMIT}&page=${page}`);
+                    const rows: TrailerLink[] = result.data || [];
+                    found = rows.find((item) => item.currentVehicleId === vehicleId) || null;
+                    if (found || rows.length < PAGE_LIMIT) break;
+                }
+                if (!cancelled) setAssignedTrailer(found);
             } catch (err) {
                 console.error('Failed to load trailer link:', err);
             }
         })();
+        return () => {
+            cancelled = true;
+        };
     }, [vehicleId]);
 
     async function loadVehicle() {

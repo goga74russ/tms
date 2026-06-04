@@ -80,7 +80,7 @@ function renderInline(text: string): React.ReactNode[] {
     while (rest.length > 0) {
         const bold = rest.match(/^\*\*(.+?)\*\*/);
         if (bold) {
-            out.push(<strong key={key++} className="font-semibold text-neutral-900">{bold[1]}</strong>);
+            out.push(<strong key={key++} className="font-semibold text-neutral-900">{renderInline(bold[1])}</strong>);
             rest = rest.slice(bold[0].length);
             continue;
         }
@@ -97,10 +97,10 @@ function renderInline(text: string): React.ReactNode[] {
             const url = link[2].trim();
             const safe = /^(https?:|mailto:|tel:)/i.test(url) || /^(\/|#|\.\/|\.\.\/)/.test(url);
             if (safe) {
-                out.push(<a key={key++} href={url} className="text-brand-600 hover:text-brand-700 underline" target="_blank" rel="noopener noreferrer">{link[1]}</a>);
+                out.push(<a key={key++} href={url} className="text-brand-600 hover:text-brand-700 underline" target="_blank" rel="noopener noreferrer">{renderInline(link[1])}</a>);
             } else {
                 // Небезопасная схема → рендерим только текст ссылки, без href.
-                out.push(<span key={key++}>{link[1]}</span>);
+                out.push(<span key={key++}>{renderInline(link[1])}</span>);
             }
             rest = rest.slice(link[0].length);
             continue;

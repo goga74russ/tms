@@ -249,52 +249,66 @@ async function ensureRepairPartCatalogHydrated() {
 
     if (existing) return;
 
-    const repairs = await db
-        .select({ partsUsed: repairRequests.partsUsed })
-        .from(repairRequests)
-        .limit(1000);
+    // Гидрация выполняется один раз. Два параллельных первых запроса оба проходят проверку
+    // LIMIT 1 выше, поэтому захватываем транзакционный advisory-lock и перепроверяем
+    // наличие записей уже внутри транзакции, чтобы только один воркер выполнял гидрацию.
+    await db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('repair_part_catalog:hydrate')::bigint)`);
 
-    const candidates = new Map<string, {
-        code: string;
-        name: string;
-        category: string;
-        unit: string;
-        suggestedUnitCost: number;
-        aliases: string[];
-    }>();
+        const [stillEmpty] = await tx
+            .select({ id: repairPartCatalog.id })
+            .from(repairPartCatalog)
+            .limit(1);
 
-    for (const repair of repairs) {
-        for (const rawPart of mergeRepairParts((repair.partsUsed as RepairPart[] | null) || [])) {
-            const part = normalizePart(rawPart);
-            const name = (part.catalogName || part.name || '').trim();
-            if (!name) continue;
+        if (stillEmpty) return;
 
-            const category = (part.catalogCategory || 'Без категории').trim();
-            const unit = (part.unit || 'шт').trim();
-            const code = createCatalogCode({ code: `${name}-${category}-${unit}` });
+        const repairs = await tx
+            .select({ partsUsed: repairRequests.partsUsed })
+            .from(repairRequests)
+            .limit(1000);
 
-            if (!candidates.has(code)) {
-                candidates.set(code, {
-                    code,
-                    name,
-                    category,
-                    unit,
-                    suggestedUnitCost: Number(part.suggestedUnitCost ?? part.estimatedUnitCost ?? part.actualUnitCost ?? part.cost ?? 0),
-                    aliases: [],
-                });
+        const candidates = new Map<string, {
+            code: string;
+            name: string;
+            category: string;
+            unit: string;
+            suggestedUnitCost: number;
+            aliases: string[];
+        }>();
+
+        for (const repair of repairs) {
+            for (const rawPart of mergeRepairParts((repair.partsUsed as RepairPart[] | null) || [])) {
+                const part = normalizePart(rawPart);
+                const name = (part.catalogName || part.name || '').trim();
+                if (!name) continue;
+
+                const category = (part.catalogCategory || 'Без категории').trim();
+                const unit = (part.unit || 'шт').trim();
+                const code = createCatalogCode({ code: `${name}-${category}-${unit}` });
+
+                if (!candidates.has(code)) {
+                    candidates.set(code, {
+                        code,
+                        name,
+                        category,
+                        unit,
+                        suggestedUnitCost: Number(part.suggestedUnitCost ?? part.estimatedUnitCost ?? part.actualUnitCost ?? part.cost ?? 0),
+                        aliases: [],
+                    });
+                }
             }
         }
-    }
 
-    if (candidates.size === 0) return;
+        if (candidates.size === 0) return;
 
-    await db
-        .insert(repairPartCatalog)
-        .values(Array.from(candidates.values()).map((item) => ({
-            ...item,
-            isArchived: false,
-        })))
-        .onConflictDoNothing();
+        await tx
+            .insert(repairPartCatalog)
+            .values(Array.from(candidates.values()).map((item) => ({
+                ...item,
+                isArchived: false,
+            })))
+            .onConflictDoNothing();
+    });
 }
 
 async function loadRepairPartCatalogItems(options?: {

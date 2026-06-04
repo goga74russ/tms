@@ -196,11 +196,18 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
                 .where(user.organizationId
                     ? and(eq(notificationSubscriptions.isActive, true), eq(notificationSubscriptions.organizationId, user.organizationId))
                     : eq(notificationSubscriptions.isActive, true));
+            const text = message || '🧪 <b>Тестовое уведомление</b>\n\nТрансПульт работает корректно!';
+            // Рассылаем параллельно батчами (ограничение конкуренции), результат отправки сохраняем.
+            const BATCH_SIZE = 20;
             let sent = 0;
-            for (const sub of subs) {
-                const res = await sendMessage(sub.telegramChatId,
-                    message || '🧪 <b>Тестовое уведомление</b>\n\nТрансПульт работает корректно!');
-                if (res.ok) sent++;
+            for (let i = 0; i < subs.length; i += BATCH_SIZE) {
+                const batch = subs.slice(i, i + BATCH_SIZE);
+                const results = await Promise.allSettled(
+                    batch.map((sub) => sendMessage(sub.telegramChatId, text)),
+                );
+                for (const r of results) {
+                    if (r.status === 'fulfilled' && r.value.ok) sent++;
+                }
             }
             return { success: true, sent };
         }

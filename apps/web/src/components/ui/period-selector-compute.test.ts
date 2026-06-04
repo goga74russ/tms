@@ -41,10 +41,13 @@ describe('computeRange', () => {
         expect(r.label).toBe('Год');
     });
 
-    it("'all' -> from = 2000-01-01, to = now, label 'Всё'", () => {
+    it("'all' -> from = 2000-01-01, to = конец текущего дня, label 'Всё'", () => {
         const r = computeRange('all', NOW);
         expect(r.from.getTime()).toBe(new Date(2000, 0, 1).getTime());
-        expect(r.to.getTime()).toBe(NOW.getTime());
+        // C9: 'all' теперь фиксирует to на КОНЕЦ текущего дня (а не на now),
+        // иначе записи, созданные сегодня но позже now, выпадали из «Всё».
+        const endOfDay = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate(), 23, 59, 59, 999);
+        expect(r.to.getTime()).toBe(endOfDay.getTime());
         expect(r.label).toBe('Всё');
     });
 

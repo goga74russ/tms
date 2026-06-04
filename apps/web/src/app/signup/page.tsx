@@ -238,14 +238,14 @@ export default function SignupPage() {
                 companyName: companyName || undefined,
             });
             if (!res.success) {
-                const message = res.error ?? 'Ошибка регистрации';
-                if (/email|exist/i.test(message)) {
-                    setErrors((prev) => ({ ...prev, email: 'Этот e-mail уже зарегистрирован' }));
-                }
+                // Enumeration-safe: бэкенд на существующий email возвращает
+                // success (А-P2), поэтому сюда попадают только настоящие сбои.
+                // Не парсим res.error на «email занят» и не показываем серверное
+                // message — это раскрывало бы существование адреса. Нейтральный текст.
                 toast({
                     variant: 'error',
                     title: 'Не удалось создать аккаунт',
-                    description: message,
+                    description: 'Проверьте введённые данные и попробуйте ещё раз.',
                 });
                 return;
             }

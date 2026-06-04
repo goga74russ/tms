@@ -159,6 +159,7 @@ function CreateIncidentModal({ onClose, onCreated }: { onClose: () => void; onCr
 
 export default function IncidentsPage() {
     const [incidents, setIncidents] = useState<Incident[]>([]);
+    const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
     const [severity, setSeverity] = useState('');
     const [status, setStatus] = useState('');
@@ -174,6 +175,7 @@ export default function IncidentsPage() {
             const result = await api.get<any>(`/incidents?${params.toString()}`);
             const rows = result.data || [];
             setIncidents(rows);
+            setTotal(typeof result.total === 'number' ? result.total : rows.length);
         } catch (err) {
             console.error('Failed to load incidents:', err);
         } finally {
@@ -267,6 +269,12 @@ export default function IncidentsPage() {
                 <Stat label="Критичные" value={criticalCount} icon={ShieldAlert} tone={criticalCount > 0 ? 'danger' : 'neutral'} />
                 <Stat label="Блокируют выпуск" value={blockingCount} icon={ShieldAlert} tone={blockingCount > 0 ? 'danger' : 'neutral'} />
             </div>
+
+            {total > incidents.length && (
+                <p className="text-sm text-neutral-500">
+                    Показано {incidents.length} из {total}. Уточните фильтры, чтобы увидеть остальные.
+                </p>
+            )}
 
             <DataTable<Incident>
                 tableId="incidents"

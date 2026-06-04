@@ -152,6 +152,12 @@ export function canTransitionInvoice(ctx: TransitionContext): TransitionResult {
         return { allowed: false, reason: 'Cancelled invoices cannot be revived' };
     }
 
+    // corrected — финальный (после выпуска корректировки исходник заморожен;
+    // дальнейшие правки идут через новый corrective_* документ, не через FSM исходника)
+    if (from === 'corrected') {
+        return { allowed: false, reason: 'Corrected invoices are final — issue a new corrective document' };
+    }
+
     // paid_full → paid_partial запрещён (только через возвратный документ)
     if (from === 'paid_full' && to === 'paid_partial') {
         return { allowed: false, reason: 'Cannot revert paid_full to paid_partial (use return doc)' };
@@ -210,8 +216,13 @@ export function canTransitionInvoice(ctx: TransitionContext): TransitionResult {
         return { allowed: false, reason: 'Cannot cancel paid_full (use return doc)' };
     }
 
-    // issued → corrected (через выпуск corrective_*)
-    if (from === 'issued' && to === 'corrected') {
+    // issued / paid_partial / paid_full → corrected (через выпуск corrective_*)
+    // Корректировка допустима и для оплаченных СФ/УПД (КСФ на разницу/возврат),
+    // не только для невыставленных к оплате.
+    if (
+        (from === 'issued' || from === 'paid_partial' || from === 'paid_full')
+        && to === 'corrected'
+    ) {
         return { allowed: true };
     }
 

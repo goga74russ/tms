@@ -119,10 +119,21 @@ export function DowntimeRecordsTable() {
 
     async function submitClose() {
         if (!closingRow) return;
+        // Клиентская валидация: окончание должно быть строго позже начала простоя.
+        const endDate = new Date(closeDraft.endAt);
+        const startDate = new Date(closingRow.record.startAt);
+        if (Number.isNaN(endDate.getTime())) {
+            toast({ variant: 'error', title: 'Ошибка', description: 'Укажите корректную дату окончания.' });
+            return;
+        }
+        if (endDate.getTime() <= startDate.getTime()) {
+            toast({ variant: 'error', title: 'Ошибка', description: 'Окончание должно быть позже начала простоя.' });
+            return;
+        }
         setSubmitting(true);
         try {
             await api.put(`/fleet/downtime-records/${closingRow.record.id}`, {
-                endAt: new Date(closeDraft.endAt).toISOString(),
+                endAt: endDate.toISOString(),
                 description: closeDraft.description || undefined,
             });
             toast({ variant: 'success', title: 'Простой завершён' });
