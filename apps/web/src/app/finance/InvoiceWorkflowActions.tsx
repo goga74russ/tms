@@ -30,11 +30,18 @@ const ISSUABLE_TYPES = [
 
 const VAT_DOC_TYPES = ["sf", "upd", "corrective_sf", "corrective_upd"];
 
-async function loadDeliveredOrders(): Promise<OrderOption[]> {
+const ORDERS_PAGE_LIMIT = 200;
+
+// Имя обещает delivered — фильтруем по статусу. Возвращаем total для индикатора
+// усечения «показано N из M» (заявки сверх лимита иначе невыпускаемы).
+async function loadDeliveredOrders(): Promise<{ data: OrderOption[]; total: number }> {
     try {
-        const res = await api.get<{ success: boolean; data: OrderOption[] }>("/orders?limit=200");
-        return res.data || [];
-    } catch { return []; }
+        const res = await api.get<{ success: boolean; data: OrderOption[]; total?: number }>(
+            `/orders?status=delivered&limit=${ORDERS_PAGE_LIMIT}`,
+        );
+        const data = res.data || [];
+        return { data, total: res.total ?? data.length };
+    } catch { return { data: [], total: 0 }; }
 }
 
 // ============================================================
@@ -99,6 +106,7 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
     const [modal, setModal] = useState<ModalKind>(null);
     const [busy, setBusy] = useState(false);
     const [orders, setOrders] = useState<OrderOption[]>([]);
+    const [ordersTotal, setOrdersTotal] = useState(0);
 
     // issue form
     const [basisText, setBasisText] = useState("");
@@ -123,7 +131,9 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
         setModal(kind);
         setOverdueInfo(null); setOverdueReason("");
         if (kind === "issue" || kind === "correction") {
-            setOrders(await loadDeliveredOrders());
+            const loaded = await loadDeliveredOrders();
+            setOrders(loaded.data);
+            setOrdersTotal(loaded.total);
             if (kind === "issue") { setBasisText(""); setAllocs([{ orderId: "", allocatedAmount: "" }]); }
         }
         if (kind === "payment") { setPayAmount(String(Math.max(Number(invoice.total) - Number(invoice.paidAmount ?? 0), 0))); setPayRef(""); }
@@ -171,6 +181,12 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
     const submitPayment = async () => {
         const amount = Number(payAmount);
         if (!amount || amount <= 0) { toast({ variant: "warning", title: "Сумма", description: "Укажите сумму оплаты" }); return; }
+        // Запрет переплаты на UI: остаток = total − уже оплачено (та же формула, что и при предзаполнении).
+        const remaining = Math.max(Number(invoice.total) - Number(invoice.paidAmount ?? 0), 0);
+        if (amount > remaining + 0.005) {
+            toast({ variant: "error", title: "Переплата", description: `Сумма больше остатка по счёту (${remaining.toFixed(2)})` });
+            return;
+        }
         setBusy(true);
         try {
             await api.post(`/finance/invoices/${invoice.id}/register-payment`, {
@@ -230,6 +246,11 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
     const allocator = (
         <div className="space-y-2">
             <p className="text-xs font-medium text-neutral-600">Заявки и распределение суммы</p>
+            {ordersTotal > orders.length && (
+                <p className="text-xs text-amber-600">
+                    Показано {orders.length} из {ordersTotal} заявок — уточните поиск, остальные не загружены.
+                </p>
+            )}
             {allocs.map((a, i) => (
                 <div key={i} className="flex gap-2 items-center">
                     <Select

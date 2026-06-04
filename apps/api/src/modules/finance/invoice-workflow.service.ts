@@ -655,6 +655,24 @@ export async function registerPayment(
 
         const total = num(invoice.total);
         const newPaid = num(invoice.paidAmount) + input.amount;
+
+        // Overpay guard: раньше newPaid > total молча писалось в paidAmount
+        // (переплата терялась, статус всё равно paid_full). Отклоняем явную
+        // переплату сверх суммы счёта. Допуск 0.01 — копеечные округления при
+        // полном погашении (float-арифметика) не должны давать ложный отказ.
+        // ВНИМАНИЕ: математика paid_partial/paid_full ниже НЕ меняется.
+        const OVERPAY_TOLERANCE = 0.01;
+        if (newPaid - total > OVERPAY_TOLERANCE) {
+            const remaining = Math.max(0, num((total - num(invoice.paidAmount)).toFixed(2)));
+            throw new InvoiceWorkflowError(
+                'OVERPAYMENT',
+                `Сумма платежа превышает остаток к оплате (остаток ${remaining}, попытка зачесть ${input.amount}). `
+                + 'Переплата сверх суммы счёта не допускается.',
+                422,
+                { total, alreadyPaid: num(invoice.paidAmount), remaining, attempted: input.amount },
+            );
+        }
+
         const targetStatus = newPaid >= total ? 'paid_full' : 'paid_partial';
 
         const fsmCheck = canTransitionInvoice({

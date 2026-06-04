@@ -5,7 +5,50 @@ import { uploadPhoto } from './upload';
 
 const QUEUE_KEY = 'tms_offline_action_queue';
 const FAILED_QUEUE_KEY = 'tms_offline_action_queue.failed';
+const CORRUPT_QUEUE_KEY = 'tms_offline_action_queue.corrupt';
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+
+/**
+ * Serializes writes to the primary queue so concurrent enqueueAction calls
+ * (read-modify-write of the same key) cannot clobber each other's elements.
+ * Each operation chains off the previous one via this module-level promise.
+ */
+let queueWriteLock: Promise<void> = Promise.resolve();
+
+function withQueueWriteLock<T>(op: () => Promise<T>): Promise<T> {
+    const run = queueWriteLock.then(op, op);
+    // Keep the chain alive even if op rejects, without surfacing its error here.
+    queueWriteLock = run.then(
+        () => undefined,
+        () => undefined,
+    );
+    return run;
+}
+
+/**
+ * Preserve a payload that failed to decode/parse so it can be diagnosed or
+ * recovered later, instead of silently discarding offline actions
+ * (tripId/pointId/GPS/photoUrls). Best-effort: never throws.
+ */
+async function preserveCorruptPayload(sourceKey: string, raw: string, error: unknown): Promise<void> {
+    console.warn(`[offlineQueue] Failed to parse "${sourceKey}"; payload preserved in "${CORRUPT_QUEUE_KEY}"`, error);
+    try {
+        const prevRaw = await AsyncStorage.getItem(CORRUPT_QUEUE_KEY);
+        let entries: unknown[] = [];
+        if (prevRaw) {
+            try {
+                const parsed = JSON.parse(prevRaw);
+                if (Array.isArray(parsed)) entries = parsed;
+            } catch {
+                // Existing corrupt-store itself unreadable — start fresh, do not lose new entry.
+            }
+        }
+        entries.push({ sourceKey, raw, at: new Date().toISOString() });
+        await AsyncStorage.setItem(CORRUPT_QUEUE_KEY, JSON.stringify(entries));
+    } catch (persistErr) {
+        console.warn('[offlineQueue] Failed to persist corrupt payload', persistErr);
+    }
+}
 
 /** Encode queue JSON before storing to prevent casual inspection of offline data */
 function encodeQueue(data: string): string {
@@ -37,21 +80,29 @@ export interface OfflineAction {
 }
 
 export async function enqueueAction(action: Omit<OfflineAction, 'id' | 'createdAt' | 'retries'>): Promise<void> {
-    const queue = await getQueue();
-    queue.push({
-        ...action,
-        id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        createdAt: new Date().toISOString(),
-        retries: 0,
+    // Serialize the read-modify-write so concurrent enqueues don't overwrite
+    // each other and drop elements.
+    await withQueueWriteLock(async () => {
+        const queue = await getQueue();
+        queue.push({
+            ...action,
+            id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            createdAt: new Date().toISOString(),
+            retries: 0,
+        });
+        await AsyncStorage.setItem(QUEUE_KEY, encodeQueue(JSON.stringify(queue)));
     });
-    await AsyncStorage.setItem(QUEUE_KEY, encodeQueue(JSON.stringify(queue)));
 }
 
 export async function getQueue(): Promise<OfflineAction[]> {
+    const raw = await AsyncStorage.getItem(QUEUE_KEY);
+    if (!raw) return [];
     try {
-        const raw = await AsyncStorage.getItem(QUEUE_KEY);
-        return raw ? JSON.parse(decodeQueue(raw)) : [];
-    } catch {
+        return JSON.parse(decodeQueue(raw));
+    } catch (error) {
+        // Do not silently drop offline actions on corruption: preserve the raw
+        // payload for diagnostics/recovery before falling back to empty.
+        await preserveCorruptPayload(QUEUE_KEY, raw, error);
         return [];
     }
 }
@@ -65,10 +116,13 @@ export async function clearQueue(): Promise<void> {
 
 /** Returns actions that exceeded the retry budget and were moved to the dead-letter queue. */
 export async function getFailedQueue(): Promise<OfflineAction[]> {
+    const raw = await AsyncStorage.getItem(FAILED_QUEUE_KEY);
+    if (!raw) return [];
     try {
-        const raw = await AsyncStorage.getItem(FAILED_QUEUE_KEY);
-        return raw ? JSON.parse(decodeQueue(raw)) : [];
-    } catch {
+        return JSON.parse(decodeQueue(raw));
+    } catch (error) {
+        // Same as getQueue: preserve dead-letter payloads instead of dropping.
+        await preserveCorruptPayload(FAILED_QUEUE_KEY, raw, error);
         return [];
     }
 }

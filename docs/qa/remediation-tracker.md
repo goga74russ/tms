@@ -330,7 +330,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 
 ### DoD-леджер P2/P3 (181) — в работе
 
-**Прогресс: 181/181 — вердикт выставлен на каждую (~48 FIXED/VERIFIED, ~133 DEFER-каталог D1-D9 с причинами).**
+**Прогресс: ~104/181 FIXED/VERIFIED (батчи S/C/SE/M/F/G + мульти-агент волны 1-4 под ревью+гейтами); остальное — DEFER-каталог.**
 
 **Батч S (cross-tenant security) — FIXED:**
 - [x] `finance/tariff-rules.service.ts:55` getTripTariff — добавлен org-фильтр (тариф чужого тенанта по tripId); route передаёт user.organizationId

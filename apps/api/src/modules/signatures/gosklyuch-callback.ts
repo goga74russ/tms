@@ -152,6 +152,24 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             });
         }
 
+        // ── FSM-гейт (audit C1) ─────────────────────────────────────────────
+        // Документ в терминальном статусе (rejected/completed/corrected)
+        // заморожен — не применяем подпись на замороженном документе, чтобы
+        // не плодить юридически бессмысленные подписи после закрытия флоу.
+        // status — свободный varchar(50); сверяем по нижнему регистру.
+        const TERMINAL_DOCUMENT_STATUSES = new Set(['rejected', 'completed', 'corrected']);
+        if (TERMINAL_DOCUMENT_STATUSES.has(String(row.status ?? '').toLowerCase())) {
+            request.log.warn(
+                { documentId: row.id, externalId, status: row.status },
+                'Госключ callback: документ в терминальном статусе — подпись не применяется',
+            );
+            return reply.status(409).send({
+                success: false,
+                error: 'Документ в терминальном статусе — подпись не принимается',
+                status: row.status,
+            });
+        }
+
         // ---- Resolve mchdId/signerInn/titleType ----------------------------
         // D5: server-side metadata.pendingSignatures[externalId] записан
         // в POST /transport-documents/:id/sign — это trusted источник.
@@ -311,7 +329,53 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
         const prevState = (rowMetadata.signatureState && typeof rowMetadata.signatureState === 'object'
             ? rowMetadata.signatureState as Record<string, unknown>
             : {});
-        const stateStatus = sealAsSigned ? 'signed' : 'pending_review';
+
+        // ── Per-title учёт (audit C1) ───────────────────────────────────────
+        // ЭТрН — многотитульный документ (T01/T02/T05/T06). Один callback
+        // подписывает ОДИН титул, поэтому глобальный signatureState.status
+        // нельзя выставлять в 'signed' до подписания всех требуемых титулов.
+        // Храним статус по каждому титулу в signatureState.titles[titleType]
+        // и выводим из него агрегат:
+        //   • 'signed'          — все требуемые титулы подписаны;
+        //   • 'partially_signed'— подписан хотя бы один, но не все;
+        //   • 'pending_review'  — текущая подпись не прошла seal-гейт.
+        // Источник истины — metadata.signatures[] (titleType + state),
+        // куда current entry уже добавлен выше.
+        const REQUIRED_TITLE_TYPES = ['T01', 'T02', 'T05', 'T06'] as const;
+        const prevTitles = (prevState.titles && typeof prevState.titles === 'object'
+            ? prevState.titles as Record<string, unknown>
+            : {});
+        // Статус текущего титула: signed только при пройденном seal-гейте.
+        const currentTitleStatus = sealAsSigned ? 'signed' : 'pending_review';
+        // Множество подписанных титулов = signatures[] со state==='signed'
+        // (current entry уже добавлен) + ранее зафиксированные в titles[].
+        const signedTitleSet = new Set<string>();
+        for (const sig of existingSignatures) {
+            const tt = typeof sig.titleType === 'string' ? sig.titleType : null;
+            if (tt && sig.state === 'signed') signedTitleSet.add(tt);
+        }
+        for (const [tt, st] of Object.entries(prevTitles)) {
+            if (st === 'signed') signedTitleSet.add(tt);
+        }
+        const allRequiredSigned = REQUIRED_TITLE_TYPES.every((tt) => signedTitleSet.has(tt));
+
+        // Агрегатный статус: pending_review текущей подписи имеет приоритет
+        // (явный сигнал «есть подпись, требующая ручной проверки»). Иначе —
+        // signed только когда подписаны ВСЕ титулы, иначе partially_signed.
+        let stateStatus: string;
+        if (!sealAsSigned) {
+            stateStatus = 'pending_review';
+        } else if (allRequiredSigned) {
+            stateStatus = 'signed';
+        } else {
+            stateStatus = 'partially_signed';
+        }
+
+        // Per-title карта статусов для signatureState.titles[titleType].
+        const nextTitles: Record<string, unknown> = { ...prevTitles };
+        if (titleType) {
+            nextTitles[titleType] = currentTitleStatus;
+        }
         // После успешной подписи pendingSignatures[externalId] нужно
         // снять — он своё дело сделал и больше не trusted-источник.
         const remainingPending: Record<string, unknown> = { ...pendingMap };
@@ -324,6 +388,7 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
             signatureState: {
                 ...prevState,
                 status: stateStatus,
+                titles: nextTitles, // C1: per-title статусы (T01/T02/T05/T06)
                 provider: 'gosklyuch',
                 lastSignedAt: recordedAt.toISOString(),
                 mchdId: mchdRecord?.id ?? null,

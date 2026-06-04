@@ -28,6 +28,16 @@ interface Tariff {
     vatRate: number | string;
 }
 
+// Допустимые ставки НДС в РФ (free-form numeric убран: возможны были недопустимые ставки).
+// «Без НДС» выражается отдельным флагом vatIncluded=false, поэтому сюда не входит.
+const VAT_RATES = ['0', '10', '20'] as const;
+const VAT_RATE_OPTIONS = VAT_RATES.map(r => ({ value: r, label: `${r}%` }));
+const normalizeVatRate = (value: number | string | null | undefined): string => {
+    const n = toNumber(value);
+    const asStr = n === null ? '20' : String(n);
+    return (VAT_RATES as readonly string[]).includes(asStr) ? asStr : '20';
+};
+
 const TYPE_LABELS: Record<string, string> = {
     fixed: 'Фиксированный',
     fixed_route: 'Фиксированный маршрут',
@@ -118,7 +128,7 @@ function TariffModal({
         weekendCoefficient: tariff?.weekendCoefficient?.toString() || '1',
         minTripCost: tariff?.minTripCost?.toString() || '0',
         vatIncluded: tariff?.vatIncluded ?? true,
-        vatRate: tariff?.vatRate?.toString() || '20',
+        vatRate: normalizeVatRate(tariff?.vatRate),
     });
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -142,7 +152,7 @@ function TariffModal({
             weekendCoefficient: parseFloat(form.weekendCoefficient) || 1,
             minTripCost: parseFloat(form.minTripCost) || 0,
             vatIncluded: form.vatIncluded,
-            vatRate: parseFloat(form.vatRate) || 20,
+            vatRate: parseFloat(normalizeVatRate(form.vatRate)),
         };
 
         try {
@@ -281,13 +291,15 @@ function TariffModal({
                         value={form.minTripCost}
                         onChange={e => setForm(prev => ({ ...prev, minTripCost: e.target.value }))}
                     />
-                    <Input
-                        type="number"
-                        step="0.1"
-                        label="НДС %"
-                        value={form.vatRate}
-                        onChange={e => setForm(prev => ({ ...prev, vatRate: e.target.value }))}
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-1.5">НДС %</label>
+                        <Select
+                            value={form.vatRate}
+                            onChange={e => setForm(prev => ({ ...prev, vatRate: e.target.value }))}
+                            options={VAT_RATE_OPTIONS}
+                            disabled={!form.vatIncluded}
+                        />
+                    </div>
                     <div className="flex items-end pb-1">
                         <label className="flex cursor-pointer items-center gap-2">
                             <input

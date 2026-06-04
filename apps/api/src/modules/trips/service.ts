@@ -935,6 +935,21 @@ export async function assignTrip(
 
     // --- Proceed with assignment (in transaction) ---
     const updated = await db.transaction(async (tx) => {
+        // TOCTOU-fix: блокируем строку рейса и перечитываем статус ВНУТРИ tx.
+        // Раньше status проверялся только вне транзакции (getTripById выше) →
+        // два параллельных assign оба проходили проверку и оба писали ASSIGNED.
+        // Паттерн как registerPayment (invoice-workflow.service.ts) / changeOrderStatus.
+        const [locked] = await tx
+            .select({ status: trips.status })
+            .from(trips)
+            .where(eq(trips.id, tripId))
+            .for('update')
+            .limit(1);
+        if (!locked) throw new Error('Рейс не найден');
+        if (locked.status !== TripStatus.PLANNING) {
+            throw new Error('Назначение возможно только для рейсов в статусе "Планируется"');
+        }
+
     const [result] = await tx
             .update(trips)
             .set({
