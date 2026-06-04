@@ -16,26 +16,32 @@ interface OptionItem {
     label: string;
 }
 
+function createInitialForm() {
+    return {
+        vehicleId: '',
+        driverId: '',
+        tripId: '',
+        recordedAt: toLocalDateTimeInputValue(),
+        liters: '',
+        costPerLiter: '',
+        fuelType: 'diesel',
+        station: '',
+        odometerAtFill: '',
+    };
+}
+
 export function AddFuelRecordModal({ open, onClose, onCreated }: AddFuelRecordModalProps) {
     const [vehicles, setVehicles] = useState<OptionItem[]>([]);
     const [drivers, setDrivers] = useState<OptionItem[]>([]);
     const [trips, setTrips] = useState<OptionItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [form, setForm] = useState({
-        vehicleId: '',
-        driverId: '',
-        tripId: '',
-        recordedAt: toLocalDateTimeInputValue(),
-        liters: '0',
-        costPerLiter: '0',
-        fuelType: 'diesel',
-        station: '',
-        odometerAtFill: '',
-    });
+    const [form, setForm] = useState(createInitialForm);
 
     useEffect(() => {
         if (!open) return;
+        setForm(createInitialForm());
+        setError('');
         (async () => {
             try {
                 const [vehicleRes, driverRes, tripRes] = await Promise.all([
@@ -60,6 +66,16 @@ export function AddFuelRecordModal({ open, onClose, onCreated }: AddFuelRecordMo
             setError('Выберите транспорт.');
             return;
         }
+        const liters = Number(form.liters);
+        const costPerLiter = Number(form.costPerLiter);
+        if (!Number.isFinite(liters) || liters <= 0) {
+            setError('Укажите количество литров больше нуля.');
+            return;
+        }
+        if (!Number.isFinite(costPerLiter) || costPerLiter <= 0) {
+            setError('Укажите цену за литр больше нуля.');
+            return;
+        }
         setLoading(true);
         setError('');
         try {
@@ -68,9 +84,9 @@ export function AddFuelRecordModal({ open, onClose, onCreated }: AddFuelRecordMo
                 driverId: form.driverId || undefined,
                 tripId: form.tripId || undefined,
                 recordedAt: new Date(form.recordedAt).toISOString(),
-                liters: Number(form.liters),
-                costPerLiter: Number(form.costPerLiter),
-                totalCost,
+                liters,
+                costPerLiter,
+                totalCost: liters * costPerLiter,
                 fuelType: form.fuelType,
                 station: form.station || undefined,
                 odometerAtFill: form.odometerAtFill ? Number(form.odometerAtFill) : undefined,

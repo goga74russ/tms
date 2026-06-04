@@ -47,6 +47,13 @@ export function CopilotChat() {
     const [historyOpen, setHistoryOpen] = useState(false);
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLTextAreaElement | null>(null);
+    const abortRef = useRef<AbortController | null>(null);
+
+    // Отменяем активный SSE-стрим при размонтировании панели, иначе читатель
+    // ответа остаётся подвешенным и течёт.
+    useEffect(() => {
+        return () => abortRef.current?.abort();
+    }, []);
 
     // Autofocus the input as soon as the chat panel mounts — users almost
     // always open the FAB to type, so a manual click into the textarea is
@@ -135,11 +142,14 @@ export function CopilotChat() {
         setTurns((prev) => [...prev, userTurn, assistantTurn]);
         const assistantId = assistantTurn.id;
 
+        const controller = new AbortController();
+        abortRef.current = controller;
+
         try {
             const stream = api.streamSSE('/copilot/chat', {
                 conversationId,
                 message: trimmed,
-            });
+            }, controller.signal);
             for await (const ev of stream) {
                 const event = ev.data as CopilotStreamEvent;
                 if (event.type === 'conversation') {
@@ -186,8 +196,12 @@ export function CopilotChat() {
                 }
             }
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Ошибка соединения');
+            // Прерывание стрима при размонтировании — не ошибка для пользователя.
+            if (!(err instanceof DOMException && err.name === 'AbortError')) {
+                setError(err instanceof Error ? err.message : 'Ошибка соединения');
+            }
         } finally {
+            if (abortRef.current === controller) abortRef.current = null;
             setBusy(false);
         }
     }, [busy, conversationId]);

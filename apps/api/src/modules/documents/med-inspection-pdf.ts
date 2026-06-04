@@ -30,21 +30,24 @@ export async function generateMedInspectionPdf(inspectionId: string): Promise<Bu
         throw new Error('Med inspection not found');
     }
 
-    const [driver] = insp.driverId
-        ? await db
-            .select({ fullName: drivers.fullName, licenseNumber: drivers.licenseNumber })
-            .from(drivers)
-            .where(eq(drivers.id, insp.driverId))
-            .limit(1)
-        : [null as any];
-
-    const [medic] = insp.medicId
-        ? await db
-            .select({ fullName: users.fullName })
-            .from(users)
-            .where(eq(users.id, insp.medicId))
-            .limit(1)
-        : [null as any];
+    const [driverRows, medicRows] = await Promise.all([
+        insp.driverId
+            ? db
+                .select({ fullName: drivers.fullName, licenseNumber: drivers.licenseNumber })
+                .from(drivers)
+                .where(eq(drivers.id, insp.driverId))
+                .limit(1)
+            : Promise.resolve([null as any]),
+        insp.medicId
+            ? db
+                .select({ fullName: users.fullName })
+                .from(users)
+                .where(eq(users.id, insp.medicId))
+                .limit(1)
+            : Promise.resolve([null as any]),
+    ]);
+    const [driver] = driverRows;
+    const [medic] = medicRows;
 
     let tripNumber: string | null = null;
     if (insp.tripId) {

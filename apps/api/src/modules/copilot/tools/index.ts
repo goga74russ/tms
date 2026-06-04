@@ -194,24 +194,37 @@ const listTripsAtRiskTool: CopilotTool<z.infer<typeof ListTripsAtRiskInput>> = {
             ))
             .limit(50);
 
+        // T-22 (parallel): было N+2 последовательных round-trip'а на кандидата
+        // (computeTripEta + routePoints) — теперь оба запроса по каждому кандидату
+        // выполняются параллельно через Promise.all (как в propose_reassignment).
+        // Фильтрация/ранний break по limit сохраняют прежний детерминированный
+        // порядок (по порядку candidates).
+        const evaluated = await Promise.all(
+            candidates.map(async (trip) => {
+                const [eta, [point]] = await Promise.all([
+                    computeTripEta(trip.id),
+                    db
+                        .select({ windowTo: routePoints.windowTo })
+                        .from(routePoints)
+                        .where(and(eq(routePoints.tripId, trip.id), eq(routePoints.status, 'pending')))
+                        .limit(1),
+                ]);
+                return { trip, eta, windowTo: point?.windowTo ?? null };
+            }),
+        );
+
         const atRisk: Array<{ tripId: string; tripNumber: string; etaIso: string; windowTo: string; lateMinutes: number }> = [];
-        for (const trip of candidates) {
-            const eta = await computeTripEta(trip.id);
+        for (const { trip, eta, windowTo } of evaluated) {
             if (!eta) continue;
-            const [point] = await db
-                .select({ windowTo: routePoints.windowTo })
-                .from(routePoints)
-                .where(and(eq(routePoints.tripId, trip.id), eq(routePoints.status, 'pending')))
-                .limit(1);
-            if (!point?.windowTo) continue;
+            if (!windowTo) continue;
             const etaMs = Date.parse(eta.etaIso);
-            const winMs = new Date(point.windowTo).getTime();
+            const winMs = new Date(windowTo).getTime();
             if (etaMs > winMs) {
                 atRisk.push({
                     tripId: trip.id,
                     tripNumber: trip.number,
                     etaIso: eta.etaIso,
-                    windowTo: new Date(point.windowTo).toISOString(),
+                    windowTo: new Date(windowTo).toISOString(),
                     lateMinutes: Math.round((etaMs - winMs) / 60000),
                 });
                 if (atRisk.length >= limit) break;
@@ -367,7 +380,9 @@ const listPendingInvoicesTool: CopilotTool<z.infer<typeof ListPendingInvoicesInp
             .where(and(
                 // M (Этап 3) — 'sent'/'overdue' → 'issued'/'paid_partial' (overdue computed).
                 inArray(invoices.status, ['issued', 'paid_partial']),
-                ctx.organizationId ? eq(contractors.organizationId, ctx.organizationId) : undefined,
+                // Org-scope по владельцу счёта (payeeOrganizationId), а не по орг
+                // контрагента — payee и есть организация-эмитент СФ (per-org серия номеров).
+                ctx.organizationId ? eq(invoices.payeeOrganizationId, ctx.organizationId) : undefined,
             ))
             .orderBy(desc(invoices.createdAt))
             .limit(limit);

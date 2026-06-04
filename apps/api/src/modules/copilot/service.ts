@@ -9,6 +9,7 @@ import { copilotConversations, copilotMessages, users, organizations } from '../
 import { and, eq, desc, gte, sql, asc } from 'drizzle-orm';
 import { ALL_TOOLS, runTool, type CopilotToolContext } from './tools/index.js';
 import { buildSystemPrompt } from './prompt.js';
+import { safeClientError } from '../../utils/safe-error.js';
 import type { CopilotStreamEvent, CopilotMessageRole } from '@tms/shared';
 
 const MAX_HISTORY_TURNS = 30;
@@ -335,8 +336,7 @@ export async function chat(opts: ChatOptions, emit: StreamEmitter): Promise<{ co
             await runMockChat(opts, conversationId, emit);
         }
     } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Internal error';
-        emit({ type: 'error', error: message });
+        emit({ type: 'error', error: safeClientError(err, 'Внутренняя ошибка') });
     }
     emit({ type: 'done' });
     return { conversationId };

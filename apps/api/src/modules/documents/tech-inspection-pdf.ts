@@ -37,26 +37,27 @@ export async function generateTechInspectionPdf(inspectionId: string): Promise<B
         throw new Error('Tech inspection not found');
     }
 
-    const [vehicle] = insp.vehicleId
-        ? await db
-            .select({
-                make: vehicles.make,
-                model: vehicles.model,
-                plateNumber: vehicles.plateNumber,
-                vin: vehicles.vin,
-            })
-            .from(vehicles)
-            .where(eq(vehicles.id, insp.vehicleId))
-            .limit(1)
-        : [null as any];
-
-    const [mechanic] = insp.mechanicId
-        ? await db
-            .select({ fullName: users.fullName })
-            .from(users)
-            .where(eq(users.id, insp.mechanicId))
-            .limit(1)
-        : [null as any];
+    const [[vehicle], [mechanic]] = await Promise.all([
+        insp.vehicleId
+            ? db
+                .select({
+                    make: vehicles.make,
+                    model: vehicles.model,
+                    plateNumber: vehicles.plateNumber,
+                    vin: vehicles.vin,
+                })
+                .from(vehicles)
+                .where(eq(vehicles.id, insp.vehicleId))
+                .limit(1)
+            : Promise.resolve([null as any]),
+        insp.mechanicId
+            ? db
+                .select({ fullName: users.fullName })
+                .from(users)
+                .where(eq(users.id, insp.mechanicId))
+                .limit(1)
+            : Promise.resolve([null as any]),
+    ]);
 
     let tripNumber: string | null = null;
     let driverName: string | null = null;

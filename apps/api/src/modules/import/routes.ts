@@ -130,64 +130,79 @@ export default async function importRoutes(app: FastifyInstance) {
         const orgId = user.organizationId || null;
         const results = { created: 0, usersCreated: 0, errors: [] as { index: number, error: string }[] };
 
-        for (let i = 0; i < items.length; i++) {
-            const item = items[i] as any;
-            try {
-                if (!item.fullName || !item.licenseNumber) {
-                    results.errors.push({ index: i, error: `Пропущено: ${item.fullName || '?'} — не заполнены обязательные поля` });
-                    continue;
-                }
-
-                const importResult = await db.transaction(async (tx) => {
-                    let userId = item.userId as string | undefined;
-                    let userCreated = false;
-
-                    if (!userId && item.email && orgId) {
-                        // C3 (механизм «а»): email-lookup скоупим по орг — иначе
-                        // импортируемый водитель линковался к юзеру ЧУЖОЙ орг (hijack).
-                        const [existing] = await tx.select({ id: users.id })
-                            .from(users).where(and(eq(users.email, item.email), eq(users.organizationId, orgId))).limit(1);
-                        if (existing) {
-                            userId = existing.id;
+        // A-P0-8: весь батч в ОДНОЙ внешней db.transaction (как vehicles/
+        // contractors/orders) — раньше каждая строка шла в своей db.transaction,
+        // partial failure оставлял БД в несогласованном состоянии. Теперь:
+        // каждая строка в savepoint (tx.transaction) → per-row ошибка
+        // откатывает только эту строку и не отравляет внешнюю tx; при общем
+        // (не построчном) провале — откат всего батча.
+        try {
+            await db.transaction(async (tx) => {
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i] as any;
+                    try {
+                        if (!item.fullName || !item.licenseNumber) {
+                            results.errors.push({ index: i, error: `Пропущено: ${item.fullName || '?'} — не заполнены обязательные поля` });
+                            continue;
                         }
+
+                        const importResult = await tx.transaction(async (sp) => {
+                            let userId = item.userId as string | undefined;
+                            let userCreated = false;
+
+                            if (!userId && item.email && orgId) {
+                                // C3 (механизм «а»): email-lookup скоупим по орг — иначе
+                                // импортируемый водитель линковался к юзеру ЧУЖОЙ орг (hijack).
+                                const [existing] = await sp.select({ id: users.id })
+                                    .from(users).where(and(eq(users.email, item.email), eq(users.organizationId, orgId))).limit(1);
+                                if (existing) {
+                                    userId = existing.id;
+                                }
+                            }
+
+                            if (!userId) {
+                                const email = item.email || `driver_${Date.now()}_${i}@import.local`;
+                                const tempPassword = randomBytes(12).toString('hex');
+                                const passwordHash = await hashPassword(tempPassword);
+
+                                const [newUser] = await sp.insert(users).values({
+                                    email,
+                                    passwordHash,
+                                    fullName: item.fullName,
+                                    phone: item.phone || null,
+                                    roles: ['driver'],
+                                    organizationId: orgId,
+                                }).returning({ id: users.id });
+
+                                userId = newUser.id;
+                                userCreated = true;
+                            }
+
+                            await sp.insert(drivers).values({
+                                userId,
+                                fullName: item.fullName,
+                                birthDate: item.birthDate ? new Date(item.birthDate) : new Date('1990-01-01'),
+                                licenseNumber: item.licenseNumber,
+                                licenseCategories: item.licenseCategories || ['B', 'C'],
+                                licenseExpiry: item.licenseExpiry ? new Date(item.licenseExpiry) : new Date('2027-01-01'),
+                                organizationId: orgId,
+                            });
+
+                            return { userCreated };
+                        });
+
+                        if (importResult.userCreated) results.usersCreated++;
+                        results.created++;
+                    } catch (err: any) {
+                        results.errors.push({ index: i, error: `${item.fullName || '?'}: ${safeClientError(err, 'ошибка создания записи')}` });
                     }
-
-                    if (!userId) {
-                        const email = item.email || `driver_${Date.now()}_${i}@import.local`;
-                        const tempPassword = randomBytes(12).toString('hex');
-                        const passwordHash = await hashPassword(tempPassword);
-
-                        const [newUser] = await tx.insert(users).values({
-                            email,
-                            passwordHash,
-                            fullName: item.fullName,
-                            phone: item.phone || null,
-                            roles: ['driver'],
-                            organizationId: orgId,
-                        }).returning({ id: users.id });
-
-                        userId = newUser.id;
-                        userCreated = true;
-                    }
-
-                    await tx.insert(drivers).values({
-                        userId,
-                        fullName: item.fullName,
-                        birthDate: item.birthDate ? new Date(item.birthDate) : new Date('1990-01-01'),
-                        licenseNumber: item.licenseNumber,
-                        licenseCategories: item.licenseCategories || ['B', 'C'],
-                        licenseExpiry: item.licenseExpiry ? new Date(item.licenseExpiry) : new Date('2027-01-01'),
-                        organizationId: orgId,
-                    });
-
-                    return { userCreated };
-                });
-
-                if (importResult.userCreated) results.usersCreated++;
-                results.created++;
-            } catch (err: any) {
-                results.errors.push({ index: i, error: `${item.fullName || '?'}: ${safeClientError(err, 'ошибка создания записи')}` });
-            }
+                }
+            });
+        } catch (err: any) {
+            // Общий (не построчный) провал внешней tx → откат всего батча.
+            results.created = 0;
+            results.usersCreated = 0;
+            results.errors.push({ index: -1, error: `Импорт отменён: ${safeClientError(err, 'ошибка импорта')}` });
         }
 
         return { success: true, data: results };

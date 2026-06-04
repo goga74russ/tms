@@ -55,10 +55,16 @@ export class TinkoffPaymentProvider implements PaymentProvider {
     constructor(private readonly creds: TinkoffCredentials) { }
 
     async healthCheck(): Promise<ProviderHealth> {
+        // Интеграция не завершена: createPayment/getPayment/refund — заглушки
+        // (бросают not-implemented). Нельзя отдавать ok:true, иначе go-live
+        // капкан — провайдер считается готовым при нерабочих методах.
+        const credsPresent = Boolean(this.creds.terminalKey && this.creds.password);
         return {
-            ok: Boolean(this.creds.terminalKey && this.creds.password),
+            ok: false,
             mode: 'production',
-            detail: 'tinkoff credentials present',
+            detail: credsPresent
+                ? 'tinkoff credentials present, но интеграция не завершена: методы createPayment/getPayment/refund — заглушки'
+                : 'tinkoff credentials отсутствуют; интеграция не завершена',
             checkedAt: nowIso(),
         };
     }

@@ -137,9 +137,13 @@ export function KanbanColumn({
     const [rejecting, setRejecting] = React.useState(false);
 
     const isSelf = draggedItem?.fromCol === id;
-    const isValidTarget = draggedItem && !isSelf
-        ? (canMove ? canMove(draggedItem.id, draggedItem.fromCol, id) : true)
-        : null;
+    const isValidTarget = React.useMemo(
+        () =>
+            draggedItem && !isSelf
+                ? (canMove ? canMove(draggedItem.id, draggedItem.fromCol, id) : true)
+                : null,
+        [draggedItem, isSelf, canMove, id],
+    );
 
     function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
         e.preventDefault();

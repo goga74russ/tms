@@ -88,7 +88,7 @@ export async function splitOrderIntoLots(orderId: string, input: { maxWeightKg?:
             };
         }).filter((lot) => Number(lot.plannedWeightKg ?? 0) > 0 || Number(lot.plannedVolumeM3 ?? 0) > 0 || Number(lot.plannedPlaces ?? 0) > 0);
 
-        const created = await tx.insert(shipmentLots).values(lots).returning();
+        const created = lots.length ? await tx.insert(shipmentLots).values(lots).returning() : [];
         await recordEvent({ authorId: actor.userId, authorRole: actor.role, eventType: 'order.split_lots', entityType: 'order', entityId: orderId, data: { lotCount: created.length, maxWeightKg } }, tx);
         return created;
     });
@@ -115,15 +115,18 @@ export async function assignLotToTrip(tripId: string, input: { shipmentLotId: st
         const assignedVolumeM3 = n(input.assignedVolumeM3) ?? lot.remainingVolumeM3 ?? lot.plannedVolumeM3 ?? null;
         const assignedPlaces = n(input.assignedPlaces) ?? lot.remainingPlaces ?? lot.plannedPlaces ?? null;
 
+        // При re-assign (onConflictDoUpdate по паре tripId+shipmentLotId) существующая
+        // привязка этой же пары уже учтена в суммах ниже. Исключаем её, иначе её вес
+        // считается дважды (старая строка + новый assignedWeightKg) и проверки ложно падают.
         const [lotTotals] = await tx.select({ weight: sql<number>`coalesce(sum(${tripLotAssignments.assignedWeightKg}), 0)::float8` }).from(tripLotAssignments)
-            .where(and(eq(tripLotAssignments.shipmentLotId, lot.id), ne(tripLotAssignments.status, 'cancelled')));
+            .where(and(eq(tripLotAssignments.shipmentLotId, lot.id), ne(tripLotAssignments.status, 'cancelled'), ne(tripLotAssignments.tripId, tripId)));
         if (Number(lotTotals?.weight ?? 0) + Number(assignedWeightKg ?? 0) > Number(lot.plannedWeightKg ?? 0)) {
             throw new Error('Assigned weight exceeds shipment lot planned weight');
         }
 
         const [vehicle] = trip.vehicleId ? await tx.select().from(vehicles).where(eq(vehicles.id, trip.vehicleId)).limit(1) : [null];
         const [tripTotals] = await tx.select({ weight: sql<number>`coalesce(sum(${tripLotAssignments.assignedWeightKg}), 0)::float8` }).from(tripLotAssignments)
-            .where(and(eq(tripLotAssignments.tripId, tripId), ne(tripLotAssignments.status, 'cancelled')));
+            .where(and(eq(tripLotAssignments.tripId, tripId), ne(tripLotAssignments.status, 'cancelled'), ne(tripLotAssignments.shipmentLotId, lot.id)));
         const projectedWeight = Number(tripTotals?.weight ?? 0) + Number(assignedWeightKg ?? 0);
         if (!input.allowOverCapacity && vehicle?.payloadCapacityKg && projectedWeight > Number(vehicle.payloadCapacityKg)) {
             throw new Error(`Assigned weight exceeds vehicle capacity: ${projectedWeight} > ${vehicle.payloadCapacityKg}`);

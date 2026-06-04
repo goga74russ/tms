@@ -30,6 +30,13 @@ const osagoRoutes: FastifyPluginAsync = async (app) => {
         preHandler: [app.authenticate, requireFeature('osago_monitoring')],
     }, async (request, reply) => {
         const user = request.user as AuthUser;
+        // Без role-гейта любой член орг (в т.ч. driver) мог инициировать
+        // проверку ОСАГО (внешний запрос к провайдеру + запись снимка). Только
+        // эксплуатационные роли: admin/manager/mechanic.
+        const allowed = ['admin', 'manager', 'mechanic'];
+        if (!user.roles?.some((r) => allowed.includes(r))) {
+            return reply.status(403).send({ success: false, error: 'Недостаточно прав для проверки ОСАГО' });
+        }
         const params = ParamsSchema.safeParse(request.params);
         if (!params.success) {
             return reply.status(400).send({ success: false, error: 'Некорректный vehicleId' });

@@ -33,8 +33,11 @@ export function generateMockReading(slaMin: number | null, slaMax: number | null
     const inRange = Math.random() > 0.10;
     if (inRange) {
         // Stay comfortably inside the band so float jitter doesn't trip the breach check.
-        const lo = Math.min(slaMin + 0.5, slaMax);
-        const hi = Math.max(slaMax - 0.5, slaMin);
+        // Inset by 0.5 on each side, but never more than half the band — otherwise
+        // a narrow band (slaMax - slaMin < 1) would invert lo/hi and escape [slaMin, slaMax].
+        const inset = Math.min(0.5, (slaMax - slaMin) / 2);
+        const lo = slaMin + inset;
+        const hi = slaMax - inset;
         return { tempC: round1(rand(lo, hi)), source: 'mock' };
     }
 

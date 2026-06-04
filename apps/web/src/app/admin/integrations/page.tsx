@@ -201,7 +201,6 @@ export default function AdminIntegrationsPage() {
             toast({ variant: 'success', title: 'Тест успешен' });
         } catch (err: unknown) {
             const msg = (err as Error).message;
-            setError(msg);
             toast({ variant: 'error', title: 'Ошибка теста', description: msg });
         } finally {
             await refresh();

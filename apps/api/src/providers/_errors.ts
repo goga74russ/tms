@@ -58,10 +58,15 @@ function rusMessageFor(code: ProviderErrorCode, providerName: string): string {
 /** Extract a numeric HTTP status from a free-form error message. */
 function extractHttpStatus(message: string): number | null {
     // Common shapes: "HTTP 401", "status 429", "failed: 503"
-    const m = /(?:HTTP|status|code)\s*[:=]?\s*(\d{3})|\b(\d{3})\b/i.exec(message);
-    if (!m) return null;
-    const n = Number(m[1] ?? m[2]);
-    return Number.isFinite(n) ? n : null;
+    // Prefer an explicitly labelled status; otherwise fall back to a bare
+    // 3-digit number, but only one inside the real HTTP status range
+    // (100-599) so we don't grab unrelated numbers ("timed out after 800ms").
+    const labelled = /(?:HTTP|status|code)\s*[:=]?\s*(\d{3})/i.exec(message);
+    const n = labelled
+        ? Number(labelled[1])
+        : Number(/\b([1-5]\d{2})\b/.exec(message)?.[1] ?? NaN);
+    if (!Number.isFinite(n) || n < 100 || n > 599) return null;
+    return n;
 }
 
 function looksLikeNetworkError(message: string): boolean {

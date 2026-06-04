@@ -64,8 +64,10 @@ export default async function analyticsRoutes(app: FastifyInstance) {
 
         for (const v of allVehicles) {
             // ---- Date-based alerts ----
+            // ТО-дата здесь НЕ проверяется — единственный maintenance-алерт
+            // формируется ниже в блоке plannedMaintenanceDate (план приоритетнее,
+            // иначе v.maintenanceNextDate), чтобы не дублировать одну дату.
             const dateChecks: { field: Date | null; type: any; label: string }[] = [
-                { field: v.maintenanceNextDate, type: 'maintenance', label: 'ТО' },
                 { field: v.osagoExpiry, type: 'osago', label: 'ОСАГО' },
                 { field: v.techInspectionExpiry, type: 'tech_inspection', label: 'Техосмотр' },
                 { field: v.tachographCalibrationExpiry, type: 'tachograph', label: 'Тахограф' },

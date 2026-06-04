@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { requireAbility } from '../../auth/rbac.js';
 import { assertTripAccess } from '../../auth/guards.js';
 import { db } from '../../db/connection.js';
-import { documentReturns, trips } from '../../db/schema.js';
+import { documentReturns } from '../../db/schema.js';
 import { recordEvent } from '../../events/journal.js';
 import { syncTransportDocumentsForTrip } from '../trips/transport-documents-store.js';
 import { safeClientError } from '../../utils/safe-error.js';
@@ -49,6 +49,18 @@ const UpdateDocReturnSchema = z.object({
 function buildNotes(parts: Array<string | null | undefined>): string | null {
     const filtered = parts.map((p) => (p ?? '').trim()).filter(Boolean);
     return filtered.length > 0 ? filtered.join(' | ') : null;
+}
+
+// Убирает ранее добавленный семантический тег status=... из notes,
+// чтобы при повторном PUT он не накапливался дублями.
+function stripStatusTag(notes: string | null | undefined): string | null {
+    if (!notes) return null;
+    const rest = notes
+        .split(' | ')
+        .filter((segment) => !/^status=/.test(segment.trim()))
+        .join(' | ')
+        .trim();
+    return rest.length > 0 ? rest : null;
 }
 
 const documentRoutes: FastifyPluginAsync = async (app) => {
@@ -93,11 +105,6 @@ const documentRoutes: FastifyPluginAsync = async (app) => {
         const parsed = CreateDocReturnSchema.safeParse(request.body);
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
-        }
-
-        const [tripExists] = await db.select({ id: trips.id }).from(trips).where(eq(trips.id, id)).limit(1);
-        if (!tripExists) {
-            return reply.status(404).send({ success: false, error: 'Рейс не найден' });
         }
 
         const docType = DocReturnTypeMap[parsed.data.documentType];
@@ -177,7 +184,11 @@ const documentRoutes: FastifyPluginAsync = async (app) => {
             ? new Date(parsed.data.receivedDate)
             : (parsed.data.status === 'received' ? new Date() : existing.receivedAt);
 
-        const combinedNotes = buildNotes([semanticTag, parsed.data.notes ?? existing.notes]);
+        // При повторном PUT existing.notes уже содержит ранее добавленный
+        // тег status=... — убираем его перед повторным префиксом, иначе тег
+        // накапливается дублями (status=lost | status=lost | ...).
+        const carriedNotes = parsed.data.notes ?? stripStatusTag(existing.notes);
+        const combinedNotes = buildNotes([semanticTag, carriedNotes]);
 
         const [row] = await db
             .update(documentReturns)

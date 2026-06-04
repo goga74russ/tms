@@ -124,13 +124,12 @@ function VerifyEmailContent() {
                 incoming.forEach((d, i) => {
                     next[idx + i] = d;
                 });
+                const fullCode = next.join('').slice(0, CODE_LENGTH);
+                if (fullCode.length === CODE_LENGTH) setTimeout(() => verify(fullCode), 0);
                 return next;
             });
             const lastIdx = Math.min(CODE_LENGTH - 1, idx + incoming.length);
             inputsRef.current[lastIdx]?.focus();
-            const fullCode =
-                [...digits.slice(0, idx), ...incoming, ...digits.slice(idx + incoming.length)].join('').slice(0, CODE_LENGTH);
-            if (fullCode.length === CODE_LENGTH) void verify(fullCode);
             return;
         }
         setDigits((prev) => {

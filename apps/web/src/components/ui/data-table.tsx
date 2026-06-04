@@ -300,7 +300,15 @@ export function DataTable<T>(props: DataTableProps<T>) {
         const initial: Record<string, boolean> = {};
         for (const c of columns) initial[c.id] = !c.hiddenByDefault;
         const stored = readColVis(tableId);
-        if (stored) Object.assign(initial, stored);
+        // Отсеиваем устаревшие ключи: применяем только сохранённые значения
+        // для столбцов, которые существуют сейчас (иначе мусор копится в localStorage).
+        if (stored) {
+            for (const c of columns) {
+                if (Object.prototype.hasOwnProperty.call(stored, c.id)) {
+                    initial[c.id] = stored[c.id];
+                }
+            }
+        }
         return initial;
     });
 
@@ -386,6 +394,10 @@ export function DataTable<T>(props: DataTableProps<T>) {
 
     // Reset page when filters/search change
     React.useEffect(() => { setPage(1); }, [search, sort, data.length]);
+
+    // Сбрасываем выделение при смене идентичности data — иначе bulk-бар
+    // показывает стейл-счётчик по ключам, которых уже нет в наборе.
+    React.useEffect(() => { setSelected(new Set()); }, [data]);
 
     const totalRows = processed.length;
     const usePaging = pageSize > 0;

@@ -29,8 +29,7 @@ interface MaintenanceAlert {
 interface TripProfit {
     tripId: string;
     tripNumber: string;
-    vehiclePlate: string;
-    driverName: string;
+    contractor: string | null;
     revenue: number;
     cost: number;
     margin: number;
@@ -469,8 +468,7 @@ export default function AnalyticsPage() {
                                     <thead>
                                         <tr className="bg-neutral-50 text-neutral-500 text-left">
                                             <th className="px-4 py-3 font-medium">Рейс</th>
-                                            <th className="px-4 py-3 font-medium">ТС</th>
-                                            <th className="px-4 py-3 font-medium">Водитель</th>
+                                            <th className="px-4 py-3 font-medium">Контрагент</th>
                                             <th className="px-4 py-3 font-medium text-right">Выручка</th>
                                             <th className="px-4 py-3 font-medium text-right">Себестоимость</th>
                                             <th className="px-4 py-3 font-medium text-right">Маржа</th>
@@ -484,11 +482,8 @@ export default function AnalyticsPage() {
                                                 <td className="px-4 py-3 font-mono text-sm text-neutral-700">
                                                     {t.tripNumber}
                                                 </td>
-                                                <td className="px-4 py-3 font-mono text-neutral-600">
-                                                    {t.vehiclePlate}
-                                                </td>
                                                 <td className="px-4 py-3 text-neutral-600">
-                                                    {t.driverName || '—'}
+                                                    {t.contractor || '—'}
                                                 </td>
                                                 <td className="px-4 py-3 text-right font-medium text-neutral-900">
                                                     {fmt(t.revenue)} ₽
