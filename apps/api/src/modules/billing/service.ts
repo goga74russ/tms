@@ -143,7 +143,28 @@ export interface CreatePaymentResult {
     amountKopecks: number;
 }
 
+/**
+ * C9 stop-gate (54-ФЗ). Онлайн-оплата картой через платёжного провайдера требует
+ * выдачи фискального чека (ОФД, 54-ФЗ). Реальная фискализация НЕ подключена
+ * (план: ЮKassa-фискализация для первого ИП/физлица, Q4+; полный OFD.ru — позже).
+ *
+ * До этого пилот юридически чист только при работе B2B-юрлица + банковский перевод
+ * (счёт оформляется через finance/invoices — там 54-ФЗ-чек не требуется). Поэтому
+ * онлайн-приём оплаты ЗАКРЫТ по умолчанию и включается флагом ALLOW_ONLINE_PAYMENTS
+ * лишь когда фискализация будет готова. Fail-closed.
+ */
+export function isOnlinePaymentAllowed(): boolean {
+    return process.env.ALLOW_ONLINE_PAYMENTS === 'true';
+}
+
 export async function createPayment(orgId: string, planId: PlanId, returnUrl: string): Promise<CreatePaymentResult> {
+    if (!isOnlinePaymentAllowed()) {
+        throw new Error(
+            'Онлайн-оплата временно недоступна. Для юридических лиц оплата производится '
+            + 'по счёту (банковский перевод) — оформите счёт в разделе «Финансы».',
+        );
+    }
+
     const plan = await getPlan(planId);
     if (!plan) throw new Error(`Unknown plan: ${planId}`);
     if (plan.priceMonthlyKopecks <= 0) {
