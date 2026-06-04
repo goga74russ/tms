@@ -254,7 +254,7 @@ fines.worker без org (integrations), mchd_number oracle (signatures:294), cop
 
 ---
 
-## C8 — Утечка raw-PG-ошибок клиенту  `✅ DONE` (локально+prod TODO-деплой)
+## C8 — Утечка raw-PG-ошибок клиенту  `✅ DONE` (на проде e9562bd)
 
 **Инвариант:** клиенту уходит доменное сообщение, не raw error.message от PG/Drizzle. Grep: `error: .*\.message` в send → **0**.
 
@@ -327,6 +327,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | deploy | **🚀 C8 на проде**: pull `ed4023d→e9562bd`, build api, recreate (без миграций). Health 200 (internal+external), login(bad-creds)=401, контейнер healthy. CI green. **local==origin==prod==e9562bd.** | `e9562bd` |
 | 2026-06-04 | C8 | **C8 ЗАКРЫТ:** системный хелпер `safeClientError` (utils/safe-error.ts) — детект PG/Drizzle по severity/routine/constraint/5-char-SQLSTATE → fallback, доменный Error → message. Codemod `apply-safe-error.mjs` ~121 мест/18 файлов + ручные finance handleWorkflowError `(err as Error)`, demo, import per-row/XLSX. Anchor-тест 7/7. **NB:** скрипт ломал import в 4 файлах (multiline-блок) → починено, урок «tsc после codemod». grep leak=0, tsc=0, unit 712/712 | _(этот коммит)_ |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |
 | 2026-06-02 | C1 | mobile пустая подпись (guard) + web signerRole из реального useUser (signature+refusal). mobile/web tsc ✓ | `3bdda6e` |
