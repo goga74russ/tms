@@ -4,10 +4,10 @@
 > Этот файл — **рабочий план починки**, не дубль аудита. Аудит неизменяем; здесь — статусы.
 > Роль: **TransPult**. Запущено: 2026-06-02.
 
-> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-04):** **на проде `39c188e`** (`local==origin==prod`, P0 Gate CI зелёный, оба контейнера healthy).
+> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-04):** **на проде `7da6c2f`** (`local==origin==prod`, P0 Gate CI зелёный, оба контейнера healthy).
 > **Закрыто и на проде: C1 · C2 · C3(cross-tenant) · C4 · C5(backend) · C6 · C7 · C8 · C9(все P1).** 8.5 из 9 классов.
-> Плюс на проде: **stop-gate 54-ФЗ** (`ALLOW_ONLINE_PAYMENTS` закрыт → пилот B2B+счёт) + **серверный DPA-гейт**.
-> **Единственный остаток:** C9 **DoD-проход P2 (135) + P3 (46) = 181 находка** (выставить VERIFIED/DEFER по каждой).
+> Плюс на проде: **stop-gate 54-ФЗ** (`ALLOW_ONLINE_PAYMENTS` закрыт → пилот B2B+счёт) + **серверный DPA-гейт** + C9-DoD батчи S (cross-tenant security ×5) + C (correctness ×9).
+> **Единственный остаток:** C9 **DoD-проход P2/P3 — ~22/181 закрыто**, остальное кластерами (swallow-error, pagination, N+1, dead-code, fake-INN→/jurist, TZ/MSK, E6, CSPRNG).
 > DEFER-хвост (документированы): OFD-real + Госключ-prod-HMAC (внешние креды); cockpit driverId + VehiclesTable toggleBlock (продуктовые UI); mobile odometerReadings-gap (low-pri); C2-копилот, легаси-нумерация per-org, C3 within-org over-exposure, gosklyuch XAdES/mTLS/юр-сила.
 
 ## Зачем этот файл
@@ -372,6 +372,7 @@ TZ/MSK, N+1 perf, E6-revocation (WS/middleware/mobile-403), CSPRNG. Разбир
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | deploy | **🚀 C9-DoD S+C на проде**: pull `e72cd9c→7da6c2f`, build api+web, recreate (без миграций). api/web 200, login(wrong)=401, healthy. CI green. **local==origin==prod==7da6c2f.** | `7da6c2f` |
 | 2026-06-04 | C9-DoD | **Батч C (correctness one-liners, 9 fix + 1 VERIFIED + 1 DEFER):** onboardingStep GREATEST; claims mojibake; cancelTripAfterArrival opt-in; scoring date-or-datetime; web ₴→₽, дельта-знак, sparkline useId, repair RBAC+manager, orders STATUS+completed. refine VERIFIED; diadoc DEFER. tsc api+web=0, unit 735 | _(этот коммит)_ |
 | 2026-06-04 | C9-DoD | **Батч S (cross-tenant security, 5 fixes):** getTripTariff org-фильтр; volume-preview assertVehicle/Trailer/Order; resolveTripSla orderId↔tripId-гейт; sprint9 trailers org-less→пусто; telegram formatEventMessage HTML-escape. Старт DoD-леджера P2/P3 (~11/181, с учётом перекрытого C8/C9). tsc=0, unit 735 | _(этот коммит)_ |
 | 2026-06-04 | deploy | **🚀 C9 на проде**: pull `e9562bd→7ce7645`, build api+web, recreate (без миграций). api 200 (int+ext), web 200, login(wrong)=401, оба контейнера healthy. CI green. **local==origin==prod==7ce7645.** Включает весь C9 + stop-gate + DPA-гейт. NB: ALLOW_ONLINE_PAYMENTS не задан → онлайн-оплата закрыта (пилот B2B+счёт, как задумано). | `7ce7645` |
