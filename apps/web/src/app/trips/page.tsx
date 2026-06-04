@@ -2154,6 +2154,7 @@ const ALLOWED_ROLES = ['dispatcher', 'logist', 'manager', 'admin'];
 export default function TripsPage() {
     const { user, loading: userLoading } = useUser();
     const router = useRouter();
+    const { toast } = useToast();
 
     useEffect(() => {
         if (!userLoading && (!user || !user.roles.some(r => ALLOWED_ROLES.includes(r)))) {
@@ -2366,8 +2367,18 @@ export default function TripsPage() {
                     map[v.id] = { id: v.id, plateNumber: v.plateNumber, make: v.make, model: v.model, bodyType: v.bodyType };
                 }
                 setVehicleMap(map);
+                // Справочник ТС загружается без пагинации (limit=200). Если в орг
+                // больше 200 ТС, часть номеров не отобразится — предупреждаем.
+                if (typeof res.total === 'number' && res.total > (res.data?.length ?? 0)) {
+                    toast({
+                        variant: 'warning',
+                        title: 'Справочник ТС усечён',
+                        description: `Показаны первые ${res.data?.length ?? 0} из ${res.total} ТС. Номера сверх лимита могут не отображаться.`,
+                    });
+                }
             } catch { /* ignore */ }
         })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -2385,8 +2396,18 @@ export default function TripsPage() {
                     }
                 }
                 setTrailerMap(map);
+                // Справочник прицепов загружается без пагинации (limit=200).
+                // Если в орг больше 200 прицепов — часть не отобразится.
+                if (typeof res.total === 'number' && res.total > (res.data?.length ?? 0)) {
+                    toast({
+                        variant: 'warning',
+                        title: 'Справочник прицепов усечён',
+                        description: `Показаны первые ${res.data?.length ?? 0} из ${res.total} прицепов. Прицепы сверх лимита могут не отображаться.`,
+                    });
+                }
             } catch { /* ignore */ }
         })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     async function loadTrips() {

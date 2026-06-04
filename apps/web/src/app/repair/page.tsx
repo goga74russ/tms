@@ -274,6 +274,7 @@ export default function RepairPage() {
     const [initialDraft, setInitialDraft] = useState<RepairDraft | undefined>();
     const [view, setView] = useState<'board' | 'table' | 'list'>('board');
     const [repairsForTable, setRepairsForTable] = useState<Array<{ id: string; status: string; description: string; priority: string; source: string; vehicleId: string; assignedTo?: string; assignedToName?: string; category?: string; totalCost: number | string; createdAt: string }>>([]);
+    const [tableTotal, setTableTotal] = useState(0);
     const [tableLoading, setTableLoading] = useState(false);
 
     useEffect(() => {
@@ -318,9 +319,17 @@ export default function RepairPage() {
         if (view === 'board') return;
         let cancelled = false;
         setTableLoading(true);
+        // ВНИМАНИЕ: серверная пагинация по курсору не построена — берём первые
+        // 200 записей и показываем «N из M» по total из ответа (поле total
+        // приходит из result.pagination на /repairs). Полную пагинацию здесь
+        // не строим: при превышении лимита пользователь видит явный счётчик.
         api.get<any>('/repairs?limit=200')
             .then(r => {
-                if (!cancelled) setRepairsForTable(r.data || []);
+                if (!cancelled) {
+                    const rows = r.data || [];
+                    setRepairsForTable(rows);
+                    setTableTotal(typeof r.total === 'number' ? r.total : rows.length);
+                }
             })
             .catch(() => { })
             .finally(() => { if (!cancelled) setTableLoading(false); });
@@ -479,7 +488,13 @@ export default function RepairPage() {
 
             {/* Table view */}
             {(view === 'table' || view === 'list') && (
-                <DataTable
+                <div className="space-y-2">
+                    {!tableLoading && tableTotal > repairsForTable.length && (
+                        <p className="text-xs text-amber-600">
+                            Показано {repairsForTable.length} из {tableTotal} заявок. Уточните поиск или фильтры, чтобы увидеть остальные.
+                        </p>
+                    )}
+                    <DataTable
                     tableId="repair-list"
                     data={repairsForTable}
                     columns={tableColumns}
@@ -489,7 +504,8 @@ export default function RepairPage() {
                     searchKeys={['description', 'assignedTo']}
                     pageSize={view === 'list' ? 100 : 50}
                     density={view === 'list' ? 'compact' : 'comfortable'}
-                />
+                    />
+                </div>
             )}
 
             {/* Create Modal */}

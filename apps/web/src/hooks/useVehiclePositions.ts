@@ -18,6 +18,11 @@ export interface VehiclePosition {
     timestamp: string;
 }
 
+/** Cap for exponential backoff delay (ms). */
+const MAX_RECONNECT_DELAY = 30000;
+/** After this many failed attempts, give up WS and fall back to polling. */
+const MAX_RECONNECT_ATTEMPTS = 8;
+
 interface UseVehiclePositionsOptions {
     /** Auto-reconnect on disconnect (default: true) */
     autoReconnect?: boolean;
@@ -38,6 +43,7 @@ export function useVehiclePositions(options: UseVehiclePositionsOptions = {}) {
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const reconnectAttemptsRef = useRef(0);
     const mountedRef = useRef(true);
 
     const getApiBase = useCallback(() => '/api', []);
@@ -92,6 +98,7 @@ export function useVehiclePositions(options: UseVehiclePositionsOptions = {}) {
                 if (!mountedRef.current) return;
                 setIsConnected(true);
                 setError(null);
+                reconnectAttemptsRef.current = 0;
                 if (pollTimerRef.current) {
                     clearInterval(pollTimerRef.current);
                     pollTimerRef.current = null;
@@ -114,7 +121,16 @@ export function useVehiclePositions(options: UseVehiclePositionsOptions = {}) {
                 wsRef.current = null;
 
                 if (autoReconnect) {
-                    reconnectTimerRef.current = setTimeout(connect, reconnectDelay);
+                    if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
+                        // Exhausted reconnect budget — switch to REST polling fallback.
+                        startFallbackPolling();
+                        return;
+                    }
+                    // Exponential backoff with cap: base * 2^attempt, bounded by MAX_RECONNECT_DELAY.
+                    const attempt = reconnectAttemptsRef.current;
+                    const delay = Math.min(reconnectDelay * 2 ** attempt, MAX_RECONNECT_DELAY);
+                    reconnectAttemptsRef.current = attempt + 1;
+                    reconnectTimerRef.current = setTimeout(connect, delay);
                 }
             };
 

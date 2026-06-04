@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from 'drizzle-orm';
+import { desc, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { appSettings } from '../../db/schema.js';
 
@@ -104,29 +104,33 @@ export async function updateCostModelSettings(
             description: COST_SETTING_DESCRIPTIONS[field],
         }));
 
-    for (const patch of patches) {
-        const [existing] = await db.select({ id: appSettings.id })
-            .from(appSettings)
-            .where(eq(appSettings.key, patch.key))
-            .limit(1);
-
-        if (existing) {
-            await db.update(appSettings)
-                .set({
+    // Атомарный upsert вместо SELECT-then-INSERT: параллельные запросы больше не
+    // дают duplicate key по уникальному app_settings.key. ON CONFLICT по ключу
+    // обновляет существующую строку. Дополнительно сериализуем пачку патчей одной
+    // орг advisory-lock'ом (паттерн как в orders/service.ts / invoice-workflow.service.ts),
+    // чтобы конкурентные updateCostModelSettings одной орг шли последовательно.
+    if (patches.length > 0) {
+        await db.transaction(async (tx) => {
+            await tx.execute(
+                sql`SELECT pg_advisory_xact_lock(hashtext(${'cost_model_settings|' + (orgId ?? 'global')})::bigint)`,
+            );
+            for (const patch of patches) {
+                await tx.insert(appSettings).values({
+                    key: patch.key,
                     value: patch.value,
                     description: patch.description,
                     updatedBy: updatedBy ?? null,
-                    updatedAt: new Date(),
-                })
-                .where(eq(appSettings.id, existing.id));
-        } else {
-            await db.insert(appSettings).values({
-                key: patch.key,
-                value: patch.value,
-                description: patch.description,
-                updatedBy: updatedBy ?? null,
-            });
-        }
+                }).onConflictDoUpdate({
+                    target: appSettings.key,
+                    set: {
+                        value: patch.value,
+                        description: patch.description,
+                        updatedBy: updatedBy ?? null,
+                        updatedAt: new Date(),
+                    },
+                });
+            }
+        });
     }
 
     return getCostModelSettings(orgId);

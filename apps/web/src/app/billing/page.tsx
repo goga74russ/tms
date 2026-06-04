@@ -49,10 +49,11 @@ function formatLimit(n: number | null): string {
 }
 
 function daysUntil(iso: string | null): number | null {
+    // Унифицировано с баннером периода подписки (differenceInCalendarDays),
+    // чтобы два индикатора показывали одинаковое число оставшихся дней.
     if (!iso) return null;
-    const ms = new Date(iso).getTime() - Date.now();
-    if (ms <= 0) return 0;
-    return Math.ceil(ms / (24 * 60 * 60 * 1000));
+    const diff = differenceInCalendarDays(new Date(iso), new Date());
+    return diff <= 0 ? 0 : diff;
 }
 
 function formatRuDate(iso: string): string {

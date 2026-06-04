@@ -140,6 +140,23 @@ export class FinanceService {
         // H-NEW-1 FIX: Number generation INSIDE transaction with FOR UPDATE
         // FIX: Move unbilled trips query inside tx to prevent race condition
         const newInvoice = await db.transaction(async (tx: any) => {
+            // Defense-in-depth: contractorId должен принадлежать организации actor-а.
+            // Org-фильтр ниже идёт только через vehicles → сам по себе не гарантирует,
+            // что переданный contractorId из той же орг. Проверяем явно: если
+            // организация задана и контрагент к ней не относится — 0 строк, не падаем.
+            if (organizationId) {
+                const [ownedContractor] = await tx.select({ id: contractors.id })
+                    .from(contractors)
+                    .where(and(
+                        eq(contractors.id, params.contractorId),
+                        eq(contractors.organizationId, organizationId),
+                    ))
+                    .limit(1);
+                if (!ownedContractor) {
+                    return { message: 'No unbilled completed trips found for this period and contractor.' };
+                }
+            }
+
             // FIX: Use DISTINCT to avoid duplicating trips when trip has multiple orders
             // H-1 FIX: Add organizationId filter to prevent cross-org invoice generation
             const unbilledConditions = [
@@ -479,6 +496,19 @@ export class FinanceService {
         createdBy: string,
     ) {
         return await db.transaction(async (tx: any) => {
+            // Status-guard: корректировать total можно только у draft-счёта.
+            // На выпущенных/терминальных статусах (issued/paid_partial/paid_full/
+            // cancelled/corrected) сумма зафиксирована — изменения только через
+            // корректировочный документ (КСФ/correction). Иначе можно было бы
+            // безусловным UPDATE менять total оплаченного/выставленного счёта.
+            // Читаем invoice ДО вставки adjustment, чтобы не плодить «осиротевшую»
+            // строку при отказе.
+            const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+            if (!invoice) throw new Error('Invoice not found');
+            if (invoice.status !== 'draft') {
+                throw new Error('Корректировка возможна только для счёта в статусе «черновик». Для выпущенного счёта используйте корректировочный документ.');
+            }
+
             // Insert adjustment
             const [adjustment] = await tx.insert(invoiceAdjustments).values({
                 invoiceId,
@@ -489,9 +519,6 @@ export class FinanceService {
             }).returning();
 
             // Recalculate invoice total
-            const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
-            if (!invoice) throw new Error('Invoice not found');
-
             const allAdjustments = await tx.select({ amount: invoiceAdjustments.amount })
                 .from(invoiceAdjustments)
                 .where(eq(invoiceAdjustments.invoiceId, invoiceId));

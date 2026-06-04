@@ -128,6 +128,16 @@ class ApiClient {
             signal,
         });
         if (!response.ok || !response.body) {
+            // B4.1 (зеркало request()): 401 → logout-broadcast + редирект на /login.
+            // Без этого истёкшая сессия на SSE-стриме показывалась обычным toast
+            // «Ошибка запроса (HTTP 401)», вместо разлогина как в обычных запросах.
+            // /auth/* через streamSSE не ходит, но guard сохранён для симметрии.
+            if (response.status === 401 && typeof window !== 'undefined' && !path.startsWith('/auth/')) {
+                try { new BroadcastChannel('tms-auth').postMessage('logout'); } catch { /* no-op */ }
+                window.location.href = '/login';
+                // Прерываем генератор без эмиссии — caller не получит устаревших событий.
+                return;
+            }
             const err = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
             throw new Error(translateApiError(err as Record<string, unknown>, response.status));
         }
@@ -178,6 +188,19 @@ class ApiClient {
                 roles: string[];
                 phone?: string;
                 driverId?: string;
+                // Сервер (apps/api/src/auth/auth.ts GET /api/auth/me) возвращает
+                // эти поля, но раньше тип их не объявлял — каст `as CurrentUser`
+                // скрывал рассинхрон. organizationId приходит из строки users,
+                // isSuperAdmin/organization вычисляются в хендлере.
+                organizationId?: string | null;
+                isSuperAdmin?: boolean;
+                organization?: {
+                    id: string;
+                    name: string;
+                    inn: string | null;
+                    taxRegime: string;
+                    usnVatRate: number | null;
+                } | null;
             };
         }>('/auth/me');
     }

@@ -270,7 +270,11 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
     const [paymentRow] = await tx
         .select()
         .from(payments)
+        // idx_payments_provider_id НЕ уникален — теоретически возможны дубли строк
+        // с одним providerPaymentId. Детерминированный orderBy (новейшая запись)
+        // гарантирует стабильный выбор одной и той же строки на любом ретрае вебхука.
         .where(eq(payments.providerPaymentId, payload.externalId))
+        .orderBy(sql`${payments.createdAt} DESC`)
         .limit(1)
         .for('update');
     if (!paymentRow) {

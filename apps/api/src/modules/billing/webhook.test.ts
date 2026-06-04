@@ -63,6 +63,9 @@ vi.mock('../../db/connection.js', () => {
         select: () => ({
             from: () => ({
                 where: () => ({
+                    // C9: payment-lookup получил детерминированный .orderBy перед .limit
+                    // (стабильный выбор при неуникальном idx_payments_provider_id).
+                    orderBy: () => ({ limit: () => selectResult() }),
                     limit: () => selectResult(),
                 }),
             }),

@@ -114,6 +114,9 @@ export function drawTable(
     const headerH = 20;
     const x0 = MARGIN;
     let y = doc.y;
+    // Top of the table on the CURRENT page. Updated on page-break so the
+    // vertical grid lines span only the portion drawn on this page.
+    let tableTop = y;
 
     // Header background
     doc.rect(x0, y, CONTENT_W, headerH).fill('#f0f0f0');
@@ -156,21 +159,25 @@ export function drawTable(
         if (y > 780) {
             doc.addPage();
             y = MARGIN;
+            // Rows continue from the top margin on the new page; the grid
+            // for this page must start there, not at the original top.
+            tableTop = y;
         }
     }
 
     // Bottom border
     doc.moveTo(x0, y).lineTo(x0 + CONTENT_W, y).stroke('#cccccc');
 
-    // Vertical lines
+    // Vertical lines — span from the table top on the current page to the
+    // last drawn row (y). After a page-break tableTop is the page margin.
     xCur = x0;
     for (const col of columns) {
-        doc.moveTo(xCur, doc.y - (rows.length * rowH + headerH + 2))
+        doc.moveTo(xCur, tableTop)
             .lineTo(xCur, y)
             .stroke('#cccccc');
         xCur += col.width;
     }
-    doc.moveTo(xCur, doc.y - (rows.length * rowH + headerH + 2))
+    doc.moveTo(xCur, tableTop)
         .lineTo(xCur, y)
         .stroke('#cccccc');
 

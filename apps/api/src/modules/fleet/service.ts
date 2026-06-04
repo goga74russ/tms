@@ -185,6 +185,10 @@ export async function createVehicle(
     // Validate plate
     const plateResult = validatePlateNumber(data.plateNumber);
     if (!plateResult.valid) throw new Error(plateResult.error);
+    // C9: сохраняем КАНОНИЧЕСКИЙ (нормализованный кириллицей) номер — иначе
+    // 'A000АА77' (лат) и 'А000АА77' (кир) попадут в БД как разные записи и
+    // per-org дедуп не сработает.
+    const normalizedPlate = plateResult.normalized ?? data.plateNumber;
 
     // Validate VIN
     const vinResult = validateVin(data.vin);
@@ -199,7 +203,7 @@ export async function createVehicle(
     return await db.transaction(async (tx: any) => {
         // C4: дубль plate/VIN — В ПРЕДЕЛАХ ОРГ (per-org unique, миг.0041); super-admin
         // без орг — глобально. Раньше глобально для всех → тенант B не мог завести ТС A.
-        const plateCond = orgId ? and(eq(vehicles.plateNumber, data.plateNumber), eq(vehicles.organizationId, orgId)) : eq(vehicles.plateNumber, data.plateNumber);
+        const plateCond = orgId ? and(eq(vehicles.plateNumber, normalizedPlate), eq(vehicles.organizationId, orgId)) : eq(vehicles.plateNumber, normalizedPlate);
         const [existingPlate] = await tx.select({ id: vehicles.id }).from(vehicles).where(plateCond);
         if (existingPlate) throw new Error(`ТС с госномером ${data.plateNumber} уже существует`);
 
@@ -208,7 +212,7 @@ export async function createVehicle(
         if (existingVin) throw new Error(`ТС с VIN ${data.vin} уже существует`);
 
         const [vehicle] = await tx.insert(vehicles).values({
-            plateNumber: data.plateNumber,
+            plateNumber: normalizedPlate,
             vin: data.vin,
             make: data.make,
             model: data.model,
@@ -256,6 +260,9 @@ export async function updateVehicle(
     if (data.plateNumber) {
         const plateResult = validatePlateNumber(data.plateNumber);
         if (!plateResult.valid) throw new Error(plateResult.error);
+        // C9: нормализуем на месте (латиница→кириллица) — и проверка уникальности,
+        // и сохранение через directFields-цикл подхватят канонический номер.
+        data.plateNumber = plateResult.normalized ?? data.plateNumber;
 
         const [existing] = await db.select({ id: vehicles.id })
             .from(vehicles)

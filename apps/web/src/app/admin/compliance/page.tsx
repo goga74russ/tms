@@ -200,6 +200,20 @@ function TachographTab() {
     const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        const lower = file.name.toLowerCase();
+        if (!lower.endsWith('.ddd') && !lower.endsWith('.esm')) {
+            setError('Неверный формат файла. Допускаются только .DDD / .ESM (СКЗИ-тахографы РФ).');
+            setInfo(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
+        const MAX_SIZE = 20 * 1024 * 1024; // 20 МБ
+        if (file.size > MAX_SIZE) {
+            setError(`Файл слишком большой (${(file.size / (1024 * 1024)).toFixed(1)} МБ). Максимум 20 МБ.`);
+            setInfo(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+        }
         setUploading(true);
         setError(null); setInfo(null);
         try {
@@ -395,6 +409,11 @@ function MarkingTab() {
                                 ))}
                             </tbody>
                         </table>
+                        {rows.length > 50 && (
+                            <div className="mt-2 text-xs text-neutral-500">
+                                Показано 50 из {rows.length} проверок (последние). Для полного списка используйте выгрузку.
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
