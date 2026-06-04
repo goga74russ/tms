@@ -39,14 +39,27 @@ type RoundingPrecision = 1 | 10 | 100;
 // Helpers
 // ================================================================
 
+/** Смещение МСК относительно UTC в миллисекундах (РФ без перехода на летнее время → фикс. UTC+3) */
+const MSK_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+/** Час по МСК (UTC+3) для UTC-момента */
+function getMskHour(date: Date): number {
+    return new Date(date.getTime() + MSK_OFFSET_MS).getUTCHours();
+}
+
+/** День недели по МСК (UTC+3): воскресенье=0 … суббота=6 */
+function getMskDay(date: Date): number {
+    return new Date(date.getTime() + MSK_OFFSET_MS).getUTCDay();
+}
+
 /** Проверяет, попадает ли час в ночной диапазон 22:00–06:00 */
 function isNightHour(hour: number): boolean {
     return hour >= 22 || hour < 6;
 }
 
-/** Проверяет, выходной ли день (суббота=6, воскресенье=0) */
+/** Проверяет, выходной ли день (суббота=6, воскресенье=0) по МСК */
 function isWeekend(date: Date): boolean {
-    const day = date.getDay();
+    const day = getMskDay(date);
     return day === 0 || day === 6;
 }
 
@@ -62,7 +75,7 @@ function calculateNightFraction(departureAt: Date, completionAt: Date): number {
     const step = 15 * 60 * 1000; // шаг 15 мин
 
     while (cursor.getTime() < completionAt.getTime()) {
-        if (isNightHour(cursor.getHours())) {
+        if (isNightHour(getMskHour(cursor))) {
             nightMs += Math.min(step, completionAt.getTime() - cursor.getTime());
         }
         cursor.setTime(cursor.getTime() + step);

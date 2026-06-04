@@ -50,6 +50,25 @@ function toIso(value: Date | string | null | undefined) {
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+// C: серверный clamp времени подписания ЭП. params.signedAt приходит из тела
+// запроса и раньше использовался дословно → возможна анти-/постдатировка
+// юр-значимого факта подписи. Принимаем клиентское время только в разумном
+// диапазоне (допуск рассинхрона часов до ~5 мин в будущее, не старше ~7 дней
+// назад); иначе подставляем серверное текущее время.
+const SIGNED_AT_FUTURE_TOLERANCE_MS = 5 * 60 * 1000;
+const SIGNED_AT_PAST_TOLERANCE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function clampSignedAt(value: string | null | undefined, serverNow: Date): Date {
+    if (!value) return serverNow;
+    const parsed = new Date(value);
+    const parsedMs = parsed.getTime();
+    if (Number.isNaN(parsedMs)) return serverNow;
+    const nowMs = serverNow.getTime();
+    if (parsedMs > nowMs + SIGNED_AT_FUTURE_TOLERANCE_MS) return serverNow;
+    if (parsedMs < nowMs - SIGNED_AT_PAST_TOLERANCE_MS) return serverNow;
+    return parsed;
+}
+
 function mergeStatus(current: string, source: string) {
     if (!current) return source as TransportDocumentStatus;
     if (current === source) return current as TransportDocumentStatus;
@@ -1034,7 +1053,7 @@ export async function recordTransportDocumentSignature(params: {
         const signatures = Array.isArray(metadata.signatures)
             ? [...metadata.signatures as Array<Record<string, unknown>>]
             : [];
-        const signedAt = params.signedAt ? new Date(params.signedAt) : new Date();
+        const signedAt = clampSignedAt(params.signedAt, new Date());
         const signature = {
             signerRole: params.signerRole,
             signerName: params.signerName,

@@ -81,10 +81,13 @@ function escapeXml(str: string): string {
  * Format date to DD.MM.YYYY
  */
 function formatDate(isoDate: string): string {
-    const d = new Date(isoDate);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
+    // ДатаДок юридически значима. Извлекаем календарную дату в МСК (UTC+3),
+    // а не в локальной TZ сервера: в Docker TZ=UTC issuedAt около полуночи МСК
+    // иначе даёт ДатаДок на сутки раньше. РФ без перехода на летнее время → UTC+3.
+    const d = new Date(new Date(isoDate).getTime() + 3 * 60 * 60 * 1000);
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const year = d.getUTCFullYear();
     return `${day}.${month}.${year}`;
 }
 

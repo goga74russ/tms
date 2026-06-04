@@ -119,19 +119,27 @@ export class FinanceService {
         const year = new Date().getFullYear();
         const pattern = `${prefix}-${year}-%`;
 
-        // H-NEW-1 FIX: FOR UPDATE prevents race condition on concurrent invoice creation
-        const lastInvoice = await queryDb.select({ number: invoices.number })
+        // H-NEW-1 FIX: FOR UPDATE prevents race condition on concurrent invoice creation.
+        // AUDIT FIX: считаем максимум ЧИСЛЕННО, а не лексикографически.
+        // orderBy(desc(number)).limit(1) брал лексикографический максимум: при
+        // переходе 99999 → 100000 (6 цифр) строка "99999" сортируется ВЫШЕ "100000",
+        // поэтому seq вычислялся из "99999" → снова 100000 → дубль. Также падало при
+        // разной ширине суффикса. Берём все номера года под блокировкой и извлекаем
+        // числовой суффикс, максимум считаем по числу.
+        const existing = await queryDb.select({ number: invoices.number })
             .from(invoices)
             .where(sql`${invoices.number} LIKE ${pattern}`)
-            .orderBy(desc(invoices.number))
-            .limit(1)
             .for('update');
 
-        let seq = 1;
-        if (lastInvoice.length > 0) {
-            const parts = lastInvoice[0].number.split('-');
-            seq = parseInt(parts[2], 10) + 1;
+        let maxSeq = 0;
+        for (const row of existing) {
+            const parts = String(row.number).split('-');
+            const parsed = parseInt(parts[2], 10);
+            if (Number.isFinite(parsed) && parsed > maxSeq) {
+                maxSeq = parsed;
+            }
         }
+        const seq = maxSeq + 1;
         return `${prefix}-${year}-${String(seq).padStart(5, '0')}`;
     }
 
