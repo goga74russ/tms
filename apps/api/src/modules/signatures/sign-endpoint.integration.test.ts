@@ -107,7 +107,9 @@ vi.mock('../../providers/index.js', () => ({
     getDefaultRegistry: () => ({ signature: [] }),
     selectAdapter: async () => ({
         name: 'gosklyuch',
-        sign: async () => ({ externalId: 'gk-fake', deeplink: 'gosuslugi://x' }),
+        // Реальный формат gk-<8>-<ts>. C9: документ ДОЛЖЕН сохраниться под ЭТИМ
+        // externalId (callback приходит с ним), не под локальным buildExternalId.
+        sign: async () => ({ externalId: 'gk-fake12-1700000000000', deeplink: 'gosuslugi://x' }),
     }),
 }));
 
@@ -376,6 +378,9 @@ describe('POST /api/transport-documents/:id/sign — happy path', () => {
         expect(body.success).toBe(true);
         expect(typeof body.data.externalId).toBe('string');
         expect(body.data.externalId.length).toBeGreaterThan(10);
+        // C9 anchor: канонический externalId = тот, что вернул gosklyuch-адаптер
+        // (его несёт deeplink/callback), а НЕ локальный buildExternalId.
+        expect(body.data.externalId).toBe('gk-fake12-1700000000000');
         // deeplink — gosuslugi://… (либо от мок-адаптера, либо fallback)
         expect(typeof body.data.deeplink).toBe('string');
 
