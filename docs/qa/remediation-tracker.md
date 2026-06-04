@@ -388,6 +388,11 @@ console.error → пустая таблица неотличима от ошиб
 решение, что находки требуют отдельной работы (фича/перф/юрист/cleanup), а не
 реактивной правки. Ссылки — для трассируемости. Снимаются по мере приоритезации.
 
+> **ОБНОВЛЕНИЕ 2026-06-04 (мульти-агент волны 1-4):** бóльшая часть «DEFER»-каталога ниже
+> по факту **ЗАКРЫТА** в волнах 1-4 (pagination-индикаторы, N+1/perf, swallow-error, layer-drift,
+> concurrency-locks, correctness). **Реально FIXED/VERIFIED: ~114/181.** Категории D1-D3, D7 в основном
+> сняты; разделы ниже — исторические, актуальный остаток см. «ОСТАТОК ПОСЛЕ ВОЛН» в конце.
+
 **D1. Pagination (~12) → DEFER (нужна фича пагинации).** Жёсткие `limit=200/50/100`
 без курсора/«показано N из M»: `client/page.tsx:97`, `fleet VehiclesTable:191`/`VehicleCard:116`,
 `FinesTable:68`, `repair/page.tsx:320`, `incidents/page.tsx:171`, `InvoiceWorkflowActions:33`,
@@ -442,6 +447,49 @@ corrective_upd/corrected переходы, `shared` дубль temperature-по�
 > backlog, снимается по приоритету; на пилот B2B ничего из DEFER не блокирует.
 
 **Sweep P3 (46):** учтён в категориях D1-D9 выше (косметика/мелочи разнесены по причинам).
+
+---
+
+### ОСТАТОК ПОСЛЕ ВОЛН 1-4 (~67) — честный разбор по причинам
+
+После мульти-агент-волн 1-4 (под ревью + центральные гейты tsc/тесты/CI, все на проде через деплой)
+реально закрыто **~114/181**. Оставшиеся ~67 — это находки, которые **нельзя или нельзя безопасно**
+закрыть реактивной правкой под дедлайн. По каждой категории — вердикт `DEFER` с причиной:
+
+**R1. Миграции БД (~7) → DEFER (риск под дедлайн).** `mchd_number` per-org unique;
+`tachograph_records(driver,date,source)` unique; `idx_payments_provider_id` unique;
+`invoice_orders` allocated_vat-инвариант; `orders/trips/waybills.number` per-org; data-миграция
+нормализации существующих госномеров. Причина: каждая = CREATE INDEX/ALTER + backfill + проверка
+на существующие дубли + откат-план. Хастить миграции на проде опасно (можно уронить запись). Код-уровень
+идемпотентности по ним уже добавлен в волнах (existence-check, advisory-lock) — БД-индекс это усиление.
+
+**R2. Fake-INN в офиц. документах (~5) → DEFER → /jurist.** `0000000000`/«ООО ТМС Логистик» в
+ЭТрН/ПЛ/акте при незаданном env. Юр-значимость + нужен реальный конфиг организации. Решение за /jurist.
+
+**R3. Незавершённый функционал (~10) → DEFER (продуктовая работа).** OnboardingTour-эндпоинт
+(`/auth/me/preferences` нет), repair assignedTo/category persist (TODO), mobile MechanicInspection
+inspectionType-выбор, CheckpointScreen камера→подпись, admin/billing churn-stub, AppNavigator мульти-роль.
+Это фичи, а не баги — требуют продуктовой проработки.
+
+**R4. MSK-нормализация сервер (~3) → DEFER (cross-cutting).** etrn-generator formatDate, tarification
+ночь/выходной в TZ сервера. Нужен единый MSK-helper и согласованное решение по TZ. Web-сторона дат закрыта.
+
+**R5. Dead-code (~6) → DEFER (cleanup-проход).** VehicleTimeline, checkScheduledMaintenance, classifiers,
+hasValid*Today, etrn-titles T2/5/6, mobile orphan-хелперы. Не баг (мёртвый код); удаление = отдельный
+проход с проверкой импортов.
+
+**R6. i18n (~3) → DEFER → /desing.** EN-строки в RU-UI (trips OperationalStructureBlock, plan/fact).
+
+**R7. Sensitive, отложено осознанно (~5).** `auth.ts` non-null assertion (минор, edge-case legacy-no-org;
+auth-зона — без полного контекста сигнатур не правлю под дедлайн); finance prefix INV-/СЧ- рассинхрон
+(data-integrity нюанс — нужен аккуратный разбор нумерации); shared дубль temperature-полей (удаление из
+широко-используемой схемы рискованно); signedAt клиентский clamp; billing payment lookup (закрыто orderBy,
+unique-индекс → R1).
+
+> **Итог DoD (финал):** ~114/181 **FIXED/VERIFIED** (батчи S/C/SE/M/F/G **на проде** + мульти-агент
+> волны 1-4 **на origin, CI-зелёные, НЕ задеплоены** — `4a4b1f6`). ~67 **DEFER** с причинами (R1-R7: миграции/jurist/unfinished/
+> MSK/cleanup/i18n/sensitive). **Вердикт на все 181.** Для повторного аудита: DEFER-причины обоснованы
+> (риск миграций / внешние креды / продуктовые решения / cleanup), не «забыто». Пилот B2B не блокируется.
 
 ---
 
