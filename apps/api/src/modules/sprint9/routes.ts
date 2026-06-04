@@ -65,7 +65,13 @@ export default async function sprint9Routes(app: FastifyInstance) {
         const { page, limit } = toPagination(request.query);
         const { search, archived } = request.query as { search?: string; archived?: string };
         const conditions = [];
-        if (user.organizationId) conditions.push(eq(trailers.organizationId, user.organizationId));
+        if (user.organizationId) {
+            conditions.push(eq(trailers.organizationId, user.organizationId));
+        } else if (!isPlatformSuperAdmin(user)) {
+            // C9-sec: org-less не-супер-админ получал НЕскоупленный список всех
+            // прицепов всех тенантов (where=undefined). Возвращаем пусто.
+            return { success: true, data: [], total: 0, page, limit };
+        }
         if (search) {
             conditions.push(
                 sql`(${trailers.plateNumber} ILIKE ${`%${search}%`} OR ${trailers.make} ILIKE ${`%${search}%`} OR ${trailers.model} ILIKE ${`%${search}%`})`

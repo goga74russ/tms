@@ -997,7 +997,8 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
             if (!parsed.success) {
                 return reply.code(422).send({ success: false, error: parsed.error.flatten() });
             }
-            const result = await evaluateTariffRule(parsed.data);
+            const orgId = (request.user as { organizationId?: string | null }).organizationId;
+            const result = await evaluateTariffRule({ ...parsed.data, organizationId: orgId });
             return { success: true, data: result };
         }
     );

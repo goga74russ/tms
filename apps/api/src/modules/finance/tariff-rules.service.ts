@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { orders, tariffs, tripOrders, trips } from '../../db/schema.js';
 import { toFiniteNumber } from '../../utils/number.js';
@@ -21,6 +21,9 @@ export type TariffRuleEvaluationInput = {
     minutes?: number | null;
     freeMinutes?: number | null;
     amountOverride?: number | null;
+    /** C9-sec: org-скоуп для getTripTariff — без него тариф чужого тенанта
+     * раскрывался по tripId. Передавать user.organizationId на публичном пути. */
+    organizationId?: string | null;
 };
 
 export type TariffRuleEvaluation = {
@@ -52,14 +55,19 @@ function roundMoney(value: number) {
     return Math.round(value * 100) / 100;
 }
 
-async function getTripTariff(tripId?: string | null) {
+async function getTripTariff(tripId?: string | null, organizationId?: string | null) {
     if (!tripId) return null;
+    // C9-sec: org-фильтр по trips.organizationId — иначе тариф чужого тенанта
+    // раскрывался по UUID рейса (POST /finance/tariff-rules/evaluate).
+    const where = organizationId
+        ? and(eq(trips.id, tripId), eq(trips.organizationId, organizationId))
+        : eq(trips.id, tripId);
     const [row] = await db.select({ tariff: tariffs })
         .from(trips)
         .innerJoin(tripOrders, eq(trips.id, tripOrders.tripId))
         .innerJoin(orders, eq(tripOrders.orderId, orders.id))
         .innerJoin(tariffs, eq(orders.contractId, tariffs.contractId))
-        .where(eq(trips.id, tripId))
+        .where(where)
         .limit(1);
     return row?.tariff ?? null;
 }
@@ -81,7 +89,7 @@ export async function evaluateTariffRule(input: TariffRuleEvaluationInput): Prom
         };
     }
 
-    const tariff = await getTripTariff(input.tripId);
+    const tariff = await getTripTariff(input.tripId, input.organizationId);
     const defaults = DEFAULT_RULES[input.serviceType];
     let unit = input.unit || defaults.unit;
     let rate = defaults.rate;

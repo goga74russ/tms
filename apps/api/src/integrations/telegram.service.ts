@@ -165,16 +165,37 @@ const EVENT_TEMPLATES: Record<string, {
 };
 
 /**
+ * C9-sec: экранирование HTML для parse_mode=HTML. Раньше произвольные поля
+ * события (reason/description/plate/number/city…) подставлялись в HTML-шаблон
+ * без экранирования → инъекция разметки/поломка сообщения через `<`/`>`/`&`.
+ */
+function escapeHtml(value: string): string {
+    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Экранирует строковые значения data; числа/прочее пропускает (для toLocaleString и т.п.). */
+function escapeData(data: Record<string, any>): Record<string, any> {
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(data)) {
+        out[k] = typeof v === 'string' ? escapeHtml(v) : v;
+    }
+    return out;
+}
+
+/**
  * Format an event into a Telegram notification message.
  */
 export function formatEventMessage(eventType: string, entityType: string, entityId: string, data: Record<string, any>): string {
     const template = EVENT_TEMPLATES[eventType];
+    const safe = escapeData(data);
 
     if (!template) {
-        return `📋 <b>${eventType}</b>\n${entityType}: ${entityId}`;
+        return `📋 <b>${escapeHtml(eventType)}</b>\n${escapeHtml(entityType)}: ${escapeHtml(entityId)}`;
     }
 
-    return `${template.emoji} <b>${template.title}</b>\n${template.format(data)}`;
+    // Литералы <b> в самих шаблонах статичны/безопасны; экранируются только
+    // значения data (через safe).
+    return `${template.emoji} <b>${template.title}</b>\n${template.format(safe)}`;
 }
 
 /**

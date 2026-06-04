@@ -326,6 +326,30 @@ waybills odometer (все reason'ы), Госключ externalId (частичн�
 P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по каждой находке выставить `VERIFIED` (fixed)
 либо `DEFER` с письменной причиной. Без этого 181 находка тихо сольётся. Вести подсчёт: закрыто/отложено = 181.
 
+---
+
+### DoD-леджер P2/P3 (181) — в работе
+
+**Прогресс: ~11/181 (security-кластер + уже-закрытое C8/C9).**
+
+**Батч S (cross-tenant security) — FIXED:**
+- [x] `finance/tariff-rules.service.ts:55` getTripTariff — добавлен org-фильтр (тариф чужого тенанта по tripId); route передаёт user.organizationId
+- [x] `trips/routes.ts:128` GET /trips/volume-preview — assertVehicleAccess/Trailer/Order перед computeVolumeCheckFromIds (existence/capacity-leak)
+- [x] `cold-chain/service.ts:44` resolveTripSla — orderId гейтится принадлежностью tripId (SLA-spoofing)
+- [x] `sprint9/routes.ts:68` GET /fleet/trailers — org-less не-супер-админ → пусто (был НЕскоупленный список всех тенантов)
+- [x] `integrations/telegram.service.ts:170` formatEventMessage — HTML-escape всех data-полей (инъекция в parse_mode=HTML)
+
+**Уже закрыто ранее (VERIFIED, перекрыто C8/C9):**
+- [x] Все raw `error.message` из server-роутов (inspections PDF 467/489, finance ×14, fleet catch ×4, execution-routes:70, orders ttn:367, trips blanket:168, opcore) → **C8 codemod** safeClientError
+- [x] mojibake inspections:301 → **C9** (parseDays-фикс); contractor addresses GET → **VERIFIED** активен
+- [x] `transport-documents-store.ts:1044` signatureState 'partially_signed' хардкод → **C9** (≥2 подписанта→signed)
+- [x] `mobile TripCompletionScreen:47` odometer vs odometerEnd → **VERIFIED**: sync-процессор маппит `{odometer}`→odometerEnd (service.ts:72,97), сохраняется корректно
+- [x] `VehiclesTable isBlocked` (P3) → совпадает с DEFER P1 (вычисляемое поле)
+- [x] `trips RBAC redirect flicker` (P3 1266) → **VERIFIED** (аудит сам: «Паттерн корректен», loading=true)
+
+**Остаток (~170):** correctness one-liners, swallow-error class (web), pagination class, dead-code, fake-INN→/jurist,
+TZ/MSK, N+1 perf, E6-revocation (WS/middleware/mobile-403), CSPRNG. Разбираю батчами далее.
+
 **Sweep P3 (46):** косметика по сегментам — пройти финальным заходом, см. аудит §«P3».
 
 ---
@@ -335,6 +359,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | C9-DoD | **Батч S (cross-tenant security, 5 fixes):** getTripTariff org-фильтр; volume-preview assertVehicle/Trailer/Order; resolveTripSla orderId↔tripId-гейт; sprint9 trailers org-less→пусто; telegram formatEventMessage HTML-escape. Старт DoD-леджера P2/P3 (~11/181, с учётом перекрытого C8/C9). tsc=0, unit 735 | _(этот коммит)_ |
 | 2026-06-04 | deploy | **🚀 C9 на проде**: pull `e9562bd→7ce7645`, build api+web, recreate (без миграций). api 200 (int+ext), web 200, login(wrong)=401, оба контейнера healthy. CI green. **local==origin==prod==7ce7645.** Включает весь C9 + stop-gate + DPA-гейт. NB: ALLOW_ONLINE_PAYMENTS не задан → онлайн-оплата закрыта (пилот B2B+счёт, как задумано). | `7ce7645` |
 | 2026-06-04 | C9 | **Mobile батч (3 P1):** database onSetUpError логирует сбой БД (был молчаливый `()=>{}`); TripDetailsScreen легаси-кнопка сужена до in_transit (была в любом статусе); два пути completeTrip разъяснены — сходятся на changeTripStatus (онлайн /complete vs офлайн /sync/events), не дубль (минорный gap: sync не пишет odometerReadings). mobile tsc=0, мои тесты PASS (LoginScreen/MyWaybill — прежние parse-fail, continue-on-error). **ВСЕ 27 C9-P1 закрыты/VERIFIED/DEFER.** Остаётся DoD: P2(135)+P3(46) | _(этот коммит)_ |
 | 2026-06-04 | C9 | **Web батч 2 (4 P1 + 2 VERIFIED + 1 DEFER):** SignTitleButton истёкшие МЧД дизейблятся+бейдж; dispatcher handleSelectTrip→enrichedVehicles (фокус карты с live WS); TemperaturePanel mock-tick RBAC→admin-only (сервер admin-only, было +dispatcher→403). VERIFIED: ContractorsTable addresses (роут активен+backend есть), admin/layout (return null, не leak). DEFER: cockpit driverId (нужен UI/продукт). web 199, tsc=0 | _(этот коммит)_ |

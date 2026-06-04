@@ -129,9 +129,17 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         schema: { tags: ['Рейсы'], summary: 'Предпросмотр проверки кубов' },
         preHandler: [app.authenticate, requireAbility('update', 'Trip')],
     }, async (request, reply) => {
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
         const q = request.query as { vehicleId?: string; trailerId?: string; orderIds?: string };
         if (!q.vehicleId) return reply.status(400).send({ success: false, error: 'vehicleId обязателен' });
         const orderIds = (q.orderIds ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+        // C9-sec: раньше vehicleId/trailerId/orderIds шли в computeVolumeCheckFromIds
+        // без проверки доступа → cross-tenant existence/capacity-leak по чужим UUID.
+        await assertVehicleAccess(q.vehicleId, user);
+        if (q.trailerId) await assertTrailerAccess(q.trailerId, user);
+        for (const orderId of orderIds) {
+            await assertOrderAccess(orderId, user);
+        }
         const check = await computeVolumeCheckFromIds(q.vehicleId, q.trailerId ?? null, orderIds);
         return { success: true, data: check };
     });

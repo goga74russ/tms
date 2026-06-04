@@ -43,13 +43,20 @@ export interface InsertedReading {
  */
 export async function resolveTripSla(tripId: string, orderId?: string | null): Promise<SlaBounds> {
     if (orderId) {
+        // C9-sec: раньше orderId не проверялся на принадлежность tripId → можно было
+        // подсунуть orderId чужого рейса/тенанта и подменить SLA breach-детекции.
+        // Гейтим: заявка должна быть привязана к рейсу (legacy orders.tripId ИЛИ junction).
         const [row] = await db
             .select({
                 minC: orders.temperatureMinC,
                 maxC: orders.temperatureMaxC,
             })
             .from(orders)
-            .where(eq(orders.id, orderId))
+            .leftJoin(tripOrders, eq(tripOrders.orderId, orders.id))
+            .where(and(
+                eq(orders.id, orderId),
+                or(eq(orders.tripId, tripId), eq(tripOrders.tripId, tripId)),
+            ))
             .limit(1);
         if (row && (row.minC != null || row.maxC != null)) {
             return {
