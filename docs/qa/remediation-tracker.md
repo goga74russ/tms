@@ -4,10 +4,11 @@
 > Этот файл — **рабочий план починки**, не дубль аудита. Аудит неизменяем; здесь — статусы.
 > Роль: **TransPult**. Запущено: 2026-06-02.
 
-> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-03):** **на проде `e79670a`** (local==origin==prod, P0 Gate CI зелёный).
-> **Закрыто и на проде: C1 · C2 · C3(cross-tenant) · C4 · C5(backend) · C6 · C7.** 7 классов.
-> Остаток: C5-хвост (sync/mobile/web), C9 (correctness/perf), P2/P3 sweep. C8 (error-leak) ✅.
-> DEFER (документированы): C2-копилот, легаси-нумерация per-org, C3 within-org over-exposure, gosklyuch XAdES/mTLS/юр-сила.
+> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-04):** **на проде `39c188e`** (`local==origin==prod`, P0 Gate CI зелёный, оба контейнера healthy).
+> **Закрыто и на проде: C1 · C2 · C3(cross-tenant) · C4 · C5(backend) · C6 · C7 · C8 · C9(все P1).** 8.5 из 9 классов.
+> Плюс на проде: **stop-gate 54-ФЗ** (`ALLOW_ONLINE_PAYMENTS` закрыт → пилот B2B+счёт) + **серверный DPA-гейт**.
+> **Единственный остаток:** C9 **DoD-проход P2 (135) + P3 (46) = 181 находка** (выставить VERIFIED/DEFER по каждой).
+> DEFER-хвост (документированы): OFD-real + Госключ-prod-HMAC (внешние креды); cockpit driverId + VehiclesTable toggleBlock (продуктовые UI); mobile odometerReadings-gap (low-pri); C2-копилот, легаси-нумерация per-org, C3 within-org over-exposure, gosklyuch XAdES/mTLS/юр-сила.
 
 ## Зачем этот файл
 
