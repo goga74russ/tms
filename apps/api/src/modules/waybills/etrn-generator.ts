@@ -8,6 +8,7 @@
 // Если ЭДО-оператор требует windows-1251, конвертировать
 // на уровне экспорта через iconv-lite.
 // ============================================================
+import { randomUUID } from 'node:crypto';
 
 /** Input data for ЭТрН generation — assembled from TMS tables */
 export interface ETrNInput {
@@ -119,11 +120,9 @@ export function encodeWindows1251(input: string): Buffer {
  */
 function generateDocId(carrierInn: string, shipperInn: string, date: string): string {
     const dateStr = formatDate(date).replace(/\./g, '');
-    const guid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
+    // C9: было Math.random()-GUID (V8-PRNG, риск коллизий/предсказуемости для
+    // юр-значимой связки титулов). CSPRNG randomUUID() — как в auth/onboarding.
+    const guid = randomUUID();
     return `ON_ETRN_${carrierInn}_${shipperInn}_${dateStr}_${guid}`;
 }
 

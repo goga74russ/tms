@@ -51,7 +51,7 @@ export function AddFineModal({ open, onClose, onCreated }: AddFineModalProps) {
             await api.post('/fleet/fines', {
                 vehicleId: form.vehicleId,
                 driverId: form.driverId || undefined,
-                violationDate: new Date(form.violationDate).toISOString(),
+                violationDate: new Date(form.violationDate + 'T00:00:00').toISOString(),
                 violationType: form.violationType,
                 amount: Number(form.amount),
                 resolutionNumber: form.resolutionNumber || undefined,

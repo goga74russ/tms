@@ -5,7 +5,7 @@
 import { FastifyPluginAsync, type FastifyBaseLogger } from 'fastify';
 import websocket from '@fastify/websocket';
 import { db } from '../db/connection.js';
-import { vehicles } from '../db/schema.js';
+import { vehicles, users } from '../db/schema.js';
 import { and, eq } from 'drizzle-orm';
 import * as WialonMock from './mocks/wialon.mock.js';
 import { filterPositionsForSubscription, shouldDeliverEvent } from './websocket-filters.js';
@@ -133,7 +133,7 @@ const websocketRoutes: FastifyPluginAsync = async (app) => {
     await app.register(websocket);
 
     // WebSocket endpoint: /ws/vehicles (JWT auth via Sec-WebSocket-Protocol, query token as legacy fallback)
-    app.get('/ws/vehicles', { websocket: true }, (socket, request) => {
+    app.get('/ws/vehicles', { websocket: true }, async (socket, request) => {
         // --- JWT Auth ---
         const url = new URL(request.url, `http://${request.headers.host}`);
         const protocolHeader = request.headers['sec-websocket-protocol'];
@@ -151,9 +151,22 @@ const websocketRoutes: FastifyPluginAsync = async (app) => {
 
         let organizationId: string | null = null;
         try {
-            const payload = (app as any).jwt.verify(token) as { roles?: string[]; organizationId?: string | null };
+            const payload = (app as any).jwt.verify(token) as { userId?: string; roles?: string[]; organizationId?: string | null; tv?: number };
             if (!payload.roles?.some((role) => allowedRoles.includes(role))) {
                 throw new Error('Forbidden');
+            }
+            // C9 E6: сверяем token_version/isActive с БД (как HTTP authenticate,
+            // auth.ts:133). Без этого отозванный токен (смена пароля/деактивация)
+            // живёт на WS до истечения TTL (5 мин).
+            if (payload.userId) {
+                const [u] = await db
+                    .select({ isActive: users.isActive, tokenVersion: users.tokenVersion })
+                    .from(users)
+                    .where(eq(users.id, payload.userId))
+                    .limit(1);
+                if (!u || !u.isActive || (payload.tv ?? 0) !== u.tokenVersion) {
+                    throw new Error('Revoked');
+                }
             }
             organizationId = payload.organizationId ?? null;
         } catch {

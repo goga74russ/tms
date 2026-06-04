@@ -674,6 +674,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
             organizationId: users.organizationId,
             roles: users.roles,
             isActive: users.isActive,
+            tokenVersion: users.tokenVersion,
         }).from(users).where(eq(users.id, payload.userId)).limit(1);
 
         if (!fresh || !fresh.isActive) {
@@ -685,6 +686,9 @@ export function registerAuthRoutes(app: FastifyInstance) {
                 userId: payload.userId,
                 roles: fresh.roles,
                 organizationId: fresh.organizationId ?? undefined,
+                // C9 E6: tv в WS-токене — чтобы WS-хендлер мог сверить token_version
+                // с БД и отвергать отозванные токены (как HTTP authenticate).
+                tv: fresh.tokenVersion ?? 0,
             },
             { expiresIn: '5m' },
         );

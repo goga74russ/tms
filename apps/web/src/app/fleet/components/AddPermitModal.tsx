@@ -54,8 +54,8 @@ export function AddPermitModal({ open, onClose, onCreated }: AddPermitModalProps
                 zoneType: form.zoneType,
                 zoneName: form.zoneName,
                 permitNumber: form.permitNumber,
-                validFrom: new Date(form.validFrom).toISOString(),
-                validUntil: new Date(form.validUntil).toISOString(),
+                validFrom: new Date(form.validFrom + 'T00:00:00').toISOString(),
+                validUntil: new Date(form.validUntil + 'T00:00:00').toISOString(),
                 isActive: true,
             });
             onCreated();

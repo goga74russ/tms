@@ -330,7 +330,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 
 ### DoD-леджер P2/P3 (181) — в работе
 
-**Прогресс: ~33/181 (security S + correctness C + swallow-error SE + уже-закрытое C8/C9).**
+**Прогресс: ~42/181 (S + C + SE + M + уже-закрытое C8/C9).**
 
 **Батч S (cross-tenant security) — FIXED:**
 - [x] `finance/tariff-rules.service.ts:55` getTripTariff — добавлен org-фильтр (тариф чужого тенанта по tripId); route передаёт user.organizationId
@@ -366,8 +366,17 @@ console.error → пустая таблица неотличима от ошиб
 `fleet/FuelRecordsTable`, `fleet/FinesTable`, `fleet/PermitsTable` (4 последних — добавлен useToast).
 `ui/Combobox` — ошибка поиска показывается в дропдауне (toast на keystroke был бы шумным). web 199, tsc=0.
 
-**Остаток (~150):** pagination class (~12), dead-code, fake-INN→/jurist, TZ/MSK, N+1 perf,
-E6-revocation (WS/middleware/mobile-403), CSPRNG, layer-drift, i18n. Разбираю батчами далее.
+**Батч M (E6 + TZ-даты + CSPRNG) — FIXED/VERIFIED/DEFER:**
+- [x] `integrations/websocket.ts:154` E6: WS-хендлер сверяет token_version/isActive с БД (был только jwt.verify) + `ws-token` теперь несёт `tv` → отозванный токен отвергается на WS
+- [x] **VERIFIED** `mobile/client.ts:85` 401/403-logout — C7 бампит token_version при смене ролей → отзыв даёт **401** (не 403) → logout уже срабатывает. Blanket 403→logout неверен (легитимный forbidden выкидывал бы юзера)
+- [~] **DEFER** `web/middleware.ts:75` tv в edge — edge-runtime stateless (нет БД); авторитетная проверка tv — API-слой, SSR ходит через него
+- [x] `web AddPermitModal/AddFineModal/CreateOrderModal` (5 мест) — date-only `new Date('YYYY-MM-DD')` парсился как UTC-полночь → off-by-one для МСК. Локальная полночь (`+'T00:00:00'`)
+- [x] `waybills/etrn-generator.ts:120` GUID документа ЭТрН: Math.random → `crypto.randomUUID()` (CSPRNG)
+- [~] **DEFER** `demo/service.ts:113` rndPlate Math.random — демо-данные, не security-критично
+
+**Остаток (~140):** pagination class (~12 → большинство DEFER «нужна фича»), dead-code (~8 → DEFER cleanup),
+N+1 perf (~10), fake-INN→/jurist (~5), TZ/MSK api-сторона (~4), layer-drift (~10), i18n→/desing, прочее.
+Разбираю батчами далее.
 
 **Sweep P3 (46):** косметика по сегментам — пройти финальным заходом, см. аудит §«P3».
 
@@ -378,6 +387,7 @@ E6-revocation (WS/middleware/mobile-403), CSPRNG, layer-drift, i18n. Разби�
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | C9-DoD | **Батч M (E6+TZ+CSPRNG):** WS token_version-проверка + ws-token несёт tv; date-only→локальная полночь ×5 (off-by-one МСК); etrn GUID randomUUID. VERIFIED mobile-403; DEFER web-middleware-tv, demo rndPlate. tsc api+web=0, unit 735 | _(этот коммит)_ |
 | 2026-06-04 | C9-DoD | **Батч SE (swallow-error web, 11):** toast во всех load/submit-catch (tariffs/checklists/contractors/VehiclesTable/Downtime/Maintenance×2/Fuel/Fines/Permits) + Combobox показывает ошибку поиска в дропдауне. web 199, tsc=0 | _(этот коммит)_ |
 | 2026-06-04 | deploy | **🚀 C9-DoD S+C на проде**: pull `e72cd9c→7da6c2f`, build api+web, recreate (без миграций). api/web 200, login(wrong)=401, healthy. CI green. **local==origin==prod==7da6c2f.** | `7da6c2f` |
 | 2026-06-04 | C9-DoD | **Батч C (correctness one-liners, 9 fix + 1 VERIFIED + 1 DEFER):** onboardingStep GREATEST; claims mojibake; cancelTripAfterArrival opt-in; scoring date-or-datetime; web ₴→₽, дельта-знак, sparkline useId, repair RBAC+manager, orders STATUS+completed. refine VERIFIED; diadoc DEFER. tsc api+web=0, unit 735 | _(этот коммит)_ |
