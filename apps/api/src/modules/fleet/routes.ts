@@ -522,11 +522,11 @@ export default async function fleetRoutes(app: FastifyInstance) {
         try {
             const { id } = request.params as { id: string };
             const user = request.user as AuthUser;
-            const body = request.body as Partial<{
-                liters: number; costPerLiter: number; totalCost: number;
-                fuelType: string; station: string; odometerAtFill: number;
-                vehicleId: string; driverId: string; tripId: string;
-            }>;
+            // C9: PUT не валидировался (raw cast) — в отличие от POST. Гоним через
+            // тот же Zod-контракт (.partial), чтобы negative/NaN/мусор не попал в БД.
+            const parsed = FuelRecordCreateSchema.partial().safeParse(request.body);
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
+            const body = parsed.data;
             await assertScopedRefs({ vehicleId: body.vehicleId, driverId: body.driverId, tripId: body.tripId }, user);
             const updated = await fleetService.updateFuelRecord(id, body, user.organizationId);
             if (!updated) return reply.status(404).send({ success: false, error: 'Запись не найдена' });

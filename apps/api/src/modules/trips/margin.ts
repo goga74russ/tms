@@ -14,6 +14,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { trips, tripOrders, orders } from '../../db/schema.js';
+import { toOptionalFiniteNumber } from '../../utils/number.js';
 
 export interface TripMargin {
     revenue: number | null;
@@ -26,6 +27,73 @@ export interface TripMargin {
     /** L1 — указывает откуда взяли cost: 'own' | 'subcontract' | 'legacy_carrier_cost'. */
     costSource?: 'own' | 'subcontract' | 'legacy_carrier_cost' | null;
     executionMode?: 'own' | 'subcontract' | null;
+}
+
+/** Сырьё из БД (numeric-поля приходят строками либо number). */
+export interface MarginTripRow {
+    carrierCost: unknown;
+    carrierCostCurrency: string | null;
+    ownCostEstimate: unknown;
+    subcontractorCost: unknown;
+    executionMode: 'own' | 'subcontract' | null;
+}
+export interface MarginOrderRow {
+    customerPrice: unknown;
+    customerPriceCurrency: string | null;
+}
+
+/**
+ * Чистый редьюсер маржи — без БД, тестируется напрямую.
+ * Вынесен из computeTripMargin ради anchor-теста на string-numeric (C9 NaN-баг).
+ */
+export function reduceTripMargin(trip: MarginTripRow, orderRows: MarginOrderRow[]): TripMargin {
+    let revenue = 0;
+    let hasAnyPrice = false;
+    let ordersWithoutPrice = 0;
+    let revenueCurrency: string | null = null;
+    for (const row of orderRows) {
+        // C9: numeric-колонки PG приходят из драйвера СТРОКАМИ (несмотря на .$type<number>()).
+        // Без явной коэрции `revenue += "1500.00"` конкатенировал строки → round2 → NaN.
+        const price = toOptionalFiniteNumber(row.customerPrice);
+        if (price != null) {
+            revenue += price;
+            hasAnyPrice = true;
+            // Берём валюту первой заявки с ценой (валидация смешанных валют — TODO Этап 3).
+            if (!revenueCurrency) revenueCurrency = row.customerPriceCurrency;
+        } else {
+            ordersWithoutPrice++;
+        }
+    }
+
+    // L1 (Carriers-0) — fallback chain: новые поля приоритетнее legacy carrier_cost.
+    // execution_mode='own' → own_cost_estimate; ='subcontract' → subcontractor_cost.
+    // carrier_cost остаётся только для legacy trips (миграция 0035 backfill'ила
+    // existing carrier_cost → own_cost_estimate, поэтому fallback редко срабатывает).
+    const cost = toOptionalFiniteNumber(trip.subcontractorCost)
+        ?? toOptionalFiniteNumber(trip.ownCostEstimate)
+        ?? toOptionalFiniteNumber(trip.carrierCost);
+    const finalRevenue = hasAnyPrice ? round2(revenue) : null;
+    const margin = (finalRevenue != null && cost != null) ? round2(finalRevenue - cost) : null;
+
+    const costSource = trip.subcontractorCost != null
+        ? 'subcontract' as const
+        : trip.ownCostEstimate != null
+            ? 'own' as const
+            : trip.carrierCost != null
+                ? 'legacy_carrier_cost' as const
+                : null;
+
+    return {
+        revenue: finalRevenue,
+        cost,
+        margin,
+        revenueCurrency: revenueCurrency ?? 'RUB',
+        costCurrency: trip.carrierCostCurrency ?? 'RUB',
+        ordersWithoutPrice,
+        ordersChecked: orderRows.length - ordersWithoutPrice,
+        costSource,
+        executionMode: trip.executionMode ?? null,
+    };
 }
 
 export async function computeTripMargin(tripId: string): Promise<TripMargin> {
@@ -57,48 +125,7 @@ export async function computeTripMargin(tripId: string): Promise<TripMargin> {
         .innerJoin(orders, eq(tripOrders.orderId, orders.id))
         .where(eq(tripOrders.tripId, tripId));
 
-    let revenue = 0;
-    let hasAnyPrice = false;
-    let ordersWithoutPrice = 0;
-    let revenueCurrency: string | null = null;
-    for (const row of orderRows) {
-        if (row.customerPrice != null) {
-            revenue += row.customerPrice;
-            hasAnyPrice = true;
-            // Берём валюту первой заявки с ценой (валидация смешанных валют — TODO Этап 3).
-            if (!revenueCurrency) revenueCurrency = row.customerPriceCurrency;
-        } else {
-            ordersWithoutPrice++;
-        }
-    }
-
-    // L1 (Carriers-0) — fallback chain: новые поля приоритетнее legacy carrier_cost.
-    // execution_mode='own' → own_cost_estimate; ='subcontract' → subcontractor_cost.
-    // carrier_cost остаётся только для legacy trips (миграция 0035 backfill'ила
-    // existing carrier_cost → own_cost_estimate, поэтому fallback редко срабатывает).
-    const cost = trip.subcontractorCost ?? trip.ownCostEstimate ?? trip.carrierCost ?? null;
-    const finalRevenue = hasAnyPrice ? round2(revenue) : null;
-    const margin = (finalRevenue != null && cost != null) ? round2(finalRevenue - cost) : null;
-
-    const costSource = trip.subcontractorCost != null
-        ? 'subcontract' as const
-        : trip.ownCostEstimate != null
-            ? 'own' as const
-            : trip.carrierCost != null
-                ? 'legacy_carrier_cost' as const
-                : null;
-
-    return {
-        revenue: finalRevenue,
-        cost,
-        margin,
-        revenueCurrency: revenueCurrency ?? 'RUB',
-        costCurrency: trip.carrierCostCurrency ?? 'RUB',
-        ordersWithoutPrice,
-        ordersChecked: orderRows.length - ordersWithoutPrice,
-        costSource,
-        executionMode: trip.executionMode ?? null,
-    };
+    return reduceTripMargin(trip as MarginTripRow, orderRows as MarginOrderRow[]);
 }
 
 function round2(v: number): number {

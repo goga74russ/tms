@@ -122,6 +122,10 @@ export default async function importRoutes(app: FastifyInstance) {
         if (!Array.isArray(items) || items.length === 0) {
             return reply.status(400).send({ success: false, error: 'items[] обязателен' });
         }
+        // C9: batch-limit (DoS) — драйверы создают user-аккаунт с bcrypt per-row.
+        if (items.length > 200) {
+            return reply.status(400).send({ success: false, error: 'Максимум 200 записей' });
+        }
 
         const orgId = user.organizationId || null;
         const results = { created: 0, usersCreated: 0, errors: [] as { index: number, error: string }[] };
@@ -360,6 +364,10 @@ export default async function importRoutes(app: FastifyInstance) {
         const items = (request.body as { items?: unknown[] })?.items;
         if (!Array.isArray(items) || items.length === 0) {
             return reply.status(400).send({ success: false, error: 'items[] обязателен' });
+        }
+        // C9: batch-limit (DoS) — единообразно с vehicles/orders/drivers.
+        if (items.length > 200) {
+            return reply.status(400).send({ success: false, error: 'Максимум 200 записей' });
         }
 
         const orgId = user.organizationId || null;

@@ -1048,12 +1048,25 @@ export async function recordTransportDocumentSignature(params: {
         };
         signatures.push(signature);
 
+        // C9: раньше status был ЗАХАРДКОЖЕН 'partially_signed' → «полностью подписан»
+        // в ручном ПЭП-потоке недостижим (gosklyuch-путь использует 'signed').
+        // Правило завершения: ≥2 различных подписанта (обе стороны) → 'signed'.
+        // NB(/jurist): точный требуемый набор ролей зависит от типа документа
+        // (ТрН: грузоотправитель+перевозчик+грузополучатель); signerRole здесь
+        // free-form, поэтому используем консервативный bilateral-критерий.
+        const distinctRoles = new Set(
+            signatures
+                .map((s) => String((s as Record<string, unknown>).signerRole ?? '').trim().toLowerCase())
+                .filter(Boolean),
+        );
+        const signatureStatus = distinctRoles.size >= 2 ? 'signed' : 'partially_signed';
+
         await tx.update(transportDocuments).set({
             metadata: {
                 ...metadata,
                 signatures,
                 signatureState: {
-                    status: 'partially_signed',
+                    status: signatureStatus,
                     lastSignerRole: params.signerRole,
                     lastSignedAt: signedAt.toISOString(),
                 },

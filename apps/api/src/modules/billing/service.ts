@@ -325,26 +325,40 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
                 })
                 .where(eq(subscriptions.id, subRow.id));
 
-            // 3) Fiscalize via ОФД (mock by default).
+            // 3) Fiscalize via ОФД.
+            // C9: реальная интеграция OFD.ru ещё не построена (ждёт креды), поэтому
+            // getOfdAdapter() отдаёт mock. В ПРОДЕ молча минтить ФЕЙКОВЫЙ 54-ФЗ чек
+            // ( offd.example.com) недопустимо — это выдаётся покупателю как настоящий.
+            // Fail-closed: в production без ALLOW_MOCK_OFD оставляем receiptUrl=null,
+            // оператор дофискализирует позже. ALLOW_MOCK_OFD=true — осознанный режим
+            // B2B-only/free-box, где 54-ФЗ не требуется (см. mock.ts).
             try {
                 const ofd = getOfdAdapter();
-                const receipt = await ofd.fiscalize({
-                    paymentId: paymentRow.id,
-                    amountKopecks: paymentRow.amountKopecks,
-                    description: 'Подписка ТрансПульт (месяц)',
-                    customerEmail: payload.customerEmail,
-                    customerPhone: payload.customerPhone,
-                    taxSystem: 'usn_income',
-                    vatCode: 'vat_none',
-                });
-                receiptUrl = receipt.receiptUrl;
-                await tx
-                    .update(payments)
-                    .set({ receiptUrl })
-                    .where(eq(payments.id, paymentRow.id));
-            } catch {
+                const mockInProd = ofd.mode === 'mock'
+                    && process.env.NODE_ENV === 'production'
+                    && process.env.ALLOW_MOCK_OFD !== 'true';
+                if (mockInProd) {
+                    console.warn('[billing] ОФД-фискализация пропущена: в production доступен только mock-адаптер (фейковый чек не выдаём). Для B2B-only установки задайте ALLOW_MOCK_OFD=true.');
+                } else {
+                    const receipt = await ofd.fiscalize({
+                        paymentId: paymentRow.id,
+                        amountKopecks: paymentRow.amountKopecks,
+                        description: 'Подписка ТрансПульт (месяц)',
+                        customerEmail: payload.customerEmail,
+                        customerPhone: payload.customerPhone,
+                        taxSystem: 'usn_income',
+                        vatCode: 'vat_none',
+                    });
+                    receiptUrl = receipt.receiptUrl;
+                    await tx
+                        .update(payments)
+                        .set({ receiptUrl })
+                        .where(eq(payments.id, paymentRow.id));
+                }
+            } catch (err) {
                 // Fiscalization failed — keep payment succeeded, leave receiptUrl null
-                // so an operator can re-fiscalize later.
+                // so an operator can re-fiscalize later. Раньше ошибка глушилась молча.
+                console.warn('[billing] ОФД-фискализация не удалась:', (err as Error).message);
             }
         }
         return { paymentId: paymentRow.id, subscriptionId: subRow?.id ?? null, receiptUrl };

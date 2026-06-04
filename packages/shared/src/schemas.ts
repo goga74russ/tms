@@ -113,7 +113,7 @@ export type Tariff = z.infer<typeof TariffSchema>;
 // ================================================================
 export const VehicleSchema = z.object({
     id: uuid,
-    plateNumber: z.string().regex(/^[A-ZА-Я]\\d{3}[A-ZА-Я]{2}\\d{2,3}$/i, 'Неверный формат госномера'),
+    plateNumber: z.string().regex(/^[A-ZА-Я]\d{3}[A-ZА-Я]{2}\d{2,3}$/i, 'Неверный формат госномера'),
     vin: z.string().length(17, 'VIN: 17 символов'),
     make: z.string(),
     model: z.string(),

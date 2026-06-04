@@ -282,20 +282,25 @@ tsc=0, unit 712/712 ✓.
 
 ---
 
-## C9 — Correctness / unfinished / perf / misc (catch-all)  `TODO`
+## C9 — Correctness / unfinished / perf / misc (catch-all)  `IN PROGRESS`
 
 Разнородный хвост P1. Разбирать после C1–C8; часть подтянется попутно. Дом для любой не-разнесённой находки.
 
-- [ ] **P1** `providers/index.ts:216-224` — OfdRuProvider не зарегистрирован → 54-ФЗ чеки mock даже в prod ⚠️ важное
-- [ ] **P1** `fleet/routes.ts:517-536` — PUT fuel-records без Zod-валидации (raw cast)
-- [ ] **P1** `inspections/routes.ts:304, 303` — parsePage() для параметра `days` (клампит 0→1)
+**Батч 1 (backend, коммит ниже):** margin NaN, plate regex, import batch-limit (×2), fleet PUT Zod,
+inspections days+mojibake, transport-doc signatureState, OFD fail-closed (частично). tsc=0, unit 727.
+Остаток backend: credentials test-endpoint, scoring N×5 perf, Госключ deeplink, waybills odometer.
+Остаток: web (×12), mobile (×3). Затем DoD-проход P2/P3 (181).
+
+- [~] **P1** `providers/index.ts:216-224` — OfdRuProvider не зарегистрирован → 54-ФЗ чеки mock даже в prod ⚠️ → **ЧАСТИЧНО+DEFER**: реальная OFD.ru-интеграция = throwing-stub, ждёт креды (внешняя зависимость, класс gosklyuch). Сделано: billing fail-closed — в production mock-чек НЕ минтится молча (нужен `ALLOW_MOCK_OFD=true` для B2B-free-box), проглоченная ошибка фискализации теперь логируется. **Продукт-вопрос вынесен.**
+- [x] **P1** `fleet/routes.ts:517-536` — PUT fuel-records: добавлен `FuelRecordCreateSchema.partial().safeParse` (как POST)
+- [x] **P1** `inspections/routes.ts:304, 303` — `parseDays(days, 30, [1..365])` вместо parsePage; +починен mojibake-403 (и в `websocket.ts:200`)
 - [ ] **P1** `integrations/credentials/routes.ts:223-237` — тест-эндпоинт не видит реальные адаптеры → false status='error'
 - [ ] **P1** `scoring/service.ts:237-250` — computeScoreboard N×5 sequential queries
 - [ ] **P1** `signatures/sign-endpoint.ts:277-295` — Госключ deeplink несёт adapter-externalId, документ под локальным UUID → callback не найдёт
-- [ ] **P1** `trips/margin.ts:60-81` — numeric как строки, revenue конкатенируется → NaN
-- [ ] **P1** `trips/transport-documents-store.ts:1043-1047` — signatureState.status захардкожен 'partially_signed' (нет «полностью подписан»)
+- [x] **P1** `trips/margin.ts:60-81` — numeric-строки → коэрция через `toOptionalFiniteNumber`; вынесен чистый `reduceTripMargin` + anchor-тест 6/6 (NaN закрыт)
+- [x] **P1** `trips/transport-documents-store.ts:1043-1047` — signatureState: ≥2 различных подписанта → `'signed'` (было хардкод 'partially_signed'); NB(/jurist) точный набор ролей по типу документа
 - [ ] **P1** `waybills/service.ts:622-672` — closeWaybill принимает невалидный odometerIn → пишет в vehicles.currentOdometerKm
-- [ ] **P1** `import/routes.ts:111-113` — отсутствует 200-item batch limit → DoS
+- [x] **P1** `import/routes.ts:111-113` — batch-limit 200 добавлен в `/import/drivers` + `/import/contractors` (sweep: vehicles/orders уже имели)
 - [ ] **P1** `apps/mobile/.../database/index.ts:14` — onSetUpError проглочен (БД в broken state молча)
 - [ ] **P1** `apps/mobile/.../TripDetailsScreen.tsx:639-648` — кнопка «Завершить (легаси)» в любом нетривиальном статусе
 - [ ] **P1** `apps/mobile/.../TripDetailsScreen.tsx:249-291` — два независимых пути completeTrip с разными payload
@@ -309,7 +314,7 @@ tsc=0, unit 712/712 ✓.
 - [ ] **P1** `apps/web/.../trips/page.tsx:2406-2408` — поисковый запрос не URL-кодируется (инъекция query)
 - [ ] **P1** `apps/web/.../components/TemperaturePanel.tsx:80` — client-side RBAC расходится с сервером
 - [ ] **P1** `apps/web/.../dispatcher/page.tsx:598` cockpit (см. выше) / `apps/mobile/.../AppNavigator` мульти-роль (sweep)
-- [ ] **P1** `packages/shared/src/schemas.ts:116` — VehicleSchema.plateNumber regex отвергает все валидные госномера РФ (`\\d` вместо `\d`)
+- [x] **P1** `packages/shared/src/schemas.ts:116` — plateNumber regex `\\d`→`\d` (отвергал ВСЕ госномера РФ, ломал POST /fleet/vehicles); anchor-тест 9/9 в api-пакете (shared в CI не тестируется)
 - [ ] **P1** `apps/web/.../admin/integrations/page.tsx:227-232` — DPA acceptance-check 404/error молча проваливается в CredentialModal → обход DPA-гейта в проде (security)
 - [ ] **P1** `apps/web/.../admin/layout.tsx:51-65` — admin-RBAC только клиентский: SSR отдаёт контент до редиректа (security)
 - [ ] **P1** `apps/web/.../dispatcher/page.tsx:573` — handleSelectTrip ищет ТС в устаревшем `vehicles` вместо `enrichedVehicles` → фокус карты молча не срабатывает при активных WS-позициях
@@ -327,6 +332,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | C9 | **Батч 1 (backend, 7 P1):** margin NaN (string-numeric коэрция + чистый reduceTripMargin + anchor 6/6); plate regex `\\d`→`\d` (anchor 9/9); import batch-limit 200 (drivers+contractors, sweep); fleet PUT fuel-records Zod; inspections parseDays + 2 mojibake-403; transport-doc signatureState ≥2-подписанта→'signed'; OFD billing fail-closed (ALLOW_MOCK_OFD) — реал OFD.ru DEFER (ждёт креды). tsc=0, unit 727/727 | _(этот коммит)_ |
 | 2026-06-04 | deploy | **🚀 C8 на проде**: pull `ed4023d→e9562bd`, build api, recreate (без миграций). Health 200 (internal+external), login(bad-creds)=401, контейнер healthy. CI green. **local==origin==prod==e9562bd.** | `e9562bd` |
 | 2026-06-04 | C8 | **C8 ЗАКРЫТ:** системный хелпер `safeClientError` (utils/safe-error.ts) — детект PG/Drizzle по severity/routine/constraint/5-char-SQLSTATE → fallback, доменный Error → message. Codemod `apply-safe-error.mjs` ~121 мест/18 файлов + ручные finance handleWorkflowError `(err as Error)`, demo, import per-row/XLSX. Anchor-тест 7/7. **NB:** скрипт ломал import в 4 файлах (multiline-блок) → починено, урок «tsc после codemod». grep leak=0, tsc=0, unit 712/712 | _(этот коммит)_ |
 | 2026-06-02 | C1 | ПЭП P0 закрыт (4 места, sweep нашёл +2 пропущенных аудитом) + алкотест-guard. `auth/password.ts` рефактор. Инвариант-тест + grep-acceptance. tsc/unit-714/integration-137 зелёные | `d215da2` |

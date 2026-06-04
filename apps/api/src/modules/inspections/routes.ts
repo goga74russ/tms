@@ -37,6 +37,14 @@ function parseLimit(value: string | undefined, max = 100) {
     return Math.min(parsed, max);
 }
 
+// C9: окно «дней» — НЕ pagination. parsePage клампил 0→1 и не имел верхней
+// границы. Здесь дефолт 30, диапазон [1..365].
+function parseDays(value: string | undefined, def = 30, max = 365) {
+    const parsed = Number.parseInt(value || String(def), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return def;
+    return Math.min(parsed, max);
+}
+
 export default async function inspectionRoutes(app: FastifyInstance) {
 
     // ============================================================
@@ -299,10 +307,10 @@ export default async function inspectionRoutes(app: FastifyInstance) {
         try {
             const user = request.user as { roles: string[] };
             if (!user.roles.includes('medic')) {
-                return reply.status(403).send({ success: false, error: '?????? ?????? ??? ??????' });
+                return reply.status(403).send({ success: false, error: 'Доступ только для медработника' });
             }
             const { days = '30' } = request.query as Record<string, string>;
-            const drivers = await getExpiringMedCertificates(parsePage(days), (request.user as { organizationId?: string }).organizationId);
+            const drivers = await getExpiringMedCertificates(parseDays(days), (request.user as { organizationId?: string }).organizationId);
             return { success: true, data: drivers };
         } catch (error: any) {
             request.log.error(error);

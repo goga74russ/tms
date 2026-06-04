@@ -197,7 +197,7 @@ const websocketRoutes: FastifyPluginAsync = async (app) => {
     }, async (request, reply) => {
         const user = request.user as { roles: string[]; organizationId?: string | null };
         if (!user.roles.some((role) => allowedRoles.includes(role))) {
-            return reply.status(403).send({ success: false, error: '??? ??????? ? GPS-??????' });
+            return reply.status(403).send({ success: false, error: 'Нет доступа к GPS-данным' });
         }
 
         const where = user.organizationId
