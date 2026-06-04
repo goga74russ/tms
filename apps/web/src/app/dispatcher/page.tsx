@@ -570,14 +570,17 @@ export default function DispatcherPage() {
     }, [trips, topbarSearch]);
 
     const handleSelectTrip = useCallback((trip: LiveTrip) => {
-        const v = vehicles.find(x => x.plateNumber === trip.vehiclePlate);
+        // C9: искали в БАЗОВОМ `vehicles` (без live WS-координат) → при активных
+        // WS-позициях lat/lon отсутствовали и фокус карты молча не срабатывал.
+        // enrichedVehicles мерджит wsPositions — берём координаты оттуда.
+        const v = enrichedVehicles.find(x => x.plateNumber === trip.vehiclePlate);
         if (v && v.lat && v.lon) {
             setSelectedVehicle(v.id);
             if (mapInstance) {
                 mapInstance.flyTo([v.lat, v.lon], 13, { duration: 1 });
             }
         }
-    }, [vehicles, mapInstance]);
+    }, [enrichedVehicles, mapInstance]);
 
     const handleSelectVehicle = useCallback((vehicleId: string) => {
         setSelectedVehicle(vehicleId);

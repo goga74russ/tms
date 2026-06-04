@@ -77,7 +77,10 @@ function formatTemp(v: number | null | undefined) {
 
 export function TemperaturePanel({ tripId, tripNumber }: Props) {
     const { user } = useUser();
-    const isAdmin = !!user?.roles?.some((r) => r === 'admin' || r === 'dispatcher');
+    // C9: гейт кнопки «Mock tick». Сервер (POST .../temperature-mock-tick)
+    // требует РОВНО admin (isAdmin = roles.includes('admin')). Клиент включал
+    // и dispatcher → диспетчер видел кнопку и ловил 403. Выравниваем: admin-only.
+    const isAdmin = !!user?.roles?.includes('admin');
 
     const [summary, setSummary] = useState<TemperatureSummary | null>(null);
     const [readings, setReadings] = useState<TemperatureReading[]>([]);

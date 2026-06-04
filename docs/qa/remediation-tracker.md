@@ -306,20 +306,20 @@ waybills odometer (все reason'ы), Госключ externalId (частичн�
 - [ ] **P1** `apps/mobile/.../database/index.ts:14` — onSetUpError проглочен (БД в broken state молча)
 - [ ] **P1** `apps/mobile/.../TripDetailsScreen.tsx:639-648` — кнопка «Завершить (легаси)» в любом нетривиальном статусе
 - [ ] **P1** `apps/mobile/.../TripDetailsScreen.tsx:249-291` — два независимых пути completeTrip с разными payload
-- [ ] **P1** `apps/web/.../dispatcher/page.tsx:598-618` — cockpit assignment без driverId → рейсы без водителя
-- [ ] **P1** `apps/web/.../fleet/ContractorsTable.tsx:189` — addresses-роут закомментирован → модалка всегда пустая
+- [~] **P1** `apps/web/.../dispatcher/page.tsx:598-618` — cockpit assignment без driverId → **DEFER (продукт/UX):** в cockpit нет данных водителя для auto-assign; нужен driver-selection в assign-диалоге ИЛИ решение «водитель назначается позже на trips-странице» (валидный intermediate-статус). Рекомендация: добавить выбор водителя в диалог (/desing)
+- [x] **P1** `apps/web/.../fleet/ContractorsTable.tsx:189` — **VERIFIED (уже реализовано):** addresses-роут активен (стр.189 GET + PUT/POST/DELETE), backend имеет все 4 (`/fleet/contractors/:id/addresses` POST/PUT/DELETE/GET). Модалка грузит реальные данные
 - [~] **P1** `apps/web/.../fleet/VehiclesTable.tsx:263-270` — toggleBlock no-op → **DEFER (продуктовое решение):** `isBlocked` — ВЫЧИСЛЯЕМОЕ поле (`hasExpiredDocuments`), колонки нет; назначение не гейтит (косметика-бейдж). Ручной block концептуально отсутствует в бэкенде. Варианты: (а) построить real manual-block (миграция+схема+семантика) ИЛИ (б) убрать вводящую-в-заблуждение UI-кнопку (UX/desing). Рекомендация: (б) если manual-block не нужен бизнесу
 - [x] **P1** `apps/web/.../login/page.tsx:26` — driver-роут drift → дедуплицирован: login+page.tsx импортируют канон из `lib/routing.ts` (driver=/trips, покрыт routing.test 10/10), локальные дубли удалены
 - [x] **P1** `apps/web/.../logist/page.tsx:133-145` — dateFrom/dateTo теперь применяются (по `loadingWindowStart ?? createdAt`, ISO-сравнение по YYYY-MM-DD)
-- [ ] **P1** `apps/web/.../trips/SignTitleButton.tsx:352-384` — истёкшие МЧД не фильтруются/не блокируются клиентом
+- [x] **P1** `apps/web/.../trips/SignTitleButton.tsx:352-384` — истёкшие МЧД теперь дизейблятся + бейдж «истекла» (сервер уже отвергал через validateMchd; клиент не предлагает тупиковый выбор)
 - [x] **P1** `apps/web/.../trips/page.tsx:2293-2330` — N+1 устранён: `GET /trips` обогащён `orderNumbers`+`coldChainRequired` одним батч-запросом (наследует org/RLS); фронт берёт из списка (было до 100 GET /trips/:id). Темп-сводки лениво только для cold-рейсов
 - [x] **P1** `apps/web/.../trips/page.tsx:2406-2408` — query-параметры (status/search) через `encodeURIComponent`
-- [ ] **P1** `apps/web/.../components/TemperaturePanel.tsx:80` — client-side RBAC расходится с сервером
-- [ ] **P1** `apps/web/.../dispatcher/page.tsx:598` cockpit (см. выше) / `apps/mobile/.../AppNavigator` мульти-роль (sweep)
+- [x] **P1** `apps/web/.../components/TemperaturePanel.tsx:80` — RBAC mock-tick выровнен с сервером (admin-only; было admin||dispatcher → диспетчер ловил 403). «Добавить замер» не гейтился (как сервер: любой с trip-access)
+- [~] **P1** `apps/web/.../dispatcher/page.tsx:598` cockpit (см. выше DEFER) / `apps/mobile/.../AppNavigator` мульти-роль (sweep) — мобайл-часть в mobile-батче
 - [x] **P1** `packages/shared/src/schemas.ts:116` — plateNumber regex `\\d`→`\d` (отвергал ВСЕ госномера РФ, ломал POST /fleet/vehicles); anchor-тест 9/9 в api-пакете (shared в CI не тестируется)
 - [x] **P1** `apps/web/.../admin/integrations/page.tsx:227-232` — DPA-гейт был только клиентский (fail-open) → **серверный enforcement**: `assertDpaAccepted(providerName, user)` в POST /credentials (новый `dpa/guard.ts`, 403 DPA_NOT_ACCEPTED). Клиентский fail-open теперь безвреден — сервер авторитетен. Anchor 5/5
 - [x] **P1** `apps/web/.../admin/layout.tsx:51-65` — **VERIFIED (уже безопасно):** `useUser` стартует loading=true → SSR отдаёт спиннер, не контент; не-admin → `return null` (стр.65). Контент не рендерится ни на SSR, ни для не-admin. Авторитетная граница — серверный API-RBAC (C3)
-- [ ] **P1** `apps/web/.../dispatcher/page.tsx:573` — handleSelectTrip ищет ТС в устаревшем `vehicles` вместо `enrichedVehicles` → фокус карты молча не срабатывает при активных WS-позициях
+- [x] **P1** `apps/web/.../dispatcher/page.tsx:573` — handleSelectTrip теперь ищет в `enrichedVehicles` (live WS-координаты) → фокус карты срабатывает
 
 **DoD C9 (обязательно для закрытия класса):** помимо перечисленных P1 — **пройти ВЕСЬ список P2 (135) и
 P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по каждой находке выставить `VERIFIED` (fixed)
@@ -334,6 +334,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | C9 | **Web батч 2 (4 P1 + 2 VERIFIED + 1 DEFER):** SignTitleButton истёкшие МЧД дизейблятся+бейдж; dispatcher handleSelectTrip→enrichedVehicles (фокус карты с live WS); TemperaturePanel mock-tick RBAC→admin-only (сервер admin-only, было +dispatcher→403). VERIFIED: ContractorsTable addresses (роут активен+backend есть), admin/layout (return null, не leak). DEFER: cockpit driverId (нужен UI/продукт). web 199, tsc=0 | _(этот коммит)_ |
 | 2026-06-04 | C9 | **Web батч 1 (4 P1 + 1 DEFER):** login/page route-drift дедуплицирован (канон lib/routing.ts, driver=/trips); logist dateFrom/dateTo фильтры применены; trips search/status через encodeURIComponent; **N+1 устранён** — GET /trips обогащён orderNumbers+coldChainRequired батч-запросом (наследует RLS), фронт без 100×GET /trips/:id. DEFER: VehiclesTable toggleBlock (isBlocked вычисляемое, нужно продуктовое решение). api 735·web 199, tsc api+web=0 | _(этот коммит)_ |
 | 2026-06-04 | C9 | **DPA серверный гейт (security):** `assertDpaAccepted` (`dpa/guard.ts`) в POST /credentials — раньше DPA-согласие проверялось ТОЛЬКО в UI (fail-open) → обход прямым POST. Теперь 403 DPA_NOT_ACCEPTED если согласие требуется-но-не-дано (провайдеры без DPA/vendor-infra проходят). Anchor 5/5. + admin/layout VERIFIED (loading=true→спиннер, return null; не leak). unit +5 | _(этот коммит)_ |
 | 2026-06-04 | C9 | **Stop-gate 54-ФЗ** (продуктовое решение TransPult): онлайн-приём оплаты `createPayment` закрыт по умолчанию (`ALLOW_ONLINE_PAYMENTS`, fail-closed) → пилот юр-чист на B2B-юрлица+банк-перевод (счёт через finance/invoices, 54-ФЗ-чек не нужен). Anchor 3/3. OFD-находка ЗАКРЫТА; ЮKassa-фискализация → DEFER Q4+. unit 730/730 | _(этот коммит)_ |

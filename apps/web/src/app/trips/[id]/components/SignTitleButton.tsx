@@ -348,18 +348,26 @@ export function SignTitleButton({
                                 )}
                                 {mchdLookupState.kind === 'found' && (
                                     <div className="space-y-1.5">
-                                        {mchdLookupState.candidates.map((c) => (
+                                        {mchdLookupState.candidates.map((c) => {
+                                            // C9: истёкшие МЧД дизейблим и помечаем «истекла» — выбрать
+                                            // нельзя. Сервер их всё равно отвергает (validateMchd), но
+                                            // клиент не должен предлагать юридически тупиковый вариант.
+                                            const isExpired = new Date(c.expiresAt).getTime() <= Date.now();
+                                            return (
                                             <label
                                                 key={c.id}
-                                                className={`flex items-start gap-2 rounded-md border px-2.5 py-2 cursor-pointer text-xs ${mchdLookupState.selectedId === c.id
-                                                    ? 'border-emerald-300 bg-emerald-50/60'
-                                                    : 'border-neutral-200 hover:bg-neutral-50'
+                                                className={`flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs ${isExpired
+                                                    ? 'border-neutral-200 bg-neutral-50 opacity-60 cursor-not-allowed'
+                                                    : mchdLookupState.selectedId === c.id
+                                                        ? 'border-emerald-300 bg-emerald-50/60 cursor-pointer'
+                                                        : 'border-neutral-200 hover:bg-neutral-50 cursor-pointer'
                                                     }`}
                                             >
                                                 <input
                                                     type="radio"
                                                     name={`mchd-pick-${transportDocumentId}-${titleType}`}
                                                     checked={mchdLookupState.selectedId === c.id}
+                                                    disabled={isExpired}
                                                     onChange={() => setMchdLookupState({
                                                         ...mchdLookupState,
                                                         selectedId: c.id,
@@ -369,6 +377,11 @@ export function SignTitleButton({
                                                 <div className="min-w-0 flex-1">
                                                     <div className="font-semibold text-neutral-900">
                                                         МЧД №{c.mchdNumber}
+                                                        {isExpired && (
+                                                            <span className="ml-1.5 rounded bg-rose-100 px-1 py-0.5 text-[10px] font-medium text-rose-700">
+                                                                истекла
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="text-neutral-600">
                                                         {c.granteeFullName} (ИНН {c.granteeInn})
@@ -376,12 +389,13 @@ export function SignTitleButton({
                                                     <div className="text-neutral-500">
                                                         Доверитель: {c.granterName} (ИНН {c.granterInn})
                                                     </div>
-                                                    <div className="text-neutral-500">
+                                                    <div className={isExpired ? 'text-rose-600' : 'text-neutral-500'}>
                                                         Действует до {new Date(c.expiresAt).toLocaleDateString('ru-RU')}
                                                     </div>
                                                 </div>
                                             </label>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </fieldset>
