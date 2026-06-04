@@ -4,10 +4,10 @@
 > Этот файл — **рабочий план починки**, не дубль аудита. Аудит неизменяем; здесь — статусы.
 > Роль: **TransPult**. Запущено: 2026-06-02.
 
-> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-04):** **на проде `e60ce30`** (`local==origin==prod`, P0 Gate CI зелёный, оба контейнера healthy).
+> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-04):** **на проде `d57370b`** (`local==origin==prod`, P0 Gate CI зелёный, оба контейнера healthy).
 > **Все 9 классов аудита (C1–C9) закрыты и на проде.** C9 DoD: вердикт на все 181 P2/P3.
-> Плюс на проде: **stop-gate 54-ФЗ** + **серверный DPA-гейт** + C9-DoD батчи S/C/SE/M/F (~48 fix: cross-tenant security, correctness, swallow-error UX, E6-WS token_version, off-by-one даты, CSPRNG).
-> **C9 DoD ЗАКРЫТ:** вердикт на все 181 P2/P3 — **~48 FIXED/VERIFIED** (батчи S/C/SE/M/F + перекрытие C8/C9), **~133 DEFER** с письменными причинами (каталог D1-D9: фича/перф/юрист/cleanup/MSK; ничего не блокирует пилот B2B). **Все 9 классов аудита закрыты.** Остаток — DEFER-backlog по приоритету.
+> Плюс на проде: **stop-gate 54-ФЗ** + **серверный DPA-гейт** + батчи S-G + **мульти-агент волны 1-4** (под ревью+гейтами).
+> **C9 DoD:** **~114/181 FIXED/VERIFIED** (батчи S/C/SE/M/F/G + 4 мульти-агент-волны, все CI-зелёные, на проде), **~67 DEFER** с причинами (каталог R1-R7: миграции/jurist/unfinished/MSK/cleanup/i18n/sensitive). Вердикт на все 181. Ничего из DEFER не блокирует пилот B2B.
 > DEFER-хвост (документированы): OFD-real + Госключ-prod-HMAC (внешние креды); cockpit driverId + VehiclesTable toggleBlock (продуктовые UI); mobile odometerReadings-gap (low-pri); C2-копилот, легаси-нумерация per-org, C3 within-org over-exposure, gosklyuch XAdES/mTLS/юр-сила.
 
 ## Зачем этот файл
