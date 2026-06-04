@@ -132,6 +132,18 @@ export default function LogistPage() {
 
     const filteredOrders = ordersList.filter(order => {
         if (activeFilters.contractorId && order.contractorId !== activeFilters.contractorId) return false;
+        // C9: dateFrom/dateTo собирались в UI, но НЕ применялись (мёртвые фильтры).
+        // Сравниваем по дате погрузки (операционная для логиста), иначе createdAt.
+        // ISO-даты (YYYY-MM-DD...) сравнимы лексикографически по первым 10 символам.
+        const df = activeFilters.dateFrom?.slice(0, 10);
+        const dt = activeFilters.dateTo?.slice(0, 10);
+        if (df || dt) {
+            const od = (order.loadingWindowStart ?? order.createdAt)?.slice(0, 10);
+            if (od) {
+                if (df && od < df) return false;
+                if (dt && od > dt) return false;
+            }
+        }
         if (activeFilters.search) {
             const q = activeFilters.search.toLowerCase();
             const match = order.number.toLowerCase().includes(q)

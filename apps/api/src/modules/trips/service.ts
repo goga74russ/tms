@@ -477,7 +477,36 @@ export async function getTrips(filters: TripFilters) {
     ]);
 
     const total = countResult[0]?.count ?? 0;
-    return { data, total, page, limit };
+
+    // C9 (perf): раньше фронт ради номеров заявок/cold-chain делал GET /trips/:id
+    // на КАЖДЫЙ рейс (N+1, до 100 запросов на загрузку списка). Обогащаем список
+    // одним батч-запросом по trip_orders. Наследует org/RLS-скоуп — это те же
+    // рейсы, что уже отобраны выше.
+    const pageTripIds = data.map((t: { id: string }) => t.id);
+    const orderInfo: Record<string, { numbers: string[]; coldChainRequired: boolean }> = {};
+    if (pageTripIds.length > 0) {
+        const orderRows = await db
+            .select({
+                tripId: tripOrders.tripId,
+                number: orders.number,
+                coldChainRequired: orders.coldChainRequired,
+            })
+            .from(tripOrders)
+            .innerJoin(orders, eq(tripOrders.orderId, orders.id))
+            .where(inArray(tripOrders.tripId, pageTripIds));
+        for (const r of orderRows) {
+            const entry = orderInfo[r.tripId] ?? (orderInfo[r.tripId] = { numbers: [], coldChainRequired: false });
+            if (r.number) entry.numbers.push(r.number);
+            if (r.coldChainRequired === true) entry.coldChainRequired = true;
+        }
+    }
+    const enriched = data.map((t: { id: string }) => ({
+        ...t,
+        orderNumbers: orderInfo[t.id]?.numbers ?? [],
+        coldChainRequired: orderInfo[t.id]?.coldChainRequired ?? false,
+    }));
+
+    return { data: enriched, total, page, limit };
 }
 
 export async function getTripById(id: string) {

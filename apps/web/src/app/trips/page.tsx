@@ -2293,39 +2293,24 @@ export default function TripsPage() {
 
         let cancelled = false;
 
+        // C9 (perf): номера заявок и cold-chain-флаг теперь приходят в самом
+        // списке GET /trips (обогащён на бэкенде одним батч-запросом) — убираем
+        // N+1 (GET /trips/:id на КАЖДЫЙ рейс, до 100 запросов на загрузку).
+        const nextNumbers: Record<string, string[]> = {};
+        const coldTripIds: string[] = [];
+        for (const trip of trips as Array<{ id: string; orderNumbers?: string[]; coldChainRequired?: boolean }>) {
+            nextNumbers[trip.id] = trip.orderNumbers ?? [];
+            if (trip.coldChainRequired) coldTripIds.push(trip.id);
+        }
+        setTripOrderNumbers(nextNumbers);
+
+        if (coldTripIds.length === 0) {
+            setTripColdChain({});
+            return;
+        }
+
         (async () => {
-            const results = await Promise.allSettled(trips.map(async (trip) => {
-                const result = await api.get<{ success: boolean; data: { orders?: Array<{ number: string; coldChainRequired?: boolean; temperatureMinC?: number | string | null; temperatureMaxC?: number | string | null }> } }>(`/trips/${trip.id}`);
-                const orders = result.success ? (result.data.orders || []) : [];
-                const numbers = orders.map(order => order.number);
-                const coldChainRequired = orders.some(order => order.coldChainRequired === true);
-                return {
-                    tripId: trip.id,
-                    numbers,
-                    coldChainRequired,
-                };
-            }));
-
-            if (cancelled) return;
-
-            const nextNumbers: Record<string, string[]> = {};
-            const coldTripIds: string[] = [];
-            for (const result of results) {
-                if (result.status === 'fulfilled') {
-                    nextNumbers[result.value.tripId] = result.value.numbers;
-                    if (result.value.coldChainRequired) {
-                        coldTripIds.push(result.value.tripId);
-                    }
-                }
-            }
-            setTripOrderNumbers(nextNumbers);
-
-            if (coldTripIds.length === 0) {
-                setTripColdChain({});
-                return;
-            }
-
-            // Fetch temperature summaries lazily for cold-chain trips only
+            // Температурные сводки тянем лениво только для cold-chain рейсов.
             const summaries = await Promise.allSettled(
                 coldTripIds.map(async (tripId) => {
                     const r = await api.get<{ success: boolean; data: any }>(`/trips/${tripId}/temperature-summary`);
@@ -2408,8 +2393,9 @@ export default function TripsPage() {
         setLoading(true);
         try {
             let url = `/trips?limit=100`;
-            if (statusFilter) url += `&status=${statusFilter}`;
-            if (debouncedSearch) url += `&search=${debouncedSearch}`;
+            // C9: query-параметры не кодировались → `&`/`=`/пробел в поиске ломали URL.
+            if (statusFilter) url += `&status=${encodeURIComponent(statusFilter)}`;
+            if (debouncedSearch) url += `&search=${encodeURIComponent(debouncedSearch)}`;
             const result = await api.get<any>(url);
             setTrips(result.data || []);
         } catch (err) {

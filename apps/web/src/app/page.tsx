@@ -3,33 +3,8 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
-
-const ROLE_ROUTES: Record<string, string> = {
-    logist: '/logist',
-    dispatcher: '/dispatcher',
-    mechanic: '/mechanic',
-    medic: '/medic',
-    manager: '/kpi',
-    accountant: '/finance',
-    repair_service: '/repair',
-    admin: '/admin/users',
-    client: '/client',
-    driver: '/trips',
-};
-
-// Priority — a user with multiple roles lands on the most privileged dashboard.
-const ROLE_PRIORITY: string[] = [
-    'admin',
-    'manager',
-    'dispatcher',
-    'logist',
-    'accountant',
-    'mechanic',
-    'medic',
-    'repair_service',
-    'client',
-    'driver',
-];
+// C9: единый источник маршрутов ролей (был дубль, дрифтовавший в login).
+import { ROLE_ROUTES, ROLE_PRIORITY } from '@/lib/routing';
 
 /**
  * Root entrypoint:

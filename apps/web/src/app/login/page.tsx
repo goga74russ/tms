@@ -11,41 +11,10 @@ import { FormField } from '@/components/ui/form-field';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { AuthSplitLayout } from '@/components/auth-split-layout';
-
-// Role → dashboard route mapping
-const ROLE_ROUTES: Record<string, string> = {
-    logist: '/logist',
-    dispatcher: '/dispatcher',
-    mechanic: '/mechanic',
-    medic: '/medic',
-    manager: '/kpi',
-    accountant: '/finance',
-    repair_service: '/repair',
-    admin: '/admin/users',
-    client: '/client',
-    driver: '/',
-};
-
-// Priority order — when a user has multiple roles, route by the most specific/privileged.
-const ROLE_PRIORITY: string[] = [
-    'admin',
-    'manager',
-    'dispatcher',
-    'logist',
-    'accountant',
-    'mechanic',
-    'medic',
-    'repair_service',
-    'client',
-    'driver',
-];
-
-function pickRouteForRoles(roles: string[]): string {
-    for (const role of ROLE_PRIORITY) {
-        if (roles.includes(role) && ROLE_ROUTES[role]) return ROLE_ROUTES[role];
-    }
-    return '/';
-}
+// C9: раньше здесь был ДУБЛЬ ROLE_ROUTES/ROLE_PRIORITY/pickRouteForRoles,
+// дрифтнувший от канона (driver: '/' вместо '/trips'). Импортируем единый
+// источник из lib/routing.ts (покрыт routing.test.ts).
+import { pickRouteForRoles } from '@/lib/routing';
 
 function ProductShowcase() {
     return (
