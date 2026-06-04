@@ -269,7 +269,9 @@ const signRoutes: FastifyPluginAsync = async (app) => {
         }
 
         // ---- 5. externalId (+ optional HMAC) ----
-        const externalId = buildExternalId();
+        // let: для gosklyuch перезаписываем на adapter-externalId (см. шаг 6),
+        // т.к. callback приходит именно с ним.
+        let externalId = buildExternalId();
 
         // ---- 6. Запросить deeplink у провайдера (или сгенерировать сами) ----
         let deeplink: string | undefined;
@@ -280,12 +282,14 @@ const signRoutes: FastifyPluginAsync = async (app) => {
                 const adapter = await selectAdapter<SignatureProvider>(
                     registry.signature, user.organizationId, 'signature',
                 );
-                // Госключ-адаптер генерирует свой externalId (`gk-...`), но callback
-                // ищет документ по transport_documents.externalId — мы перезаписываем
-                // его ниже. Deeplink Госключа берём как есть для совместимости
-                // c мобильным приложением.
+                // C9: Госключ-адаптер генерирует СВОЙ externalId (`gk-...`) и кладёт
+                // его в deeplink (extId=...). Callback приходит именно с ним, а ищет
+                // документ по transport_documents.externalId. Раньше на документе
+                // сохранялся ЛОКАЛЬНЫЙ externalId → callback не находил документ,
+                // подпись терялась. Теперь канонизируем adapter-externalId.
                 if (adapter.name === 'gosklyuch') {
                     const out = await adapter.sign(id, doc.artifactId ?? id, user.userId);
+                    if (out.externalId) externalId = out.externalId;
                     deeplink = out.deeplink ?? buildFallbackDeeplink(provider, externalId);
                 } else {
                     deeplink = buildFallbackDeeplink(provider, externalId);

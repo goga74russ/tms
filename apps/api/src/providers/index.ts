@@ -85,6 +85,26 @@ export function hasRealAdapter(providerType: ProviderType, providerName: string)
     return realAdapterFactories.has(`${providerType}:${providerName}`);
 }
 
+/**
+ * C9: инстанцировать РЕАЛЬНЫЙ адаптер из расшифрованных кредов (без org-cache).
+ * Нужно тест-эндпоинту креденшелов: статический реестр содержит только mock,
+ * поэтому health-check реального провайдера (wialon/diadoc/gosklyuch…) раньше
+ * всегда падал в «Adapter not registered» → ложный status='error'.
+ */
+export function instantiateRealAdapter(
+    providerType: ProviderType,
+    providerName: string,
+    creds: Record<string, unknown>,
+): ProviderAdapter | null {
+    const factory = realAdapterFactories.get(`${providerType}:${providerName}`);
+    if (!factory) return null;
+    try {
+        return factory(creds);
+    } catch {
+        return null;
+    }
+}
+
 // Per-(org, type, name) adapter instance cache. Adapter classes hold
 // connection state (HTTP keep-alive, in-flight tokens) so reusing pays off.
 // Cleared when credentials change via invalidateCredentialsCache.

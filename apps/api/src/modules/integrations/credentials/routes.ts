@@ -8,11 +8,13 @@ import { db } from '../../../db/connection.js';
 import { providerCredentials } from '../../../db/schema.js';
 import {
     encryptCredentials,
+    decryptCredentials,
     invalidateCredentialsCache,
     type ProviderType,
 } from '../../../providers/base.js';
 import {
     getAdaptersForType,
+    instantiateRealAdapter,
     invalidateAdapterCache,
 } from '../../../providers/index.js';
 import { CredentialsCreateSchema as CreateSchema } from './validators.js';
@@ -221,7 +223,19 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         const adapters = getAdaptersForType(row.providerType as ProviderType);
-        const adapter = adapters.find(a => a.name === row.providerName);
+        // C9: статический реестр содержит только mock. Реальные адаптеры
+        // (wialon/diadoc/gosklyuch…) инстанцируются из кредов через фабрику —
+        // иначе health-check всегда ложно репортил «Adapter not registered».
+        let adapter = adapters.find(a => a.name === row.providerName);
+        if (!adapter && row.encryptedCredentials) {
+            try {
+                const creds = decryptCredentials(row.encryptedCredentials);
+                adapter = instantiateRealAdapter(row.providerType as ProviderType, row.providerName, creds) ?? undefined;
+            } catch {
+                // битые/нерасшифровываемые креды — adapter останется undefined,
+                // ниже честный status='error'.
+            }
+        }
         if (!adapter) {
             const lastError = `Adapter not registered: ${row.providerName}`;
             await db

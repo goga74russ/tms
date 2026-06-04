@@ -233,21 +233,32 @@ export async function computeScoreboard(
             ? and(eq(drivers.isActive, true), eq(drivers.organizationId, organizationId))
             : eq(drivers.isActive, true));
 
+    // C9 (perf): раньше N водителей × ~5 запросов считались СТРОГО последовательно
+    // (for await) → 50 водителей = 250 round-trip'ов подряд. Параллелим батчами
+    // (bounded concurrency, чтобы не исчерпать пул max=40). Фильтрация/вывод те же.
+    // TODO(perf): дальняя оптимизация — единый аггрегат-SQL вместо per-driver.
+    const CONCURRENCY = 8;
     const entries: ScoreboardEntry[] = [];
-    for (const d of driverRows) {
-        const result = await computeDriverScore(d.id, from, to);
-        // включаем только водителей которые что-то делали в окне
-        if (result.breakdown.tripCount === 0
-            && result.breakdown.rtoBreachCount === 0
-            && result.breakdown.finesCount === 0) {
-            continue;
+    for (let i = 0; i < driverRows.length; i += CONCURRENCY) {
+        const batch = driverRows.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(batch.map(async (d) => {
+            const result = await computeDriverScore(d.id, from, to);
+            // включаем только водителей которые что-то делали в окне
+            if (result.breakdown.tripCount === 0
+                && result.breakdown.rtoBreachCount === 0
+                && result.breakdown.finesCount === 0) {
+                return null;
+            }
+            return {
+                driverId: d.id,
+                fullName: d.fullName,
+                score: result.score,
+                tripCount: result.breakdown.tripCount,
+            } satisfies ScoreboardEntry;
+        }));
+        for (const r of results) {
+            if (r) entries.push(r);
         }
-        entries.push({
-            driverId: d.id,
-            fullName: d.fullName,
-            score: result.score,
-            tripCount: result.breakdown.tripCount,
-        });
     }
 
     entries.sort((a, b) => b.score - a.score);

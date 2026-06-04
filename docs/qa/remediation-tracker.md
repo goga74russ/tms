@@ -286,20 +286,22 @@ tsc=0, unit 712/712 ✓.
 
 Разнородный хвост P1. Разбирать после C1–C8; часть подтянется попутно. Дом для любой не-разнесённой находки.
 
-**Батч 1 (backend, коммит ниже):** margin NaN, plate regex, import batch-limit (×2), fleet PUT Zod,
+**Батч 1 (backend):** margin NaN, plate regex, import batch-limit (×2), fleet PUT Zod,
 inspections days+mojibake, transport-doc signatureState, OFD fail-closed (частично). tsc=0, unit 727.
-Остаток backend: credentials test-endpoint, scoring N×5 perf, Госключ deeplink, waybills odometer.
+**Батч 2 (backend):** credentials health-check (реальные адаптеры), scoring bounded-concurrency,
+waybills odometer (все reason'ы), Госключ externalId (частично+DEFER prod-HMAC). tsc=0, unit 727.
+**Backend C9 P1 — закрыто** (кроме 2 DEFER: OFD-real, Госключ-prod-HMAC).
 Остаток: web (×12), mobile (×3). Затем DoD-проход P2/P3 (181).
 
 - [~] **P1** `providers/index.ts:216-224` — OfdRuProvider не зарегистрирован → 54-ФЗ чеки mock даже в prod ⚠️ → **ЧАСТИЧНО+DEFER**: реальная OFD.ru-интеграция = throwing-stub, ждёт креды (внешняя зависимость, класс gosklyuch). Сделано: billing fail-closed — в production mock-чек НЕ минтится молча (нужен `ALLOW_MOCK_OFD=true` для B2B-free-box), проглоченная ошибка фискализации теперь логируется. **Продукт-вопрос вынесен.**
 - [x] **P1** `fleet/routes.ts:517-536` — PUT fuel-records: добавлен `FuelRecordCreateSchema.partial().safeParse` (как POST)
 - [x] **P1** `inspections/routes.ts:304, 303` — `parseDays(days, 30, [1..365])` вместо parsePage; +починен mojibake-403 (и в `websocket.ts:200`)
-- [ ] **P1** `integrations/credentials/routes.ts:223-237` — тест-эндпоинт не видит реальные адаптеры → false status='error'
-- [ ] **P1** `scoring/service.ts:237-250` — computeScoreboard N×5 sequential queries
-- [ ] **P1** `signatures/sign-endpoint.ts:277-295` — Госключ deeplink несёт adapter-externalId, документ под локальным UUID → callback не найдёт
+- [x] **P1** `integrations/credentials/routes.ts:223-237` — health-check реальных провайдеров инстанцирует адаптер из расшифрованных кредов (`instantiateRealAdapter`), а не ищет в mock-реестре → больше нет ложного status='error'
+- [x] **P1** `scoring/service.ts:237-250` — computeScoreboard: bounded-concurrency батчи по 8 (было строго последовательно N×5). TODO: аггрегат-SQL
+- [~] **P1** `signatures/sign-endpoint.ts:277-295` — **ЧАСТИЧНО**: на документе сохраняется adapter-externalId (gk-...) — callback находит документ (dev/sandbox работает, было 100% сломано). **DEFER prod-HMAC**: при заданном GOSKLYUCH_CALLBACK_SECRET callback требует HMAC-сегмент, которого нет в gk-externalId → реальный Госключ должен возвращать НАШ externalId (часть непостроенной интеграции, ждёт API+sandbox)
 - [x] **P1** `trips/margin.ts:60-81` — numeric-строки → коэрция через `toOptionalFiniteNumber`; вынесен чистый `reduceTripMargin` + anchor-тест 6/6 (NaN закрыт)
 - [x] **P1** `trips/transport-documents-store.ts:1043-1047` — signatureState: ≥2 различных подписанта → `'signed'` (было хардкод 'partially_signed'); NB(/jurist) точный набор ролей по типу документа
-- [ ] **P1** `waybills/service.ts:622-672` — closeWaybill принимает невалидный odometerIn → пишет в vehicles.currentOdometerKm
+- [x] **P1** `waybills/service.ts:622-672` — closeWaybill throw'ил только на 'rollback'; теперь на любой `!validation.ok` (invalid_value negative/NaN, unrealistic_delta >5000км). Оба блока (pre-tx + in-tx FOR UPDATE)
 - [x] **P1** `import/routes.ts:111-113` — batch-limit 200 добавлен в `/import/drivers` + `/import/contractors` (sweep: vehicles/orders уже имели)
 - [ ] **P1** `apps/mobile/.../database/index.ts:14` — onSetUpError проглочен (БД в broken state молча)
 - [ ] **P1** `apps/mobile/.../TripDetailsScreen.tsx:639-648` — кнопка «Завершить (легаси)» в любом нетривиальном статусе
@@ -332,6 +334,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | C9 | **Батч 2 (backend, 4 P1):** credentials health-check инстанцирует реальный адаптер из кредов (`instantiateRealAdapter`) — нет ложного status='error'; scoring computeScoreboard bounded-concurrency ×8 (было N×5 последовательно); waybills closeWaybill throw на любой !ok (invalid_value/unrealistic_delta, не только rollback); Госключ sign-endpoint сохраняет adapter-externalId (частично, DEFER prod-HMAC). tsc=0, unit 727/727 | _(этот коммит)_ |
 | 2026-06-04 | C9 | **Батч 1 (backend, 7 P1):** margin NaN (string-numeric коэрция + чистый reduceTripMargin + anchor 6/6); plate regex `\\d`→`\d` (anchor 9/9); import batch-limit 200 (drivers+contractors, sweep); fleet PUT fuel-records Zod; inspections parseDays + 2 mojibake-403; transport-doc signatureState ≥2-подписанта→'signed'; OFD billing fail-closed (ALLOW_MOCK_OFD) — реал OFD.ru DEFER (ждёт креды). tsc=0, unit 727/727 | _(этот коммит)_ |
 | 2026-06-04 | deploy | **🚀 C8 на проде**: pull `ed4023d→e9562bd`, build api, recreate (без миграций). Health 200 (internal+external), login(bad-creds)=401, контейнер healthy. CI green. **local==origin==prod==e9562bd.** | `e9562bd` |
 | 2026-06-04 | C8 | **C8 ЗАКРЫТ:** системный хелпер `safeClientError` (utils/safe-error.ts) — детект PG/Drizzle по severity/routine/constraint/5-char-SQLSTATE → fallback, доменный Error → message. Codemod `apply-safe-error.mjs` ~121 мест/18 файлов + ручные finance handleWorkflowError `(err as Error)`, demo, import per-row/XLSX. Anchor-тест 7/7. **NB:** скрипт ломал import в 4 файлах (multiline-блок) → починено, урок «tsc после codemod». grep leak=0, tsc=0, unit 712/712 | _(этот коммит)_ |

@@ -620,9 +620,11 @@ export async function closeWaybill(
     }
 
     {
+        // C9: раньше throw'или ТОЛЬКО на 'rollback'. invalid_value (negative/NaN)
+        // и unrealistic_delta (>5000км) проходили и писались в vehicles.currentOdometerKm.
         const validation = validateOdometerReadings(waybill.odometerOut ?? 0, data.odometerIn);
-        if (!validation.ok && validation.reason === 'rollback') {
-            throw new Error('Odometer in cannot be less than odometer out');
+        if (!validation.ok) {
+            throw new Error(validation.message ?? 'Некорректные показания одометра');
         }
     }
 
@@ -647,9 +649,10 @@ export async function closeWaybill(
         }
 
         {
+            // C9: см. выше — авторитетная проверка под FOR UPDATE, throw на любой !ok.
             const validation = validateOdometerReadings(lockedWaybill.odometerOut ?? 0, data.odometerIn);
-            if (!validation.ok && validation.reason === 'rollback') {
-                throw new Error('Odometer in cannot be less than odometer out');
+            if (!validation.ok) {
+                throw new Error(validation.message ?? 'Некорректные показания одометра');
             }
         }
 
