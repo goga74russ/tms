@@ -4,9 +4,9 @@
 > Этот файл — **рабочий план починки**, не дубль аудита. Аудит неизменяем; здесь — статусы.
 > Роль: **TransPult**. Запущено: 2026-06-02.
 
-> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-04):** **на проде `7da6c2f`** (`local==origin==prod`, P0 Gate CI зелёный, оба контейнера healthy).
-> **Закрыто и на проде: C1 · C2 · C3(cross-tenant) · C4 · C5(backend) · C6 · C7 · C8 · C9(все P1).** 8.5 из 9 классов.
-> Плюс на проде: **stop-gate 54-ФЗ** (`ALLOW_ONLINE_PAYMENTS` закрыт → пилот B2B+счёт) + **серверный DPA-гейт** + C9-DoD батчи S (cross-tenant security ×5) + C (correctness ×9).
+> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-04):** **на проде `e60ce30`** (`local==origin==prod`, P0 Gate CI зелёный, оба контейнера healthy).
+> **Все 9 классов аудита (C1–C9) закрыты и на проде.** C9 DoD: вердикт на все 181 P2/P3.
+> Плюс на проде: **stop-gate 54-ФЗ** + **серверный DPA-гейт** + C9-DoD батчи S/C/SE/M/F (~48 fix: cross-tenant security, correctness, swallow-error UX, E6-WS token_version, off-by-one даты, CSPRNG).
 > **C9 DoD ЗАКРЫТ:** вердикт на все 181 P2/P3 — **~48 FIXED/VERIFIED** (батчи S/C/SE/M/F + перекрытие C8/C9), **~133 DEFER** с письменными причинами (каталог D1-D9: фича/перф/юрист/cleanup/MSK; ничего не блокирует пилот B2B). **Все 9 классов аудита закрыты.** Остаток — DEFER-backlog по приоритету.
 > DEFER-хвост (документированы): OFD-real + Госключ-prod-HMAC (внешние креды); cockpit driverId + VehiclesTable toggleBlock (продуктовые UI); mobile odometerReadings-gap (low-pri); C2-копилот, легаси-нумерация per-org, C3 within-org over-exposure, gosklyuch XAdES/mTLS/юр-сила.
 
@@ -450,6 +450,7 @@ corrective_upd/corrected переходы, `shared` дубль temperature-по�
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | deploy | **🚀 SE+M+F на проде**: pull `fdb29f5→e60ce30`, build api+web, recreate (без миграций). api/web 200, login(wrong)=401, healthy. CI green. **local==origin==prod==e60ce30.** Включает E6-WS token_version, off-by-one даты, swallow-error UX, correctness ×6. | `e60ce30` |
 | 2026-06-04 | C9-DoD | **Батч F (correctness, 6):** analytics tenant-скоуп (субподряд), admin/users bulk-счётчик, layout-shell /reset-password, error-boundary dev-only, AssignmentPanel volume-block, period-selector инверсия. tsc=0, web 199 | `a1158cb` |
 | 2026-06-04 | C9-DoD | **DoD ЗАКРЫТ:** вердикт на все 181 P2/P3 — ~48 FIXED/VERIFIED, ~133 DEFER-каталог D1-D9 (pagination/N+1/dead-code/fake-INN→jurist/MSK/unfinished/layer-drift/i18n/точечное) с письменными причинами. **Все 9 классов аудита закрыты.** | _(этот коммит)_ |
 | 2026-06-04 | C9-DoD | **Батч M (E6+TZ+CSPRNG):** WS token_version-проверка + ws-token несёт tv; date-only→локальная полночь ×5 (off-by-one МСК); etrn GUID randomUUID. VERIFIED mobile-403; DEFER web-middleware-tv, demo rndPlate. tsc api+web=0, unit 735 | _(этот коммит)_ |
