@@ -60,7 +60,8 @@ export function isVatPayingRegime(regime: TaxRegime | null | undefined): boolean
 // ============================================================
 
 /** Типы документов, для которых действует 5-дневный срок от даты реализации. */
-export const FIVE_DAY_DEADLINE_TYPES: InvoiceType[] = ['sf', 'upd', 'corrective_sf', 'advance'];
+// C9: добавлен corrective_upd (был только corrective_sf) — оба КСФ/КУПД в 5-дневном сроке.
+export const FIVE_DAY_DEADLINE_TYPES: InvoiceType[] = ['sf', 'upd', 'corrective_sf', 'corrective_upd', 'advance'];
 
 /** Срок выпуска СФ/УПД от даты реализации, календарных дней. */
 export const SF_ISSUE_DEADLINE_DAYS = 5;

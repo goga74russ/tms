@@ -499,6 +499,11 @@ export default async function fleetRoutes(app: FastifyInstance) {
             const user = request.user as AuthUser;
             const parsed = FuelRecordCreateSchema.safeParse(request.body);
             if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
+            // C9: cross-field — totalCost должен соответствовать liters × costPerLiter
+            // (±1 ₽ округление). Раньше три поля принимались независимо → битая аналитика.
+            if (Math.abs(parsed.data.totalCost - parsed.data.liters * parsed.data.costPerLiter) > 1) {
+                return reply.status(400).send({ success: false, error: 'totalCost должен равняться liters × costPerLiter' });
+            }
             // Driver RLS
             if (user.roles.includes('driver') && !hasPrivilege(user.roles)) {
                 const myDriverId = await resolveDriverId(user.userId);

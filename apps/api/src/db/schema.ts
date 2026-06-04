@@ -1116,7 +1116,8 @@ export const events = pgTable('events', {
     index('idx_events_timestamp').on(table.timestamp),
     index('idx_events_author').on(table.authorId),
     index('idx_events_organization').on(table.organizationId, sql`${table.timestamp} DESC`),
-    uniqueIndex('idx_events_external_id').on(table.externalId),
+    // C9: синхрон с миграцией 0039 — composite per-org (был single-col global).
+    uniqueIndex('idx_events_org_external_id').on(table.organizationId, table.externalId),
 ]);
 
 // ================================================================
