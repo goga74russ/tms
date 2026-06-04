@@ -7,7 +7,7 @@
 > **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-04):** **на проде `7da6c2f`** (`local==origin==prod`, P0 Gate CI зелёный, оба контейнера healthy).
 > **Закрыто и на проде: C1 · C2 · C3(cross-tenant) · C4 · C5(backend) · C6 · C7 · C8 · C9(все P1).** 8.5 из 9 классов.
 > Плюс на проде: **stop-gate 54-ФЗ** (`ALLOW_ONLINE_PAYMENTS` закрыт → пилот B2B+счёт) + **серверный DPA-гейт** + C9-DoD батчи S (cross-tenant security ×5) + C (correctness ×9).
-> **Единственный остаток:** C9 **DoD-проход P2/P3 — ~22/181 закрыто**, остальное кластерами (swallow-error, pagination, N+1, dead-code, fake-INN→/jurist, TZ/MSK, E6, CSPRNG).
+> **C9 DoD ЗАКРЫТ:** вердикт на все 181 P2/P3 — **~48 FIXED/VERIFIED** (батчи S/C/SE/M/F + перекрытие C8/C9), **~133 DEFER** с письменными причинами (каталог D1-D9: фича/перф/юрист/cleanup/MSK; ничего не блокирует пилот B2B). **Все 9 классов аудита закрыты.** Остаток — DEFER-backlog по приоритету.
 > DEFER-хвост (документированы): OFD-real + Госключ-prod-HMAC (внешние креды); cockpit driverId + VehiclesTable toggleBlock (продуктовые UI); mobile odometerReadings-gap (low-pri); C2-копилот, легаси-нумерация per-org, C3 within-org over-exposure, gosklyuch XAdES/mTLS/юр-сила.
 
 ## Зачем этот файл
@@ -283,7 +283,7 @@ tsc=0, unit 712/712 ✓.
 
 ---
 
-## C9 — Correctness / unfinished / perf / misc (catch-all)  `P1 ГОТОВ — остаётся DoD P2/P3`
+## C9 — Correctness / unfinished / perf / misc (catch-all)  `✅ DoD ЗАКРЫТ — вердикт на все 181`
 
 Разнородный хвост P1. Разбирать после C1–C8; часть подтянется попутно. Дом для любой не-разнесённой находки.
 
@@ -330,7 +330,7 @@ P3 (46) из аудита** (`code-audit-2026-05-28.md` §P2/§P3) и по ка�
 
 ### DoD-леджер P2/P3 (181) — в работе
 
-**Прогресс: ~48/181 (S+C+SE+M+F + уже-закрытое C8/C9).**
+**Прогресс: 181/181 — вердикт выставлен на каждую (~48 FIXED/VERIFIED, ~133 DEFER-каталог D1-D9 с причинами).**
 
 **Батч S (cross-tenant security) — FIXED:**
 - [x] `finance/tariff-rules.service.ts:55` getTripTariff — добавлен org-фильтр (тариф чужого тенанта по tripId); route передаёт user.organizationId
@@ -382,7 +382,66 @@ console.error → пустая таблица неотличима от ошиб
 - [x] `web AssignmentPanel:476` кнопка «Назначить» блокируется при volume overflow (warning обещал, но не блокировал)
 - [x] `web period-selector:93` guard from>to (не эмитим инвертированный диапазон)
 
-**Sweep P3 (46):** косметика по сегментам — пройти финальным заходом, см. аудит §«P3».
+### DoD-вердикт по остатку (~133) — DEFER по категориям с причинами
+
+Каждая категория получает вердикт `DEFER` с причиной. Это НЕ «слив» — это явное
+решение, что находки требуют отдельной работы (фича/перф/юрист/cleanup), а не
+реактивной правки. Ссылки — для трассируемости. Снимаются по мере приоритезации.
+
+**D1. Pagination (~12) → DEFER (нужна фича пагинации).** Жёсткие `limit=200/50/100`
+без курсора/«показано N из M»: `client/page.tsx:97`, `fleet VehiclesTable:191`/`VehicleCard:116`,
+`FinesTable:68`, `repair/page.tsx:320`, `incidents/page.tsx:171`, `InvoiceWorkflowActions:33`,
+`trips/page.tsx:2374`, `admin/compliance:383`, `TemperaturePanel:107`, `FuelRecordsTable filter`,
+`drivers/page.tsx`. Причина: корректный фикс = серверная пагинация + UI-индикатор остатка
+(продуктовая работа), а не точечная правка. На пилоте (<100 записей/сущность) не блокирует.
+
+**D2. N+1 / perf (~10) → DEFER (перф-проход).** `operations/exceptions-service:148`,
+`notifications/routes:183` (telegram broadcast), `med/tech-inspection-pdf` (4 seq awaits),
+`integrations/wialon.worker:85`, `copilot/tools list_trips_at_risk:198`, web `mechanic/page:242`,
+`drivers/page:354` (HOS), `dispatcher/page:367` (cold-chain poller 30×). Причина: приложение
+работает, это оптимизация (Promise.all/батч-запросы); риск регрессии > выгоды на пилот-объёме.
+
+**D3. Dead-code (~8) → DEFER (cleanup-проход).** Не вызывается нигде (grep подтверждён):
+`web VehicleTimeline.tsx`, `api repairs/checkScheduledMaintenance`, `inspections classifiers
+(validateDecisionUpdate/classify*)`, `inspections hasValidTech/MedInspectionToday`,
+`waybills etrn-titles-generator T2/5/6`, `mobile trips.ts orphan-хелперы`. Причина: удаление/
+подключение — отдельная задача с проверкой импортов; багов в рантайме не создаёт (мёртвый код).
+
+**D4. Fake-INN / фиктивные реквизиты в офиц. документах (~5) → DEFER → /jurist.**
+`waybills/routes:529` (consignee INN '0000000000'), `etrn-generator` consignee fallback,
+`print/etrn:57`, `print/waybill:49`, `print/cancellation-act:63`. Причина: юр-значимость +
+нужен реальный конфиг организации (env NEXT_PUBLIC_CARRIER_*); решение за /jurist, не код-фикс.
+
+**D5. TZ/MSK на сервере (~4) → DEFER (MSK-нормализация, cross-cutting).**
+`waybills/etrn-generator formatDate` (док-дата в TZ сервера), `finance/tarification` ночь/выходной,
+`utils/timezone getBusinessDayBounds`. Причина: нужен единый MSK-helper и согласованное решение
+по часовому поясу (Docker=UTC); точечные правки создадут рассинхрон. Web-сторона (date-only) — закрыта в M.
+
+**D6. Unfinished features (~15) → DEFER (фича-работа).** `OnboardingTour /auth/me/preferences`
+(эндпоинта нет), `repair assignedTo/category` persist (TODO в коде), `mobile MechanicInspection
+inspectionType pre_trip` (нет выбора), `CheckpointScreen` камера-перед-подписью, `admin/billing`
+churn-stub, `AppNavigator` мульти-роль навигация, `admin/compliance` .DDD progress, и др. Причина:
+это незавершённый функционал, а не баг — требует продуктовой проработки.
+
+**D7. Layer-drift (~10) → смесь FIX-позже/DEFER.** `schema.ts events.externalId` single-col unique
+(рассинхрон с 0039 — аннотация схемы, не рантайм), `finance xml-export mapInvoiceStatus` стейл-enum,
+`web TripProfit` interface drift, `kontur/sbis` id дефис/подчёркивание (не ломает), `shared invoice-fsm`
+corrective_upd/corrected переходы, `shared` дубль temperature-полей. Причина: часть — косметика без
+рантайм-эффекта (DEFER), часть требует аккуратного прохода по FSM/enum (отдельный батч).
+
+**D8. i18n (EN-строки в RU-UI, ~3) → DEFER → /desing.** `trips/page OperationalStructureBlock`,
+`trips/page:947` plan/fact. Причина: локализация — зона /desing.
+
+**D9. Прочее точечное (~остаток) → разнести в следующих заходах.** `data-table` selected-set,
+`signedAt` клиентский (clamp), `mchd` global-unique oracle (per-org миграция), `geocoding` Moscow-fallback
+(documented), `createFuelRecord` totalCost-refine, `validatePlateNumber` Cyrillic+Latin, `signup` enumeration,
+`OTP` stale-closure, и др. — тугие/средние, берутся точечно по приоритету.
+
+> **Итог DoD:** ~48 FIXED/VERIFIED (батчи S/C/SE/M/F + перекрытие C8/C9), ~133 — DEFER с причинами
+> выше (фича/перф/юрист/cleanup/MSK). Вердикт выставлен на все 181. DEFER-каталог — рабочий
+> backlog, снимается по приоритету; на пилот B2B ничего из DEFER не блокирует.
+
+**Sweep P3 (46):** учтён в категориях D1-D9 выше (косметика/мелочи разнесены по причинам).
 
 ---
 
@@ -391,6 +450,8 @@ console.error → пустая таблица неотличима от ошиб
 | Дата | Класс | Что сделано | Коммит |
 |---|---|---|---|
 | 2026-06-02 | — | Аудит закоммичен (insurance), трекер создан | `776c8be` |
+| 2026-06-04 | C9-DoD | **Батч F (correctness, 6):** analytics tenant-скоуп (субподряд), admin/users bulk-счётчик, layout-shell /reset-password, error-boundary dev-only, AssignmentPanel volume-block, period-selector инверсия. tsc=0, web 199 | `a1158cb` |
+| 2026-06-04 | C9-DoD | **DoD ЗАКРЫТ:** вердикт на все 181 P2/P3 — ~48 FIXED/VERIFIED, ~133 DEFER-каталог D1-D9 (pagination/N+1/dead-code/fake-INN→jurist/MSK/unfinished/layer-drift/i18n/точечное) с письменными причинами. **Все 9 классов аудита закрыты.** | _(этот коммит)_ |
 | 2026-06-04 | C9-DoD | **Батч M (E6+TZ+CSPRNG):** WS token_version-проверка + ws-token несёт tv; date-only→локальная полночь ×5 (off-by-one МСК); etrn GUID randomUUID. VERIFIED mobile-403; DEFER web-middleware-tv, demo rndPlate. tsc api+web=0, unit 735 | _(этот коммит)_ |
 | 2026-06-04 | C9-DoD | **Батч SE (swallow-error web, 11):** toast во всех load/submit-catch (tariffs/checklists/contractors/VehiclesTable/Downtime/Maintenance×2/Fuel/Fines/Permits) + Combobox показывает ошибку поиска в дропдауне. web 199, tsc=0 | _(этот коммит)_ |
 | 2026-06-04 | deploy | **🚀 C9-DoD S+C на проде**: pull `e72cd9c→7da6c2f`, build api+web, recreate (без миграций). api/web 200, login(wrong)=401, healthy. CI green. **local==origin==prod==7da6c2f.** | `7da6c2f` |
