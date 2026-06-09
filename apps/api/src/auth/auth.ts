@@ -1547,9 +1547,12 @@ export function registerAuthRoutes(app: FastifyInstance) {
             .limit(1);
 
         // Bail silently on every non-eligible case (no user / already
-        // verified). Returning the same shape on the same status code
-        // prevents timing- and content-based enumeration.
-        if (!user || user.emailVerifiedAt) {
+        // verified / legacy user без организации). Returning the same shape
+        // on the same status code prevents timing- and content-based
+        // enumeration. organizationId колонки nullable — без организации
+        // отправить код невозможно (адаптер требует orgId), поэтому
+        // молча выходим вместо небезопасного non-null оператора.
+        if (!user || user.emailVerifiedAt || !user.organizationId) {
             return eligibleResponse;
         }
 
@@ -1571,7 +1574,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
         await db.insert(emailVerifications).values({ email, code, expiresAt });
 
         try {
-            await sendVerificationCode(email, code, user.organizationId!);
+            await sendVerificationCode(email, code, user.organizationId);
         } catch (err) {
             request.log.error({ err }, 'Failed to resend verification code');
         }

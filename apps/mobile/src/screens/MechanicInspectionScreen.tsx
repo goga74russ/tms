@@ -49,6 +49,7 @@ export default function MechanicInspectionScreen() {
     const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number | null>(null);
     const [decision, setDecision] = useState<'approved' | 'rejected' | null>(null);
     const [decisionComment, setDecisionComment] = useState('');
+    const [inspectionType, setInspectionType] = useState<'pre_trip' | 'periodic'>('pre_trip');
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
@@ -90,6 +91,7 @@ export default function MechanicInspectionScreen() {
         );
         setDecision(null);
         setDecisionComment('');
+        setInspectionType('pre_trip');
         setStep('checklist');
     }
 
@@ -172,7 +174,7 @@ export default function MechanicInspectionScreen() {
             await submitTechInspection({
                 vehicleId: selectedItem.vehicle.id,
                 tripId: selectedItem.trip.id,
-                inspectionType: 'pre_trip',
+                inspectionType,
                 checklistVersion: template.version,
                 items: resolvedItems,
                 decision: decision!,
@@ -433,6 +435,38 @@ export default function MechanicInspectionScreen() {
             </Text>
             <Text style={styles.tripLabel}>Рейс {selectedItem?.trip.number}</Text>
             <ProgressSteps total={3} activeIndex={0} labels={['Чек-лист', 'Решение', 'Подпись']} style={{ marginTop: spacing.md }} />
+
+            <Text style={styles.label}>Тип осмотра</Text>
+            <View style={styles.resultRow}>
+                <TouchableOpacity
+                    style={[styles.resultButton, inspectionType === 'pre_trip' && styles.resultOk]}
+                    onPress={() => setInspectionType('pre_trip')}
+                    activeOpacity={0.85}
+                >
+                    <Text
+                        style={[
+                            styles.resultText,
+                            inspectionType === 'pre_trip' && { color: colors.success[700], fontWeight: '700' },
+                        ]}
+                    >
+                        Предрейсовый
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.resultButton, inspectionType === 'periodic' && styles.resultOk]}
+                    onPress={() => setInspectionType('periodic')}
+                    activeOpacity={0.85}
+                >
+                    <Text
+                        style={[
+                            styles.resultText,
+                            inspectionType === 'periodic' && { color: colors.success[700], fontWeight: '700' },
+                        ]}
+                    >
+                        Периодический
+                    </Text>
+                </TouchableOpacity>
+            </View>
 
             {checklist.map((item, index) => {
                 const isFault = item.result === 'fault';

@@ -115,7 +115,14 @@ export class FinanceService {
     // === SEQUENTIAL NUMBER GENERATION (must be called inside tx) ===
     private async getNextInvoiceNumber(type: string, tx?: any): Promise<string> {
         const queryDb = tx || db;
-        const prefix = type === 'act' ? 'ACT' : type === 'upd' ? 'UPD' : 'INV';
+        // Префикс серии согласован с каноническим invoice-workflow
+        // (generateInvoiceNumber): DB-тип 'payment' (счёт на оплату) → 'СЧ-'.
+        // Иначе авто-биллинг и ручной выпуск одного типа документа получали
+        // разные серии ('INV-' vs 'СЧ-') — рассинхрон нумерации.
+        const prefix =
+            type === 'payment' ? 'СЧ' :
+            type === 'act' ? 'ACT' :
+            type === 'upd' ? 'UPD' : 'INV';
         const year = new Date().getFullYear();
         const pattern = `${prefix}-${year}-%`;
 
@@ -921,7 +928,8 @@ export class FinanceService {
                 .limit(1);
             const periodAnchor = tripRow?.actualCompletionAt ?? tripRow?.createdAt ?? new Date();
 
-            const number = await this.getNextInvoiceNumber('invoice', tx);
+            // Документ типа 'payment' → серия 'СЧ-', как в ручном workflow.
+            const number = await this.getNextInvoiceNumber('payment', tx);
 
             const [invoice] = await tx
                 .insert(invoices)

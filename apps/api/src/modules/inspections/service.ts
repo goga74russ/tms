@@ -884,50 +884,6 @@ export async function getExpiringMedCertificates(daysAhead = 30, organizationId?
 }
 
 /**
- * Check if vehicle has valid tech inspection today.
- */
-export async function hasValidTechInspectionToday(vehicleId: string): Promise<boolean> {
-    const { todayStart, todayEnd } = getBusinessDayBounds();
-
-    const [result] = await db
-        .select({ id: techInspections.id })
-        .from(techInspections)
-        .where(
-            and(
-                eq(techInspections.vehicleId, vehicleId),
-                eq(techInspections.decision, 'approved'),
-                gte(techInspections.createdAt, todayStart),
-                lte(techInspections.createdAt, todayEnd),
-            ),
-        )
-        .limit(1);
-
-    return !!result;
-}
-
-/**
- * Check if driver has valid med inspection today.
- */
-export async function hasValidMedInspectionToday(driverId: string): Promise<boolean> {
-    const { todayStart, todayEnd } = getBusinessDayBounds();
-
-    const [result] = await db
-        .select({ id: medInspections.id })
-        .from(medInspections)
-        .where(
-            and(
-                eq(medInspections.driverId, driverId),
-                eq(medInspections.decision, 'approved'),
-                gte(medInspections.createdAt, todayStart),
-                lte(medInspections.createdAt, todayEnd),
-            ),
-        )
-        .limit(1);
-
-    return !!result;
-}
-
-/**
  * Get today's approved tech inspection ID for a vehicle.
  */
 export async function getTodayTechInspectionId(vehicleId: string): Promise<string | null> {
