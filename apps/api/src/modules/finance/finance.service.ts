@@ -1082,7 +1082,8 @@ export class FinanceService {
 
             try {
                 const invoiceId = await db.transaction(async (tx) => {
-                    const number = await this.getNextInvoiceNumber('invoice', tx);
+                    // C9: type=payment → префикс СЧ- (как tryAutoCreateInvoice), не INV-.
+                    const number = await this.getNextInvoiceNumber('payment', tx);
                     const [invoice] = await tx
                         .insert(invoices)
                         .values({
