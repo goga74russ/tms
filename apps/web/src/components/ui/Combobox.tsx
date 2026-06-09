@@ -71,11 +71,18 @@ export function Combobox<T>({
         update();
         window.addEventListener('scroll', update, true);
         window.addEventListener('resize', update);
+        // F-04: якорь мог сдвинуться без scroll/resize (контент над комбобоксом
+        // изменил высоту между рендерами) — дропдаун уезжал от инпута, и клик
+        // по видимой позиции опции попадал мимо. ResizeObserver на контейнере +
+        // зависимость от options ловят такие сдвиги.
+        const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null;
+        ro?.observe(containerRef.current);
         return () => {
             window.removeEventListener('scroll', update, true);
             window.removeEventListener('resize', update);
+            ro?.disconnect();
         };
-    }, [isOpen]);
+    }, [isOpen, options]);
 
     // Close dropdown on outside click. listRef (portal) тоже считается "внутри",
     // иначе mousedown по опции закрывал бы список до срабатывания onClick.
@@ -210,6 +217,7 @@ export function Combobox<T>({
                 />
                 {(query || selected) && (
                     <button
+                        type="button"
                         onClick={handleClear}
                         className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition"
                     >
@@ -237,6 +245,16 @@ export function Combobox<T>({
                         options.map((item, idx) => (
                             <button
                                 key={getKey(item)}
+                                type="button"
+                                // F-04: выбор на mousedown — первое событие цепочки, срабатывает
+                                // до blur инпута и любых закрытий/сдвигов списка. preventDefault
+                                // не отдаёт фокус. onClick остаётся фоллбеком для чисто
+                                // синтетических .click() без mousedown (автопилот/тесты);
+                                // после mousedown-выбора список размонтирован — клик не дублирует.
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleSelect(item);
+                                }}
                                 onClick={() => handleSelect(item)}
                                 className={`w-full text-left px-3 py-2.5 text-sm transition-colors border-b border-neutral-50 last:border-0
                                     ${idx === highlightIndex

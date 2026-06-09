@@ -66,4 +66,25 @@ describe('Combobox', () => {
         await user.click(screen.getByText('Казань'));
         expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ name: 'Казань' }));
     });
+
+    // F-04: выбор должен срабатывать уже на mousedown (до blur/закрытия списка),
+    // и ровно один раз — onClick после mousedown-выбора не дублирует.
+    it('selects on mousedown alone and does not double-fire with click', async () => {
+        const user = userEvent.setup();
+        const onSelect = vi.fn();
+        render(<Combobox<City> {...makeProps({ onSelect })} />);
+        const input = screen.getByPlaceholderText('Поиск города');
+        await user.type(input, 'Мурм');
+        await waitFor(() => {
+            expect(screen.getByText('Мурманск')).toBeInTheDocument();
+        });
+        const option = screen.getByText('Мурманск').closest('button')!;
+        // только mousedown — без mouseup/click (имитация гонки blur-vs-click)
+        await user.pointer({ keys: '[MouseLeft>]', target: option });
+        expect(onSelect).toHaveBeenCalledTimes(1);
+        expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ name: 'Мурманск' }));
+        // дропдаун закрыт — отпускание кнопки мыши не должно ничего добавить
+        await user.pointer({ keys: '[/MouseLeft]' });
+        expect(onSelect).toHaveBeenCalledTimes(1);
+    });
 });
