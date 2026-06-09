@@ -35,6 +35,10 @@ import { isPlatformSuperAdmin } from '../../auth/guards.js';
 export interface Author {
     userId: string;
     role: string;
+    // Регрессия-фикс (C3): isPlatformSuperAdmin проверяет roles.includes('admin'),
+    // а role = roles[0] — super-admin с 'admin' не на первой позиции ловил 403.
+    // role оставлен для authorRole в журнале событий.
+    roles?: string[];
     organizationId?: string | null;
 }
 

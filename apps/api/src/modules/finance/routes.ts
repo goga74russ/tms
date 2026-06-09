@@ -301,6 +301,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const result = await createDraftInvoice(parsed.data, {
                     userId: user.userId,
                     role: user.roles[0],
+                    roles: user.roles,
                     organizationId: user.organizationId,
                 });
                 return reply.code(201).send({ success: true, data: result });
@@ -322,6 +323,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const result = await issueDraftInvoice(request.params.id, parsed.data, {
                     userId: user.userId,
                     role: user.roles[0],
+                    roles: user.roles,
                     organizationId: user.organizationId,
                 });
                 return { success: true, data: result };
@@ -346,6 +348,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const result = await createCorrection(parsed.data, {
                     userId: user.userId,
                     role: user.roles[0],
+                    roles: user.roles,
                     organizationId: user.organizationId,
                 });
                 return reply.code(201).send({ success: true, data: result });
@@ -368,6 +371,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const result = await registerPayment(request.params.id, parsed.data, {
                     userId: user.userId,
                     role: user.roles[0],
+                    roles: user.roles,
                     organizationId: user.organizationId,
                 });
                 return { success: true, data: result };
@@ -403,6 +407,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const result = await cancelInvoice(request.params.id, parsed.data, {
                     userId: user.userId,
                     role: user.roles[0],
+                    roles: user.roles,
                     organizationId: user.organizationId,
                 });
                 return { success: true, data: result };
