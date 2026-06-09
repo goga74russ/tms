@@ -45,11 +45,16 @@ async function seedDemo() {
         kpp: '770001001',
         ogrn: '1027700000001',
         legalAddress: 'г. Москва, ул. Тверская, 1',
+        // T-9: выпуск счетов требует tax_regime !== 'unspecified'. Org-A — ОСНО (с НДС),
+        // основная орг для QA-сценариев бухгалтера (accountant@tms.local в этой орг).
+        taxRegime: 'osno',
     }).returning();
     const [orgB] = await db.insert(organizations).values({
         name: 'ИП Тестов А.А. (Org-B)',
         inn: '770000000002',
         legalAddress: 'г. Санкт-Петербург, Невский пр-т, 2',
+        // ИП обычно на УСН; non-unspecified → тоже способна выпускать счета (для cross-org тестов).
+        taxRegime: 'usn_income',
     }).returning();
 
     // ================================================================

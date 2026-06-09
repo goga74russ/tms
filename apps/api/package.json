@@ -19,6 +19,7 @@
         "db:migrate": "tsx scripts/migrate.ts",
         "db:migrate:drizzle": "drizzle-kit migrate",
         "db:seed": "tsx --env-file=../../.env src/db/seed.ts",
+        "db:seed:demo": "tsx --env-file=../../.env src/db/seed-demo.ts",
         "auth:reset-password": "tsx --env-file=../../.env scripts/reset-password.ts",
         "openapi:export": "tsx scripts/export-openapi.ts"
     },
