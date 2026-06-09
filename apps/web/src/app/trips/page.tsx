@@ -2202,6 +2202,8 @@ export default function TripsPage() {
     const [lifecycleSubmitting, setLifecycleSubmitting] = useState(false);
     const [lifecycleError, setLifecycleError] = useState('');
     const [lifecycleToast, setLifecycleToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    // F-06: выпуск ПЛ из досье (раньше был только через API → цепочка демо рвалась).
+    const [generatingWaybill, setGeneratingWaybill] = useState(false);
 
     useEffect(() => {
         if (lifecycleToast) {
@@ -2244,8 +2246,10 @@ export default function TripsPage() {
             setLifecycleError('');
             await api.post(`/trips/${startTripFor.id}/start`, { odometerStart: odometer });
             setLifecycleToast({ message: `Рейс ${startTripFor.number} запущен`, type: 'success' });
+            const wasDossier = dossierTripId;
             closeLifecycleModals();
             await loadTrips();
+            if (wasDossier) await openDossier(wasDossier);
         } catch (err: any) {
             setLifecycleError(err?.message || 'Не удалось запустить рейс');
         } finally {
@@ -2268,12 +2272,31 @@ export default function TripsPage() {
                 notes: lifecycleNotes.trim() || undefined,
             });
             setLifecycleToast({ message: `Рейс ${completeTripFor.number} завершён`, type: 'success' });
+            const wasDossier = dossierTripId;
             closeLifecycleModals();
             await loadTrips();
+            if (wasDossier) await openDossier(wasDossier);
         } catch (err: any) {
             setLifecycleError(err?.message || 'Не удалось завершить рейс');
         } finally {
             setLifecycleSubmitting(false);
+        }
+    };
+
+    // F-06: сформировать ПЛ для рейса прямо из досье. Бэкенд требует допуски
+    // механика и медика (иначе 409 «Нет допуска») — ошибку показываем тостом,
+    // не молча. После успеха обновляем досье и список (статус → waybill_issued).
+    const submitGenerateWaybill = async (trip: { id: string; number?: string }) => {
+        try {
+            setGeneratingWaybill(true);
+            await api.post(`/waybills/generate/${trip.id}`, {});
+            setLifecycleToast({ message: `Путевой лист для ${trip.number || 'рейса'} сформирован`, type: 'success' });
+            await loadTrips();
+            if (dossierTripId) await openDossier(dossierTripId);
+        } catch (err: any) {
+            setLifecycleToast({ message: err?.message || 'Не удалось сформировать ПЛ', type: 'error' });
+        } finally {
+            setGeneratingWaybill(false);
         }
     };
 
@@ -3120,6 +3143,40 @@ export default function TripsPage() {
                                             <div className="text-sm text-neutral-500">
                                                 {dossier.summary?.orderCount || 0} заявок в рейсе
                                             </div>
+                                            {/* F-06: выпуск ПЛ и старт рейса прямо из досье. Без ПЛ
+                                                POST /trips/:id/start отдаёт 409 (нужен waybill_issued),
+                                                поэтому «Начать рейс» доступна только после формирования ПЛ. */}
+                                            {(() => {
+                                                const status = dossier?.trip?.status;
+                                                const hasWaybill = Boolean(dossier?.waybill);
+                                                if (!hasWaybill && (status === 'assigned' || status === 'waybill_draft' || status === 'inspection')) {
+                                                    return (
+                                                        <Button
+                                                            size="sm"
+                                                            className="mt-3 w-full"
+                                                            onClick={() => submitGenerateWaybill(dossier.trip)}
+                                                            disabled={generatingWaybill}
+                                                            title="Сформировать путевой лист (нужны допуски механика и медика)"
+                                                        >
+                                                            {generatingWaybill && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                                                            Сформировать ПЛ
+                                                        </Button>
+                                                    );
+                                                }
+                                                if (status === 'waybill_issued') {
+                                                    return (
+                                                        <Button
+                                                            size="sm"
+                                                            className="mt-3 w-full"
+                                                            onClick={() => openStartTripModal(dossier.trip)}
+                                                        >
+                                                            <Play className="w-3.5 h-3.5 mr-1.5" />
+                                                            Начать рейс
+                                                        </Button>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
                                         </div>
                                     </div>
 
