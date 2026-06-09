@@ -2330,6 +2330,33 @@ export default function TripsPage() {
         }
     };
 
+    // F-14: пересинк статуса ПЛ по факту допусков. ПЛ выпускается НЕ кнопкой,
+    // а сегодняшними осмотрами (мед+тех) — осмотры синкают его автоматически;
+    // эта кнопка — ручной пересчёт + честная подсказка, чего не хватает.
+    const [syncingWaybill, setSyncingWaybill] = useState(false);
+    const syncWaybillStatus = async (waybillId: string) => {
+        try {
+            setSyncingWaybill(true);
+            const res = await api.post<{ success: boolean; data: { status: string } }>(
+                `/waybills/${waybillId}/sync-status`, {});
+            const status = res?.data?.status;
+            if (status === 'issued') {
+                setLifecycleToast({ message: 'ПЛ выпущен — можно начинать рейс', type: 'success' });
+            } else {
+                setLifecycleToast({
+                    message: `ПЛ не выпущен (${status === 'medical_check' ? 'нет сегодняшнего медосмотра' : status === 'technical_check' ? 'нет сегодняшнего техосмотра' : 'нет сегодняшних медосмотра и техосмотра'}). Допуски оформляют медик и механик.`,
+                    type: 'error',
+                });
+            }
+            if (dossierTripId) await openDossier(dossierTripId);
+            await loadTrips();
+        } catch (err: any) {
+            setLifecycleToast({ message: err?.message || 'Не удалось синхронизировать ПЛ', type: 'error' });
+        } finally {
+            setSyncingWaybill(false);
+        }
+    };
+
     // F-06: сформировать ПЛ для рейса прямо из досье. Бэкенд требует допуски
     // механика и медика (иначе 409 «Нет допуска») — ошибку показываем тостом,
     // не молча. После успеха обновляем досье и список (статус → waybill_issued).
@@ -3208,6 +3235,37 @@ export default function TripsPage() {
                                                             {generatingWaybill && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
                                                             Сформировать ПЛ
                                                         </Button>
+                                                    );
+                                                }
+                                                // F-14: ПЛ есть, но не выпущен — раньше карточка молчала
+                                                // (тупик: ни кнопки, ни причины). Выпуск делают сегодняшние
+                                                // осмотры (мед+тех) — показываем, чего не хватает, и даём
+                                                // ручной пересинк на случай, если допуски уже появились.
+                                                if (hasWaybill && (status === 'waybill_draft' || status === 'inspection' || status === 'assigned')) {
+                                                    const wb = dossier.waybill;
+                                                    const missing = [
+                                                        !wb.medInspectionId ? 'медосмотр (медик)' : null,
+                                                        !wb.techInspectionId ? 'техосмотр (механик)' : null,
+                                                    ].filter(Boolean);
+                                                    return (
+                                                        <div className="mt-3 space-y-2">
+                                                            <p className="text-[11px] leading-4 text-amber-700">
+                                                                ПЛ не выпущен — {missing.length
+                                                                    ? `нужен сегодняшний ${missing.join(' и ')}`
+                                                                    : 'допуски есть, нажмите пересинк'}.
+                                                                Выпуск произойдёт автоматически после допусков.
+                                                            </p>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="w-full"
+                                                                onClick={() => syncWaybillStatus(wb.id)}
+                                                                disabled={syncingWaybill}
+                                                            >
+                                                                {syncingWaybill && <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />}
+                                                                Проверить допуски и выпустить
+                                                            </Button>
+                                                        </div>
                                                     );
                                                 }
                                                 if (status === 'waybill_issued') {
