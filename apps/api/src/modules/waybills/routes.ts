@@ -515,6 +515,24 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 ? await db.select().from(contractors).where(eq(contractors.id, consigneeContractorId)).limit(1)
                 : [contractor];
 
+            // Аудит P0: как и для перевозчика — без реального ИНН грузоотправителя /
+            // грузополучателя ЭТрН юридически недействителен. Запрещаем тихую подстановку
+            // фиктивных реквизитов ('0000000000' / адрес-заглушка) — отказываем явно (422).
+            if (!contractor?.inn) {
+                return reply.status(422).send({
+                    success: false,
+                    code: 'SHIPPER_REQUISITES_MISSING',
+                    error: 'Не заполнен ИНН грузоотправителя. Документ не может быть выпущен — укажите реквизиты контрагента-грузоотправителя в заказе.',
+                });
+            }
+            if (!consigneeContractor?.inn) {
+                return reply.status(422).send({
+                    success: false,
+                    code: 'CONSIGNEE_REQUISITES_MISSING',
+                    error: 'Не заполнен ИНН грузополучателя. Документ не может быть выпущен — укажите реквизиты контрагента-грузополучателя в заказе.',
+                });
+            }
+
             const xml = generateETrN({
                 waybillNumber: waybill.number || id.slice(0, 8),
                 issuedAt: (waybill.issuedAt || new Date()).toISOString(),
@@ -526,14 +544,14 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 driverFullName: driver?.fullName || 'вЂ”',
                 driverLicenseNumber: driver?.licenseNumber || 'вЂ”',
                 shipperName: contractor?.name || 'вЂ”',
-                shipperInn: contractor?.inn || '0000000000',
+                shipperInn: contractor.inn,
                 shipperAddress: contractor?.legalAddress || 'вЂ”',
                 carrierName: carrierOrg.name,
                 carrierInn: carrierOrg.inn,
                 carrierKpp: carrierOrg.kpp || undefined,
                 carrierAddress: carrierOrg.legalAddress || 'вЂ”',
-                consigneeName: consigneeContractor?.name || order?.order.unloadingAddress || 'вЂ”',
-                consigneeInn: consigneeContractor?.inn || '0000000000',
+                consigneeName: consigneeContractor.name,
+                consigneeInn: consigneeContractor.inn,
                 consigneeKpp: consigneeContractor?.kpp || undefined,
                 consigneeAddress: order?.order.unloadingAddress || 'вЂ”',
                 cargoDescription: order?.order.cargoDescription || 'вЂ”',
@@ -603,6 +621,24 @@ export default async function waybillRoutes(app: FastifyInstance) {
             const [confirmation] = trip ? await db.select({ cargoCondition: deliveryConfirmations.cargoCondition })
                 .from(deliveryConfirmations).where(eq(deliveryConfirmations.tripId, trip.id)).limit(1) : [null];
 
+            // Аудит P0: без реального ИНН грузоотправителя / грузополучателя Титул 4
+            // ЭТрН юридически недействителен. Запрет тихой подстановки '0000000000' —
+            // отказываем явно (422), как и для перевозчика выше.
+            if (!contractor?.inn) {
+                return reply.status(422).send({
+                    success: false,
+                    code: 'SHIPPER_REQUISITES_MISSING',
+                    error: 'Не заполнен ИНН грузоотправителя. Документ не может быть выпущен — укажите реквизиты контрагента-грузоотправителя в заказе.',
+                });
+            }
+            if (!consigneeContractor?.inn) {
+                return reply.status(422).send({
+                    success: false,
+                    code: 'CONSIGNEE_REQUISITES_MISSING',
+                    error: 'Не заполнен ИНН грузополучателя. Документ не может быть выпущен — укажите реквизиты контрагента-грузополучателя в заказе.',
+                });
+            }
+
             const xml = generateETrNTitle4({
                 waybillNumber: waybill.number || id.slice(0, 8),
                 issuedAt: (waybill.issuedAt || new Date()).toISOString(),
@@ -613,14 +649,14 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 driverFullName: driver?.fullName || 'вЂ”',
                 driverLicenseNumber: driver?.licenseNumber || 'вЂ”',
                 shipperName: contractor?.name || 'вЂ”',
-                shipperInn: contractor?.inn || '0000000000',
+                shipperInn: contractor.inn,
                 shipperAddress: contractor?.legalAddress || 'вЂ”',
                 carrierName: carrierOrg.name,
                 carrierInn: carrierOrg.inn,
                 carrierKpp: carrierOrg.kpp || undefined,
                 carrierAddress: carrierOrg.legalAddress || 'вЂ”',
-                consigneeName: consigneeContractor?.name || order?.order.unloadingAddress || 'вЂ”',
-                consigneeInn: consigneeContractor?.inn || '0000000000',
+                consigneeName: consigneeContractor.name,
+                consigneeInn: consigneeContractor.inn,
                 consigneeKpp: consigneeContractor?.kpp || undefined,
                 consigneeAddress: order?.order.unloadingAddress || 'вЂ”',
                 cargoDescription: order?.order.cargoDescription || 'вЂ”',

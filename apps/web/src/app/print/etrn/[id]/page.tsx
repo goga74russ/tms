@@ -54,9 +54,47 @@ export default function EtrnPreviewPage() {
     if (error) return <div className="loading">Ошибка: {error}</div>;
     if (!data) return <div className="loading">Загрузка предпросмотра ЭТрН…</div>;
 
-    const carrierName = process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'ООО «ТМС Логистик»';
-    const carrierInn = process.env.NEXT_PUBLIC_CARRIER_INN ?? '0000000000';
-    const carrierAddress = process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'г. Москва';
+    // Реквизиты перевозчика берём ТОЛЬКО из конфигурации. Никаких фейковых
+    // заглушек (ИНН '0000000000', «ООО ТМС Логистик», адрес-заглушка):
+    // официальная ЭТрН с фиктивными реквизитами юридически недействительна.
+    const carrierNameRaw = (process.env.NEXT_PUBLIC_CARRIER_NAME ?? '').trim();
+    const carrierInnRaw = (process.env.NEXT_PUBLIC_CARRIER_INN ?? '').trim();
+    const carrierAddressRaw = (process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? '').trim();
+
+    // ИНН перевозчика обязателен и должен быть валидным (10 или 12 цифр, не нули).
+    const carrierInnValid = /^\d{10}$|^\d{12}$/.test(carrierInnRaw) && !/^0+$/.test(carrierInnRaw);
+    const carrierConfigured = carrierNameRaw !== '' && carrierInnValid;
+
+    if (!carrierConfigured) {
+        return (
+            <div className="print-page">
+                <div
+                    role="alert"
+                    style={{
+                        border: '1px solid #b91c1c',
+                        background: '#fef2f2',
+                        color: '#7f1d1d',
+                        borderRadius: 8,
+                        padding: 16,
+                        lineHeight: 1.55,
+                    }}
+                >
+                    <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                        Реквизиты перевозчика не настроены
+                    </div>
+                    <p>
+                        Невозможно сформировать ЭТрН: не заданы корректные реквизиты перевозчика
+                        (наименование и/или ИНН). Документ не может быть выпущен с фиктивными
+                        реквизитами. Обратитесь к администратору.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    const carrierName = carrierNameRaw;
+    const carrierInn = carrierInnRaw;
+    const carrierAddress = carrierAddressRaw || '—';
 
     const vehicleName = [data.vehicle?.make, data.vehicle?.model].filter(Boolean).join(' ') || '—';
     const shipperName = data.contractor?.name || data.contractorName || '—';
