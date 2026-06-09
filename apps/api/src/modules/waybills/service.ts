@@ -203,20 +203,17 @@ async function generateWaybillNumber(tx: any): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `WB-${year}-`;
 
-    const [lastWaybill] = await tx
-        .select({ number: waybills.number })
+    // F-10 (латентная мина, как в orders): числовой max вместо лексикографического
+    // ORDER BY number DESC — на смешанной ширине строковая сортировка возвращает
+    // занятый номер. Сериализация — advisory xact lock (FOR UPDATE на агрегат не
+    // вешается); lock живёт до конца tx.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${'waybill_number|' + prefix})::bigint)`);
+    const [row] = await tx
+        .select({ maxSeq: sql<number>`COALESCE(MAX((split_part(${waybills.number}, '-', 3))::int), 0)` })
         .from(waybills)
-        .where(like(waybills.number, `${prefix}%`))
-        .orderBy(desc(waybills.number))
-        .limit(1)
-        .for('update');
+        .where(like(waybills.number, `${prefix}%`));
 
-    let nextNum = 1;
-    if (lastWaybill) {
-        const lastNum = parseInt(lastWaybill.number.replace(prefix, ''), 10);
-        nextNum = lastNum + 1;
-    }
-
+    const nextNum = Number(row?.maxSeq ?? 0) + 1;
     return `${prefix}${String(nextNum).padStart(5, '0')}`;
 }
 

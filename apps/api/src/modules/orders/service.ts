@@ -26,19 +26,16 @@ async function generateOrderNumber(tx: any): Promise<string> {
     // остаётся как страховка.
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${'order_number|' + prefix})::bigint)`);
 
-    let seq = 1;
-    const [lastOrder] = await tx
-        .select({ number: orders.number })
+    // F-10: числовой max вместо лексикографического ORDER BY number DESC.
+    // На смешанной ширине (seed ORD-2026-0001 — 4 цифры, app 00006 — 5 цифр)
+    // строковая сортировка ставила '0005' выше '00006' → генератор выдавал
+    // занятый номер → UNIQUE violation → 500 на создании заявки.
+    const [row] = await tx
+        .select({ maxSeq: sql<number>`COALESCE(MAX((split_part(${orders.number}, '-', 3))::int), 0)` })
         .from(orders)
-        .where(sql`${orders.number} LIKE ${prefix + '%'}`)
-        .orderBy(desc(orders.number))
-        .limit(1);
+        .where(sql`${orders.number} LIKE ${prefix + '%'}`);
 
-    if (lastOrder?.number) {
-        const parts = lastOrder.number.split('-');
-        seq = parseInt(parts[2], 10) + 1;
-    }
-
+    const seq = Number(row?.maxSeq ?? 0) + 1;
     return `${prefix}${String(seq).padStart(5, '0')}`;
 }
 

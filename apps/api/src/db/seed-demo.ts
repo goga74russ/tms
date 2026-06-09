@@ -242,7 +242,7 @@ async function seedDemo() {
     console.log('  → Orders...');
     const orderRows = await db.insert(orders).values([
         {
-            number: 'ORD-2026-0001', contractorId: client1.id, contractId: contract1.id,
+            number: 'ORD-2026-00001', contractorId: client1.id, contractId: contract1.id,
             status: 'confirmed', cargoDescription: 'Кирпич М150, паллеты', cargoWeightKg: 5000, cargoVolumeM3: 12,
             cargoPlaces: 10, cargoType: 'стройматериалы',
             loadingAddress: 'г. Москва, ул. Складская, 5', loadingLat: 55.7522, loadingLon: 37.6156,
@@ -252,7 +252,7 @@ async function seedDemo() {
             createdBy: logist.id, organizationId: orgA.id,
         },
         {
-            number: 'ORD-2026-0002', contractorId: client2.id, contractId: contract2.id,
+            number: 'ORD-2026-00002', contractorId: client2.id, contractId: contract2.id,
             status: 'in_transit', cargoDescription: 'Продукты питания (молочная продукция)', cargoWeightKg: 8000, cargoVolumeM3: 30,
             cargoPlaces: 25, cargoType: 'скоропортящиеся', temperatureMin: 2, temperatureMax: 6,
             loadingAddress: 'г. Москва, Каширское шоссе, 61', loadingLat: 55.6544, loadingLon: 37.6526,
@@ -263,7 +263,7 @@ async function seedDemo() {
             createdBy: logist.id, organizationId: orgA.id,
         },
         {
-            number: 'ORD-2026-0003', contractorId: client1.id, contractId: contract1.id,
+            number: 'ORD-2026-00003', contractorId: client1.id, contractId: contract1.id,
             status: 'delivered', cargoDescription: 'Песок строительный', cargoWeightKg: 15000, cargoVolumeM3: 10,
             cargoPlaces: 1, cargoType: 'навалочный',
             loadingAddress: 'г. Москва, Варшавское шоссе, 170', loadingLat: 55.5963, loadingLon: 37.6152,
@@ -273,7 +273,7 @@ async function seedDemo() {
             createdBy: logist.id, organizationId: orgA.id,
         },
         {
-            number: 'ORD-2026-0004', contractorId: client3.id, contractId: contract3.id,
+            number: 'ORD-2026-00004', contractorId: client3.id, contractId: contract3.id,
             status: 'draft', cargoDescription: 'Мебель офисная (столы, кресла)', cargoWeightKg: 2000, cargoVolumeM3: 15,
             cargoPlaces: 30,
             loadingAddress: 'г. Москва, ул. Авиамоторная, 8', loadingLat: 55.7507, loadingLon: 37.7153,
@@ -283,7 +283,7 @@ async function seedDemo() {
             createdBy: logist.id, organizationId: orgA.id,
         },
         {
-            number: 'ORD-2026-0005', contractorId: client2.id, contractId: contract2.id,
+            number: 'ORD-2026-00005', contractorId: client2.id, contractId: contract2.id,
             status: 'assigned', cargoDescription: 'Напитки (вода, соки) в ПЭТ', cargoWeightKg: 12000, cargoVolumeM3: 40,
             cargoPlaces: 600, cargoType: 'напитки',
             loadingAddress: 'г. Москва, ул. Иловайская, 2', loadingLat: 55.6373, loadingLon: 37.6829,
@@ -301,7 +301,7 @@ async function seedDemo() {
     const tripRows = await db.insert(trips).values([
         // Trip 1: Completed — с заявкой ORD-0003
         {
-            number: 'TR-2026-0001', status: 'completed',
+            number: 'TRP-2026-00001', status: 'completed',
             vehicleId: vehicleRows[0].id, driverId: driverRows[0].id,
             plannedDistanceKm: 110, actualDistanceKm: 115,
             plannedDepartureAt: new Date('2026-03-20T07:00:00Z'),
@@ -314,7 +314,7 @@ async function seedDemo() {
         },
         // Trip 2: In transit — с заявкой ORD-0002
         {
-            number: 'TR-2026-0002', status: 'in_transit',
+            number: 'TRP-2026-00002', status: 'in_transit',
             vehicleId: vehicleRows[2].id, trailerId: trailerRows[1].id, driverId: driverRows[1].id,
             plannedDistanceKm: 200,
             plannedDepartureAt: new Date('2026-03-23T06:00:00Z'),
@@ -324,7 +324,7 @@ async function seedDemo() {
         },
         // Trip 3: Assigned — с заявкой ORD-0001
         {
-            number: 'TR-2026-0003', status: 'assigned',
+            number: 'TRP-2026-00003', status: 'assigned',
             vehicleId: vehicleRows[1].id, trailerId: trailerRows[0].id, driverId: driverRows[2].id,
             plannedDistanceKm: 180,
             plannedDepartureAt: new Date('2026-03-22T08:00:00Z'),
@@ -332,7 +332,7 @@ async function seedDemo() {
         },
         // Trip 4: Planning — для ORD-0005
         {
-            number: 'TR-2026-0004', status: 'planning',
+            number: 'TRP-2026-00004', status: 'planning',
             vehicleId: vehicleRows[4].id, driverId: driverRows[0].id,
             plannedDistanceKm: 190,
             plannedDepartureAt: new Date('2026-03-24T07:00:00Z'),
@@ -340,7 +340,7 @@ async function seedDemo() {
         },
         // Trip 5: Billed (завершён + выставлен счёт)
         {
-            number: 'TR-2026-0005', status: 'billed',
+            number: 'TRP-2026-00005', status: 'billed',
             vehicleId: vehicleRows[0].id, driverId: driverRows[2].id,
             plannedDistanceKm: 90, actualDistanceKm: 88,
             plannedDepartureAt: new Date('2026-03-18T08:00:00Z'),
@@ -602,20 +602,20 @@ async function seedDemo() {
     // invoices: scope via contractor (нет колонки organization_id).
     const invoiceSeed: typeof invoices.$inferInsert[] = [
         {
-            number: 'СЧ-2026-001', contractorId: client1.id, contractId: contract1.id,
+            number: 'СЧ-2026-00001', contractorId: client1.id, contractId: contract1.id,
             type: 'payment', status: 'paid_full', tripIds: [tripRows[4].id],
             subtotal: 8250, vatAmount: 1650, total: 9900,
             periodStart: new Date('2026-03-18'), periodEnd: new Date('2026-03-18'),
             paidAt: new Date('2026-03-22T14:00:00Z'),
         },
         {
-            number: 'СЧ-2026-002', contractorId: client2.id, contractId: contract2.id,
+            number: 'СЧ-2026-00002', contractorId: client2.id, contractId: contract2.id,
             type: 'payment', status: 'issued', tripIds: [],
             subtotal: 25000, vatAmount: 5000, total: 30000,
             periodStart: new Date('2026-03-23'), periodEnd: new Date('2026-03-23'),
         },
         {
-            number: 'СЧ-2026-003', contractorId: client1.id, contractId: contract1.id,
+            number: 'СЧ-2026-00003', contractorId: client1.id, contractId: contract1.id,
             type: 'act', status: 'draft', tripIds: [tripRows[0].id],
             subtotal: 5175, vatAmount: 1035, total: 6210,
             periodStart: new Date('2026-03-20'), periodEnd: new Date('2026-03-20'),
@@ -824,11 +824,11 @@ async function seedDemo() {
     // ================================================================
     console.log('  → Events...');
     await db.insert(events).values([
-        { authorId: dispatcher.id, authorRole: 'dispatcher', eventType: 'trip.created', entityType: 'trip', entityId: tripRows[0].id, data: { number: 'TR-2026-0001' }, timestamp: new Date('2026-03-20T06:00:00Z'), organizationId: orgA.id },
+        { authorId: dispatcher.id, authorRole: 'dispatcher', eventType: 'trip.created', entityType: 'trip', entityId: tripRows[0].id, data: { number: 'TRP-2026-00001' }, timestamp: new Date('2026-03-20T06:00:00Z'), organizationId: orgA.id },
         { authorId: dispatcher.id, authorRole: 'dispatcher', eventType: 'trip.status_changed', entityType: 'trip', entityId: tripRows[0].id, data: { from: 'planning', to: 'completed' }, timestamp: new Date('2026-03-20T14:30:00Z'), organizationId: orgA.id },
         { authorId: mechanic.id, authorRole: 'mechanic', eventType: 'inspection.completed', entityType: 'tech_inspection', entityId: techInspRows[0].id, data: { decision: 'approved', vehiclePlate: 'А123БВ77' }, timestamp: new Date('2026-03-20T06:30:00Z'), organizationId: orgA.id },
         { authorId: medic.id, authorRole: 'medic', eventType: 'inspection.completed', entityType: 'med_inspection', entityId: medInspRows[0].id, data: { decision: 'approved', driverName: 'Морозов С.Н.' }, timestamp: new Date('2026-03-20T06:15:00Z'), organizationId: orgA.id },
-        { authorId: logist.id, authorRole: 'logist', eventType: 'order.created', entityType: 'order', entityId: orderRows[0].id, data: { number: 'ORD-2026-0001' }, timestamp: new Date('2026-03-22T07:00:00Z'), organizationId: orgA.id },
+        { authorId: logist.id, authorRole: 'logist', eventType: 'order.created', entityType: 'order', entityId: orderRows[0].id, data: { number: 'ORD-2026-00001' }, timestamp: new Date('2026-03-22T07:00:00Z'), organizationId: orgA.id },
     ]);
 
     // ================================================================

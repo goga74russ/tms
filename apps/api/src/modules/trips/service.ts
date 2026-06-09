@@ -33,21 +33,22 @@ export function canTransition(from: string, to: string): boolean {
 }
 
 // --- Sequential number: TRP-2026-00001 ---
-// M-7: FOR UPDATE must run inside a transaction to hold the lock
+// M-7: lock must run inside a transaction to hold until commit
 async function generateTripNumber(tx: { execute: typeof db.execute }): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `TRP-${year}-`;
 
+    // F-10 (латентная мина, как в orders): числовой max вместо лексикографического
+    // ORDER BY number DESC — на смешанной ширине строковая сортировка возвращает
+    // занятый номер. Сериализация — advisory xact lock (FOR UPDATE на агрегат не
+    // вешается); lock живёт до конца tx.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${'trip_number|' + prefix})::bigint)`);
     const result = await tx.execute(
-        sql`SELECT number FROM trips WHERE number LIKE ${prefix + '%'} ORDER BY number DESC LIMIT 1 FOR UPDATE`
+        sql`SELECT COALESCE(MAX((split_part(number, '-', 3))::int), 0) AS max_seq FROM trips WHERE number LIKE ${prefix + '%'}`
     );
 
-    let seq = 1;
-    const rows = result as unknown as Array<{ number: string }>;
-    if (rows.length > 0 && rows[0].number) {
-        const parts = rows[0].number.split('-');
-        seq = parseInt(parts[2], 10) + 1;
-    }
+    const rows = result as unknown as Array<{ max_seq: number }>;
+    const seq = Number(rows[0]?.max_seq ?? 0) + 1;
 
     return `${prefix}${String(seq).padStart(5, '0')}`;
 }
