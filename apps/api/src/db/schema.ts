@@ -1883,7 +1883,8 @@ export const mchd = pgTable('mchd', {
     // B7.1 (migration 0030): RESTRICT — юр-сила подписей, нельзя стирать.
     organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'restrict' }),
     /** Идентификатор МЧД от ФНС, например "АА-12345678". Глобально уникален. */
-    mchdNumber: varchar('mchd_number', { length: 64 }).notNull().unique(),
+    // C9 (миг.0043): per-org unique (был глобальный .unique() → cross-tenant 409-oracle).
+    mchdNumber: varchar('mchd_number', { length: 64 }).notNull(),
     // Доверитель (юр-лицо)
     granterInn: varchar('granter_inn', { length: 12 }).notNull(),
     granterName: varchar('granter_name', { length: 255 }).notNull(),
@@ -1911,6 +1912,8 @@ export const mchd = pgTable('mchd', {
 }, (table) => [
     index('idx_mchd_org_status').on(table.organizationId, table.status),
     index('idx_mchd_grantee_inn').on(table.granteeInn),
+    // C9 (миг.0043): per-org unique номера МЧД (закрывает cross-tenant 409-oracle).
+    uniqueIndex('uq_mchd_org_number').on(table.organizationId, table.mchdNumber),
 ]);
 
 // ============================================================

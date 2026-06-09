@@ -292,9 +292,11 @@ const mchdRoutes: FastifyPluginAsync = async (app) => {
 
             return reply.status(201).send({ success: true, data: inserted });
         } catch (err) {
-            // Уникальность mchd_number — глобальная.
+            // C9 (миг.0043): уникальность mchd_number теперь PER-ORG (uq_mchd_org_number) —
+            // дубль в своей орг → 409; чужой номер другого тенанта больше не даёт 409
+            // (закрыт cross-tenant existence-oracle). Ловим по подстроке 'unique'.
             const message = err instanceof Error ? err.message : String(err);
-            if (message.includes('mchd_number') || message.includes('unique')) {
+            if (message.includes('mchd_number') || message.includes('unique') || message.includes('uq_mchd_org_number')) {
                 return reply.status(409).send({
                     success: false,
                     error: 'МЧД с таким номером уже зарегистрирована',
