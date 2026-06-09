@@ -1033,6 +1033,8 @@ export const tachographRecords = pgTable('tachograph_records', {
 }, (table) => [
     index('idx_tachograph_driver').on(table.driverId),
     index('idx_tachograph_date').on(table.date),
+    // C9 (миг.0044): идемпотентность .DDD-загрузок на уровне БД.
+    uniqueIndex('uq_tachograph_driver_date_source').on(table.driverId, table.date, table.source),
 ]);
 
 // ================================================================
@@ -1855,6 +1857,8 @@ export const payments = pgTable('payments', {
 }, (table) => [
     index('idx_payments_subscription').on(table.subscriptionId, sql`${table.createdAt} DESC`),
     index('idx_payments_provider_id').on(table.providerPaymentId),
+    // C9 (миг.0045): partial-unique provider_payment_id (NOT NULL) — детерминизм вебхука.
+    uniqueIndex('uq_payments_provider_payment_id').on(table.providerPaymentId).where(sql`${table.providerPaymentId} IS NOT NULL`),
 ]);
 
 export const usageCounters = pgTable('usage_counters', {
