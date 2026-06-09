@@ -590,7 +590,7 @@ export default function DispatcherPage() {
         }
     }, [vehicles, mapInstance]);
 
-    const handleAssign = useCallback(async (orderId: string, vehicleId: string, windows?: {
+    const handleAssign = useCallback(async (orderId: string, vehicleId: string, driverId: string, windows?: {
         loadingFrom?: string | null;
         loadingTo?: string | null;
         unloadingFrom?: string | null;
@@ -598,8 +598,13 @@ export default function DispatcherPage() {
     }) => {
         const order = orders.find(o => o.id === orderId);
         if (!order) return;
+        // F-11: раньше панель слала POST /trips без водителя — рейс застревал в
+        // planning (тупик: ни осмотров, ни ПЛ, ни старта; UI-перехода
+        // planning→assigned в досье нет). Теперь create + assign (vehicleId +
+        // driverId) — как в CreateTripModal логиста; оба пути дают assigned.
+        let createdTrip: { id: string; number?: string } | null = null;
         try {
-            await api.post('/trips', {
+            const created = await api.post<{ success: boolean; data: { id: string; number?: string } }>('/trips', {
                 vehicleId,
                 orderIds: [orderId],
                 routePoints: [
@@ -619,9 +624,23 @@ export default function DispatcherPage() {
                     },
                 ],
             });
-            showToast(`Рейс по заявке ${order.number} создан`, 'success');
+            createdTrip = created?.data ?? null;
         } catch (e: any) {
             showToast(e?.message || 'Не удалось создать рейс', 'error');
+            loadData();
+            return;
+        }
+        try {
+            if (!createdTrip?.id) throw new Error('Сервер не вернул id созданного рейса');
+            await api.post(`/trips/${createdTrip.id}/assign`, { vehicleId, driverId });
+            showToast(`Рейс ${createdTrip.number || ''} по заявке ${order.number} создан и назначен`.replace('  ', ' '), 'success');
+        } catch (e: any) {
+            // Рейс уже создан (planning) — не маскируем: показываем, что именно
+            // отбило назначение (техосмотр/медосмотр/объём) и в каком он статусе.
+            showToast(
+                `Рейс создан (${createdTrip?.number || 'planning'}), но назначение отклонено: ${e?.message || 'неизвестная ошибка'}`,
+                'error',
+            );
         }
         loadData();
     }, [orders, loadData, showToast]);

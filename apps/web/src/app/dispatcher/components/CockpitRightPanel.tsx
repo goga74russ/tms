@@ -26,7 +26,7 @@ interface CockpitRightPanelProps {
     vehicleStatusFilter: string;
     onVehicleStatusFilterChange: (v: string) => void;
     coldChainBreaches: ColdChainBreach[];
-    onAssign: (orderId: string, vehicleId: string, windows?: AssignmentWindows) => Promise<void>;
+    onAssign: (orderId: string, vehicleId: string, driverId: string, windows?: AssignmentWindows) => Promise<void>;
 }
 
 const STATUS_DOT: Record<string, string> = {

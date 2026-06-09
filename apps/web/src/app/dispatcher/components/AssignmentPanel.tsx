@@ -22,6 +22,15 @@ interface AddressSuggestion {
     fiasId: string;
 }
 
+// F-11: рейс из панели должен сразу получать водителя — POST /trips без
+// driverId оставлял planning (тупик: ни осмотров, ни ПЛ, ни старта).
+interface DriverSearchResult {
+    id: string;
+    fullName: string;
+    licenseNumber?: string | null;
+    phone?: string | null;
+}
+
 export interface AssignmentWindows {
     loadingFrom?: string | null;
     loadingTo?: string | null;
@@ -32,7 +41,7 @@ export interface AssignmentWindows {
 interface AssignmentPanelProps {
     orders: UnassignedOrder[];
     vehicles: Vehicle[];
-    onAssign?: (orderId: string, vehicleId: string, windows?: AssignmentWindows) => Promise<void>;
+    onAssign?: (orderId: string, vehicleId: string, driverId: string, windows?: AssignmentWindows) => Promise<void>;
 }
 
 function localToIso(value: string): string | null {
@@ -45,6 +54,7 @@ function localToIso(value: string): string | null {
 export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelProps) {
     const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
     const [selectedVehicle, setSelectedVehicle] = useState<VehicleSearchResult | null>(null);
+    const [selectedDriver, setSelectedDriver] = useState<DriverSearchResult | null>(null);
     const [assignSuccess, setAssignSuccess] = useState<string | null>(null);
     const [isAssigning, setIsAssigning] = useState(false);
     const [cityFilter, setCityFilter] = useState<string | null>(null);
@@ -123,6 +133,24 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
         }
     }, []);
 
+    // F-11: поиск водителей. Эндпоинт available-drivers без серверного search —
+    // список орг-водителей мал, фильтруем на клиенте по ФИО/ВУ.
+    const searchDrivers = useCallback(async (query: string): Promise<DriverSearchResult[]> => {
+        try {
+            const result = await api.get<any>('/trips/available-drivers');
+            const all: DriverSearchResult[] = result.data || [];
+            const q = query.trim().toLowerCase();
+            if (!q) return all.slice(0, 10);
+            return all
+                .filter(d =>
+                    d.fullName.toLowerCase().includes(q) ||
+                    (d.licenseNumber || '').toLowerCase().includes(q))
+                .slice(0, 10);
+        } catch {
+            return [];
+        }
+    }, []);
+
     // Search cities via DaData suggest
     const searchCities = useCallback(async (query: string): Promise<AddressSuggestion[]> => {
         try {
@@ -142,7 +170,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
         : orders;
 
     const handleAssign = async () => {
-        if (!selectedOrder || !selectedVehicle || isAssigning) return;
+        if (!selectedOrder || !selectedVehicle || !selectedDriver || isAssigning) return;
 
         const order = orders.find(o => o.id === selectedOrder);
 
@@ -155,16 +183,17 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
         setIsAssigning(true);
         try {
             if (onAssign) {
-                await onAssign(selectedOrder, selectedVehicle.id, {
+                await onAssign(selectedOrder, selectedVehicle.id, selectedDriver.id, {
                     loadingFrom: localToIso(loadingFrom),
                     loadingTo: localToIso(loadingTo),
                     unloadingFrom: localToIso(unloadingFrom),
                     unloadingTo: localToIso(unloadingTo),
                 });
             }
-            setAssignSuccess(`${order?.number} → ${selectedVehicle.plateNumber}`);
+            setAssignSuccess(`${order?.number} → ${selectedVehicle.plateNumber} · ${selectedDriver.fullName}`);
             setSelectedOrder(null);
             setSelectedVehicle(null);
+            setSelectedDriver(null);
             setLoadingFrom('');
             setLoadingTo('');
             setUnloadingFrom('');
@@ -325,6 +354,46 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                     )}
                 </div>
 
+                {/* ============= Driver Search (F-11) ============= */}
+                <div>
+                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5" />
+                        Водитель
+                    </p>
+                    <Combobox<DriverSearchResult>
+                        placeholder="ФИО или № ВУ..."
+                        icon={<User className="w-4 h-4" />}
+                        onSearch={searchDrivers}
+                        onSelect={(d) => setSelectedDriver(d)}
+                        selected={selectedDriver}
+                        getKey={(d) => d.id}
+                        getLabel={(d) => d.fullName}
+                        emptyMessage="Нет доступных водителей"
+                        renderOption={(d) => (
+                            <div>
+                                <div className="font-bold text-neutral-800">{d.fullName}</div>
+                                <div className="text-xs text-neutral-500">
+                                    {d.licenseNumber ? `ВУ ${d.licenseNumber}` : 'ВУ не указано'}
+                                    {d.phone && <span className="ml-1.5 text-neutral-400">• {d.phone}</span>}
+                                </div>
+                            </div>
+                        )}
+                    />
+                    {selectedDriver && (
+                        <div className="mt-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-neutral-800 flex items-center gap-1.5">
+                                    <User className="w-3.5 h-3.5 text-neutral-400" />
+                                    {selectedDriver.fullName}
+                                </span>
+                                {selectedDriver.licenseNumber && (
+                                    <span className="text-xs text-neutral-500">ВУ {selectedDriver.licenseNumber}</span>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 {/* ============= City Filter ============= */}
                 <div>
                     <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -472,18 +541,18 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
             {/* Assign button */}
             <div className="p-3 border-t border-neutral-100">
                 <button
+                    type="button"
                     onClick={handleAssign}
-                    disabled={!selectedOrder || !selectedVehicle || isAssigning || !!volumeCheck?.overflow}
-                    title={
-                        !selectedOrder && !selectedVehicle
-                            ? 'Выберите заказ и автомобиль, чтобы назначить'
-                            : !selectedOrder
-                                ? 'Выберите заказ для назначения'
-                                : !selectedVehicle
-                                    ? 'Выберите автомобиль для назначения'
-                                    : undefined
-                    }
-                    className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${selectedOrder && selectedVehicle
+                    disabled={!selectedOrder || !selectedVehicle || !selectedDriver || isAssigning || !!volumeCheck?.overflow}
+                    title={(() => {
+                        const missing = [
+                            !selectedOrder ? 'заказ' : null,
+                            !selectedVehicle ? 'автомобиль' : null,
+                            !selectedDriver ? 'водителя' : null,
+                        ].filter(Boolean);
+                        return missing.length ? `Выберите ${missing.join(', ')}, чтобы назначить` : undefined;
+                    })()}
+                    className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${selectedOrder && selectedVehicle && selectedDriver
                         ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl'
                         : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
                         }`}
