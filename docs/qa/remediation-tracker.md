@@ -4,7 +4,7 @@
 > Этот файл — **рабочий план починки**, не дубль аудита. Аудит неизменяем; здесь — статусы.
 > Роль: **TransPult**. Запущено: 2026-06-02.
 
-> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-04):** **прод `71dcc40`** (`local==origin==prod`, healthy): волны 1-7 + миграции 0043/0044/0045 (mchd/tachograph/payments per-org unique). Решение 2 — волна 6 fake-INN ЗАДЕПЛОЕНА (реквизиты добавляются руками для тестов).
+> **📍 ТЕКУЩЕЕ СОСТОЯНИЕ (2026-06-09):** **origin/local `3f816e8`** (prod ещё `71dcc40` — деплой ждёт фразу-авторизацию). Поверх волн 1-7 + миграций 0043/0044/0045 закрыты **7 из 11 регрессий повторного аудита** (`docs/qa/regression-2026-06-04.md`): R-1 force-logout (auth token_version по set-сравнению ролей), R-2 invoice picker (orders inArray + client status=delivered,returned), R-3 data-table selection (stable key), P2 waybills odometer (422+soft-warn), P2 ЭТрН INBOUND (гейт только OUTBOUND), P2 settings org-filter в SQL, P3 osago role-gate. Gate: tsc api+web чисто, 735 unit зелёные. **DEFER (4):** finance getNextInvoiceNumber perf (perf-only, не кусает на пилот-объёме — money-SQL не правим под давлением), super-admin gate invoice-workflow:69 (узкий edge org-less super-admin), incidents scope sprint9 + 0041 NULL-distinct (миграция-флейвор, узкие super-admin/NULL-org края).
 > **Все 9 классов аудита (C1–C9) закрыты и на проде.** C9 DoD: вердикт на все 181 P2/P3.
 > Плюс на проде: **stop-gate 54-ФЗ** + **серверный DPA-гейт** + батчи S-G + **мульти-агент волны 1-5** + **миграция 0043** (mchd per-org).
 > **C9 DoD:** **~124/181 FIXED/VERIFIED** (батчи S/C/SE/M/F/G + 6 мульти-агент-волн + миг.0043, все CI-зелёные), **~57 DEFER**. Вердикт на все 181. Ничего из DEFER не блокирует пилот B2B.
