@@ -636,10 +636,16 @@ export async function sendTransportDocumentToProvider(params: {
 }) {
     // C6 (P0, CBO): централизованный субподряд-гейт ЭТрН. Раньше /send и
     // /exchange/attempts отправляли ЭТрН наёмного рейса в ЭДО мимо assertEtrnAllowed
-    // (гейт стоял только в sign-роуте). Теперь любой путь отправки через эту функцию
-    // обязан пройти гейт — нельзя обойти. No-op для own-парка, 422 для subcontract.
-    const { assertEtrnAllowed } = await import('../waybills/etrn-guard.js');
-    await assertEtrnAllowed(params.tripId);
+    // (гейт стоял только в sign-роуте). Теперь любой путь ИСХОДЯЩЕЙ отправки через эту
+    // функцию обязан пройти гейт — нельзя обойти. No-op для own-парка, 422 для subcontract.
+    // P2 (регрессия-фикс): гейт применяем ТОЛЬКО к OUTBOUND-выпуску/отправке. Для INBOUND
+    // (колбэки/ретраи провайдера) запись должна проходить даже если рейс стал subcontract
+    // после выпуска — иначе теряем входящие события ЭДО.
+    const resolvedDirection = params.direction ?? TransportDocumentExchangeDirection.OUTBOUND;
+    if (resolvedDirection === TransportDocumentExchangeDirection.OUTBOUND) {
+        const { assertEtrnAllowed } = await import('../waybills/etrn-guard.js');
+        await assertEtrnAllowed(params.tripId);
+    }
 
     const [row] = await db.select().from(transportDocuments).where(and(
         eq(transportDocuments.id, params.documentId),
@@ -702,7 +708,7 @@ export async function sendTransportDocumentToProvider(params: {
         documentId: row.id,
         tripId: params.tripId,
         providerName,
-        direction: params.direction ?? TransportDocumentExchangeDirection.OUTBOUND,
+        direction: resolvedDirection,
         operation: row.retryCount > 0 ? 'resubmit' : 'submit',
         status: exchangeStatus,
         requestId,

@@ -395,9 +395,19 @@ export function DataTable<T>(props: DataTableProps<T>) {
     // Reset page when filters/search change
     React.useEffect(() => { setPage(1); }, [search, sort, data.length]);
 
-    // Сбрасываем выделение при смене идентичности data — иначе bulk-бар
+    // Стабильный ключ набора строк: сериализованный список row-key по keyField.
+    // Зависеть от ссылки `data` нельзя — страницы, считающие data инлайн без
+    // useMemo, дают новый массив на каждый re-render, и выделение сбрасывалось
+    // бы сразу после клика по чекбоксу (ломая bulk-действия). Этот ключ меняется
+    // только при РЕАЛЬНОЙ смене набора строк.
+    const dataKey = React.useMemo(
+        () => data.map((r) => getRowKey(r, keyField)).join(''),
+        [data, keyField],
+    );
+
+    // Сбрасываем выделение при смене идентичности набора строк — иначе bulk-бар
     // показывает стейл-счётчик по ключам, которых уже нет в наборе.
-    React.useEffect(() => { setSelected(new Set()); }, [data]);
+    React.useEffect(() => { setSelected(new Set()); }, [dataKey]);
 
     const totalRows = processed.length;
     const usePaging = pageSize > 0;

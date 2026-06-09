@@ -32,12 +32,16 @@ const VAT_DOC_TYPES = ["sf", "upd", "corrective_sf", "corrective_upd"];
 
 const ORDERS_PAGE_LIMIT = 200;
 
-// Имя обещает delivered — фильтруем по статусу. Возвращаем total для индикатора
+// R-2: фильтр был status=delivered — отсекал заявки в терминальном статусе
+// returned, хотя выставить счёт по доставленной-и-возвращённой заявке законно.
+// Бэкенд /orders теперь поддерживает список статусов через запятую (inArray),
+// поэтому возвращаем delivered,returned — только эти терминальные статусы
+// выставляемы (не draft/in_transit/cancelled). Возвращаем total для индикатора
 // усечения «показано N из M» (заявки сверх лимита иначе невыпускаемы).
 async function loadDeliveredOrders(): Promise<{ data: OrderOption[]; total: number }> {
     try {
         const res = await api.get<{ success: boolean; data: OrderOption[]; total?: number }>(
-            `/orders?status=delivered&limit=${ORDERS_PAGE_LIMIT}`,
+            `/orders?status=delivered,returned&limit=${ORDERS_PAGE_LIMIT}`,
         );
         const data = res.data || [];
         return { data, total: res.total ?? data.length };

@@ -240,7 +240,12 @@ export async function getOrdersList(filters: OrdersListFilters): Promise<{
     const offset = (page - 1) * limit;
 
     const conditions = [];
-    if (filters.status) conditions.push(eq(orders.status, filters.status as any));
+    if (filters.status) {
+        const statuses = String(filters.status).split(',').map((s) => s.trim()).filter(Boolean);
+        conditions.push(statuses.length > 1
+            ? inArray(orders.status, statuses as any)
+            : eq(orders.status, statuses[0] as any));
+    }
     if (filters.contractorId) conditions.push(eq(orders.contractorId, filters.contractorId));
     if (filters.dateFrom) conditions.push(gte(orders.createdAt, new Date(filters.dateFrom)));
     if (filters.dateTo) conditions.push(lte(orders.createdAt, new Date(filters.dateTo)));
@@ -333,7 +338,13 @@ export async function getOrders(filters: OrderFilters) {
     const conditions = [];
 
     if (filters.status) {
-        conditions.push(eq(orders.status, filters.status as any));
+        // R-2: поддержка списка статусов через запятую (delivered,returned) — клиент
+        // фильтрует выставление счетов по терминальным статусам. Раньше eq сравнивал
+        // с литералом 'delivered,returned' → 0 строк.
+        const statuses = String(filters.status).split(',').map((s) => s.trim()).filter(Boolean);
+        conditions.push(statuses.length > 1
+            ? inArray(orders.status, statuses as any)
+            : eq(orders.status, statuses[0] as any));
     }
     if (filters.contractorId) {
         conditions.push(eq(orders.contractorId, filters.contractorId));

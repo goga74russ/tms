@@ -32,8 +32,9 @@ const osagoRoutes: FastifyPluginAsync = async (app) => {
         const user = request.user as AuthUser;
         // Без role-гейта любой член орг (в т.ч. driver) мог инициировать
         // проверку ОСАГО (внешний запрос к провайдеру + запись снимка). Только
-        // эксплуатационные роли: admin/manager/mechanic.
-        const allowed = ['admin', 'manager', 'mechanic'];
+        // эксплуатационные роли / операторы парка: admin/manager/mechanic +
+        // logist/dispatcher (как в marking — инициаторы проверок парка).
+        const allowed = ['admin', 'manager', 'mechanic', 'logist', 'dispatcher'];
         if (!user.roles?.some((r) => allowed.includes(r))) {
             return reply.status(403).send({ success: false, error: 'Недостаточно прав для проверки ОСАГО' });
         }

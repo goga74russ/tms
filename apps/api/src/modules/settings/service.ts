@@ -1,4 +1,4 @@
-import { desc, inArray, sql } from 'drizzle-orm';
+import { desc, inArray, like, or, sql } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import { appSettings } from '../../db/schema.js';
 
@@ -141,13 +141,25 @@ export async function listRecentSettings(orgId?: string | null, isSuperAdmin = f
     // Раньше возвращались последние 20 строк ВСЕХ орг (org-ключи чужих тенантов).
     // Отдаём только ключи этой орг (`:orgId`) + глобальные. super-admin — все; прочий org-less → пусто.
     if (!orgId && !isSuperAdmin) return [];
-    const rows = await db.select()
+    if (!orgId) {
+        // super-admin без орг: кросс-tenant, последние 20 строк всех орг.
+        return db.select()
+            .from(appSettings)
+            .orderBy(desc(appSettings.updatedAt))
+            .limit(20);
+    }
+    // P2 fix: фильтруем по орг в SQL WHERE ДО limit — иначе при росте multitenancy
+    // настройки давней орг выпадали за окно top-200 и список становился пустым.
+    // Берём ключи этой орг (`:orgId`) + глобальные cost-ключи, затем limit(20).
+    const globalKeys = Object.values(COST_SETTING_KEYS) as string[];
+    return db.select()
         .from(appSettings)
+        .where(
+            or(
+                like(appSettings.key, `%:${orgId}`),
+                inArray(appSettings.key, globalKeys),
+            ),
+        )
         .orderBy(desc(appSettings.updatedAt))
-        .limit(200);
-    if (!orgId) return rows.slice(0, 20); // super-admin: кросс-tenant
-    const globalKeys = new Set<string>(Object.values(COST_SETTING_KEYS));
-    return rows
-        .filter((r) => r.key.endsWith(`:${orgId}`) || globalKeys.has(r.key))
-        .slice(0, 20);
+        .limit(20);
 }

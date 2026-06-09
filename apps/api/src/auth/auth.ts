@@ -879,7 +879,7 @@ export function registerAuthRoutes(app: FastifyInstance) {
             });
         }
 
-        const [targetUser] = await db.select({ id: users.id, organizationId: users.organizationId })
+        const [targetUser] = await db.select({ id: users.id, organizationId: users.organizationId, roles: users.roles })
             .from(users)
             .where(eq(users.id, request.params.id))
             .limit(1);
@@ -897,11 +897,17 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (body.isActive !== undefined) updateData.isActive = body.isActive;
         if (body.password) updateData.passwordHash = await hashPassword(body.password);
         // E6/C7: смена пароля, деактивация ИЛИ СМЕНА РОЛЕЙ → бамп token_version,
-        // чтобы старые токены пользователя сразу перестали действовать. Раньше смена
-        // ролей бамп не делала → понижение прав (снятие admin) не инвалидировало
-        // текущий JWT (RBAC берёт roles из пейлоада) — демоушен действовал только
-        // через 24ч. Схема (schema.ts:234) и требует бамп «при смене ролей».
-        if (body.password || body.isActive === false || body.roles !== undefined) {
+        // чтобы старые токены пользователя сразу перестали действовать (демоушен
+        // действует сразу, а не через 24ч). R-1 (регрессия): бампим ТОЛЬКО при
+        // ФАКТИЧЕСКОЙ смене ролей (сравнение множеств), не при любой передаче roles.
+        // Клиенты admin/users всегда шлют roles даже при правке ФИО → раньше любое
+        // редактирование инвалидировало токен (force-logout на правку имени).
+        const rolesChanged = body.roles !== undefined && (() => {
+            const next = new Set(body.roles as string[]);
+            const cur = new Set((targetUser.roles ?? []) as string[]);
+            return next.size !== cur.size || [...next].some((r) => !cur.has(r));
+        })();
+        if (body.password || body.isActive === false || rolesChanged) {
             updateData.tokenVersion = sql`${users.tokenVersion} + 1`;
         }
 

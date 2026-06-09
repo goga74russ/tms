@@ -622,9 +622,18 @@ export async function closeWaybill(
     {
         // C9: раньше throw'или ТОЛЬКО на 'rollback'. invalid_value (negative/NaN)
         // и unrealistic_delta (>5000км) проходили и писались в vehicles.currentOdometerKm.
+        //
+        // P2-фикс регрессии C9: жёстко блокируем только rollback и invalid_value
+        // (отрицательный/NaN/откат назад — это ошибка ввода, а не реальный пробег).
+        // unrealistic_delta НЕ блокируем: дальние плечи РФ (Москва—Владивосток ~9000 км,
+        // многодневный ПЛ) легитимны и превышают порог 5000 км. Пробрасываем 422
+        // (ошибка ввода пользователя), а не 500.
         const validation = validateOdometerReadings(waybill.odometerOut ?? 0, data.odometerIn);
-        if (!validation.ok) {
-            throw new Error(validation.message ?? 'Некорректные показания одометра');
+        if (!validation.ok && validation.reason !== 'unrealistic_delta') {
+            throw Object.assign(
+                new Error(validation.message ?? 'Некорректные показания одометра'),
+                { statusCode: 422, code: 'ODOMETER_INVALID' },
+            );
         }
     }
 
@@ -648,13 +657,19 @@ export async function closeWaybill(
             throw new Error('Only issued waybills can be closed');
         }
 
-        {
-            // C9: см. выше — авторитетная проверка под FOR UPDATE, throw на любой !ok.
-            const validation = validateOdometerReadings(lockedWaybill.odometerOut ?? 0, data.odometerIn);
-            if (!validation.ok) {
-                throw new Error(validation.message ?? 'Некорректные показания одометра');
-            }
+        // C9: см. выше — авторитетная проверка под FOR UPDATE.
+        // P2-фикс: блокируем только rollback/invalid_value; unrealistic_delta —
+        // мягкое предупреждение (фиксируем в журнале, закрытие не блокируем).
+        const odometerValidation = validateOdometerReadings(lockedWaybill.odometerOut ?? 0, data.odometerIn);
+        if (!odometerValidation.ok && odometerValidation.reason !== 'unrealistic_delta') {
+            throw Object.assign(
+                new Error(odometerValidation.message ?? 'Некорректные показания одометра'),
+                { statusCode: 422, code: 'ODOMETER_INVALID' },
+            );
         }
+        const odometerWarning = !odometerValidation.ok && odometerValidation.reason === 'unrealistic_delta'
+            ? { reason: odometerValidation.reason, deltaKm: odometerValidation.deltaKm, message: odometerValidation.message }
+            : null;
 
         const [result] = await tx.update(waybills)
             .set({
@@ -694,6 +709,7 @@ export async function closeWaybill(
                 odometerIn: data.odometerIn,
                 fuelIn: data.fuelIn,
                 returnAt: returnTime.toISOString(),
+                ...(odometerWarning ? { odometerWarning } : {}),
             },
         }, tx);
 
