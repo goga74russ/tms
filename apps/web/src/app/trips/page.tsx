@@ -794,6 +794,8 @@ function OperationalStructureBlock({
     canSort,
     onSortRoute,
     sorting,
+    onCompletePoint,
+    completingPointId,
 }: {
     dossier: any;
     loadPlan?: TripLoadPlan | null;
@@ -801,7 +803,13 @@ function OperationalStructureBlock({
     canSort?: boolean;
     onSortRoute?: () => void;
     sorting?: boolean;
+    onCompletePoint?: (pointId: string) => void;
+    completingPointId?: string | null;
 }) {
+    // F-08: точки можно отмечать пройденными только в активной фазе рейса —
+    // ровно когда POST /complete их и требует.
+    const tripStatus = dossier?.trip?.status;
+    const canCompletePoints = Boolean(onCompletePoint) && (tripStatus === 'in_transit' || tripStatus === 'loading');
     const orders = Array.isArray(dossier?.orders) ? dossier.orders : [];
     const assignments = Array.isArray(loadPlan?.assignments) ? loadPlan.assignments : [];
     const points = (Array.isArray(loadPlan?.routePoints) && loadPlan.routePoints.length > 0)
@@ -950,6 +958,28 @@ function OperationalStructureBlock({
                                             <p className={`mt-1 text-[11px] font-medium ${overdue ? 'text-rose-700' : 'text-neutral-500'}`}>
                                                 Окно: {window}
                                                 {overdue && <span className="ml-1 font-semibold">· просрочено</span>}
+                                            </p>
+                                        )}
+                                        {/* F-08: прохождение точки из web-досье — без этого
+                                            web-диспетчер не закроет рейс (complete требует все
+                                            точки completed, а UI был только в mobile). */}
+                                        {canCompletePoints && point.status !== 'completed' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => onCompletePoint!(point.id)}
+                                                disabled={completingPointId === point.id}
+                                                className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                {completingPointId === point.id
+                                                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                                                    : <CheckCircle2 className="h-3 w-3" />}
+                                                Отметить пройденной
+                                            </button>
+                                        )}
+                                        {canCompletePoints && point.status === 'completed' && (
+                                            <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                                                <CheckCircle2 className="h-3 w-3" />
+                                                Пройдена
                                             </p>
                                         )}
                                     </div>
@@ -2283,6 +2313,23 @@ export default function TripsPage() {
         }
     };
 
+    // F-08: отметить точку маршрута пройденной из досье. Раньше прохождение
+    // точек было только в mobile/API — web-диспетчер не мог закрыть рейс
+    // (POST /complete блокируется pending-точками). Ошибки — тостом.
+    const [completingPointId, setCompletingPointId] = useState<string | null>(null);
+    const completeRoutePoint = async (pointId: string) => {
+        if (!dossierTripId) return;
+        try {
+            setCompletingPointId(pointId);
+            await api.put(`/trips/${dossierTripId}/points/${pointId}`, { status: 'completed' });
+            await openDossier(dossierTripId);
+        } catch (err: any) {
+            setLifecycleToast({ message: err?.message || 'Не удалось отметить точку', type: 'error' });
+        } finally {
+            setCompletingPointId(null);
+        }
+    };
+
     // F-06: сформировать ПЛ для рейса прямо из досье. Бэкенд требует допуски
     // механика и медика (иначе 409 «Нет допуска») — ошибку показываем тостом,
     // не молча. После успеха обновляем досье и список (статус → waybill_issued).
@@ -3175,6 +3222,21 @@ export default function TripsPage() {
                                                         </Button>
                                                     );
                                                 }
+                                                // F-08: завершение из досье. Если остались pending-точки,
+                                                // модал покажет 409 бэкенда (не silent) — но кнопка
+                                                // подсказывает порядок через блок «Структура загрузки».
+                                                if (status === 'in_transit') {
+                                                    return (
+                                                        <Button
+                                                            size="sm"
+                                                            className="mt-3 w-full"
+                                                            onClick={() => openCompleteTripModal(dossier.trip)}
+                                                        >
+                                                            <Flag className="w-3.5 h-3.5 mr-1.5" />
+                                                            Завершить рейс
+                                                        </Button>
+                                                    );
+                                                }
                                                 return null;
                                             })()}
                                         </div>
@@ -3231,6 +3293,8 @@ export default function TripsPage() {
                                         canSort={canSortRoute}
                                         onSortRoute={handleSortRoute}
                                         sorting={sortingRoute}
+                                        onCompletePoint={completeRoutePoint}
+                                        completingPointId={completingPointId}
                                     />
 
                                     <CloseGateBlock closeGate={dossier.closeGate} />
