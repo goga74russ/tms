@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '@/lib/api';
-import { TRIP_STATUS, DOC_STATUS, SEVERITY_LABELS, label } from '@tms/shared';
+import { TRIP_STATUS, DOC_STATUS, SEVERITY_LABELS, ORDER_STATUS, label } from '@tms/shared';
 import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2, Play, Flag, FolderOpen, Thermometer, Download } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -1831,7 +1831,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                         <p className="text-sm text-neutral-900">{problem.message}</p>
                                     </div>
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(problem.severity, 'bg')}`}>
-                                        {problem.severity}
+                                        {eventSeverityLabel(problem.severity)}
                                     </span>
                                 </div>
                                 <p className="mt-1 text-[11px] text-neutral-500">
@@ -2141,7 +2141,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                                 </p>
                                             </div>
                                             <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(problem.severity, 'bg')}`}>
-                                                {problem.severity}
+                                                {eventSeverityLabel(problem.severity)}
                                             </span>
                                         </div>
                                     </div>
@@ -3522,7 +3522,7 @@ export default function TripsPage() {
                                                                 </div>
                                                             </div>
                                                             <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                                                                {order.status}
+                                                                {label(ORDER_STATUS, order.status)}
                                                             </span>
                                                         </div>
                                                         <div className="mt-3 grid gap-2 text-xs text-neutral-500">

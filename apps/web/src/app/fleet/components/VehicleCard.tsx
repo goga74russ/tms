@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { ArrowLeft, Wrench, ShieldCheck, AlertTriangle, FileText } from 'lucide-react';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from './vehicleProfile';
+import { REPAIR_STATUS, FINE_STATUS, PRIORITY_LABELS, REPAIR_SOURCE_LABELS, label } from '@tms/shared';
 
 interface VehicleDetail {
     id: string;
@@ -65,13 +66,6 @@ const priorityBadge: Record<string, string> = {
     medium: 'bg-blue-100 text-blue-700',
     high: 'bg-amber-100 text-amber-700',
     critical: 'bg-red-100 text-red-700',
-};
-
-const repairStatusLabel: Record<string, string> = {
-    created: 'Создана',
-    waiting_parts: 'Ждёт з/ч',
-    in_progress: 'В работе',
-    done: 'Готово',
 };
 
 function formatDate(d?: string) {
@@ -274,7 +268,7 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                                                 ? 'text-amber-600'
                                                 : 'text-emerald-600'
                                     }`}>
-                                        ПЛ readiness
+                                        Готовность к ПЛ
                                     </p>
                                 <p className="text-sm font-semibold text-neutral-900">{waybillCue.title}</p>
                             </div>
@@ -326,7 +320,7 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                                             ? 'bg-amber-100 text-amber-700'
                                             : 'bg-emerald-100 text-emerald-700'
                                 }`}>
-                                    {readiness.tone === 'ready' ? 'ready' : readiness.tone === 'attention' ? 'check' : 'block'}
+                                    {readiness.tone === 'ready' ? 'готов' : readiness.tone === 'attention' ? 'проверить' : 'блок'}
                                 </span>
                             </div>
                             <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -403,14 +397,14 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                                     <p className="text-sm font-medium text-neutral-800 truncate">{r.description}</p>
                                     <div className="flex items-center gap-2 mt-1">
                                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${priorityBadge[r.priority] || ''}`}>
-                                            {r.priority}
+                                            {label(PRIORITY_LABELS, r.priority)}
                                         </span>
-                                        <span className="text-xs text-neutral-400">{r.source}</span>
+                                        <span className="text-xs text-neutral-400">{label(REPAIR_SOURCE_LABELS, r.source)}</span>
                                         <span className="text-xs text-neutral-400">{formatDate(r.createdAt)}</span>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <span className="text-xs font-medium text-neutral-600">{repairStatusLabel[r.status] || r.status}</span>
+                                    <span className="text-xs font-medium text-neutral-600">{label(REPAIR_STATUS, r.status)}</span>
                                     {r.totalCost > 0 && (
                                         <p className="text-xs text-neutral-400 mt-0.5">{r.totalCost.toLocaleString()} ₽</p>
                                     )}
@@ -458,7 +452,7 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                                             f.status === 'new' ? 'bg-amber-100 text-amber-700' :
                                                 f.status === 'appealed' ? 'bg-blue-100 text-blue-700' :
                                                     'bg-neutral-100 text-neutral-600'}`}>
-                                        {f.status === 'new' ? 'Новый' : f.status === 'confirmed' ? 'Подтверждён' : f.status === 'paid' ? 'Оплачен' : 'Обжалован'}
+                                        {label(FINE_STATUS, f.status)}
                                     </span>
                                 </div>
                             </div>

@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus, Search, Trash2, Wrench, PackageOpen, Hammer, CheckCircle2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { REPAIR_STATUS, label } from '@tms/shared';
 import { api } from '@/lib/api';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -115,7 +116,6 @@ type RepairEmptyTone = 'warning' | 'brand' | 'success';
 
 const COLUMNS: Array<{
   status: string;
-  label: string;
   tone: KanbanTone;
   emptyIcon: LucideIcon;
   emptyDescription: string;
@@ -123,7 +123,6 @@ const COLUMNS: Array<{
 }> = [
   {
     status: 'created',
-    label: 'Создана',
     tone: 'neutral',
     emptyIcon: Wrench,
     emptyDescription: 'Создайте первую заявку на ремонт',
@@ -131,7 +130,6 @@ const COLUMNS: Array<{
   },
   {
     status: 'waiting_parts',
-    label: 'Ждёт з/ч',
     tone: 'warning',
     emptyIcon: PackageOpen,
     emptyDescription: 'Заявки, ожидающие поступления запчастей',
@@ -139,7 +137,6 @@ const COLUMNS: Array<{
   },
   {
     status: 'in_progress',
-    label: 'В работе',
     tone: 'info',
     emptyIcon: Hammer,
     emptyDescription: 'Заявки в активной работе',
@@ -147,7 +144,6 @@ const COLUMNS: Array<{
   },
   {
     status: 'done',
-    label: 'Готово',
     tone: 'success',
     emptyIcon: CheckCircle2,
     emptyDescription: 'Завершённые заявки появятся здесь',
@@ -1245,7 +1241,7 @@ export function RepairKanban({
   function handleMoveReject(repairId: string, _fromCol: string, toCol: string) {
     const repair = repairs.find((item) => item.id === repairId);
     if (!repair) return;
-    setToast({ message: `Нельзя перевести заявку из статуса "${repair.status}" в "${toCol}"`, type: 'error' });
+    setToast({ message: `Нельзя перевести заявку из статуса "${label(REPAIR_STATUS, repair.status)}" в "${label(REPAIR_STATUS, toCol)}"`, type: 'error' });
   }
 
   async function handlePlanParts(partsUsed: RepairPart[]) {
@@ -1354,7 +1350,7 @@ export function RepairKanban({
             <KanbanColumn
               key={column.status}
               id={column.status}
-              title={column.label}
+              title={label(REPAIR_STATUS, column.status)}
               tone={column.tone}
               count={columnRepairs.length}
               onQuickAdd={column.status === 'created' ? onCreateRequest : undefined}

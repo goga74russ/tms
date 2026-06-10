@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/select';
 import { SkeletonRow } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
+import { label, ROLE_LABELS, ENTITY_LABELS, eventLabel } from '@tms/shared';
 import {
     History, Download, Filter, ChevronLeft, ChevronRight, ChevronDown, X, Search,
 } from 'lucide-react';
@@ -254,7 +255,7 @@ export default function AuditLogPage() {
                                     onChange={(e) => setEntityType(e.target.value)}
                                     options={[
                                         { value: ALL, label: 'Все' },
-                                        ...entityTypes.map((t) => ({ value: t, label: t })),
+                                        ...entityTypes.map((t) => ({ value: t, label: label(ENTITY_LABELS, t) })),
                                     ]}
                                 />
                             </div>
@@ -265,7 +266,7 @@ export default function AuditLogPage() {
                                     onChange={(e) => setEventType(e.target.value)}
                                     options={[
                                         { value: ALL, label: 'Все' },
-                                        ...eventTypes.map((t) => ({ value: t, label: t })),
+                                        ...eventTypes.map((t) => ({ value: t, label: eventLabel(t) })),
                                     ]}
                                 />
                             </div>
@@ -316,13 +317,13 @@ export default function AuditLogPage() {
                                             <td className="px-3 py-2.5 whitespace-nowrap text-neutral-600 font-mono text-[11px]">{formatDate(r.timestamp)}</td>
                                             <td className="px-3 py-2.5 whitespace-nowrap text-neutral-800">{r.authorName ?? <span className="text-neutral-400 font-mono text-xs">{r.authorId.slice(0, 8)}…</span>}</td>
                                             <td className="px-3 py-2.5 whitespace-nowrap">
-                                                <span className="inline-block px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 text-[11px] font-medium">{r.authorRole}</span>
+                                                <span className="inline-block px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 text-[11px] font-medium">{label(ROLE_LABELS, r.authorRole)}</span>
                                             </td>
-                                            <td className="px-3 py-2.5 font-mono text-xs max-w-[260px]">
-                                                <span className="block truncate text-neutral-800" title={r.eventType}>{r.eventType}</span>
+                                            <td className="px-3 py-2.5 text-xs max-w-[260px]">
+                                                <span className="block truncate text-neutral-800" title={r.eventType}>{eventLabel(r.eventType)}</span>
                                             </td>
                                             <td className="px-3 py-2.5 whitespace-nowrap text-xs" title={`${r.entityType} · ${r.entityId}`}>
-                                                <span className="text-neutral-700">{r.entityType}</span>
+                                                <span className="text-neutral-700">{label(ENTITY_LABELS, r.entityType)}</span>
                                                 <span className="text-neutral-400"> · {r.entityId.slice(0, 8)}…</span>
                                             </td>
                                             <td className="px-3 py-2.5 text-right">

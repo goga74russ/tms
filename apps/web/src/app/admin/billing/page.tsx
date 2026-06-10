@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useUser } from '@/lib/user-context';
-import { formatKopecks, PLAN_IDS, type PlanId, type SubscriptionStatus } from '@tms/shared';
+import { formatKopecks, label, PLAN_IDS, PLAN_LABELS, type PlanId, type SubscriptionStatus } from '@tms/shared';
 import {
     Bar,
     BarChart,
@@ -107,7 +107,7 @@ export default function AdminBillingPage() {
     const mrrByPlan = useMemo(() => {
         const acc: Record<string, number> = {};
         for (const r of filtered) acc[r.planId] = (acc[r.planId] ?? 0) + r.mrrKopecks;
-        return PLAN_IDS.map((p) => ({ plan: p, mrr: Math.round((acc[p] ?? 0) / 100) }));
+        return PLAN_IDS.map((p) => ({ plan: label(PLAN_LABELS, p), mrr: Math.round((acc[p] ?? 0) / 100) }));
     }, [filtered]);
 
     const pastDueCount = (rows ?? []).filter(r => r.status === 'past_due' || r.status === 'suspended').length;
@@ -154,7 +154,7 @@ export default function AdminBillingPage() {
                 <MetricCard
                     label="Тарифов"
                     value={PLAN_IDS.length}
-                    hint={PLAN_IDS.map((p) => `${p}: ${byPlan[p] ?? 0}`).join(' · ')}
+                    hint={PLAN_IDS.map((p) => `${label(PLAN_LABELS, p)}: ${byPlan[p] ?? 0}`).join(' · ')}
                     icon={Receipt}
                     tone="info"
                 />
@@ -223,7 +223,7 @@ export default function AdminBillingPage() {
                     >
                         <option value="">Все</option>
                         {PLAN_IDS.map((p) => (
-                            <option key={p} value={p}>{p}</option>
+                            <option key={p} value={p}>{label(PLAN_LABELS, p)}</option>
                         ))}
                     </select>
                 </label>
@@ -261,7 +261,7 @@ export default function AdminBillingPage() {
                                 <td className="px-4 py-2.5 text-neutral-600 font-mono text-xs">{r.inn ?? '—'}</td>
                                 <td className="px-4 py-2.5">
                                     <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
-                                        {r.planId}
+                                        {label(PLAN_LABELS, r.planId)}
                                     </span>
                                 </td>
                                 <td className="px-4 py-2.5">

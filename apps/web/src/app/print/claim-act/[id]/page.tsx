@@ -224,7 +224,7 @@ export default function ClaimActPrintPage() {
                 </div>
                 {claim.settlementNote && (
                     <div style={{ marginTop: 8, fontSize: '9pt', color: '#444' }}>
-                        Примечание по settlement: {claim.settlementNote}
+                        Примечание по урегулированию: {claim.settlementNote}
                     </div>
                 )}
 

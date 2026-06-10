@@ -9,6 +9,7 @@ import { Stat } from '@/components/ui/stat';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
 import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
+import { INCIDENT_TYPE, INCIDENT_SEVERITY, INCIDENT_STATUS, label } from '@tms/shared';
 
 interface Incident {
     id: string;
@@ -19,27 +20,6 @@ interface Incident {
     blocksRelease: boolean;
     createdAt: string;
 }
-
-const typeLabels: Record<string, string> = {
-    med_inspection: 'Медосмотр',
-    tech_inspection: 'Техосмотр',
-    road: 'Дорожный',
-    cargo: 'Грузовой',
-    other: 'Прочее',
-};
-
-const severityLabels: Record<string, string> = {
-    low: 'Низкая',
-    medium: 'Средняя',
-    critical: 'Критичная',
-};
-
-const statusLabels: Record<string, string> = {
-    open: 'Открыт',
-    investigating: 'На разборе',
-    resolved: 'Решён',
-    dismissed: 'Отклонён',
-};
 
 const severityTones: Record<string, PillTone> = {
     low: 'neutral',
@@ -123,22 +103,13 @@ function CreateIncidentModal({ onClose, onCreated }: { onClose: () => void; onCr
         >
             <div className="grid grid-cols-2 gap-4">
                     <select value={form.type} onChange={(e) => setForm(f => ({ ...f, type: e.target.value }))} className="px-4 py-3 rounded-xl border border-neutral-200 text-sm">
-                        <option value="med_inspection">Медосмотр</option>
-                        <option value="tech_inspection">Техосмотр</option>
-                        <option value="road">Дорожный</option>
-                        <option value="cargo">Грузовой</option>
-                        <option value="other">Другое</option>
+                        {Object.keys(INCIDENT_TYPE).map((v) => <option key={v} value={v}>{label(INCIDENT_TYPE, v)}</option>)}
                     </select>
                     <select value={form.severity} onChange={(e) => setForm(f => ({ ...f, severity: e.target.value }))} className="px-4 py-3 rounded-xl border border-neutral-200 text-sm">
-                        <option value="low">Низкая</option>
-                        <option value="medium">Средняя</option>
-                        <option value="critical">Критичная</option>
+                        {Object.keys(INCIDENT_SEVERITY).map((v) => <option key={v} value={v}>{label(INCIDENT_SEVERITY, v)}</option>)}
                     </select>
                     <select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))} className="px-4 py-3 rounded-xl border border-neutral-200 text-sm">
-                        <option value="open">Открыт</option>
-                        <option value="investigating">На разборе</option>
-                        <option value="resolved">Решён</option>
-                        <option value="dismissed">Отклонён</option>
+                        {Object.keys(INCIDENT_STATUS).map((v) => <option key={v} value={v}>{label(INCIDENT_STATUS, v)}</option>)}
                     </select>
                     <label className="flex items-center gap-3 px-4 py-3 rounded-xl border border-neutral-200 text-sm text-neutral-700">
                         <input type="checkbox" checked={form.blocksRelease} onChange={(e) => setForm(f => ({ ...f, blocksRelease: e.target.checked }))} />
@@ -203,7 +174,7 @@ export default function IncidentsPage() {
         {
             id: 'type',
             header: 'Тип',
-            accessor: (r) => typeLabels[normalize(r.type)] ?? r.type,
+            accessor: (r) => label(INCIDENT_TYPE, normalize(r.type)),
             width: '130px',
         },
         {
@@ -212,7 +183,7 @@ export default function IncidentsPage() {
             accessor: (r) => severityOrder[normalize(r.severity)] ?? 0,
             cell: (r) => {
                 const key = normalize(r.severity);
-                return <Pill tone={severityTones[key] ?? 'neutral'} icon={severityIcons[key]}>{severityLabels[key] ?? r.severity}</Pill>;
+                return <Pill tone={severityTones[key] ?? 'neutral'} icon={severityIcons[key]}>{label(INCIDENT_SEVERITY, key)}</Pill>;
             },
             sortable: true,
             width: '140px',
@@ -220,10 +191,10 @@ export default function IncidentsPage() {
         {
             id: 'status',
             header: 'Статус',
-            accessor: (r) => statusLabels[normalize(r.status)] ?? r.status,
+            accessor: (r) => label(INCIDENT_STATUS, normalize(r.status)),
             cell: (r) => {
                 const key = normalize(r.status);
-                return <Pill tone={statusTones[key] ?? 'neutral'} icon={statusIcons[key]}>{statusLabels[key] ?? r.status}</Pill>;
+                return <Pill tone={statusTones[key] ?? 'neutral'} icon={statusIcons[key]}>{label(INCIDENT_STATUS, key)}</Pill>;
             },
             width: '130px',
         },
@@ -290,23 +261,14 @@ export default function IncidentsPage() {
                         label: 'Критичность',
                         value: severity,
                         onChange: setSeverity,
-                        options: [
-                            { value: 'low', label: 'Низкая' },
-                            { value: 'medium', label: 'Средняя' },
-                            { value: 'critical', label: 'Критичная' },
-                        ],
+                        options: Object.keys(INCIDENT_SEVERITY).map((v) => ({ value: v, label: label(INCIDENT_SEVERITY, v) })),
                     },
                     {
                         id: 'status',
                         label: 'Статус',
                         value: status,
                         onChange: setStatus,
-                        options: [
-                            { value: 'open', label: 'Открыт' },
-                            { value: 'investigating', label: 'На разборе' },
-                            { value: 'resolved', label: 'Решён' },
-                            { value: 'dismissed', label: 'Отклонён' },
-                        ],
+                        options: Object.keys(INCIDENT_STATUS).map((v) => ({ value: v, label: label(INCIDENT_STATUS, v) })),
                     },
                 ]}
                 defaultSort={{ columnId: 'createdAt', direction: 'desc' }}

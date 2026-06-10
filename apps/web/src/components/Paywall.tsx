@@ -8,9 +8,10 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, Sparkles, X } from 'lucide-react';
 import type { PlanId } from '@tms/shared';
+import { PLAN_LABELS, AI_ASSISTANT_LABEL, label } from '@tms/shared';
 
 const FEATURE_LABELS: Record<string, string> = {
-    ai_copilot: 'AI Co-pilot',
+    ai_copilot: AI_ASSISTANT_LABEL,
     edi: 'Электронный документооборот',
     marking: 'Честный знак',
     multi_tenant: 'Мульти-арендность',
@@ -20,17 +21,10 @@ const FEATURE_LABELS: Record<string, string> = {
     custom_integrations: 'Персональные интеграции',
 };
 
-const PLAN_LABELS: Record<PlanId, string> = {
-    free: 'Free',
-    pro: 'Pro',
-    business: 'Business',
-    enterprise: 'Enterprise',
-};
-
 export interface PaywallProps {
     open: boolean;
     feature?: string;
-    /** Current plan (shown as "Ваш тариф: Free"). */
+    /** Current plan (shown as "Ваш тариф: Бесплатный"). */
     currentPlan?: PlanId;
     /** Plan that unlocks the feature. Default 'pro'. */
     requiredPlan?: PlanId;
@@ -52,7 +46,7 @@ export function Paywall({
 
     const featureLabel = feature ? FEATURE_LABELS[feature] ?? feature : 'эта функция';
     const text = message
-        ?? `«${featureLabel}» доступна на тарифах ${PLAN_LABELS[requiredPlan]} и выше. Перейдите на платный тариф, чтобы продолжить.`;
+        ?? `«${featureLabel}» доступна на тарифах ${label(PLAN_LABELS, requiredPlan)} и выше. Перейдите на платный тариф, чтобы продолжить.`;
 
     return (
         <div
@@ -79,8 +73,8 @@ export function Paywall({
                         <Lock className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
-                        <h2 id="paywall-title" className="font-semibold text-neutral-900">Требуется тариф {PLAN_LABELS[requiredPlan]}</h2>
-                        <p className="text-xs text-neutral-500">Ваш текущий тариф: {PLAN_LABELS[currentPlan]}</p>
+                        <h2 id="paywall-title" className="font-semibold text-neutral-900">Требуется тариф {label(PLAN_LABELS, requiredPlan)}</h2>
+                        <p className="text-xs text-neutral-500">Ваш текущий тариф: {label(PLAN_LABELS, currentPlan)}</p>
                     </div>
                 </div>
 

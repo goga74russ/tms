@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { DOC_STATUS, TRIP_STATUS, ROLE_LABELS, label } from '@tms/shared';
 
 const API_BASE = '/api';
 
@@ -67,6 +68,16 @@ const CARRIER = {
     inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? 'НЕ УСТАНОВЛЕНО',
     kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? 'НЕ УСТАНОВЛЕНО',
     address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'НЕ УСТАНОВЛЕНО',
+};
+
+// Роли подписантов шире канона ROLE_LABELS (ЭДО: shipper/consignee/forwarder,
+// плюс фолбэк 'operator' из trips/page.tsx) — локальное расширение поверх канона.
+const SIGNER_ROLE_LABELS: Record<string, string> = {
+    ...ROLE_LABELS,
+    shipper: 'Грузоотправитель',
+    consignee: 'Грузополучатель',
+    forwarder: 'Экспедитор',
+    operator: 'Оператор',
 };
 
 const DOCUMENT_LABELS: Record<string, string> = {
@@ -170,7 +181,7 @@ export default function SignatureRefusalPrintPage() {
                     <div>
                         <div style={{ fontWeight: 700, fontSize: '9pt' }}>Рейс и транспорт:</div>
                         <div style={{ fontSize: '9pt' }}>Рейс: {dossier.trip?.number || tripId}</div>
-                        <div style={{ fontSize: '9pt' }}>Статус: {dossier.trip?.status || '-'}</div>
+                        <div style={{ fontSize: '9pt' }}>Статус: {label(TRIP_STATUS, dossier.trip?.status)}</div>
                         <div style={{ fontSize: '9pt' }}>ТС: {[dossier.vehicle?.plateNumber, dossier.vehicle?.make, dossier.vehicle?.model].filter(Boolean).join(' ') || '-'}</div>
                         <div style={{ fontSize: '9pt' }}>Прицеп: {dossier.trailer?.plateNumber || '-'}</div>
                     </div>
@@ -179,12 +190,12 @@ export default function SignatureRefusalPrintPage() {
                 <div className="section-title">Документ</div>
                 <div className="field-row"><div className="field-label">Тип:</div><div className="field-value-bold">{docLabel(document)}</div></div>
                 <div className="field-row"><div className="field-label">Внешний номер:</div><div className="field-value">{document?.externalId || document?.titleNumber || '-'}</div></div>
-                <div className="field-row"><div className="field-label">Статус:</div><div className="field-value">{document?.status || '-'}</div></div>
+                <div className="field-row"><div className="field-label">Статус:</div><div className="field-value">{label(DOC_STATUS, document?.status)}</div></div>
                 <div className="field-row"><div className="field-label">Провайдер:</div><div className="field-value">{document?.providerName || 'internal'} / {document?.providerStatus || '-'}</div></div>
 
                 <div className="section-title">Отказ</div>
                 <div className="field-row"><div className="field-label">Дата и время:</div><div className="field-value">{fmt(refusal?.refusedAt)}</div></div>
-                <div className="field-row"><div className="field-label">Роль подписанта:</div><div className="field-value">{refusal?.signerRole || '-'}</div></div>
+                <div className="field-row"><div className="field-label">Роль подписанта:</div><div className="field-value">{label(SIGNER_ROLE_LABELS, refusal?.signerRole)}</div></div>
                 <div className="field-row"><div className="field-label">ФИО подписанта:</div><div className="field-value-bold">{refusal?.signerName || '-'}</div></div>
                 <div style={{ marginTop: 6, fontSize: '10pt', lineHeight: 1.35 }}>
                     Причина отказа: {refusal?.reason || document?.error || 'Причина не указана'}
@@ -214,7 +225,7 @@ export default function SignatureRefusalPrintPage() {
 
                 <div className="section-title">Подтверждение</div>
                 <div style={{ minHeight: 48, fontSize: '10pt', lineHeight: 1.35 }}>
-                    Настоящий акт фиксирует отказ от подписания указанного транспортного документа. Документ может быть приложен к бумажному досье рейса и использован для ручного закрытия исключения в document queue.
+                    Настоящий акт фиксирует отказ от подписания указанного транспортного документа. Документ может быть приложен к бумажному досье рейса и использован для ручного закрытия исключения в очереди документов.
                 </div>
 
                 <div className="no-break">

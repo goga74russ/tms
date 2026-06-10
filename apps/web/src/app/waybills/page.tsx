@@ -15,6 +15,7 @@ import {
     Clock, RotateCcw, Truck, User, Download, FileDown, Printer, Paperclip, Upload, Trash2, RefreshCcw,
 } from 'lucide-react';
 import { getVehicleProfile, getVehicleWaybillCue, getVehicleWaybillReadiness } from '../fleet/components/vehicleProfile';
+import { WAYBILL_STATUS, TRIP_STATUS, SEVERITY_LABELS, DOC_PHASE_LABELS, label } from '@tms/shared';
 
 async function downloadPdfAuth(apiPath: string, filename: string) {
     const res = await fetch(apiPath, {
@@ -124,30 +125,25 @@ interface WaybillDetail extends Waybill {
 // Status badge component
 // ================================================================
 function StatusBadge({ status }: { status: string }) {
-    const config: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
+    const config: Record<string, { color: string; icon: React.ReactNode }> = {
         draft: {
             color: 'bg-neutral-100 text-neutral-600 border-neutral-200',
-            label: 'Черновик',
             icon: <Clock className="w-3.5 h-3.5" />,
         },
         medical_check: {
             color: 'bg-amber-100 text-amber-700 border-amber-200',
-            label: 'Медосмотр',
             icon: <Clock className="w-3.5 h-3.5" />,
         },
         technical_check: {
             color: 'bg-orange-100 text-orange-700 border-orange-200',
-            label: 'Техосмотр',
             icon: <Clock className="w-3.5 h-3.5" />,
         },
         issued: {
             color: 'bg-blue-100 text-blue-700 border-blue-200',
-            label: 'Выдан',
             icon: <FileText className="w-3.5 h-3.5" />,
         },
         closed: {
             color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-            label: 'Закрыт',
             icon: <CheckCircle2 className="w-3.5 h-3.5" />,
         },
     };
@@ -155,7 +151,7 @@ function StatusBadge({ status }: { status: string }) {
     return (
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${c.color}`}>
             {c.icon}
-            {c.label}
+            {label(WAYBILL_STATUS, status)}
         </span>
     );
 }
@@ -310,7 +306,7 @@ function ComplianceTimeline({
                                 </p>
                             </div>
                             <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(event.severity, 'bg')}`}>
-                                {event.isProblem ? 'problem' : event.severity}
+                                {event.isProblem ? 'Проблема' : label(SEVERITY_LABELS, event.severity)}
                             </span>
                         </div>
                         <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-neutral-500">
@@ -355,7 +351,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Транспортные документы</p>
                     <p className="text-sm font-semibold text-neutral-900">
-                        {transportDocuments?.lifecycle?.documentPhase || 'planning'} · {etrn?.status || 'draft'}
+                        {label(DOC_PHASE_LABELS, transportDocuments?.lifecycle?.documentPhase || 'planning')} · {etrnTitleStatusLabel(etrn?.status || 'draft')}
                     </p>
                     <p className="mt-1 text-xs text-neutral-600">
                         {transportDocuments?.summary?.nextAction ? `Следующее действие: ${humanizeNextAction(transportDocuments.summary.nextAction)}` : 'Досье и ЭТРН доступны через dossier API'}
@@ -410,7 +406,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         Последняя попытка: {formatComplianceDate(exchangeTotals.lastAttemptAt)}
                     </div>
                     <div className="rounded-xl bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
-                        Следующий retry: {formatComplianceDate(exchangeTotals.nextRetryAt)}
+                        Следующий повтор: {formatComplianceDate(exchangeTotals.nextRetryAt)}
                     </div>
                 </div>
             </div>
@@ -450,8 +446,8 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                 <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4">
                     <div className="flex items-start justify-between gap-3">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Ошибки и подсказки retry</p>
-                            <p className="text-sm font-semibold text-neutral-900">Persisted document issues</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Ошибки и подсказки к повтору</p>
+                            <p className="text-sm font-semibold text-neutral-900">Проблемы по сохранённым документам</p>
                         </div>
                         <RetryHint label="Исправить и повторить" />
                     </div>
@@ -464,7 +460,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                         <p className="text-sm text-neutral-900">{problem.message}</p>
                                     </div>
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(problem.severity, 'bg')}`}>
-                                        {problem.severity}
+                                        {label(SEVERITY_LABELS, problem.severity)}
                                     </span>
                                 </div>
                                 <p className="mt-1 text-[11px] text-neutral-500">
@@ -499,8 +495,8 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                             <div>Провайдер: {doc.providerName || 'internal'}</div>
                             <div>Статус провайдера: {doc.providerStatus || '—'}</div>
                             <div>Попытки: {doc.retryCount ?? 0}</div>
-                            <div>Последний retry: {formatComplianceDate(doc.lastRetryAt)}</div>
-                            <div>Следующий retry: {formatComplianceDate(doc.nextRetryAt)}</div>
+                            <div>Последний повтор: {formatComplianceDate(doc.lastRetryAt)}</div>
+                            <div>Следующий повтор: {formatComplianceDate(doc.nextRetryAt)}</div>
                             <div>Квитанции: {(doc.providerDocumentId || doc.providerMessageId || doc.acceptedAt) ? 'да' : 'нет'}</div>
                             {doc.issuedAt && <div>Выпущен: {formatComplianceDate(doc.issuedAt)}</div>}
                             {doc.sentAt && <div>Отправлен: {formatComplianceDate(doc.sentAt)}</div>}
@@ -530,12 +526,12 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                 : doc.status === 'error' || doc.status === 'rejected'
                                     ? 'Ручное действие: исправить блокер и повторить'
                                     : doc.providerStatus === 'retry_requested'
-                                        ? 'Ручное действие: запрошен retry'
+                                        ? 'Ручное действие: запрошен повтор'
                                         : 'Ручное действие: наблюдение'}
                         </div>
                         {(doc.error || doc.status === 'error' || doc.status === 'rejected') && (
                             <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                                {doc.error || 'Документ требует повторной проверки перед retry'}
+                                {doc.error || 'Документ требует повторной проверки перед повтором отправки'}
                             </div>
                         )}
                     </div>
@@ -544,23 +540,23 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
 
             <div className="grid gap-4 xl:grid-cols-2">
                 <ComplianceTimeline
-                    title="Transport documents timeline"
+                    title="Хронология транспортных документов"
                     events={transportDocuments?.timeline || []}
-                    emptyLabel="Пока нет событий по persisted transport documents"
+                    emptyLabel="Пока нет событий по транспортным документам"
                 />
 
                 <div className="space-y-4">
                     <ComplianceTimeline
-                        title="ETRN workflow timeline"
+                        title="Хронология ЭТРН"
                         events={etrn?.timeline || []}
-                        emptyLabel="ETRN timeline пока пуст"
+                        emptyLabel="Хронология ЭТРН пока пуста"
                     />
                     <div className="rounded-2xl border border-neutral-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">ETRN titles</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Титулы ЭТРН</p>
                                 <p className="text-sm font-semibold text-neutral-900">
-                                    {etrn?.summary?.completedTitles ?? 0}/{etrn?.summary?.totalTitles ?? 0} completed
+                                    {etrn?.summary?.completedTitles ?? 0}/{etrn?.summary?.totalTitles ?? 0} завершено
                                 </p>
                             </div>
                             <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClass(titleTone(etrn?.status || 'draft'), 'bg')}`}>
@@ -613,7 +609,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                                 </p>
                                             </div>
                                             <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(problem.severity, 'bg')}`}>
-                                                {problem.severity}
+                                                {label(SEVERITY_LABELS, problem.severity)}
                                             </span>
                                         </div>
                                     </div>
@@ -911,7 +907,7 @@ function DetailModal({
                         <div className="p-3 bg-neutral-50 rounded-xl">
                             <p className="text-sm text-neutral-600">
                                 Рейс: <strong>{waybill.trip.number}</strong>
-                                <span className="ml-2 text-xs text-neutral-400">({waybill.trip.status})</span>
+                                <span className="ml-2 text-xs text-neutral-400">({label(TRIP_STATUS, waybill.trip.status)})</span>
                             </p>
                         </div>
                     )}
@@ -1044,7 +1040,7 @@ function DetailModal({
                                             {(link.shiftStart || link.shiftEnd) && (
                                                 <p>
                                                     {link.shiftStart ? new Date(link.shiftStart).toLocaleString('ru-RU') : '—'}
-                                                    {' в†’ '}
+                                                    {' → '}
                                                     {link.shiftEnd ? new Date(link.shiftEnd).toLocaleString('ru-RU') : '—'}
                                                 </p>
                                             )}
@@ -1066,8 +1062,8 @@ function DetailModal({
                                             <p className="text-xs text-neutral-500">{expense.description || 'Без описания'}</p>
                                         </div>
                                         <div className="text-right text-xs text-neutral-600">
-                                            <p>План: {expense.plannedAmount ?? 0} в‚Ѕ</p>
-                                            <p>Факт: {expense.actualAmount ?? 0} в‚Ѕ</p>
+                                            <p>План: {expense.plannedAmount ?? 0} ₽</p>
+                                            <p>Факт: {expense.actualAmount ?? 0} ₽</p>
                                         </div>
                                     </div>
                                 ))}
@@ -1078,7 +1074,7 @@ function DetailModal({
                         <div className="flex items-center justify-between gap-3">
                             <div>
                                 <p className="text-xs text-neutral-500 font-semibold uppercase tracking-wide">Вложения</p>
-                                <p className="text-sm text-neutral-600">Файлы Рё сканы, прикреплённые к путевому листу.</p>
+                                <p className="text-sm text-neutral-600">Файлы и сканы, прикреплённые к путевому листу.</p>
                             </div>
                             <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-neutral-200 text-sm font-medium text-neutral-700 hover:bg-neutral-100 cursor-pointer">
                                 <Upload className="w-4 h-4" />
@@ -1518,9 +1514,9 @@ export default function WaybillsPage() {
                         value: statusFilter,
                         onChange: (v) => { setStatusFilter(v); setPage(1); },
                         options: [
-                            { value: 'draft', label: 'Сформирован' },
-                            { value: 'issued', label: 'Выдан' },
-                            { value: 'closed', label: 'Закрыт' },
+                            { value: 'draft', label: label(WAYBILL_STATUS, 'draft') },
+                            { value: 'issued', label: label(WAYBILL_STATUS, 'issued') },
+                            { value: 'closed', label: label(WAYBILL_STATUS, 'closed') },
                         ],
                     },
                 ]}

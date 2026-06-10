@@ -14,6 +14,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { api } from '@/lib/api';
 import {
     formatKopecks,
+    label,
+    PLAN_LABELS,
+    AI_ASSISTANT_LABEL,
     type Plan,
     type PlanId,
     type PaymentRecord,
@@ -22,7 +25,7 @@ import {
 } from '@tms/shared';
 
 const FEATURE_ORDER: Array<{ key: string; label: string }> = [
-    { key: 'ai_copilot', label: 'AI Co-pilot' },
+    { key: 'ai_copilot', label: AI_ASSISTANT_LABEL },
     { key: 'edi', label: 'Электронный документооборот' },
     { key: 'marking', label: 'Честный знак' },
     { key: 'api_export', label: 'API экспорт' },
@@ -249,11 +252,11 @@ export default function BillingPage() {
                 <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-xl p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
                     <div className="min-w-0">
                         <p className="text-xs uppercase tracking-wide text-indigo-700 font-semibold">Текущий тариф</p>
-                        <h2 className="text-xl font-bold text-neutral-900 mt-1">{sub.plan.nameRu}</h2>
+                        <h2 className="text-xl font-bold text-neutral-900 mt-1">{PLAN_LABELS[sub.plan.id] ?? sub.plan.nameRu}</h2>
                         <div className="flex items-center gap-3 mt-2 flex-wrap">
                             {sub.subscription && (
                                 <span className="inline-flex items-center px-2 py-0.5 bg-white border border-indigo-200 text-indigo-700 text-xs rounded-full">
-                                    {STATUS_LABEL[sub.subscription.status] ?? sub.subscription.status}
+                                    {label(STATUS_LABEL, sub.subscription.status)}
                                 </span>
                             )}
                             {trialDays !== null && trialDays > 0 && (
@@ -355,7 +358,7 @@ export default function BillingPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <UsageBar label="Транспорт" current={usage.vehicles.current} limit={usage.vehicles.limit} />
                         <UsageBar label="Заявки в этом месяце" current={usage.orders.current} limit={usage.orders.limit} />
-                        <UsageBar label="Сообщения co-pilot за день" current={usage.copilotMessages.current} limit={usage.copilotMessages.limit} />
+                        <UsageBar label={`${AI_ASSISTANT_LABEL}: сообщений за день`} current={usage.copilotMessages.current} limit={usage.copilotMessages.limit} />
                     </div>
                 </section>
             )}
@@ -375,7 +378,7 @@ export default function BillingPage() {
                                     }`}
                                 >
                                     <div>
-                                        <h4 className="font-semibold text-neutral-900">{p.nameRu}</h4>
+                                        <h4 className="font-semibold text-neutral-900">{PLAN_LABELS[p.id] ?? p.nameRu}</h4>
                                         <p className="text-2xl font-bold text-neutral-900 mt-1">
                                             {p.priceMonthlyKopecks > 0 ? formatKopecks(p.priceMonthlyKopecks) : '0 ₽'}
                                             {p.priceMonthlyKopecks > 0 && <span className="text-xs font-normal text-neutral-500"> / мес</span>}
@@ -385,7 +388,7 @@ export default function BillingPage() {
                                     <ul className="text-xs text-neutral-700 space-y-1.5 flex-1">
                                         <li>Транспорт: <strong>{formatLimit(p.vehicleLimit)}</strong></li>
                                         <li>Заявок в месяц: <strong>{formatLimit(p.monthlyOrdersLimit)}</strong></li>
-                                        <li>Co-pilot/день: <strong>{formatLimit(p.copilotMessagesDaily)}</strong></li>
+                                        <li>{AI_ASSISTANT_LABEL}/день: <strong>{formatLimit(p.copilotMessagesDaily)}</strong></li>
                                         {FEATURE_ORDER.map((f) => (
                                             <li key={f.key} className="flex items-center gap-1.5">
                                                 {p.features[f.key as keyof typeof p.features]
@@ -404,7 +407,7 @@ export default function BillingPage() {
                                         </button>
                                     ) : p.priceMonthlyKopecks === 0 ? (
                                         <button disabled className="w-full px-3 py-2 bg-neutral-100 text-neutral-500 rounded-lg text-sm font-medium cursor-default">
-                                            {p.id === 'enterprise' ? 'По запросу' : 'Free'}
+                                            {p.id === 'enterprise' ? 'По запросу' : label(PLAN_LABELS, p.id)}
                                         </button>
                                     ) : (
                                         <button
@@ -413,7 +416,7 @@ export default function BillingPage() {
                                             className="inline-flex items-center justify-center gap-1.5 w-full px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
                                         >
                                             <Sparkles className="w-3.5 h-3.5" />
-                                            {actionPlan === p.id ? 'Создаю платёж…' : `Перейти на ${p.nameRu}`}
+                                            {actionPlan === p.id ? 'Создаю платёж…' : `Перейти на ${PLAN_LABELS[p.id] ?? p.nameRu}`}
                                         </button>
                                     )}
                                 </div>
@@ -463,7 +466,7 @@ export default function BillingPage() {
                                                     p.status === 'refunded' ? 'bg-amber-50 text-amber-700' :
                                                     'bg-neutral-100 text-neutral-600'
                                                 }`}>
-                                                    {STATUS_LABEL[p.status] ?? p.status}
+                                                    {label(STATUS_LABEL, p.status)}
                                                 </span>
                                             </td>
                                             {hasMethodOnHistory && (

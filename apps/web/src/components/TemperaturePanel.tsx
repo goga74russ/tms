@@ -12,6 +12,7 @@ import {
     Dot,
 } from 'recharts';
 import { Loader2, RefreshCcw, Plus, Dices, AlertTriangle, Thermometer } from 'lucide-react';
+import { READING_SOURCE_LABELS, label } from '@tms/shared';
 import { api } from '@/lib/api';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -235,7 +236,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                             ) : (
                                 <Dices className="w-3.5 h-3.5 mr-1.5" />
                             )}
-                            Mock tick
+                            Тестовый замер
                         </Button>
                     )}
                 </div>
@@ -346,7 +347,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                                             stroke="#0ea5e9"
                                             strokeDasharray="4 3"
                                             label={{
-                                                value: `min ${Number(slaMin).toFixed(1)}`,
+                                                value: `мин ${Number(slaMin).toFixed(1)}`,
                                                 position: 'insideTopLeft',
                                                 fill: '#0369a1',
                                                 fontSize: 10,
@@ -359,7 +360,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                                             stroke="#ef4444"
                                             strokeDasharray="4 3"
                                             label={{
-                                                value: `max ${Number(slaMax).toFixed(1)}`,
+                                                value: `макс ${Number(slaMax).toFixed(1)}`,
                                                 position: 'insideBottomLeft',
                                                 fill: '#b91c1c',
                                                 fontSize: 10,
@@ -441,7 +442,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                                                 {Number(r.tempC).toFixed(1)}
                                             </td>
                                             <td className="px-3 py-1.5 text-neutral-500">
-                                                {r.source || '—'}
+                                                {label(READING_SOURCE_LABELS, r.source)}
                                             </td>
                                             <td className="px-3 py-1.5 text-neutral-500">
                                                 {r.sensorId || '—'}

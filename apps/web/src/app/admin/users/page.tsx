@@ -15,6 +15,7 @@ import {
     Users, Edit2, CheckCircle2,
     Shield, UserCog, UserPlus, UserX,
 } from 'lucide-react';
+import { ROLE_LABELS, label } from '@tms/shared';
 
 // ================================================================
 // Types
@@ -35,19 +36,6 @@ const ROLE_OPTIONS = [
     'admin', 'logist', 'dispatcher', 'manager', 'mechanic',
     'medic', 'repair_service', 'driver', 'accountant', 'client',
 ];
-
-const ROLE_LABELS: Record<string, string> = {
-    admin: 'Администратор',
-    logist: 'Логист',
-    dispatcher: 'Диспетчер',
-    manager: 'Руководитель',
-    mechanic: 'Механик',
-    medic: 'Медик',
-    repair_service: 'Рем. служба',
-    driver: 'Водитель',
-    accountant: 'Бухгалтер',
-    client: 'Клиент',
-};
 
 // ================================================================
 // User Form Modal
@@ -187,7 +175,7 @@ function UserFormModal({
                                         : 'bg-neutral-50 text-neutral-500 border-neutral-200 hover:border-brand-300'
                                     }`}
                             >
-                                {ROLE_LABELS[role] || role}
+                                {label(ROLE_LABELS, role)}
                             </button>
                         ))}
                     </div>
@@ -296,7 +284,7 @@ export default function AdminUsersPage() {
                 <div className="flex flex-wrap gap-1">
                     {r.roles.map(role => (
                         <span key={role} className="px-2 py-0.5 rounded-full text-xs bg-brand-50 text-brand-700 font-medium">
-                            {ROLE_LABELS[role] || role}
+                            {label(ROLE_LABELS, role)}
                         </span>
                     ))}
                 </div>
@@ -374,7 +362,7 @@ export default function AdminUsersPage() {
                         label: 'Роль',
                         value: roleFilter,
                         onChange: setRoleFilter,
-                        options: ROLE_OPTIONS.map(r => ({ value: r, label: ROLE_LABELS[r] || r })),
+                        options: ROLE_OPTIONS.map(r => ({ value: r, label: label(ROLE_LABELS, r) })),
                     },
                 ]}
                 bulkActions={(rows) => (

@@ -128,7 +128,7 @@ export function CockpitTopBar({
                 aria-live="polite"
             >
                 {wsConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-                <span>{wsConnected ? 'Live' : 'Offline'}</span>
+                <span>{wsConnected ? 'Онлайн' : 'Нет связи'}</span>
             </div>
 
             <Button
