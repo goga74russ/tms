@@ -46,6 +46,10 @@ RUN pnpm install --prod --frozen-lockfile
 # Copy build output
 COPY --from=builder /app/packages/shared/ ./packages/shared/
 COPY --from=builder /app/apps/api/dist/ ./apps/api/dist/
+# Шрифты для PDF (СФ/УПД/КСФ): tsc компилирует только .ts, .ttf-ассеты в dist
+# не попадают → PDF-генерация падает с ENOENT на dist/assets/fonts/Roboto-*.ttf.
+# Кладём src/assets рядом со скомпилированным кодом (код резолвит шрифт от dist).
+COPY --from=builder /app/apps/api/src/assets/ ./apps/api/dist/assets/
 # DPA-тексты — runtime-resource, читаются по относительному пути.
 COPY --from=builder /app/docs/legal/dpa/ ./docs/legal/dpa/
 

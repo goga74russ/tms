@@ -32,6 +32,14 @@ function num(value: unknown): number {
     return typeof value === 'number' ? value : Number(value ?? 0);
 }
 
+// HTTP-заголовки — только latin1. Кириллический номер счёта (УПД-/СЧ-/КСФ-)
+// в filename="" → ERR_INVALID_CHAR, и весь PDF-ответ падает 500. RFC 5987:
+// ASCII-fallback в filename="" + UTF-8 в filename* для корректного имени.
+function pdfContentDisposition(filename: string): string {
+    const asciiFallback = filename.replace(/[^\x20-\x7E]/g, '_');
+    return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
 function serializeInvoice<T extends { subtotal: unknown; vatAmount: unknown; total: unknown }>(invoice: T) {
     return {
         ...invoice,
@@ -619,7 +627,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
 
                 const typeLabel = invoice.type === 'payment' ? 'invoice' : 'act';
                 reply.header('Content-Type', 'application/pdf');
-                reply.header('Content-Disposition', `attachment; filename="${typeLabel}_${invoice.number}.pdf"`);
+                reply.header('Content-Disposition', pdfContentDisposition(`${typeLabel}_${invoice.number}.pdf`));
                 reply.header('Content-Length', pdfBuffer.length);
                 return reply.send(pdfBuffer);
             } catch (error: any) {
@@ -908,7 +916,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                     total: Number(invoice.total),
                 });
 
-                reply.header('Content-Disposition', `attachment; filename="upd_${invoice.number}.pdf"`);
+                reply.header('Content-Disposition', pdfContentDisposition(`upd_${invoice.number}.pdf`));
                 return reply.send(pdfBuffer);
             } catch (error: any) {
                 request.log.error(error);
