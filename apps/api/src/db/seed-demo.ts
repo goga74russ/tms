@@ -273,9 +273,15 @@ async function seedDemo() {
             createdBy: logist.id, organizationId: orgA.id,
         },
         {
+            // F-17: тарифицированная доставленная заявка у Никитина (client3,
+            // contract3 «per_ton» активен) — чтобы УПД выпускался с ненулевым
+            // подитогом. Picker счетов фильтрует status=delivered,returned (R-2),
+            // а форма выпуска автозаполняет сумму из customer_price → подитог
+            // складывается без ручной правки. customer_price с НДС (Org-A ОСНО).
             number: 'ORD-2026-00004', contractorId: client3.id, contractId: contract3.id,
-            status: 'draft', cargoDescription: 'Мебель офисная (столы, кресла)', cargoWeightKg: 2000, cargoVolumeM3: 15,
+            status: 'delivered', cargoDescription: 'Мебель офисная (столы, кресла)', cargoWeightKg: 2000, cargoVolumeM3: 15,
             cargoPlaces: 30,
+            customerPrice: 48000, customerPriceCurrency: 'RUB', customerPriceIncludesVat: true,
             loadingAddress: 'г. Москва, ул. Авиамоторная, 8', loadingLat: 55.7507, loadingLon: 37.7153,
             loadingDate: new Date('2026-03-25T09:00:00Z'),
             unloadingAddress: 'г. Москва, Ленинский пр-т, 119', unloadingLat: 55.6614, unloadingLon: 37.5059,
