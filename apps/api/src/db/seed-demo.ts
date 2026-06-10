@@ -283,9 +283,12 @@ async function seedDemo() {
             cargoPlaces: 30,
             customerPrice: 48000, customerPriceCurrency: 'RUB', customerPriceIncludesVat: true,
             loadingAddress: 'г. Москва, ул. Авиамоторная, 8', loadingLat: 55.7507, loadingLon: 37.7153,
-            loadingDate: new Date('2026-03-25T09:00:00Z'),
+            // F-17: дата реализации (unloadingDate) свежая относительно времени посева —
+            // иначе выпуск УПД упирается в 5-дневный срок СФ/УПД (spec §6) и требует
+            // причину просрочки. «Доставлена вчера» → выпуск «сегодня» чистый.
+            loadingDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
             unloadingAddress: 'г. Москва, Ленинский пр-т, 119', unloadingLat: 55.6614, unloadingLon: 37.5059,
-            unloadingDate: new Date('2026-03-25T15:00:00Z'),
+            unloadingDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
             createdBy: logist.id, organizationId: orgA.id,
         },
         {
