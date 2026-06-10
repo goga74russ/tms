@@ -524,7 +524,15 @@ function TimelineCard({
     );
 }
 
-function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) {
+function CloseGateBlock({
+    closeGate,
+    onPaperException,
+    exceptioningItemId,
+}: {
+    closeGate?: DossierCloseGate | null;
+    onPaperException?: (item: { id: string; documentType: string }) => void;
+    exceptioningItemId?: string | null;
+}) {
     if (!closeGate) return null;
 
     const blockingItems = closeGate.blockingItems || [];
@@ -570,6 +578,22 @@ function CloseGateBlock({ closeGate }: { closeGate?: DossierCloseGate | null }) 
                     <span className="rounded-full bg-neutral-50 px-2 py-0.5">закрыт: {formatTimelineDate(item.completedAt)}</span>
                 )}
             </div>
+            {/* F-16: блокер предлагает «зарегистрировать бумажное исключение», но
+                действия не было. Для не-ЭДО контрагентов груз едет по бумажной ТТН —
+                фиксируем причину, item → exceptioned, гейт перестаёт жёстко блокировать. */}
+            {onPaperException && item.severity === 'blocking' && item.status !== 'exceptioned' && (
+                <button
+                    type="button"
+                    onClick={() => onPaperException({ id: item.id, documentType: item.documentType })}
+                    disabled={exceptioningItemId === item.id}
+                    className="mt-2 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    {exceptioningItemId === item.id
+                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                        : <FileText className="h-3 w-3" />}
+                    Бумажное исключение
+                </button>
+            )}
         </div>
     );
 
@@ -2330,6 +2354,35 @@ export default function TripsPage() {
         }
     };
 
+    // F-16: зарегистрировать бумажное исключение по блокеру закрытия (груз по
+    // бумажной ТТН у не-ЭДО контрагента). Фиксируем причину, item → exceptioned,
+    // close-gate перестаёт жёстко блокировать. Эндпоинт уже есть и протестирован.
+    const [exceptioningItemId, setExceptioningItemId] = useState<string | null>(null);
+    const registerPaperException = async (item: { id: string; documentType: string }) => {
+        if (!dossierTripId) return;
+        const label = transportDocumentLabel(item.documentType);
+        const reason = typeof window !== 'undefined'
+            ? window.prompt(
+                `Причина бумажного исключения для «${label}» (фиксируется в досье):`,
+                'Документ оформлен на бумажном носителе (не-ЭДО контрагент)',
+            )
+            : null;
+        if (reason === null) return; // отмена
+        try {
+            setExceptioningItemId(item.id);
+            await api.post(`/trips/${dossierTripId}/dossier/items/${item.id}/exception`, {
+                reason: reason.trim() || 'Бумажное исключение',
+                metadata: { source: 'web_dossier', documentType: item.documentType },
+            });
+            setLifecycleToast({ message: `«${label}» закрыт бумажным исключением`, type: 'success' });
+            await openDossier(dossierTripId);
+        } catch (err: any) {
+            setLifecycleToast({ message: err?.message || 'Не удалось зарегистрировать исключение', type: 'error' });
+        } finally {
+            setExceptioningItemId(null);
+        }
+    };
+
     // F-14: пересинк статуса ПЛ по факту допусков. ПЛ выпускается НЕ кнопкой,
     // а сегодняшними осмотрами (мед+тех) — осмотры синкают его автоматически;
     // эта кнопка — ручной пересчёт + честная подсказка, чего не хватает.
@@ -3126,18 +3179,19 @@ export default function TripsPage() {
                         const warnings = (gate.warningItems ?? []).map(i => i.reason || i.documentType);
                         return (
                             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
-                                <p className="font-bold mb-1">Закрытие сейчас заблокировано:</p>
+                                <p className="font-bold mb-1">Чек-лист закрытия не завершён:</p>
                                 <ul className="list-disc space-y-0.5 pl-4">
                                     {blockers.map((b, i) => <li key={`b${i}`} className="font-medium">{b}</li>)}
                                     {queue.map((q, i) => <li key={`q${i}`}>{q}</li>)}
                                 </ul>
                                 {warnings.length > 0 && (
                                     <p className="mt-1.5 text-[11px] text-amber-600">
-                                        Риски (не блокируют): {warnings.join('; ')}
+                                        Риски: {warnings.join('; ')}
                                     </p>
                                 )}
                                 <p className="mt-1.5 text-[11px] text-amber-600">
-                                    Снимите блокеры в блоке «Закрытие рейса» досье — иначе сервер отклонит завершение.
+                                    Это не блокирует завершение, но рекомендуется снять пункты в блоке
+                                    «Закрытие рейса» досье (для ЭТрН — «Бумажное исключение») до закрытия.
                                 </p>
                             </div>
                         );
@@ -3382,7 +3436,11 @@ export default function TripsPage() {
                                         completingPointId={completingPointId}
                                     />
 
-                                    <CloseGateBlock closeGate={dossier.closeGate} />
+                                    <CloseGateBlock
+                                        closeGate={dossier.closeGate}
+                                        onPaperException={registerPaperException}
+                                        exceptioningItemId={exceptioningItemId}
+                                    />
 
                                     <OperationalActionsBlock
                                         tripId={dossier.trip?.id || dossierTripId}

@@ -118,6 +118,13 @@ async function upsertItem(tx: any, params: {
     const completed = ['signed', 'received', 'accepted', 'exceptioned'].includes(params.status) ? new Date() : null;
 
     if (existing) {
+        // F-16: ручное «бумажное исключение» (exceptioned) — решение человека,
+        // зафиксированное с причиной. Авто-проекция (синтетический 'missing' для
+        // отсутствующего ЭТрН) НЕ должна его откатывать на следующем ресинке —
+        // иначе исключение не держится и close-gate вечно красный.
+        if (existing.status === 'exceptioned' && params.status === 'missing') {
+            return existing;
+        }
         const [updated] = await tx.update(documentDossierItems).set({
             organizationId: params.organizationId ?? existing.organizationId,
             status: params.status,
