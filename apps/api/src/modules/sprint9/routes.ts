@@ -12,6 +12,7 @@ import {
     waybills,
     drivers,
     vehicles,
+    trips,
 } from '../../db/schema.js';
 import { containsLikePattern } from '../../utils/search.js';
 import { incidentCreateSchema } from './incidents.validators.js';
@@ -203,9 +204,27 @@ export default async function sprint9Routes(app: FastifyInstance) {
         if (!user.organizationId && !isPlatformSuperAdmin(user)) {
             return reply.status(403).send({ success: false, error: 'Учётная запись не привязана к организации' });
         }
+        // Регресс-фикс (incidents scope): org-less создатель (super-admin) иначе
+        // создавал incident с organizationId=null — такой incident выпадал из
+        // org-скоупа списка (eq org), но был доступен через guard по FK-орг →
+        // рассинхрон list↔guard. Выводим орг из FK (ТС→водитель→рейс), чтобы
+        // incident всегда нёс конкретную орг и оба пути сходились.
+        let resolvedOrgId: string | null = user.organizationId ?? null;
+        if (!resolvedOrgId && parsed.data.vehicleId) {
+            const [v] = await db.select({ o: vehicles.organizationId }).from(vehicles).where(eq(vehicles.id, parsed.data.vehicleId)).limit(1);
+            resolvedOrgId = v?.o ?? null;
+        }
+        if (!resolvedOrgId && parsed.data.driverId) {
+            const [d] = await db.select({ o: drivers.organizationId }).from(drivers).where(eq(drivers.id, parsed.data.driverId)).limit(1);
+            resolvedOrgId = d?.o ?? null;
+        }
+        if (!resolvedOrgId && parsed.data.tripId) {
+            const [t] = await db.select({ o: trips.organizationId }).from(trips).where(eq(trips.id, parsed.data.tripId)).limit(1);
+            resolvedOrgId = t?.o ?? null;
+        }
         const [created] = await db.insert(incidents).values({
             ...parsed.data,
-            organizationId: user.organizationId ?? null,
+            organizationId: resolvedOrgId,
             resolvedAt: parsed.data.resolvedAt ? new Date(parsed.data.resolvedAt) : undefined,
             createdBy: user.userId,
         }).returning();

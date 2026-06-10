@@ -1430,7 +1430,15 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
         return reply.status(201).send({
             success: true,
-            data: { signupId: userId, status: 'pending' as const },
+            data: {
+                signupId: userId,
+                status: 'pending' as const,
+                // F-01: на dev/демо-стенде код подтверждения уходит только в консоль
+                // (реального SMTP нет) — показываем его в UI, иначе презентатор лезет
+                // в логи api. В проде с настроенным SMTP код уходит в почту и в ответе
+                // НЕ раскрывается (гейт по NODE_ENV + наличию SMTP_HOST).
+                ...((process.env.NODE_ENV !== 'production' || !process.env.SMTP_HOST) ? { devCode: code } : {}),
+            },
         });
     });
 

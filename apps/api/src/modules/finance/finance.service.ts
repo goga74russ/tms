@@ -126,27 +126,22 @@ export class FinanceService {
         const year = new Date().getFullYear();
         const pattern = `${prefix}-${year}-%`;
 
-        // H-NEW-1 FIX: FOR UPDATE prevents race condition on concurrent invoice creation.
-        // AUDIT FIX: считаем максимум ЧИСЛЕННО, а не лексикографически.
-        // orderBy(desc(number)).limit(1) брал лексикографический максимум: при
-        // переходе 99999 → 100000 (6 цифр) строка "99999" сортируется ВЫШЕ "100000",
-        // поэтому seq вычислялся из "99999" → снова 100000 → дубль. Также падало при
-        // разной ширине суффикса. Берём все номера года под блокировкой и извлекаем
-        // числовой суффикс, максимум считаем по числу.
-        const existing = await queryDb.select({ number: invoices.number })
+        // Perf-регрессия снята: было SELECT всех счетов года .for('update') — лок И
+        // загрузка ВСЕХ строк серии на КАЖДОЕ создание счёта (контеншн на деньгах при
+        // росте). Теперь advisory xact lock сериализует генерацию серии, а максимум —
+        // SQL-агрегатом по числовому суффиксу (width-agnostic, как в orders/trips/
+        // waybills после F-10). Числовой максимум, а не лексикографический: при
+        // 99999→100000 строка "99999" сортируется ВЫШЕ → иначе дубль. Lock держится
+        // до конца tx (все вызывающие оборачивают в db.transaction). Regex-guard
+        // отсекает аномальный 3-й сегмент (иначе CAST падает и ломает выпуск).
+        await queryDb.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${'invoice_number|' + prefix})::bigint)`);
+        const [row] = await queryDb.select({
+            maxSeq: sql<number>`COALESCE(MAX((split_part(${invoices.number}, '-', 3))::int), 0)`,
+        })
             .from(invoices)
-            .where(sql`${invoices.number} LIKE ${pattern}`)
-            .for('update');
+            .where(sql`${invoices.number} LIKE ${pattern} AND split_part(${invoices.number}, '-', 3) ~ '^[0-9]+$'`);
 
-        let maxSeq = 0;
-        for (const row of existing) {
-            const parts = String(row.number).split('-');
-            const parsed = parseInt(parts[2], 10);
-            if (Number.isFinite(parsed) && parsed > maxSeq) {
-                maxSeq = parsed;
-            }
-        }
-        const seq = maxSeq + 1;
+        const seq = Number(row?.maxSeq ?? 0) + 1;
         return `${prefix}-${year}-${String(seq).padStart(5, '0')}`;
     }
 

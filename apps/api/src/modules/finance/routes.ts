@@ -625,7 +625,13 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                     });
                 }
 
-                const typeLabel = invoice.type === 'payment' ? 'invoice' : 'act';
+                // F-19: имя файла отражает тип документа (раньше всё кроме payment
+                // помечалось act_, в т.ч. УПД/СФ — путало в реестре).
+                const typeLabel =
+                    invoice.type === 'payment' ? 'invoice' :
+                    invoice.type === 'upd' ? 'upd' :
+                    invoice.type === 'sf' ? 'sf' :
+                    invoice.type === 'act' ? 'act' : invoice.type || 'invoice';
                 reply.header('Content-Type', 'application/pdf');
                 reply.header('Content-Disposition', pdfContentDisposition(`${typeLabel}_${invoice.number}.pdf`));
                 reply.header('Content-Length', pdfBuffer.length);
@@ -812,7 +818,13 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         });
                     }
 
-                    const typeLabel = invoice.type === 'payment' ? 'invoice' : 'act';
+                    // F-19: имя файла отражает тип документа (раньше всё кроме payment
+                // помечалось act_, в т.ч. УПД/СФ — путало в реестре).
+                const typeLabel =
+                    invoice.type === 'payment' ? 'invoice' :
+                    invoice.type === 'upd' ? 'upd' :
+                    invoice.type === 'sf' ? 'sf' :
+                    invoice.type === 'act' ? 'act' : invoice.type || 'invoice';
                     // Sanitize and dedupe filenames (invoice numbers should already be unique,
                     // but defend against odd chars and accidental dupes).
                     const safeNumber = String(invoice.number).replace(/[\\/:*?"<>|]+/g, '_');
