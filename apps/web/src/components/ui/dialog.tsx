@@ -43,29 +43,36 @@ function Dialog({ open, onClose, title, description, size = "md", children }: Di
     };
 
     return (
+        // Регрессия модалок: grid/fixed/m-auto на самом <dialog> ломали native
+        // top-layer центрирование и (через fixed inset-0 + minmax(0,1fr)) раздували
+        // тело на всю высоту. Native <dialog> сам центрируется через showModal();
+        // на нём оставляем только ширину/рамку/фон. Высоту и header/body layout —
+        // на внутренней flex-обёртке (max-h там, чтобы окно росло по контенту).
         <dialog
             ref={ref}
             onClose={onClose}
             onClick={handleClick}
-            className={`fixed inset-0 z-modal m-auto max-h-[90dvh] w-full ${SIZE_CLASS[size]} grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-xl border border-neutral-200 bg-white p-0 shadow-xl backdrop:bg-neutral-900/50 backdrop:backdrop-blur-sm`}
+            className={`z-modal w-full ${SIZE_CLASS[size]} rounded-xl border border-neutral-200 bg-white p-0 shadow-xl backdrop:bg-neutral-900/50 backdrop:backdrop-blur-sm`}
         >
-            <div className="flex items-start justify-between border-b border-neutral-200 px-6 py-4 gap-4 shrink-0">
-                <div className="min-w-0">
-                    <h2 className="text-lg font-semibold text-neutral-900 leading-tight">{title}</h2>
-                    {description && (
-                        <p className="text-sm text-neutral-500 mt-1 leading-relaxed">{description}</p>
-                    )}
+            <div className="flex flex-col max-h-[90dvh] overflow-hidden">
+                <div className="flex items-start justify-between border-b border-neutral-200 px-6 py-4 gap-4 shrink-0">
+                    <div className="min-w-0">
+                        <h2 className="text-lg font-semibold text-neutral-900 leading-tight">{title}</h2>
+                        {description && (
+                            <p className="text-sm text-neutral-500 mt-1 leading-relaxed">{description}</p>
+                        )}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Закрыть"
+                        className="text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg p-1 transition-colors -mr-1 -mt-1 shrink-0"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
                 </div>
-                <button
-                    type="button"
-                    onClick={onClose}
-                    aria-label="Закрыть"
-                    className="text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg p-1 transition-colors -mr-1 -mt-1 shrink-0"
-                >
-                    <X className="w-4 h-4" />
-                </button>
+                <div className="overflow-y-auto px-6 py-4">{children}</div>
             </div>
-            <div className="overflow-y-auto px-6 py-4">{children}</div>
         </dialog>
     );
 }
