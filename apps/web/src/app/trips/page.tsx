@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/lib/user-context';
 import { api } from '@/lib/api';
+import { TRIP_STATUS, DOC_STATUS, SEVERITY_LABELS, label } from '@tms/shared';
 import { Search, Map, Truck, User, ArrowRight, FileText, X, Loader2, MapPin, AlertTriangle, Clock3, History, RefreshCcw, Wrench, RotateCcw, CheckCircle2, Play, Flag, FolderOpen, Thermometer, Download } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -182,18 +183,8 @@ type TrailerOption = {
 
 type OperationalAction = 'downtime' | 'readdress' | 'cancel' | 'breakdown' | 'return' | 'replace' | 'crew';
 
-const STATUS_LABELS: Record<string, string> = {
-    planning: 'Планирование',
-    assigned: 'Назначен',
-    waybill_draft: 'ПЛ черновик',
-    inspection: 'Осмотр',
-    waybill_issued: 'ПЛ выдан',
-    loading: 'Погрузка',
-    in_transit: 'В пути',
-    completed: 'Завершён',
-    billed: 'Оплачен',
-    cancelled: 'Отменён',
-};
+// i18n: перевод trip.status — канон TRIP_STATUS из @tms/shared (локальный дубль
+// удалён; расхождение billed «Оплачен»→«Выставлен счёт» исправлено каноном).
 
 const STATUS_COLORS: Record<string, string> = {
     planning: 'bg-neutral-100 text-neutral-700',
@@ -312,19 +303,9 @@ function transportDocumentLabel(type: string) {
     return labels[type] || type;
 }
 
+// i18n: делегирует канону DOC_STATUS (@tms/shared); lowercase — inline-стиль чипов.
 function dossierItemStatusLabel(status: string) {
-    const labels: Record<string, string> = {
-        missing: 'нет',
-        draft: 'черновик',
-        sent: 'отправлен',
-        signed: 'подписан',
-        received: 'получен',
-        accepted: 'принят',
-        rejected: 'отклонён',
-        exceptioned: 'исключение',
-    };
-
-    return labels[status] || status;
+    return label(DOC_STATUS, status).toLowerCase();
 }
 
 function etrnTitleTypeLabel(type: string) {
@@ -434,11 +415,10 @@ function bucketLabel(bucket?: string | null) {
     return bucket ? (labels[bucket] || bucket) : '';
 }
 
+// i18n: делегирует канону SEVERITY_LABELS (@tms/shared); lowercase — inline-стиль.
 function eventSeverityLabel(severity?: string | null) {
-    if (severity === 'critical') return 'критично';
-    if (severity === 'warning') return 'риск';
-    if (severity === 'info') return 'инфо';
-    return severity || 'инфо';
+    if (!severity) return 'инфо';
+    return label(SEVERITY_LABELS, severity).toLowerCase();
 }
 
 function readinessLabel(value?: string | null) {
@@ -2777,7 +2757,7 @@ export default function TripsPage() {
             cell: (t) => (
                 <div className="flex flex-col gap-1">
                     <span className={`inline-flex w-fit px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[t.status] || 'bg-neutral-100 text-neutral-700'}`}>
-                        {STATUS_LABELS[t.status] || t.status}
+                        {label(TRIP_STATUS, t.status)}
                     </span>
                     {(tripOrderNumbers[t.id] || []).length > 1 && (
                         <span className="inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700">
@@ -2973,7 +2953,7 @@ export default function TripsPage() {
                                     const orders = (tripOrderNumbers[t.id] || []).join(';');
                                     return [
                                         t.number,
-                                        STATUS_LABELS[t.status] || t.status,
+                                        label(TRIP_STATUS, t.status),
                                         vehicle?.plateNumber ?? '',
                                         trailer?.plateNumber ?? '',
                                         orders,
@@ -3020,14 +3000,14 @@ export default function TripsPage() {
                 >
                     Все ({trips.length})
                 </button>
-                {Object.entries(STATUS_LABELS).map(([key, label]) => (
+                {Object.entries(TRIP_STATUS).map(([key, statusLabel]) => (
                     <button
                         key={key}
                         onClick={() => setStatusFilter(key === statusFilter ? '' : key)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all
                             ${statusFilter === key ? 'bg-indigo-600 text-white shadow-sm' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
                     >
-                        {label} ({statusCounts[key] || 0})
+                        {statusLabel} ({statusCounts[key] || 0})
                     </button>
                 ))}
             </div>

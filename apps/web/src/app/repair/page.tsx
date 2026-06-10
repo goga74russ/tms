@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/toast';
 import { ViewTabs } from '@/components/ui/kanban';
 import { DataTable, type Column, Pill } from '@/components/ui/data-table';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { REPAIR_STATUS, PRIORITY_LABELS, label } from '@tms/shared';
 
 type RepairDraft = {
     vehicleId?: string;
@@ -308,11 +309,12 @@ export default function RepairPage() {
         }
     }
 
-    const statusLabels: Record<string, { label: string; color: string }> = {
-        created: { label: 'Создана', color: 'bg-amber-500' },
-        waiting_parts: { label: 'Ждёт з/ч', color: 'bg-blue-500' },
-        in_progress: { label: 'В работе', color: 'bg-indigo-500' },
-        done: { label: 'Готово', color: 'bg-emerald-500' },
+    // Цвет-индикатор статуса (UI-тон, не enum-перевод). Текст берём из канона REPAIR_STATUS.
+    const statusColors: Record<string, string> = {
+        created: 'bg-amber-500',
+        waiting_parts: 'bg-blue-500',
+        in_progress: 'bg-indigo-500',
+        done: 'bg-emerald-500',
     };
 
     useEffect(() => {
@@ -340,13 +342,13 @@ export default function RepairPage() {
         {
             id: 'status',
             header: 'Статус',
-            accessor: r => statusLabels[r.status]?.label || r.status,
+            accessor: r => label(REPAIR_STATUS, r.status),
             cell: r => {
                 const tone = r.status === 'done' ? 'success'
                     : r.status === 'in_progress' ? 'info'
                     : r.status === 'waiting_parts' ? 'warning'
                     : 'neutral';
-                return <Pill tone={tone}>{statusLabels[r.status]?.label || r.status}</Pill>;
+                return <Pill tone={tone}>{label(REPAIR_STATUS, r.status)}</Pill>;
             },
             sortable: true,
             width: '140px',
@@ -415,7 +417,7 @@ export default function RepairPage() {
             sortable: true,
             width: '110px',
         },
-    ], [statusLabels]);
+    ], []);
 
     return (
         <div className="space-y-6">
@@ -451,14 +453,13 @@ export default function RepairPage() {
             {/* Stats bar */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {(['created', 'waiting_parts', 'in_progress', 'done'] as const).map(status => {
-                    const st = statusLabels[status];
                     const count = stats.find(s => s.status === status)?.count || 0;
                     const tone: 'warning' | 'info' | 'brand' | 'success' =
                         status === 'created' ? 'warning'
                             : status === 'waiting_parts' ? 'info'
                                 : status === 'in_progress' ? 'brand'
                                     : 'success';
-                    return <Stat key={status} label={st.label} value={count} tone={tone} />;
+                    return <Stat key={status} label={label(REPAIR_STATUS, status)} value={count} tone={tone} />;
                 })}
             </div>
 

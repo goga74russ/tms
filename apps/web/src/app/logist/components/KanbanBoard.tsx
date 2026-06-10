@@ -5,7 +5,7 @@
 
 import { useState, DragEvent, useCallback } from 'react';
 import { OrderCard } from './OrderCard';
-import { ORDER_STATE_TRANSITIONS } from '@tms/shared';
+import { ORDER_STATE_TRANSITIONS, ORDER_STATUS, label } from '@tms/shared';
 import type { Order } from '../page';
 
 interface KanbanColumn {
@@ -20,16 +20,6 @@ interface KanbanBoardProps {
     onStatusChange: (orderId: string, newStatus: string) => void;
     onTransitionReject?: (message: string) => void;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-    draft: 'Черновик',
-    confirmed: 'В работе',
-    assigned: 'Назначена',
-    in_transit: 'В пути',
-    delivered: 'Доставлена',
-    returned: 'Возвращена',
-    cancelled: 'Отменена',
-};
 
 export function KanbanBoard({ orders, columns, onStatusChange, onTransitionReject }: KanbanBoardProps) {
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -90,8 +80,8 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
             setRejectAnimation(columnKey);
             setTimeout(() => setRejectAnimation(null), 600);
 
-            const from = STATUS_LABELS[order.status] || order.status;
-            const to = STATUS_LABELS[columnKey] || columnKey;
+            const from = label(ORDER_STATUS, order.status);
+            const to = label(ORDER_STATUS, columnKey);
             onTransitionReject?.(`Нельзя: «${from}» → «${to}»`);
             return;
         }

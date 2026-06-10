@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
 import { DataTable, type Column, Pill, type PillTone } from '@/components/ui/data-table';
 import { ConfirmDialog } from '@/components/ui/dialog';
+import { VEHICLE_STATUS, label } from '@tms/shared';
 
 type DeadlineColor = 'green' | 'yellow' | 'red' | 'blocked' | null;
 
@@ -40,15 +41,6 @@ interface TrailerLink {
     plateNumber: string;
     currentVehicleId?: string | null;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-    available: 'Доступен',
-    assigned: 'Назначен',
-    in_trip: 'В рейсе',
-    maintenance: 'ТО/Ремонт',
-    broken: 'Неисправен',
-    blocked: 'Заблокирован',
-};
 
 const STATUS_TONES: Record<string, PillTone> = {
     available: 'success',
@@ -165,7 +157,7 @@ function exportVehiclesCSV(rows: Vehicle[], trailersByVehicleId: Record<string, 
                 v.deadlines.osago ? DEADLINE_LABELS[v.deadlines.osago] ?? v.deadlines.osago : '',
                 v.deadlines.techInspection ? DEADLINE_LABELS[v.deadlines.techInspection] ?? v.deadlines.techInspection : '',
                 v.deadlines.tachograph ? DEADLINE_LABELS[v.deadlines.tachograph] ?? v.deadlines.tachograph : '',
-                STATUS_LABELS[v.status] ?? v.status,
+                label(VEHICLE_STATUS, v.status),
                 v.isBlocked ? 'да' : 'нет',
             ].map(csvCell).join(',');
         }),
@@ -385,10 +377,10 @@ export function VehiclesTable() {
         {
             id: 'status',
             header: 'Статус',
-            accessor: (r) => STATUS_LABELS[r.status] ?? r.status,
+            accessor: (r) => label(VEHICLE_STATUS, r.status),
             cell: (r) => (
                 <Pill tone={STATUS_TONES[r.status] ?? 'neutral'} icon={STATUS_ICONS[r.status]}>
-                    {STATUS_LABELS[r.status] ?? r.status}
+                    {label(VEHICLE_STATUS, r.status)}
                 </Pill>
             ),
             width: '140px',
@@ -435,7 +427,7 @@ export function VehiclesTable() {
                             label: 'Статус',
                             value: statusFilter,
                             onChange: setStatusFilter,
-                            options: Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label })),
+                            options: Object.entries(VEHICLE_STATUS).map(([value, optionLabel]) => ({ value, label: optionLabel })),
                         },
                         {
                             id: 'bodyType',

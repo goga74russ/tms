@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronRight, Thermometer, Truck, AlertTriangle, CheckCircle2, Search } from 'lucide-react';
 import { AssignmentPanel, type AssignmentWindows } from './AssignmentPanel';
+import { VEHICLE_STATUS, label } from '@tms/shared';
 import type { Vehicle, UnassignedOrder } from '../page';
 
 export type ColdChainBreach = {
@@ -35,14 +36,6 @@ const STATUS_DOT: Record<string, string> = {
     in_trip: 'bg-blue-500',
     broken: 'bg-red-500',
     maintenance: 'bg-neutral-400',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-    available: 'Свободен',
-    assigned: 'Назначен',
-    in_trip: 'В рейсе',
-    broken: 'Неисправ.',
-    maintenance: 'ТО',
 };
 
 export function CockpitRightPanel({
@@ -152,7 +145,7 @@ export function CockpitRightPanel({
                                                     {v.driverName || `${v.make} ${v.model}`}
                                                 </div>
                                             </div>
-                                            <span className="text-[10px] text-neutral-400 shrink-0">{STATUS_LABEL[v.status] || v.status}</span>
+                                            <span className="text-[10px] text-neutral-400 shrink-0">{label(VEHICLE_STATUS, v.status)}</span>
                                         </button>
                                     ))
                                 )}

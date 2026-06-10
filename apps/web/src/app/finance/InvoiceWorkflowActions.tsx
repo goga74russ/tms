@@ -8,6 +8,7 @@
 // ============================================================
 import { useState, useCallback } from "react";
 import type { Invoice } from "@tms/shared";
+import { INVOICE_STATUS, label } from "@tms/shared";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -311,7 +312,7 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
                 {canCorrect && <Button size="sm" variant="outline" leftIcon={<FileWarning className="w-4 h-4" />} onClick={() => openModal("correction")}>Корректировка</Button>}
                 {canCancel && <Button size="sm" variant="outline" className="text-red-600 border-red-200" leftIcon={<XCircle className="w-4 h-4" />} onClick={() => openModal("cancel")}>Отменить</Button>}
                 {!canIssue && !canPay && !canCorrect && !canCancel && (
-                    <span className="text-xs text-neutral-400">Действия недоступны для статуса «{st}»</span>
+                    <span className="text-xs text-neutral-400">Действия недоступны для статуса «{label(INVOICE_STATUS, st)}»</span>
                 )}
             </div>
 

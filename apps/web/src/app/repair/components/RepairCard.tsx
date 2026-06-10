@@ -1,6 +1,7 @@
 'use client';
 
 import { Camera, User, Wrench } from 'lucide-react';
+import { PRIORITY_LABELS, REPAIR_SOURCE_LABELS, label } from '@tms/shared';
 
 // Round 5 audit v3: category labels/tones mirror those in repair/page.tsx.
 // Kept local to avoid a circular dep with the page module; if a shared
@@ -67,18 +68,12 @@ type RepairPartsSummary = {
   usedRate: number;
 };
 
-const priorityConfig: Record<string, { label: string; color: string; dot: string }> = {
-  low: { label: 'Низкий', color: 'bg-neutral-100 text-neutral-600', dot: 'bg-neutral-400' },
-  medium: { label: 'Средний', color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
-  high: { label: 'Высокий', color: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500' },
-  critical: { label: 'Критический', color: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
-};
-
-const sourceLabels: Record<string, string> = {
-  auto_inspection: 'Из осмотра',
-  driver: 'Водитель',
-  mechanic: 'Механик',
-  scheduled: 'Плановое ТО',
+// Styling only — label text sourced from canon PRIORITY_LABELS.
+const priorityPill: Record<string, { color: string; dot: string }> = {
+  low: { color: 'bg-neutral-100 text-neutral-600', dot: 'bg-neutral-400' },
+  medium: { color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
+  high: { color: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500' },
+  critical: { color: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
 };
 
 function formatDate(d: string) {
@@ -145,7 +140,7 @@ function formatPartSummary(part: NonNullable<Repair['partsUsed']>[number]) {
 }
 
 export function RepairCard({ repair }: { repair: Repair }) {
-  const pr = priorityConfig[repair.priority] || priorityConfig.medium;
+  const pr = priorityPill[repair.priority] || priorityPill.medium;
   const parts = repair.partsUsed || [];
   const summary = buildPartsSummary(repair);
 
@@ -159,9 +154,9 @@ export function RepairCard({ repair }: { repair: Repair }) {
       <div className="mb-2 flex items-center justify-between">
         <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${pr.color}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${pr.dot}`} />
-          {pr.label}
+          {label(PRIORITY_LABELS, repair.priority)}
         </span>
-        <span className="text-xs text-neutral-400">{sourceLabels[repair.source] || repair.source}</span>
+        <span className="text-xs text-neutral-400">{label(REPAIR_SOURCE_LABELS, repair.source)}</span>
       </div>
 
       {categoryLabel && (

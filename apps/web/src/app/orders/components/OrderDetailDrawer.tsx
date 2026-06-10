@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { X, MapPin, Calendar, Package, User, Truck, Thermometer, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { ORDER_STATUS, INVOICE_STATUS, INVOICE_TYPE, label } from '@tms/shared';
 
 // ============================================================
 // OrderDetailDrawer — side panel с подробностями заявки.
@@ -52,34 +53,6 @@ interface DrawerOrder {
         total: number;
     }> | null;
 }
-
-const INVOICE_TYPE_LABEL: Record<string, string> = {
-    payment: 'Счёт на оплату',
-    advance: 'Авансовый',
-    sf: 'СФ',
-    upd: 'УПД',
-    corrective_sf: 'Корректировочный СФ',
-    corrective_upd: 'Корректировочный УПД',
-    act: 'Акт',
-};
-
-const INVOICE_STATUS_LABEL: Record<string, string> = {
-    draft: 'Черновик',
-    issued: 'Выпущен',
-    paid_partial: 'Частично оплачен',
-    paid_full: 'Оплачен',
-    cancelled: 'Аннулирован',
-    corrected: 'Скорректирован',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-    draft: 'Черновик',
-    confirmed: 'В работе',
-    assigned: 'Назначена',
-    in_transit: 'В пути',
-    delivered: 'Доставлена',
-    cancelled: 'Отменена',
-};
 
 function formatDateTime(iso?: string | null): string {
     if (!iso) return '—';
@@ -189,7 +162,7 @@ export function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClo
                                     Статус
                                 </h3>
                                 <div className="text-sm font-medium">
-                                    {STATUS_LABEL[order.status] ?? order.status}
+                                    {label(ORDER_STATUS, order.status)}
                                 </div>
                             </section>
 
@@ -303,10 +276,10 @@ export function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClo
                                                         {link.number}
                                                     </div>
                                                     <div className="text-xs text-neutral-500">
-                                                        {INVOICE_TYPE_LABEL[link.type] ?? link.type}
+                                                        {label(INVOICE_TYPE, link.type)}
                                                         {' · '}
                                                         <span className="text-neutral-700">
-                                                            {INVOICE_STATUS_LABEL[link.status] ?? link.status}
+                                                            {label(INVOICE_STATUS, link.status)}
                                                         </span>
                                                     </div>
                                                 </div>

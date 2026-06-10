@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { AlertTriangle, AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Truck, Package } from 'lucide-react';
+import { TRIP_STATUS, label } from '@tms/shared';
 import type { CockpitFilter } from './CockpitTopBar';
 
 export type OperationException = {

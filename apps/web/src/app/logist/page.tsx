@@ -17,7 +17,7 @@ import {
     type KanbanTone,
 } from '@/components/ui/kanban';
 import { DataTable, type Column, Pill } from '@/components/ui/data-table';
-import { ORDER_STATE_TRANSITIONS } from '@tms/shared';
+import { ORDER_STATE_TRANSITIONS, ORDER_STATUS, label } from '@tms/shared';
 import { api } from '@/lib/api';
 
 export type Order = {
@@ -45,6 +45,9 @@ interface StatusColumn {
     tone: KanbanTone;
 }
 
+// Колонки канбана — UI-этапы доски логиста (НЕ перевод enum, остаются локально:
+// confirmed здесь = этап «В работе», тогда как канон-статус = «Подтверждена»).
+// Перевод САМОГО enum (Pill в таблице) — из канона ORDER_STATUS (@tms/shared).
 const STATUS_COLUMNS: StatusColumn[] = [
     { key: 'draft', label: 'Черновик', tone: 'neutral' },
     { key: 'confirmed', label: 'В работе', tone: 'info' },
@@ -52,11 +55,6 @@ const STATUS_COLUMNS: StatusColumn[] = [
     { key: 'in_transit', label: 'В пути', tone: 'warning' },
     { key: 'delivered', label: 'Доставлена', tone: 'success' },
 ];
-
-const STATUS_LABELS: Record<string, string> = STATUS_COLUMNS.reduce((acc, c) => {
-    acc[c.key] = c.label;
-    return acc;
-}, {} as Record<string, string>);
 
 const STATUS_TONES: Record<string, KanbanTone> = STATUS_COLUMNS.reduce((acc, c) => {
     acc[c.key] = c.tone;
@@ -173,8 +171,7 @@ export default function LogistPage() {
             if (!json.success) {
                 throw new Error(json.error || 'API Error');
             }
-            const statusLabel = STATUS_LABELS[toCol] || toCol;
-            showToast(`Статус → ${statusLabel}`);
+            showToast(`Статус → ${label(ORDER_STATUS, toCol)}`);
         } catch (err) {
             console.error('Failed to update order status', err);
             showToast(err instanceof Error ? err.message : 'Не удалось обновить статус', 'error');
@@ -183,9 +180,7 @@ export default function LogistPage() {
     }, [ordersList, loadOrders, showToast]);
 
     const handleMoveReject = useCallback((orderId: string, fromCol: string, toCol: string) => {
-        const from = STATUS_LABELS[fromCol] || fromCol;
-        const to = STATUS_LABELS[toCol] || toCol;
-        showToast(`Нельзя: «${from}» → «${to}»`, 'error');
+        showToast(`Нельзя: «${label(ORDER_STATUS, fromCol)}» → «${label(ORDER_STATUS, toCol)}»`, 'error');
     }, [showToast]);
 
     const handleCreateOrder = useCallback((order: Order) => {
@@ -217,8 +212,8 @@ export default function LogistPage() {
         {
             id: 'status',
             header: 'Статус',
-            accessor: r => STATUS_LABELS[r.status] || r.status,
-            cell: r => <Pill tone={mapToneToPill(STATUS_TONES[r.status])}>{STATUS_LABELS[r.status] || r.status}</Pill>,
+            accessor: r => label(ORDER_STATUS, r.status),
+            cell: r => <Pill tone={mapToneToPill(STATUS_TONES[r.status])}>{label(ORDER_STATUS, r.status)}</Pill>,
             sortable: true,
         },
         {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import type { Invoice as SharedInvoice } from '@tms/shared';
+import { type Invoice as SharedInvoice, INVOICE_STATUS, INVOICE_TYPE, ORDER_STATUS, label } from '@tms/shared';
 import { api } from "@/lib/api";
 import { downloadFromApi } from '@/lib/download';
 import { CreateInvoiceButton, InvoiceWorkflowActions } from './InvoiceWorkflowActions';
@@ -63,12 +63,7 @@ type ApiResponse<T> = { success: boolean; data: T };
 // T-16 — новая FSM статусов (invoice-spec.md §2).
 const STATUS_OPTIONS = [
     { value: '', label: 'Все статусы' },
-    { value: 'draft', label: 'Черновик' },
-    { value: 'issued', label: 'Выпущен' },
-    { value: 'paid_partial', label: 'Частично оплачен' },
-    { value: 'paid_full', label: 'Оплачен' },
-    { value: 'corrected', label: 'Исправлен' },
-    { value: 'cancelled', label: 'Отменён' },
+    ...Object.entries(INVOICE_STATUS).map(([value, label]) => ({ value, label })),
 ];
 
 const getStatusColor = (status: string) => {
@@ -79,17 +74,6 @@ const getStatusColor = (status: string) => {
         case 'corrected': return 'bg-purple-50 text-purple-700 border-purple-200';
         case 'cancelled': return 'bg-neutral-100 text-neutral-500 border-neutral-200';
         default: return 'bg-amber-50 text-amber-700 border-amber-200'; // draft
-    }
-};
-
-const getStatusText = (status: string) => {
-    switch (status) {
-        case 'paid_full': return 'Оплачен';
-        case 'paid_partial': return 'Частично оплачен';
-        case 'issued': return 'Выпущен';
-        case 'corrected': return 'Исправлен';
-        case 'cancelled': return 'Отменён';
-        default: return 'Черновик';
     }
 };
 
@@ -104,16 +88,6 @@ function shortInvoiceNo(num: string): string {
     if (!num) return num;
     return num.length > 20 ? num.slice(0, 16) + '…' + num.slice(-4) : num;
 }
-
-const invoiceTypeLabels: Record<Invoice['type'], string> = {
-    payment: 'Счёт на оплату',
-    advance: 'Аванс СФ',
-    sf: 'Счёт-фактура',
-    upd: 'УПД',
-    corrective_sf: 'КСФ',
-    corrective_upd: 'КУПД',
-    act: 'Акт',
-};
 
 const ADDITIONAL_SERVICE_OPTIONS = [
     { value: 'loading', label: 'Погрузка' },
@@ -766,7 +740,7 @@ export default function FinanceDashboard() {
                                                 />
                                             </TableCell>
                                             <TableCell className="font-medium text-blue-600" title={inv.number}>{shortInvoiceNo(inv.number)}</TableCell>
-                                            <TableCell className="text-neutral-500">{invoiceTypeLabels[inv.type] || inv.type}</TableCell>
+                                            <TableCell className="text-neutral-500">{label(INVOICE_TYPE, inv.type)}</TableCell>
                                             <TableCell className="text-neutral-500">
                                                 {inv.periodStart && format(new Date(inv.periodStart), 'dd.MM', { locale: ru })}
                                                 {' — '}
@@ -777,7 +751,7 @@ export default function FinanceDashboard() {
                                             <TableCell className="font-semibold">{fmtMoney(inv.total)}</TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className={getStatusColor(inv.status)}>
-                                                    {getStatusText(inv.status)}
+                                                    {label(INVOICE_STATUS, inv.status)}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -817,8 +791,8 @@ export default function FinanceDashboard() {
                 {selectedInvoice && (
                     <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div><span className="text-neutral-500">Тип:</span> <span className="font-medium">{invoiceTypeLabels[selectedInvoice.type] || selectedInvoice.type}</span></div>
-                            <div><span className="text-neutral-500">Статус:</span> <Badge variant="outline" className={getStatusColor(selectedInvoice.status)}>{getStatusText(selectedInvoice.status)}</Badge></div>
+                            <div><span className="text-neutral-500">Тип:</span> <span className="font-medium">{label(INVOICE_TYPE, selectedInvoice.type)}</span></div>
+                            <div><span className="text-neutral-500">Статус:</span> <Badge variant="outline" className={getStatusColor(selectedInvoice.status)}>{label(INVOICE_STATUS, selectedInvoice.status)}</Badge></div>
                             <div><span className="text-neutral-500">Подитог:</span> <span className="font-medium">{fmtMoney(selectedInvoice.subtotal)}</span></div>
                             <div><span className="text-neutral-500">НДС:</span> <span className="font-medium">{fmtMoney(selectedInvoice.vatAmount)}</span></div>
                             <div className="col-span-2"><span className="text-neutral-500">Итого:</span> <span className="text-2xl font-bold">{fmtMoney(selectedInvoice.total)}</span></div>
@@ -840,7 +814,7 @@ export default function FinanceDashboard() {
                                             <div className="min-w-0 flex-1">
                                                 <div className="text-sm font-medium text-neutral-900 truncate">
                                                     {row.number}
-                                                    <span className="text-[10px] text-neutral-500 ml-2">{row.status}</span>
+                                                    <span className="text-[10px] text-neutral-500 ml-2">{label(ORDER_STATUS, row.status)}</span>
                                                 </div>
                                                 <div className="text-xs text-neutral-600 truncate">
                                                     {row.cargoDescription}
