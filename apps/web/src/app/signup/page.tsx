@@ -230,7 +230,7 @@ export default function SignupPage() {
 
         setLoading(true);
         try {
-            const res = await api.post<{ success: boolean; error?: string }>('/auth/signup', {
+            const res = await api.post<{ success: boolean; error?: string; data?: { signupId?: string; devCode?: string } }>('/auth/signup', {
                 email,
                 password,
                 fullName,
@@ -254,7 +254,14 @@ export default function SignupPage() {
                 title: 'Письмо отправлено',
                 description: 'Проверьте почту и введите код подтверждения.',
             });
-            router.push(`/signup/verify?email=${encodeURIComponent(email)}`);
+            // F-01: на dev/демо-стенде бэкенд возвращает devCode (код ушёл только
+            // в консоль) — пробрасываем на verify-страницу для dev-баннера. В проде
+            // devCode отсутствует → баннер не показывается.
+            const devCode = res.data?.devCode;
+            router.push(
+                `/signup/verify?email=${encodeURIComponent(email)}`
+                + (devCode ? `&dev=${encodeURIComponent(devCode)}` : ''),
+            );
         } catch (err: unknown) {
             toast({
                 variant: 'error',

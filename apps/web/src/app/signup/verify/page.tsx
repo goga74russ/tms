@@ -50,6 +50,9 @@ function VerifyEmailContent() {
     const { toast } = useToast();
     const params = useSearchParams();
     const email = params.get('email') ?? '';
+    // F-01: dev/демо-стенд прокидывает код подтверждения сюда (реального SMTP нет,
+    // код ушёл только в логи). Показываем баннер, чтобы презентатор не лез в логи.
+    const devCode = params.get('dev') ?? '';
 
     const [digits, setDigits] = useState<string[]>(() => Array(CODE_LENGTH).fill(''));
     const [loading, setLoading] = useState(false);
@@ -259,6 +262,17 @@ function VerifyEmailContent() {
             rightPanel={<VerifyIllustration />}
         >
             <div className="space-y-5">
+                {/* F-01: dev/демо-баннер с кодом (только когда бэкенд его вернул —
+                    нет SMTP). В проде devCode пуст → баннер не рендерится. */}
+                {devCode && (
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        <span className="font-semibold">Демо-режим:</span> код подтверждения —{' '}
+                        <span className="font-mono font-bold tracking-widest">{devCode}</span>
+                        <span className="block text-[11px] text-amber-700 mt-0.5">
+                            Показан, потому что почта не настроена (код ушёл только в логи). В проде с SMTP не отображается.
+                        </span>
+                    </div>
+                )}
                 {/* Code boxes */}
                 <div className="flex justify-center gap-2 sm:gap-3" onPaste={handlePaste}>
                     {digits.map((d, idx) => (

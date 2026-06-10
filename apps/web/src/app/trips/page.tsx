@@ -3354,6 +3354,10 @@ export default function TripsPage() {
                                                         <Button
                                                             size="sm"
                                                             className="mt-3 w-full"
+                                                            // footgun-фикс: distinct accessible name —
+                                                            // в DOM есть одноимённая submit-кнопка модала,
+                                                            // текстовый селектор иначе хватал не ту (F-18).
+                                                            aria-label="Открыть модал начала рейса"
                                                             onClick={() => openStartTripModal(dossier.trip)}
                                                         >
                                                             <Play className="w-3.5 h-3.5 mr-1.5" />
@@ -3369,6 +3373,7 @@ export default function TripsPage() {
                                                         <Button
                                                             size="sm"
                                                             className="mt-3 w-full"
+                                                            aria-label="Открыть модал завершения рейса"
                                                             onClick={() => openCompleteTripModal(dossier.trip)}
                                                         >
                                                             <Flag className="w-3.5 h-3.5 mr-1.5" />

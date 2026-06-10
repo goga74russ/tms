@@ -149,10 +149,25 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
         .map((a) => ({ orderId: a.orderId, allocatedAmount: Number(a.allocatedAmount) }));
 
     // raw fetch — нужен code/details для SF_OVERDUE_WARNING (api.post их теряет)
+    // F-09: единый чек-лист недостающего перед выпуском — раньше ошибки шли по
+    // одной (основание → fix → заявки → fix → НДС из бэкенда), бухгалтер тратил
+    // время. Считаем всё разом и показываем список.
+    const issueProblems = () => {
+        const invoiceOrders = buildInvoiceOrders();
+        const p: string[] = [];
+        if (!basisText || basisText.trim().length < 5) p.push("основание (≥5 символов)");
+        if (invoiceOrders.length === 0) p.push("хотя бы одна заявка с суммой > 0");
+        if (VAT_DOC_TYPES.includes(invoice.type) && (!vatRate || Number(vatRate) <= 0)) p.push("ставка НДС");
+        return p;
+    };
+
     const submitIssue = async () => {
         const invoiceOrders = buildInvoiceOrders();
-        if (!basisText || basisText.trim().length < 5) { toast({ variant: "warning", title: "Основание", description: "Укажите basis_text (≥5 симв.)" }); return; }
-        if (invoiceOrders.length === 0) { toast({ variant: "warning", title: "Заявки", description: "Добавьте хотя бы одну заявку с суммой" }); return; }
+        const problems = issueProblems();
+        if (problems.length) {
+            toast({ variant: "warning", title: "Заполните перед выпуском", description: problems.join("; ") });
+            return;
+        }
         setBusy(true);
         try {
             const payload: Record<string, unknown> = { basisText, invoiceOrders };
@@ -317,6 +332,16 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
                         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 space-y-2">
                             <p className="text-sm text-red-700">Просрочка выпуска: <b>{overdueInfo.daysLate} дн.</b> сверх 5-дневного срока (ст. 168 НК). Укажите причину для подтверждения.</p>
                             <Input placeholder="Причина просрочки" value={overdueReason} onChange={(e) => setOverdueReason(e.target.value)} />
+                        </div>
+                    )}
+                    {/* F-09: persistent чек-лист «осталось заполнить» — видно всё разом
+                        до нажатия, а не по одной ошибке после. */}
+                    {issueProblems().length > 0 && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            <span className="font-semibold">Осталось заполнить:</span>
+                            <ul className="list-disc pl-4 mt-0.5">
+                                {issueProblems().map((p, i) => <li key={i}>{p}</li>)}
+                            </ul>
                         </div>
                     )}
                     <div className="flex justify-end gap-2 pt-1">

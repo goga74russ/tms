@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { ClipboardList, Plus, Filter, RefreshCw, Loader2, AlertCircle, Truck, LayoutGrid, Rows3, Package, MapPin, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { ClipboardList, Plus, Filter, RefreshCw, Loader2, AlertCircle, Truck, LayoutGrid, Rows3, Package, MapPin, CheckCircle2, Clock, AlertTriangle, ArrowRight } from 'lucide-react';
 import { OrderFilters } from './components/OrderFilters';
 import { CreateOrderModal } from './components/CreateOrderModal';
 import { CreateTripModal } from './components/CreateTripModal';
@@ -422,6 +422,19 @@ export default function LogistPage() {
                                                         {order.number}
                                                     </span>
                                                 </div>
+                                                {/* F-03: видимая кнопка перевода «В работу» на карточке
+                                                    Черновика — drag был, но не discoverable. stopPropagation,
+                                                    чтобы клик не запускал drag. Тот же путь, что и drag. */}
+                                                {col.key === 'draft' && (
+                                                    <button
+                                                        type="button"
+                                                        onPointerDown={(e) => e.stopPropagation()}
+                                                        onClick={(e) => { e.stopPropagation(); handleMove(order.id, 'draft', 'confirmed'); }}
+                                                        className="w-full mt-1 inline-flex items-center justify-center gap-1 rounded-md bg-brand-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+                                                    >
+                                                        В работу <ArrowRight className="w-3 h-3" />
+                                                    </button>
+                                                )}
                                             </div>
                                         </KanbanCard>
                                     );

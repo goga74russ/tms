@@ -356,8 +356,14 @@ export default function MedicPage() {
         }
 
         if (!formData.systolicBp || !formData.diastolicBp || !formData.heartRate ||
-            !formData.temperature || !formData.alcoholTest) {
-            setToast({ message: 'Заполните все обязательные показатели', type: 'error' });
+            !formData.temperature) {
+            setToast({ message: 'Заполните показатели: АД, пульс, температура', type: 'error' });
+            return;
+        }
+        // F-05: отдельная понятная ошибка вместо общей «заполните всё» — раньше
+        // пустой алкотест ловился вместе с остальными и причина была неочевидна.
+        if (!formData.alcoholTest) {
+            setToast({ message: 'Укажите результат алкотеста: Отрицательный или Положительный', type: 'error' });
             return;
         }
 
@@ -584,8 +590,13 @@ export default function MedicPage() {
                                 <Wine className="w-3.5 h-3.5 inline mr-1" />
                                 Алкотест *
                             </label>
-                            <div className="flex gap-2">
+                            {/* F-05: type=button (тогглы были без него — риск submit формы),
+                                + подсветка «не выбрано» для обязательного поля без дефолта
+                                (дефолт «Отрицательный» сознательно не ставим — это запись
+                                непроведённого теста под ПЭП-подписью медика). */}
+                            <div className={`flex gap-2 rounded-lg ${formData.alcoholTest === '' ? 'ring-1 ring-amber-300' : ''}`}>
                                 <button
+                                    type="button"
                                     onClick={() => updateForm('alcoholTest', 'negative')}
                                     className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition ${formData.alcoholTest === 'negative'
                                         ? 'bg-emerald-600 text-white shadow-sm'
@@ -595,6 +606,7 @@ export default function MedicPage() {
                                     Отрицательный
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => updateForm('alcoholTest', 'positive')}
                                     className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition ${formData.alcoholTest === 'positive'
                                         ? 'bg-red-600 text-white shadow-sm'
@@ -604,6 +616,9 @@ export default function MedicPage() {
                                     Положительный
                                 </button>
                             </div>
+                            {formData.alcoholTest === '' && (
+                                <p className="text-[11px] text-amber-600">Не выбрано — обязательное поле</p>
+                            )}
                         </div>
 
                         {/* Complaints */}
