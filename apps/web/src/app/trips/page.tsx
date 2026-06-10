@@ -3115,6 +3115,33 @@ export default function TripsPage() {
                     <p className="text-sm text-neutral-500">
                         Зафиксируйте показания одометра на финише и при необходимости оставьте комментарий.
                     </p>
+                    {/* F-15: чек-лист закрытия — конкретика ДО сабмита (по образцу F-14).
+                        Раньше пользователь видел только бейдж «Закрытие заблокировано»
+                        без причин; сервер отбивал сабмит, а модал не объяснял, что снять. */}
+                    {(() => {
+                        const gate = dossier?.closeGate as DossierCloseGate | undefined;
+                        if (!completeTripFor || dossier?.trip?.id !== completeTripFor.id || !gate || gate.canClose) return null;
+                        const blockers = (gate.blockingItems ?? []).map(i => i.reason || i.documentType);
+                        const queue = (gate.documentQueue ?? []).map(d => `${d.reason || d.documentType}${d.action ? ` — ${d.action}` : ''}`);
+                        const warnings = (gate.warningItems ?? []).map(i => i.reason || i.documentType);
+                        return (
+                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                                <p className="font-bold mb-1">Закрытие сейчас заблокировано:</p>
+                                <ul className="list-disc space-y-0.5 pl-4">
+                                    {blockers.map((b, i) => <li key={`b${i}`} className="font-medium">{b}</li>)}
+                                    {queue.map((q, i) => <li key={`q${i}`}>{q}</li>)}
+                                </ul>
+                                {warnings.length > 0 && (
+                                    <p className="mt-1.5 text-[11px] text-amber-600">
+                                        Риски (не блокируют): {warnings.join('; ')}
+                                    </p>
+                                )}
+                                <p className="mt-1.5 text-[11px] text-amber-600">
+                                    Снимите блокеры в блоке «Закрытие рейса» досье — иначе сервер отклонит завершение.
+                                </p>
+                            </div>
+                        );
+                    })()}
                     <div>
                         <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
                             Одометр (км) <span className="text-red-500">*</span>
