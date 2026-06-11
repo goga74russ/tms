@@ -305,6 +305,8 @@ export const TARIFF_TYPE_LABELS: Record<string, string> = {
 // Audit log — сущности и события (§3.9, fallback мягкий)
 // ============================================================
 
+// Сверено с backend recordEvent entityType. Покрывает все значения, иначе
+// audit-log течёт сырым (tech_inspection/med_inspection/route_point и т.п.).
 export const ENTITY_LABELS: Record<string, string> = {
     trip: 'Рейс',
     order: 'Заявка',
@@ -316,29 +318,146 @@ export const ENTITY_LABELS: Record<string, string> = {
     contractor: 'Контрагент',
     incident: 'Инцидент',
     organization: 'Организация',
+    claim: 'Претензия',
+    document: 'Документ',
+    document_return: 'Возврат документов',
+    fine: 'Штраф',
+    med_inspection: 'Медосмотр',
+    tech_inspection: 'Техосмотр',
+    repair: 'Ремонт',
+    repair_request: 'Заявка на ремонт',
+    repair_part_catalog: 'Каталог запчастей',
+    route_point: 'Точка маршрута',
+    shipment_fact: 'Факт отгрузки',
+    shipment_lot: 'Партия груза',
+    thing: 'Объект',
 };
 
+/** Полный словарь событий audit-log. Ключи сверены с backend recordEvent
+ *  (apps/api/src — eventType:'...'). Прямой словарь, а не композиция «entity
+ *  action» — иначе грамматика кривая («Рейс статус изменён»). */
+export const EVENT_LABELS: Record<string, string> = {
+    // trip
+    'trip.created': 'Рейс создан',
+    'trip.assigned': 'Рейс назначен',
+    'trip.started': 'Рейс начат',
+    'trip.finished': 'Рейс завершён',
+    'trip.completed': 'Рейс завершён',
+    'trip.cancelled': 'Рейс отменён',
+    'trip.closed': 'Рейс закрыт',
+    'trip.departed': 'Рейс отправлен',
+    'trip.status_changed': 'Статус рейса изменён',
+    'trip.waybill_issued': 'Путевой лист выдан',
+    'trip.eta_updated': 'Прибытие обновлено',
+    'trip.adr_warning': 'ADR-предупреждение по рейсу',
+    'trip.carrier_cost_changed': 'Стоимость перевозчика изменена',
+    'trip.driver_cleared': 'Водитель снят с рейса',
+    'trip.route_points_sorted': 'Точки маршрута отсортированы',
+    'trip.route.readdressed': 'Переадресация маршрута',
+    'trip.point.downtime_recorded': 'Простой на точке записан',
+    'trip.disruption.breakdown': 'Поломка в рейсе',
+    'trip.resource.replaced': 'Замена ресурса в рейсе',
+    'trip.crew.rest_plan_recorded': 'План отдыха экипажа записан',
+    'trip.post_trip.return_recorded': 'Возврат после рейса записан',
+    'trip.cancellation.after_arrival': 'Отмена рейса после подачи',
+    'trip.volume_overflow_overridden': 'Перегруз по объёму подтверждён',
+    // order
+    'order.created': 'Заявка создана',
+    'order.assigned': 'Заявка назначена',
+    'order.in_transit': 'Заявка в пути',
+    'order.delivered': 'Заявка доставлена',
+    'order.split_lots': 'Заявка разбита на партии',
+    'order.customer_price_changed': 'Цена клиента изменена',
+    // inspection
+    'inspection.completed': 'Осмотр завершён',
+    'inspection.decision_changed': 'Решение по осмотру изменено',
+    'inspection.med_started': 'Медосмотр начат',
+    'inspection.med_completed': 'Медосмотр завершён',
+    'inspection.tech_started': 'Техосмотр начат',
+    'inspection.tech_completed': 'Техосмотр завершён',
+    // invoice
+    'invoice.created': 'Счёт создан',
+    'invoice.draft_created': 'Создан черновик счёта',
+    'invoice.auto_created': 'Счёт создан автоматически',
+    'invoice.issued': 'Счёт выпущен',
+    'invoice.cancelled': 'Счёт аннулирован',
+    'invoice.correction_issued': 'Выпущена корректировка счёта',
+    'invoice.payment_registered': 'Оплата зарегистрирована',
+    'invoice.partial_payment.recorded': 'Частичная оплата записана',
+    'invoice.additional_service.added': 'Доп. услуга добавлена в счёт',
+    // document / signature
+    'document.created': 'Документ создан',
+    'document.signed': 'Документ подписан',
+    'document_return.created': 'Возврат документов создан',
+    'document_return.updated': 'Возврат документов обновлён',
+    'signature_recorded': 'Подпись зафиксирована',
+    'signature_refused': 'Отказ от подписи',
+    'signed': 'Подписано',
+    'signed_by_carrier': 'Подписано перевозчиком',
+    'provider_callback': 'Колбэк провайдера',
+    'provider_send': 'Отправка провайдеру',
+    'retry_requested': 'Запрошена повторная отправка',
+    // fleet / repair / fine
+    'vehicle.created': 'ТС создано',
+    'vehicle.status_changed': 'Статус ТС изменён',
+    'driver.created': 'Водитель добавлен',
+    'contractor.created': 'Контрагент создан',
+    'fine.registered': 'Штраф зарегистрирован',
+    'fine.auto_imported': 'Штраф импортирован автоматически',
+    'repair.created': 'Заявка на ремонт создана',
+    'repair.catalog_item_created': 'Позиция каталога ремонта создана',
+    'repair.catalog_item_updated': 'Позиция каталога ремонта обновлена',
+    'repair.catalog_item_archived': 'Позиция каталога ремонта архивирована',
+    // claims
+    'claim_created': 'Претензия создана',
+    'claim_resolved': 'Претензия урегулирована',
+    'claim_status_changed': 'Статус претензии изменён',
+    // shipment / temperature / rto
+    'shipment_lot.assigned_to_trip': 'Партия назначена на рейс',
+    'temperature.recorded': 'Замер температуры записан',
+    'temperature.breach': 'Нарушение температуры',
+    'rto.breach': 'Нарушение режима труда и отдыха',
+    // org / integration / sync / demo / misc
+    'organization.tax_regime_changed': 'Налоговый режим изменён',
+    'integration.wialon_sync': 'Синхронизация Wialon',
+    'integration.fines_sync': 'Синхронизация штрафов',
+    'integration.billing_daily': 'Дневной биллинг',
+    'sync.conflict': 'Конфликт синхронизации',
+    'sync.event_processed': 'Событие синхронизации обработано',
+    'synced': 'Синхронизировано',
+    'demo.generated': 'Демо-данные сгенерированы',
+    'demo.cleanup': 'Демо-данные очищены',
+    'created': 'Создано',
+    'registered': 'Зарегистрировано',
+    'status_changed': 'Статус изменён',
+    'status_updated': 'Статус обновлён',
+    'mystery.unknown': 'Неизвестное событие',
+};
+
+// Композиция для НЕизвестных entity.action (fallback перед мягким).
+const ENTITY_PHRASE: Record<string, string> = {
+    ...ENTITY_LABELS, inspection: 'Осмотр', claim: 'Претензия', document: 'Документ',
+    fine: 'Штраф', repair: 'Ремонт', temperature: 'Температура', signature: 'Подпись',
+};
 const ACTION_VERBS: Record<string, string> = {
-    created: 'создан',
-    updated: 'изменён',
-    deleted: 'удалён',
-    signed: 'подписан',
-    issued: 'выпущен',
-    cancelled: 'отменён',
-    completed: 'завершён',
-    assigned: 'назначен',
+    created: 'создан', updated: 'изменён', deleted: 'удалён', signed: 'подписан',
+    issued: 'выпущен', cancelled: 'отменён', completed: 'завершён', assigned: 'назначен',
+    started: 'начат', finished: 'завершён', registered: 'зарегистрирован',
+    status_changed: 'изменён', recorded: 'записан',
 };
 
-/** Событие audit-log формата `entity.action` → «Рейс создан». Мягкий fallback:
- *  неизвестное — заменяем разделители на пробел + capitalize, не сырой enum. */
+/** Событие audit-log → русская фраза. Прямой словарь (81 backend-событие);
+ *  затем композиция entity+action; затем мягкий fallback (не сырой английский id). */
 export function eventLabel(event: string | null | undefined): string {
     if (!event) return '—';
+    if (EVENT_LABELS[event]) return EVENT_LABELS[event];
     const [entity, action] = event.split('.');
-    if (entity && action && ENTITY_LABELS[entity] && ACTION_VERBS[action]) {
-        return `${ENTITY_LABELS[entity]} ${ACTION_VERBS[action]}`;
+    if (entity && action && ENTITY_PHRASE[entity] && ACTION_VERBS[action]) {
+        return `${ENTITY_PHRASE[entity]} ${ACTION_VERBS[action]}`;
     }
-    const soft = event.replace(/[._]/g, ' ').trim();
-    return soft.charAt(0).toUpperCase() + soft.slice(1);
+    // Неизвестное — нейтральная русская обёртка + машинный id (для трассировки),
+    // НЕ де-пунктуированный английский (раньше выдавал «Trip status changed»).
+    return `Событие: ${event}`;
 }
 
 // ============================================================
