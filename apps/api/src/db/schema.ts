@@ -1477,6 +1477,11 @@ export const claimStatusEnum = pgEnum('claim_status', ['open', 'investigating', 
 
 export const claims = pgTable('claims', {
     id: uuid('id').primaryKey().defaultRandom(),
+    // Прямой org-скоуп (миг.0047) — раньше claims скоупились только через
+    // contractor-FK (claims с null-contractor / cross-org FK мис-скоупились,
+    // как был NULL-FK баг incidents до 0042). Заполняется при создании из
+    // contractor.organizationId.
+    organizationId: uuid('organization_id').references(() => organizations.id),
     tripId: uuid('trip_id').references(() => trips.id, { onDelete: 'set null' }),
     orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
     contractorId: uuid('contractor_id').references(() => contractors.id, { onDelete: 'set null' }),
@@ -1496,6 +1501,7 @@ export const claims = pgTable('claims', {
     index('idx_claims_trip').on(table.tripId),
     index('idx_claims_contractor').on(table.contractorId),
     index('idx_claims_status').on(table.status),
+    index('idx_claims_org').on(table.organizationId),
 ]);
 
 // ================================================================

@@ -1,6 +1,6 @@
 ﻿import { db } from '../../db/connection.js';
 import { claims, orders, tripOrders, contractors } from '../../db/schema.js';
-import { eq, and, desc, inArray } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import {
     appendSettlementNote,
@@ -88,11 +88,9 @@ export const claimsService = {
     async list(filters: ClaimListFilters = {}) {
         const conditions: ReturnType<typeof eq>[] = [];
         if (filters.organizationId) {
-            conditions.push(
-                inArray(claims.contractorId,
-                    db.select({ id: contractors.id }).from(contractors).where(eq(contractors.organizationId, filters.organizationId))
-                ) as any
-            );
+            // Миг.0047: прямой org-скоуп вместо contractor-FK-подзапроса (тот
+            // мис-скоупил claims с null-contractor / cross-org FK).
+            conditions.push(eq(claims.organizationId, filters.organizationId));
         }
         if (filters.contractorId) {
             conditions.push(eq(claims.contractorId, filters.contractorId));
@@ -156,6 +154,14 @@ export const claimsService = {
             throw new Error('Claim must be linked to a contractor');
         }
 
+        // Миг.0047: прямой org-скоуп — берём org контрагента (claim принадлежит
+        // орг своего контрагента; создатель из той же орг по guard в routes).
+        const [contractorRow] = await db.select({ organizationId: contractors.organizationId })
+            .from(contractors)
+            .where(eq(contractors.id, effectiveContractorId))
+            .limit(1);
+        const claimOrgId = contractorRow?.organizationId ?? null;
+
         const classification = classifyClaim({
             type: data.type,
             cause: data.cause,
@@ -170,6 +176,7 @@ export const claimsService = {
         });
 
         const [row] = await db.insert(claims).values({
+            organizationId: claimOrgId,
             tripId: data.tripId ?? null,
             orderId: data.orderId ?? null,
             contractorId: effectiveContractorId,
