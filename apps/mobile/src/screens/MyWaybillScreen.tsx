@@ -13,17 +13,31 @@ import { WebView } from 'react-native-webview';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { getWaybillByTripId, getWaybillPdfRequest, WaybillSummary, WaybillPdfRequest } from '../api/waybills';
+import { WAYBILL_STATUS, label } from '@tms/shared';
 import { Button, Card, KeyValueRow, Pill, PillTone } from '../components/ui';
 import { colors, spacing, typography } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MyWaybill'>;
 
-const STATUS_PILL: Record<string, { tone: PillTone; label: string }> = {
-    draft: { tone: 'neutral', label: 'Черновик' },
-    issued: { tone: 'brand', label: 'Выдан' },
-    in_transit: { tone: 'warning', label: 'В рейсе' },
-    completed: { tone: 'success', label: 'Завершён' },
-    cancelled: { tone: 'danger', label: 'Отменён' },
+// Лейблы — канон WAYBILL_STATUS (@tms/shared). Здесь только тона Pill.
+const STATUS_TONE: Record<string, PillTone> = {
+    draft: 'neutral',
+    medical_check: 'warning',
+    technical_check: 'warning',
+    issued: 'brand',
+    closed: 'success',
+    // legacy-значения шире канона waybill_status (см. LEGACY_WAYBILL_STATUS):
+    in_transit: 'warning',
+    completed: 'success',
+    cancelled: 'danger',
+};
+
+// DEFERRED: значения вне канона waybill_status (draft/medical_check/technical_check/
+// issued/closed) — исторически приходили с API; оставлены локально до сверки enum.
+const LEGACY_WAYBILL_STATUS: Record<string, string> = {
+    in_transit: 'В рейсе',
+    completed: 'Завершён',
+    cancelled: 'Отменён',
 };
 
 function formatDate(value?: string | null): string {
@@ -96,7 +110,8 @@ export default function MyWaybillScreen({ route }: Props) {
     }
 
     const statusKey = waybill.status || 'draft';
-    const statusInfo = STATUS_PILL[statusKey] ?? { tone: 'neutral' as PillTone, label: statusKey };
+    const statusLabel = label({ ...WAYBILL_STATUS, ...LEGACY_WAYBILL_STATUS }, statusKey);
+    const statusTone: PillTone = STATUS_TONE[statusKey] ?? 'neutral';
 
     const vehicleLine = waybill.vehicle
         ? [waybill.vehicle.brand, waybill.vehicle.model, waybill.vehicle.plateNumber].filter(Boolean).join(' ')
@@ -117,7 +132,7 @@ export default function MyWaybillScreen({ route }: Props) {
                     <Text style={styles.title}>Путевой лист</Text>
                     <Text style={styles.subtitle}>№ {waybill.number}</Text>
                 </View>
-                <Pill label={statusInfo.label} tone={statusInfo.tone} />
+                <Pill label={statusLabel} tone={statusTone} />
             </View>
 
             <Card style={{ marginTop: spacing.lg }}>

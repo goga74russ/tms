@@ -8,6 +8,7 @@ import {
     View,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { BREACH_TYPE_LABELS, label } from '@tms/shared';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { HosStatus, HoursSummary, getMyHosStatus, getMyHoursSummary } from '../api/rto';
 import { Card, Pill } from '../components/ui';
@@ -187,7 +188,7 @@ export default function MyHoursScreen(_props: Props) {
                     {summary.breaches.map((b, i) => (
                         <View key={`${b.date}-${i}`} style={styles.breachItem}>
                             <Text style={styles.breachItemDate}>{formatDate(b.date)}</Text>
-                            <Text style={styles.breachItemText}>{b.message || b.type}</Text>
+                            <Text style={styles.breachItemText}>{b.message || label(BREACH_TYPE_LABELS, b.type)}</Text>
                         </View>
                     ))}
                 </>

@@ -20,6 +20,7 @@ import {
     getTemperatureSummary,
     submitTemperature,
 } from '../api/temperature';
+import { READING_SOURCE_LABELS, label } from '@tms/shared';
 import { Button, Card, Pill } from '../components/ui';
 import { colors, radius, spacing, typography } from '../theme/tokens';
 
@@ -41,19 +42,6 @@ function formatTime(iso: string | null | undefined): string {
         return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     } catch {
         return iso;
-    }
-}
-
-function sourceLabel(src?: string | null): string {
-    switch (src) {
-        case 'manual':
-            return 'Ручной';
-        case 'sensor':
-            return 'Датчик';
-        case 'mock':
-            return 'Mock';
-        default:
-            return '—';
     }
 }
 
@@ -300,7 +288,7 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                     <Card style={{ marginTop: spacing.md }}>
                         <View style={styles.autoRow}>
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.cardTitle}>Авто-режим (mock датчик)</Text>
+                                <Text style={styles.cardTitle}>Авто-режим (демо-датчик)</Text>
                                 <Text style={styles.cardHint}>
                                     Замер каждые 60 секунд вокруг середины SLA. Для тестов и демо.
                                 </Text>
@@ -342,7 +330,7 @@ export default function TemperatureLogScreen({ route, navigation }: Props) {
                 <View style={[styles.readingRow, item.breach && styles.readingRowBreach]}>
                     <View style={styles.readingLeft}>
                         <Text style={styles.readingTime}>{formatTime(item.recordedAt)}</Text>
-                        <Text style={styles.readingSource}>{sourceLabel(item.source)}</Text>
+                        <Text style={styles.readingSource}>{label(READING_SOURCE_LABELS, item.source)}</Text>
                     </View>
                     <Text style={[styles.readingTemp, item.breach && styles.readingTempBreach]}>
                         {formatTemp(item.tempC)}

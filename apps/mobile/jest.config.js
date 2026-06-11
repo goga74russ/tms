@@ -23,6 +23,12 @@ module.exports = {
     setupFiles: ['<rootDir>/test/setupTests.ts'],
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
     moduleNameMapper: {
+        // i18n: канон лейблов из workspace-пакета. Мапим на ИСХОДНИК (.ts), чтобы
+        // ts-jest его трансформировал (dist — ESM, jest его не парсит). Strip '.js'
+        // у относительных ESM-спецификаторов канона (export * from './labels.js')
+        // — иначе ts-jest ищет несуществующий .js. В mobile src .js-импортов нет.
+        '^@tms/shared$': '<rootDir>/../../packages/shared/src/index.ts',
+        '^(\\.{1,2}/.*)\\.js$': '$1',
         // Native module stubs ───────────────────────────────────────────
         '^@react-native-async-storage/async-storage$': '<rootDir>/test/mocks/async-storage.ts',
         '^@react-native-community/netinfo$': '<rootDir>/test/mocks/netinfo.ts',

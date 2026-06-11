@@ -483,7 +483,7 @@ export default function MechanicInspectionScreen() {
                                 activeOpacity={0.85}
                             >
                                 <Text style={[styles.resultText, isOk && { color: colors.success[700], fontWeight: '700' }]}>
-                                    OK
+                                    Норма
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity
@@ -492,7 +492,7 @@ export default function MechanicInspectionScreen() {
                                 activeOpacity={0.85}
                             >
                                 <Text style={[styles.resultText, isFault && { color: colors.danger[700], fontWeight: '700' }]}>
-                                    Не ОК
+                                    Не норма
                                 </Text>
                             </TouchableOpacity>
                             <TouchableOpacity

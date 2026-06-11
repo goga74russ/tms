@@ -51,7 +51,7 @@ describe('TemperatureLogScreen', () => {
 
         expect(await findByText('SLA-диапазон')).toBeTruthy();
         expect(await findByText('Записать замер вручную')).toBeTruthy();
-        expect(await findByText('Авто-режим (mock датчик)')).toBeTruthy();
+        expect(await findByText('Авто-режим (демо-датчик)')).toBeTruthy();
         // The foreground-only warning pill must be present so drivers aren't surprised.
         expect(await findByText('ⓘ Авторежим работает только пока экран открыт')).toBeTruthy();
         expect(getByPlaceholderText('например, 4.2')).toBeTruthy();

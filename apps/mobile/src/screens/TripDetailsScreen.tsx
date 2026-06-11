@@ -38,6 +38,13 @@ import { getTemperatureSummary, TemperatureSummary } from '../api/temperature';
 import { startWialonMock, stopWialonMock } from '../api/wialonMock';
 import { Button, Card, Pill, ProgressSteps } from '../components/ui';
 import { colors, radius, spacing, typography, shadow } from '../theme/tokens';
+import {
+    EXCEPTION_TYPE_LABELS,
+    ROUTE_POINT_STATUS,
+    SEVERITY_LABELS,
+    TRIP_STATUS,
+    label,
+} from '@tms/shared';
 
 const WAYBILL_VISIBLE_STATUSES = new Set([
     'waybill_issued',
@@ -49,11 +56,12 @@ const WAYBILL_VISIBLE_STATUSES = new Set([
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TripDetails'>;
 
-const ROUTE_POINT_STATUS: Record<string, { label: string; tone: 'success' | 'brand' | 'warning' | 'neutral' }> = {
-    pending: { label: 'Ожидает', tone: 'neutral' },
-    arrived: { label: 'Прибыл', tone: 'warning' },
-    completed: { label: 'Завершена', tone: 'success' },
-    skipped: { label: 'Пропущена', tone: 'neutral' },
+// Лейблы точек — из канона ROUTE_POINT_STATUS (@tms/shared); локально только тон Pill.
+const ROUTE_POINT_TONE: Record<string, 'success' | 'brand' | 'warning' | 'neutral'> = {
+    pending: 'neutral',
+    arrived: 'warning',
+    completed: 'success',
+    skipped: 'neutral',
 };
 
 const STAGE_BY_STATUS: Record<string, number> = {
@@ -387,8 +395,8 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                         <Text style={styles.tripTitle}>Маршрут № {trip.tripId.slice(0, 8)}</Text>
                         <Text style={styles.tripSub}>
                             {points.length > 0
-                                ? `${points.length} ${points.length === 1 ? 'точка' : 'точек'} · ${trip.status}`
-                                : trip.status}
+                                ? `${points.length} ${points.length === 1 ? 'точка' : 'точек'} · ${label(TRIP_STATUS, trip.status)}`
+                                : label(TRIP_STATUS, trip.status)}
                         </Text>
                     </View>
                     {offlineQueueSummary.size > 0 && (
@@ -413,7 +421,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                                 </Text>
                             </>
                         ) : (
-                            <Text style={styles.etaMuted}>ETA: нет GPS-данных</Text>
+                            <Text style={styles.etaMuted}>Прибытие: нет GPS-данных</Text>
                         )}
                     </Card>
                 )}
@@ -468,13 +476,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                             <View key={item.id} style={styles.exceptionItem}>
                                 <View style={styles.exceptionHeader}>
                                     <Pill
-                                        label={
-                                            item.severity === 'blocking'
-                                                ? 'Блокер'
-                                                : item.severity === 'warning'
-                                                ? 'Риск'
-                                                : 'Инфо'
-                                        }
+                                        label={label(SEVERITY_LABELS, item.severity)}
                                         tone={
                                             item.severity === 'blocking'
                                                 ? 'danger'
@@ -483,7 +485,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                                                 : 'info'
                                         }
                                     />
-                                    <Text style={styles.exceptionType}>{item.type}</Text>
+                                    <Text style={styles.exceptionType}>{label(EXCEPTION_TYPE_LABELS, item.type)}</Text>
                                 </View>
                                 <Text style={styles.exceptionTitle}>{item.title}</Text>
                                 {!!item.message && <Text style={styles.exceptionMessage}>{item.message}</Text>}
@@ -551,7 +553,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                             item.status !== 'completed' &&
                             item.status !== 'skipped';
 
-                        const ps = ROUTE_POINT_STATUS[item.status] ?? { label: item.status, tone: 'neutral' as const };
+                        const pointTone = ROUTE_POINT_TONE[item.status] ?? 'neutral';
 
                         return (
                             <Card
@@ -564,7 +566,7 @@ export default function TripDetailsScreen({ route, navigation }: Props) {
                                     <Text style={styles.pointTitle}>
                                         {`${index + 1}. ${item.type === 'loading' ? 'Погрузка' : 'Выгрузка'}`}
                                     </Text>
-                                    <Pill label={ps.label} tone={ps.tone} />
+                                    <Pill label={label(ROUTE_POINT_STATUS, item.status)} tone={pointTone} />
                                 </View>
                                 <Text style={styles.address}>{item.address}</Text>
                                 {windowLabel && (
