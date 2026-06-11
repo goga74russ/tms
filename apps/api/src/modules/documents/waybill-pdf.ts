@@ -3,9 +3,10 @@
 // ============================================================
 import {
     createDoc, streamToBuffer, formatDate, drawHLine,
-    sectionHeader, drawSignatureLine, MARGIN, CONTENT_W, CARRIER,
+    sectionHeader, drawSignatureLine, MARGIN, CONTENT_W,
     PAGE_W,
 } from './pdf-base.js';
+import { carrierForPdf, type CarrierRequisites } from './org-requisites.js';
 
 export interface WaybillPdfInput {
     number: string;
@@ -46,6 +47,7 @@ export interface WaybillPdfInput {
     validTo?: string | Date | null;
     transportServiceType?: string | null;
     transportMode?: string | null;
+    carrier: CarrierRequisites | null; // ③ — реквизиты перевозчика из организации
 }
 
 function formatTime(d: string | Date | null | undefined): string {
@@ -67,6 +69,7 @@ function formatDateTime(d: string | Date | null | undefined): string {
 
 export async function generateWaybillPdf(data: WaybillPdfInput): Promise<Buffer> {
     const doc = createDoc();
+    const C = carrierForPdf(data.carrier);
 
     // ── Шапка ──────────────────────────────────────────────
     doc.font('Bold').fontSize(11).text('ПУТЕВОЙ ЛИСТ', { align: 'center' });
@@ -75,7 +78,7 @@ export async function generateWaybillPdf(data: WaybillPdfInput): Promise<Buffer>
 
     // Дата и номер справа, организация слева
     const topY = doc.y;
-    doc.font('Bold').fontSize(10).text(CARRIER.name, MARGIN, topY, { width: CONTENT_W * 0.6 });
+    doc.font('Bold').fontSize(10).text(C.name, MARGIN, topY, { width: CONTENT_W * 0.6 });
     doc.font('Regular').fontSize(9)
         .text(`№ ${data.number}`, MARGIN + CONTENT_W * 0.6, topY, { width: CONTENT_W * 0.4, align: 'right' });
     doc.font('Regular').fontSize(9)
@@ -280,7 +283,7 @@ export async function generateWaybillPdf(data: WaybillPdfInput): Promise<Buffer>
     drawHLine(doc);
     doc.font('Regular').fontSize(7).fillColor('#999999')
         .text(
-            `Путевой лист № ${data.number} | ${CARRIER.name} | ИНН ${CARRIER.inn} | Дата формирования: ${formatDate(new Date())}`,
+            `Путевой лист № ${data.number} | ${C.name} | ИНН ${C.inn} | Дата формирования: ${formatDate(new Date())}`,
             MARGIN, doc.y + 4, { width: CONTENT_W, align: 'center' },
         );
 

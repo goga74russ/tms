@@ -18,18 +18,19 @@ function money(n: number | string | null | undefined) {
 // счёта (data.carrierRequisites = организация-получатель платежа), а не из
 // build-env NEXT_PUBLIC_CARRIER_*. Юр-аудит §2.1/§2.2: банк/счёт/ИНН не
 // хардкодим — при незаполненной орг показываем 'НЕ УСТАНОВЛЕНО' и гейтим печать.
-// (Наименование банка в орг-модели не хранится — есть только БИК+счёт.)
+// ③ (миг.0048): наименование банка и корр.счёт теперь в орг-модели (bankName/corrAccount).
 const NOT_SET = 'НЕ УСТАНОВЛЕНО';
-type CarrierReq = { name?: string | null; inn?: string | null; kpp?: string | null; address?: string | null; bankBik?: string | null; bankAccount?: string | null };
+type CarrierReq = { name?: string | null; inn?: string | null; kpp?: string | null; address?: string | null; bankBik?: string | null; bankAccount?: string | null; bankName?: string | null; corrAccount?: string | null };
 function carrierFrom(cr: CarrierReq | null | undefined) {
     return {
         name: cr?.name?.trim() || NOT_SET,
         inn: cr?.inn?.trim() || NOT_SET,
         kpp: cr?.kpp?.trim() || '', // ИП — без КПП
         address: cr?.address?.trim() || NOT_SET,
-        bank: NOT_SET, // наименование банка в орг-модели отсутствует
+        bank: cr?.bankName?.trim() || NOT_SET,
         bik: cr?.bankBik?.trim() || NOT_SET,
         account: cr?.bankAccount?.trim() || NOT_SET,
+        corr: cr?.corrAccount?.trim() || NOT_SET,
     };
 }
 

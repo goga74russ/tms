@@ -208,6 +208,11 @@ export const organizations = pgTable('organizations', {
     legalAddress: text('legal_address'),
     bankBik: text('bank_bik'),
     bankAccount: text('bank_account'),
+    // ③ (legal-register §2.F1, миграция 0048) — наименование банка и корр.счёт
+    // для банковского блока счёта на оплату. Без них server invoice-PDF брал
+    // реквизиты из хардкода ИП Бардина (денежная мина). Теперь — из профиля орг.
+    bankName: text('bank_name'),
+    corrAccount: text('corr_account'),
     // Round 2A: when true, ADR validation failures block trip assignment.
     adrStrictMode: boolean('adr_strict_mode').notNull().default(false),
     // J1 (Jurist Этап 1, миграция 0033) — налоговый режим. От него зависит логика

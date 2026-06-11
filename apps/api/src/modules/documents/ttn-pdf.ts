@@ -3,8 +3,9 @@
 // ============================================================
 import {
     createDoc, streamToBuffer, formatDate, drawHLine,
-    sectionHeader, drawSignatureLine, MARGIN, CONTENT_W, CARRIER,
+    sectionHeader, drawSignatureLine, MARGIN, CONTENT_W,
 } from './pdf-base.js';
+import { carrierForPdf, type CarrierRequisites } from './org-requisites.js';
 
 export interface TtnPdfInput {
     orderNumber: string;
@@ -34,10 +35,12 @@ export interface TtnPdfInput {
     // Опционально
     tripNumber?: string | null;
     waybillNumber?: string | null;
+    carrier: CarrierRequisites | null; // ③ — реквизиты перевозчика из организации
 }
 
 export async function generateTtnPdf(data: TtnPdfInput): Promise<Buffer> {
     const doc = createDoc();
+    const C = carrierForPdf(data.carrier);
 
     // ── Шапка ──────────────────────────────────────────────
     // ГОСТ-шапка ТТН справа
@@ -52,11 +55,11 @@ export async function generateTtnPdf(data: TtnPdfInput): Promise<Buffer> {
         .text(`№ ${data.orderNumber}  от  ${formatDate(data.date)}`, hdrBoxX + 4, bY + 28, { width: 192, align: 'center' });
 
     // Организация слева
-    doc.font('Bold').fontSize(11).fillColor('#000').text(CARRIER.name, MARGIN, doc.y - 46, { width: CONTENT_W - 210 });
+    doc.font('Bold').fontSize(11).fillColor('#000').text(C.name, MARGIN, doc.y - 46, { width: CONTENT_W - 210 });
     doc.font('Regular').fontSize(8).fillColor('#555')
-        .text(`ИНН ${CARRIER.inn}  /  КПП ${CARRIER.kpp}`, MARGIN, doc.y - 32, { width: CONTENT_W - 210 });
+        .text(`ИНН ${C.inn}  /  КПП ${C.kpp}`, MARGIN, doc.y - 32, { width: CONTENT_W - 210 });
     doc.font('Regular').fontSize(8).fillColor('#555')
-        .text(CARRIER.address, MARGIN, doc.y - 20, { width: CONTENT_W - 210 });
+        .text(C.address, MARGIN, doc.y - 20, { width: CONTENT_W - 210 });
 
     doc.y = bY + 58;
     drawHLine(doc);
@@ -186,7 +189,7 @@ export async function generateTtnPdf(data: TtnPdfInput): Promise<Buffer> {
     drawHLine(doc);
     doc.font('Regular').fontSize(7).fillColor('#999')
         .text(
-            `ТТН № ${data.orderNumber} | ${CARRIER.name} | ИНН ${CARRIER.inn} | Сформирована: ${formatDate(new Date())}`,
+            `ТТН № ${data.orderNumber} | ${C.name} | ИНН ${C.inn} | Сформирована: ${formatDate(new Date())}`,
             MARGIN, doc.y + 4, { width: CONTENT_W, align: 'center' },
         );
 

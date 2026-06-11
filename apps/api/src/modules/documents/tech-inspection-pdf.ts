@@ -5,10 +5,11 @@ import { eq } from 'drizzle-orm';
 import {
     createDoc, streamToBuffer, formatDate, drawHLine,
     sectionHeader, drawSignatureLine, drawTable,
-    MARGIN, CONTENT_W, CARRIER,
+    MARGIN, CONTENT_W,
 } from './pdf-base.js';
 import { db } from '../../db/connection.js';
 import { techInspections, vehicles, users, trips, drivers } from '../../db/schema.js';
+import { resolveOrgRequisites, carrierForPdf } from './org-requisites.js';
 
 interface ChecklistItem {
     name: string;
@@ -45,6 +46,7 @@ export async function generateTechInspectionPdf(inspectionId: string): Promise<B
                     model: vehicles.model,
                     plateNumber: vehicles.plateNumber,
                     vin: vehicles.vin,
+                    organizationId: vehicles.organizationId,
                 })
                 .from(vehicles)
                 .where(eq(vehicles.id, insp.vehicleId))
@@ -80,6 +82,9 @@ export async function generateTechInspectionPdf(inspectionId: string): Promise<B
 
     const items: ChecklistItem[] = (insp.items as ChecklistItem[] | null) ?? [];
 
+    // ③ — реквизиты исполнителя из организации ТС (а не хардкод).
+    const C = carrierForPdf(await resolveOrgRequisites(vehicle?.organizationId ?? null));
+
     const doc = createDoc();
 
     // Header
@@ -88,9 +93,9 @@ export async function generateTechInspectionPdf(inspectionId: string): Promise<B
         : 'АКТ ПРЕДРЕЙСОВОГО ТЕХНИЧЕСКОГО ОСМОТРА';
     doc.font('Bold').fontSize(13).text(title, { align: 'center' });
     doc.moveDown(0.2);
-    doc.font('Regular').fontSize(9).text(CARRIER.name, { align: 'center' });
+    doc.font('Regular').fontSize(9).text(C.name, { align: 'center' });
     doc.moveDown(0.2);
-    doc.font('Regular').fontSize(9).text(`ИНН ${CARRIER.inn} | Адрес: ${CARRIER.address}`, { align: 'center' });
+    doc.font('Regular').fontSize(9).text(`ИНН ${C.inn} | Адрес: ${C.address}`, { align: 'center' });
     doc.moveDown(0.5);
     drawHLine(doc);
     doc.moveDown(0.4);
@@ -176,7 +181,7 @@ export async function generateTechInspectionPdf(inspectionId: string): Promise<B
     drawHLine(doc);
     doc.font('Regular').fontSize(7).fillColor('#999')
         .text(
-            `Акт № ${insp.id} | ${CARRIER.name} | Дата формирования: ${formatDate(new Date())}`,
+            `Акт № ${insp.id} | ${C.name} | Дата формирования: ${formatDate(new Date())}`,
             MARGIN, doc.y + 4, { width: CONTENT_W, align: 'center' },
         );
 

@@ -1,6 +1,7 @@
 import { db } from '../../db/connection.js';
 import { organizations, trips } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
+import type { CarrierRequisites } from './carrier-format.js';
 
 // CFG-1 / OBS-1 (demo-readiness 2026-06-11): реквизиты исполнителя для печатных
 // форм (ЭТрН / ПЛ / акты / счёт / УПД) раньше брались из build-env
@@ -9,15 +10,11 @@ import { eq } from 'drizzle-orm';
 // (один перевозчик на весь build). Единый источник — данные организации, к
 // которой принадлежит документ. Под super (org=null у пользователя) реквизиты
 // берутся по организации САМОГО документа, а не по null-орг читателя.
-export type CarrierRequisites = {
-    name: string | null;
-    inn: string | null;
-    kpp: string | null;
-    ogrn: string | null;
-    address: string | null;
-    bankBik: string | null;
-    bankAccount: string | null;
-};
+//
+// Чистая часть (тип, carrierForPdf, гейт) — в ./carrier-format.js (без db, чтобы
+// юнит-тесты не требовали DATABASE_URL). Реэкспортим для обратной совместимости.
+export type { CarrierRequisites, PdfCarrier } from './carrier-format.js';
+export { NOT_SET, carrierForPdf, CarrierNotConfiguredError, assertCarrierConfigured } from './carrier-format.js';
 
 export async function resolveOrgRequisites(
     organizationId: string | null | undefined,
@@ -32,6 +29,8 @@ export async function resolveOrgRequisites(
             legalAddress: organizations.legalAddress,
             bankBik: organizations.bankBik,
             bankAccount: organizations.bankAccount,
+            bankName: organizations.bankName,
+            corrAccount: organizations.corrAccount,
         })
         .from(organizations)
         .where(eq(organizations.id, organizationId))
@@ -45,6 +44,8 @@ export async function resolveOrgRequisites(
         address: org.legalAddress ?? null,
         bankBik: org.bankBik ?? null,
         bankAccount: org.bankAccount ?? null,
+        bankName: org.bankName ?? null,
+        corrAccount: org.corrAccount ?? null,
     };
 }
 

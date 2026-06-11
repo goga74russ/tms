@@ -5,8 +5,9 @@
 // ============================================================
 import {
     createDoc, streamToBuffer, formatDate, formatMoney, drawHLine,
-    sectionHeader, drawTable, drawSignatureLine, MARGIN, CONTENT_W, CARRIER, PAGE_W,
+    sectionHeader, drawTable, drawSignatureLine, MARGIN, CONTENT_W, PAGE_W,
 } from './pdf-base.js';
+import { carrierForPdf, type CarrierRequisites } from './org-requisites.js';
 
 export interface UpdTripRow {
     date: string | Date | null;
@@ -49,10 +50,12 @@ export interface UpdPdfInput {
     sellerSignatory?: string | null;
     /** \u041f\u043e\u0434\u043f\u0438\u0441\u0430\u043d\u0442 \u0441\u043e \u0441\u0442\u043e\u0440\u043e\u043d\u044b \u043f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044f */
     buyerSignatory?: string | null;
+    carrier: CarrierRequisites | null; // \u2462 \u2014 \u0440\u0435\u043a\u0432\u0438\u0437\u0438\u0442\u044b \u043f\u0440\u043e\u0434\u0430\u0432\u0446\u0430 \u0438\u0437 \u043e\u0440\u0433\u0430\u043d\u0438\u0437\u0430\u0446\u0438\u0438
 }
 
 export async function generateUpdPdf(data: UpdPdfInput): Promise<Buffer> {
     const doc = createDoc();
+    const C = carrierForPdf(data.carrier);
     const vatRate = data.vatRate ?? 20;
     const vatLabel = `\u041d\u0414\u0421 ${vatRate}%`;
 
@@ -88,13 +91,13 @@ export async function generateUpdPdf(data: UpdPdfInput): Promise<Buffer> {
     // \u041f\u0440\u043e\u0434\u0430\u0432\u0435\u0446 (\u043b\u0435\u0432\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430)
     doc.font('Bold').fontSize(9).fillColor('#000').text('\u041f\u0420\u041e\u0414\u0410\u0412\u0415\u0426:', MARGIN, sidesY, { width: halfW });
     doc.font('Regular').fontSize(9).fillColor('#000')
-        .text(CARRIER.name, MARGIN, sidesY + 13, { width: halfW });
+        .text(C.name, MARGIN, sidesY + 13, { width: halfW });
     doc.font('Regular').fontSize(8).fillColor('#555')
-        .text(`\u0418\u041d\u041d: ${CARRIER.inn}  \u041a\u041f\u041f: ${CARRIER.kpp}`, MARGIN, sidesY + 25, { width: halfW });
+        .text(`\u0418\u041d\u041d: ${C.inn}  \u041a\u041f\u041f: ${C.kpp}`, MARGIN, sidesY + 25, { width: halfW });
     doc.font('Regular').fontSize(8).fillColor('#555')
-        .text(CARRIER.address, MARGIN, sidesY + 37, { width: halfW });
+        .text(C.address, MARGIN, sidesY + 37, { width: halfW });
     doc.font('Regular').fontSize(8).fillColor('#555')
-        .text(`\u0422\u0435\u043b: ${CARRIER.phone}`, MARGIN, sidesY + 49, { width: halfW });
+        .text(`\u0422\u0435\u043b: ${C.phone}`, MARGIN, sidesY + 49, { width: halfW });
 
     // \u041f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044c (\u043f\u0440\u0430\u0432\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430)
     doc.font('Bold').fontSize(9).fillColor('#000').text('\u041f\u041e\u041a\u0423\u041f\u0410\u0422\u0415\u041b\u042c:', x2, sidesY, { width: halfW });
@@ -203,7 +206,7 @@ export async function generateUpdPdf(data: UpdPdfInput): Promise<Buffer> {
     // \u041f\u0440\u043e\u0434\u0430\u0432\u0435\u0446
     doc.font('Bold').fontSize(9).fillColor('#000').text('\u041f\u0420\u041e\u0414\u0410\u0412\u0415\u0426:', MARGIN, sigY, { width: sigHalfW });
     doc.font('Regular').fontSize(8).fillColor('#555')
-        .text(CARRIER.name, MARGIN, sigY + 12, { width: sigHalfW });
+        .text(C.name, MARGIN, sigY + 12, { width: sigHalfW });
     drawSignatureLine(doc, '\u041f\u043e\u0434\u043f\u0438\u0441\u044c', data.sellerSignatory, MARGIN, sigY + 28);
     doc.font('Regular').fontSize(7).fillColor('#555')
         .text(`\u041c. \u041f.`, MARGIN + 130, sigY + 28);
@@ -233,7 +236,7 @@ export async function generateUpdPdf(data: UpdPdfInput): Promise<Buffer> {
     drawHLine(doc);
     doc.font('Regular').fontSize(7).fillColor('#999')
         .text(
-            `\u0423\u041f\u0414 \u2116 ${data.number} | ${CARRIER.name} | \u0418\u041d\u041d ${CARRIER.inn} | \u0421\u0444\u043e\u0440\u043c\u0438\u0440\u043e\u0432\u0430\u043d: ${formatDate(new Date())}`,
+            `\u0423\u041f\u0414 \u2116 ${data.number} | ${C.name} | \u0418\u041d\u041d ${C.inn} | \u0421\u0444\u043e\u0440\u043c\u0438\u0440\u043e\u0432\u0430\u043d: ${formatDate(new Date())}`,
             MARGIN, doc.y + 4, { width: CONTENT_W, align: 'center' },
         );
 

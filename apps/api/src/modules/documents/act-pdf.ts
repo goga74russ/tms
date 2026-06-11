@@ -3,8 +3,9 @@
 // ============================================================
 import {
     createDoc, streamToBuffer, formatDate, formatMoney, drawHLine,
-    sectionHeader, drawTable, drawSignatureLine, MARGIN, CONTENT_W, CARRIER,
+    sectionHeader, drawTable, drawSignatureLine, MARGIN, CONTENT_W,
 } from './pdf-base.js';
+import { carrierForPdf, type CarrierRequisites } from './org-requisites.js';
 
 export interface ActTripRow {
     date: string | Date | null;
@@ -28,10 +29,12 @@ export interface ActPdfInput {
     vatAmount: number | string;
     total: number | string;
     vatRate?: number; // default 20
+    carrier: CarrierRequisites | null; // ③ — реквизиты исполнителя из организации
 }
 
 export async function generateActPdf(data: ActPdfInput): Promise<Buffer> {
     const doc = createDoc();
+    const C = carrierForPdf(data.carrier);
     const vatLabel = `НДС ${data.vatRate ?? 20}%`;
 
     // ── Шапка ──────────────────────────────────────────────
@@ -50,13 +53,13 @@ export async function generateActPdf(data: ActPdfInput): Promise<Buffer> {
 
     // Исполнитель
     doc.font('Bold').fontSize(9).text('ИСПОЛНИТЕЛЬ:', MARGIN, sidesY, { width: halfW });
-    doc.font('Regular').fontSize(9).text(CARRIER.name, MARGIN, sidesY + 14, { width: halfW });
+    doc.font('Regular').fontSize(9).text(C.name, MARGIN, sidesY + 14, { width: halfW });
     doc.font('Regular').fontSize(8).fillColor('#555')
-        .text(`ИНН: ${CARRIER.inn}  КПП: ${CARRIER.kpp}`, MARGIN, sidesY + 26, { width: halfW });
+        .text(`ИНН: ${C.inn}  КПП: ${C.kpp}`, MARGIN, sidesY + 26, { width: halfW });
     doc.font('Regular').fontSize(8).fillColor('#555')
-        .text(CARRIER.address, MARGIN, sidesY + 38, { width: halfW });
+        .text(C.address, MARGIN, sidesY + 38, { width: halfW });
     doc.font('Regular').fontSize(8).fillColor('#555')
-        .text(`Тел: ${CARRIER.phone}`, MARGIN, sidesY + 50, { width: halfW });
+        .text(`Тел: ${C.phone}`, MARGIN, sidesY + 50, { width: halfW });
 
     // Заказчик
     const x2 = MARGIN + halfW + 20;
@@ -140,7 +143,7 @@ export async function generateActPdf(data: ActPdfInput): Promise<Buffer> {
     const sigY = doc.y;
     // Исполнитель
     doc.font('Bold').fontSize(9).text('ИСПОЛНИТЕЛЬ:', MARGIN, sigY, { width: 200 });
-    doc.font('Regular').fontSize(8).fillColor('#555').text(CARRIER.name, MARGIN, sigY + 12, { width: 200 });
+    doc.font('Regular').fontSize(8).fillColor('#555').text(C.name, MARGIN, sigY + 12, { width: 200 });
     drawSignatureLine(doc, 'Подпись', undefined, MARGIN, sigY + 30);
 
     // Заказчик
@@ -153,7 +156,7 @@ export async function generateActPdf(data: ActPdfInput): Promise<Buffer> {
     drawHLine(doc);
     doc.font('Regular').fontSize(7).fillColor('#999')
         .text(
-            `Акт № ${data.number} | ${CARRIER.name} | ИНН ${CARRIER.inn} | Сформирован: ${formatDate(new Date())}`,
+            `Акт № ${data.number} | ${C.name} | ИНН ${C.inn} | Сформирован: ${formatDate(new Date())}`,
             MARGIN, doc.y + 4, { width: CONTENT_W, align: 'center' },
         );
 

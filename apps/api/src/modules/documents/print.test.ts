@@ -6,7 +6,8 @@
 // env-defaults loader.
 // ============================================================
 import { describe, it, expect } from 'vitest';
-import { formatDate, formatMoney, CARRIER } from './pdf-base.js';
+import { formatDate, formatMoney } from './pdf-base.js';
+import { carrierForPdf, assertCarrierConfigured, CarrierNotConfiguredError, NOT_SET } from './carrier-format.js';
 
 describe('formatDate', () => {
     it('formats a Date as DD.MM.YYYY (ru-RU)', () => {
@@ -59,40 +60,53 @@ describe('formatMoney', () => {
     });
 });
 
-describe('CARRIER (env-driven defaults)', () => {
-    it('exposes all required fields for invoices / acts / waybills', () => {
-        // These are read at module load. Tests run without the env set,
-        // so the fallback constants from pdf-base.ts should be used.
-        expect(typeof CARRIER.name).toBe('string');
-        expect(typeof CARRIER.inn).toBe('string');
-        expect(typeof CARRIER.kpp).toBe('string');
-        expect(typeof CARRIER.address).toBe('string');
-        expect(typeof CARRIER.bank).toBe('string');
-        expect(typeof CARRIER.bik).toBe('string');
-        expect(typeof CARRIER.account).toBe('string');
-        expect(typeof CARRIER.corr).toBe('string');
+// ③ — реквизиты исполнителя резолвятся из организации (org-requisites), а не из
+// хардкода. carrierForPdf маппит их в формат PDF-генераторов с NOT_SET-fallback.
+describe('carrierForPdf', () => {
+    it('maps org requisites into PDF carrier fields', () => {
+        const c = carrierForPdf({
+            name: 'ООО Ромашка', inn: '7700000001', kpp: '770001001', ogrn: '1027700000001',
+            address: 'г. Москва', bankBik: '044525104', bankAccount: '40702810000000000001',
+            bankName: 'Банк Точка', corrAccount: '30101810000000000104',
+        });
+        expect(c.name).toBe('ООО Ромашка');
+        expect(c.inn).toBe('7700000001');
+        expect(c.bank).toBe('Банк Точка');
+        expect(c.account).toBe('40702810000000000001');
+        expect(c.corr).toBe('30101810000000000104');
     });
 
-    it('default ИНН is 10 (ООО) or 12 (ИП) digits', () => {
-        // CARRIER.inn may be set via env — only assert shape when default.
-        // Default is now ИП (12-digit ИНН), but the registry accepts ООО too.
-        if (!process.env.CARRIER_INN) {
-            expect(CARRIER.inn).toMatch(/^\d{10}(\d{2})?$/);
+    it('falls back to NOT_SET when org is null / fields empty (no foreign requisites)', () => {
+        const c = carrierForPdf(null);
+        expect(c.name).toBe(NOT_SET);
+        expect(c.inn).toBe(NOT_SET);
+        expect(c.account).toBe(NOT_SET);
+        expect(c.kpp).toBe(''); // ИП — без КПП
+    });
+});
+
+describe('assertCarrierConfigured (server-PDF gate)', () => {
+    const full = {
+        name: 'ИП Иванов', inn: '746003023587', kpp: null, ogrn: null,
+        address: 'г. Москва', bankBik: '044525104', bankAccount: '40802810000000000001',
+        bankName: 'Банк', corrAccount: '30101810000000000104',
+    };
+
+    it('passes when name + inn present', () => {
+        expect(() => assertCarrierConfigured(full)).not.toThrow();
+    });
+
+    it('throws CarrierNotConfiguredError (422) when org unset', () => {
+        try {
+            assertCarrierConfigured(null);
+            expect.unreachable('should have thrown');
+        } catch (e: any) {
+            expect(e).toBeInstanceOf(CarrierNotConfiguredError);
+            expect(e.statusCode).toBe(422);
         }
     });
 
-    it('default БИК is 9 digits', () => {
-        if (!process.env.CARRIER_BIK) {
-            expect(CARRIER.bik).toMatch(/^\d{9}$/);
-        }
-    });
-
-    it('default account / correspondent are 20 digits', () => {
-        if (!process.env.CARRIER_ACCOUNT) {
-            expect(CARRIER.account).toMatch(/^\d{20}$/);
-        }
-        if (!process.env.CARRIER_CORR) {
-            expect(CARRIER.corr).toMatch(/^\d{20}$/);
-        }
+    it('requireBank: throws when account missing', () => {
+        expect(() => assertCarrierConfigured({ ...full, bankAccount: null }, { requireBank: true })).toThrow(CarrierNotConfiguredError);
     });
 });

@@ -19,7 +19,7 @@ import { db } from '../../db/connection.js';
 import { drivers, users, trips } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { getOrderFulfillment } from '../operational-core/service.js';
-import { resolveOrgRequisites } from '../documents/org-requisites.js';
+import { resolveOrgRequisites, assertCarrierConfigured } from '../documents/org-requisites.js';
 import { splitOrderIntoLots } from '../operational-core/write-service.js';
 import { safeClientError } from '../../utils/safe-error.js';
 
@@ -341,10 +341,15 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
                 }
             }
 
+            // ③ — реквизиты перевозчика из организации заявки; гейт при незаполненной.
+            const carrierReq = await resolveOrgRequisites((order as { organizationId?: string | null }).organizationId);
+            assertCarrierConfigured(carrierReq);
+
             const { generateTtnPdf } = await import('../documents/ttn-pdf.js');
             const pdfBuffer = await generateTtnPdf({
                 orderNumber: order.number,
                 date: order.createdAt,
+                carrier: carrierReq,
                 shipperName: contractor?.name ?? '—',
                 shipperInn: contractor?.inn,
                 shipperAddress: contractor?.legalAddress,
@@ -371,7 +376,7 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             return reply.send(pdfBuffer);
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
+            return reply.status(error.statusCode ?? 500).send({ success: false, error: error.statusCode ? error.message : safeClientError(error, 'Внутренняя ошибка сервера') });
         }
     });
 

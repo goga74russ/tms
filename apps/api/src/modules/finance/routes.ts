@@ -27,7 +27,7 @@ import { z } from 'zod';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { PRIVILEGED_ROLES, hasPrivilege } from '@tms/shared';
 import { safeClientError } from '../../utils/safe-error.js';
-import { resolveOrgRequisites } from '../documents/org-requisites.js';
+import { resolveOrgRequisites, assertCarrierConfigured } from '../documents/org-requisites.js';
 
 function num(value: unknown): number {
     return typeof value === 'number' ? value : Number(value ?? 0);
@@ -542,7 +542,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 };
             } catch (error: any) {
                 request.log.error(error);
-                return reply.code(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
+                return reply.code(error.statusCode ?? 500).send({ success: false, error: error.statusCode ? error.message : safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -591,6 +591,11 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
 
                 let pdfBuffer: Buffer;
 
+                // ③ — реквизиты исполнителя из организации-получателя счёта; при
+                // незаполненной орг — 422 (не печатаем хардкод/чужие реквизиты).
+                const carrierReq = await resolveOrgRequisites(invoice.payeeOrganizationId);
+                assertCarrierConfigured(carrierReq, { requireBank: invoice.type === 'payment' });
+
                 if (invoice.type === 'payment') {
                     const { generateInvoicePdf } = await import('../documents/invoice-pdf.js');
                     pdfBuffer = await generateInvoicePdf({
@@ -611,6 +616,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         vatAmount: Number(invoice.vatAmount),
                         vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
                         total: Number(invoice.total),
+                        carrier: carrierReq,
                     });
                 } else {
                     // act or upd
@@ -629,6 +635,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         vatAmount: Number(invoice.vatAmount),
                         vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
                         total: Number(invoice.total),
+                        carrier: carrierReq,
                     });
                 }
 
@@ -645,7 +652,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.send(pdfBuffer);
             } catch (error: any) {
                 request.log.error(error);
-                return reply.code(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
+                return reply.code(error.statusCode ?? 500).send({ success: false, error: error.statusCode ? error.message : safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -780,6 +787,9 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                     const costPerTrip = Number(invoice.total) / tripCount;
 
                     let pdfBuffer: Buffer;
+                    // ③ — реквизиты из орг счёта; в bulk не гейтим (NOT_SET виден
+                    // в документе, но один незаполненный счёт не роняет весь архив).
+                    const carrierReq = await resolveOrgRequisites(invoice.payeeOrganizationId);
                     if (invoice.type === 'payment') {
                         pdfBuffer = await generateInvoicePdf({
                             number: invoice.number,
@@ -799,6 +809,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                             vatAmount: Number(invoice.vatAmount),
                             vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
                             total: Number(invoice.total),
+                            carrier: carrierReq,
                         });
                     } else {
                         const tripRows = pdfTripRows.map((t) => ({
@@ -822,6 +833,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                             vatAmount: Number(invoice.vatAmount),
                             vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
                             total: Number(invoice.total),
+                            carrier: carrierReq,
                         });
                     }
 
@@ -868,7 +880,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.send(zipBuf);
             } catch (error: any) {
                 request.log.error(error);
-                return reply.code(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
+                return reply.code(error.statusCode ?? 500).send({ success: false, error: error.statusCode ? error.message : safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         },
     );
@@ -906,6 +918,10 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 const tripCount = updTripRows.length || 1;
                 const costPerTrip = Number(invoice.total) / tripCount;
 
+                // ③ — реквизиты продавца из орг счёта; гейт при незаполненной орг.
+                const carrierReq = await resolveOrgRequisites(invoice.payeeOrganizationId);
+                assertCarrierConfigured(carrierReq);
+
                 const { generateUpdPdf } = await import('../documents/upd-pdf.js');
                 const pdfBuffer = await generateUpdPdf({
                     number: invoice.number,
@@ -913,6 +929,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                     periodStart: invoice.periodStart,
                     periodEnd: invoice.periodEnd,
                     status: 1,
+                    carrier: carrierReq,
                     contractorName: contractor?.name ?? '\u2014',
                     contractorInn: contractor?.inn,
                     contractorKpp: contractor?.kpp,
@@ -939,7 +956,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 return reply.send(pdfBuffer);
             } catch (error: any) {
                 request.log.error(error);
-                return reply.code(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
+                return reply.code(error.statusCode ?? 500).send({ success: false, error: error.statusCode ? error.message : safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );
@@ -976,7 +993,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                 reply.header('Content-Disposition', `attachment; filename="${filename}"`);
                 return reply.send(xml);
             } catch (error: any) {
-                return reply.code(500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
+                return reply.code(error.statusCode ?? 500).send({ success: false, error: error.statusCode ? error.message : safeClientError(error, 'Внутренняя ошибка сервера') });
             }
         }
     );

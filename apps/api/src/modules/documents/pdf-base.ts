@@ -207,23 +207,9 @@ export function drawSignatureLine(
 }
 
 // ----------------------------------------------------------------
-// CARRIER_INFO — company defaults from env.
-//
-// Fallbacks point at the actual registered entity (ИП Бардин Г.Д.,
-// ИНН 746003023587). Operators on production should still set the
-// CARRIER_* env vars explicitly — but if they forget, generated
-// invoices/acts stay correct rather than showing the fictional
-// "ООО ТМС Логистик" placeholder of the dev seed.
+// ③ (legal-register §2.F1): хардкод реквизитов перевозчика (ИП Бардин Г.Д. +
+// реальный банк/счёт) УДАЛЁН. Денежная мина: на новой инсталляции server-PDF
+// печатал чужой расчётный счёт. Реквизиты исполнителя теперь резолвятся из
+// организации документа (resolveOrgRequisites / carrierForPdf в org-requisites.ts)
+// и передаются в генераторы параметром `carrier`. См. также React-путь CFG-1/OBS-1.
 // ----------------------------------------------------------------
-export const CARRIER = {
-    name:    process.env.CARRIER_NAME    || 'ИП Бардин Георгий Дмитриевич',
-    inn:     process.env.CARRIER_INN     || '746003023587',
-    // ИП has no КПП.
-    kpp:     process.env.CARRIER_KPP     || '',
-    address: process.env.CARRIER_ADDRESS || 'Челябинская область, Чебаркульский район, село Непряхино',
-    bank:    process.env.CARRIER_BANK    || 'ООО "Банк Точка"',
-    bik:     process.env.CARRIER_BIK     || '044525104',
-    account: process.env.CARRIER_ACCOUNT || '40802810220000919838',
-    corr:    process.env.CARRIER_CORR    || '30101810745374525104',
-    phone:   process.env.CARRIER_PHONE   || '',
-};

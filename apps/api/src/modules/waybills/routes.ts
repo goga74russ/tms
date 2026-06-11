@@ -19,7 +19,7 @@ import { drivers, waybills, waybillAttachments, deliveryConfirmations } from '..
 import { and, eq } from 'drizzle-orm';
 import { hasPrivilege } from '@tms/shared';
 import { safeClientError } from '../../utils/safe-error.js';
-import { resolveOrgRequisitesByTrip } from '../documents/org-requisites.js';
+import { resolveOrgRequisitesByTrip, assertCarrierConfigured } from '../documents/org-requisites.js';
 
 const WAYBILL_UPLOADS_DIR = resolve(process.cwd(), 'uploads', 'waybills');
 const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
@@ -421,11 +421,16 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 orderNumbers.push(...linkedOrders.map(o => o.number));
             }
 
+            // ③ — реквизиты перевозчика из организации рейса; гейт при незаполненной.
+            const carrierReq = await resolveOrgRequisitesByTrip(waybill.tripId);
+            assertCarrierConfigured(carrierReq);
+
             const pdfBuffer = await generateWaybillPdf({
                 number: waybill.number,
                 issuedAt: waybill.issuedAt,
                 departureAt: waybill.departureAt,
                 returnAt: waybill.returnAt,
+                carrier: carrierReq,
                 vehicleMake: vehicle?.make,
                 vehicleModel: vehicle?.model,
                 vehiclePlate: vehicle?.plateNumber,

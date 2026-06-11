@@ -5,10 +5,11 @@ import { eq } from 'drizzle-orm';
 import {
     createDoc, streamToBuffer, formatDate, drawHLine,
     sectionHeader, drawSignatureLine, drawTable,
-    MARGIN, CONTENT_W, CARRIER,
+    MARGIN, CONTENT_W,
 } from './pdf-base.js';
 import { db } from '../../db/connection.js';
 import { medInspections, drivers, users, trips } from '../../db/schema.js';
+import { resolveOrgRequisites, carrierForPdf } from './org-requisites.js';
 
 function formatDateTime(d: Date | string | null | undefined): string {
     if (!d) return '—';
@@ -33,7 +34,7 @@ export async function generateMedInspectionPdf(inspectionId: string): Promise<Bu
     const [driverRows, medicRows] = await Promise.all([
         insp.driverId
             ? db
-                .select({ fullName: drivers.fullName, licenseNumber: drivers.licenseNumber })
+                .select({ fullName: drivers.fullName, licenseNumber: drivers.licenseNumber, organizationId: drivers.organizationId })
                 .from(drivers)
                 .where(eq(drivers.id, insp.driverId))
                 .limit(1)
@@ -59,6 +60,9 @@ export async function generateMedInspectionPdf(inspectionId: string): Promise<Bu
         tripNumber = trip?.number ?? null;
     }
 
+    // ③ — реквизиты исполнителя из организации водителя (а не хардкод).
+    const C = carrierForPdf(await resolveOrgRequisites(driver?.organizationId ?? null));
+
     const doc = createDoc();
 
     const title = insp.inspectionType === 'post_trip'
@@ -66,9 +70,9 @@ export async function generateMedInspectionPdf(inspectionId: string): Promise<Bu
         : 'АКТ ПРЕДРЕЙСОВОГО МЕДИЦИНСКОГО ОСМОТРА';
     doc.font('Bold').fontSize(13).text(title, { align: 'center' });
     doc.moveDown(0.2);
-    doc.font('Regular').fontSize(9).text(CARRIER.name, { align: 'center' });
+    doc.font('Regular').fontSize(9).text(C.name, { align: 'center' });
     doc.moveDown(0.2);
-    doc.font('Regular').fontSize(9).text(`152-ФЗ | ИНН ${CARRIER.inn} | Адрес: ${CARRIER.address}`, { align: 'center' });
+    doc.font('Regular').fontSize(9).text(`152-ФЗ | ИНН ${C.inn} | Адрес: ${C.address}`, { align: 'center' });
     doc.moveDown(0.5);
     drawHLine(doc);
     doc.moveDown(0.4);
@@ -144,7 +148,7 @@ export async function generateMedInspectionPdf(inspectionId: string): Promise<Bu
     drawHLine(doc);
     doc.font('Regular').fontSize(7).fillColor('#999')
         .text(
-            `Акт № ${insp.id} | ${CARRIER.name} | Дата формирования: ${formatDate(new Date())}`,
+            `Акт № ${insp.id} | ${C.name} | Дата формирования: ${formatDate(new Date())}`,
             MARGIN, doc.y + 4, { width: CONTENT_W, align: 'center' },
         );
 

@@ -3,8 +3,9 @@
 // ============================================================
 import {
     createDoc, streamToBuffer, formatDate, formatMoney, drawHLine,
-    drawTable, MARGIN, CONTENT_W, CARRIER, PAGE_W,
+    drawTable, MARGIN, CONTENT_W, PAGE_W,
 } from './pdf-base.js';
+import { carrierForPdf, type CarrierRequisites } from './org-requisites.js';
 
 export interface InvoiceLineItem {
     name: string;
@@ -27,28 +28,30 @@ export interface InvoicePdfInput {
     total: number | string;
     vatRate?: number;
     validDays?: number;
+    carrier: CarrierRequisites | null; // ③ — реквизиты исполнителя из организации
 }
 
 export async function generateInvoicePdf(data: InvoicePdfInput): Promise<Buffer> {
     const doc = createDoc();
+    const C = carrierForPdf(data.carrier);
     const vatLabel = `НДС ${data.vatRate ?? 20}%`;
 
     // ── Банковские реквизиты (шапка) ───────────────────────
     // Серая полоса с реквизитами
     doc.rect(MARGIN, doc.y, CONTENT_W, 48).fill('#f5f5f5');
     const bankY = doc.y + 4;
-    doc.font('Bold').fontSize(9).fillColor('#000').text(CARRIER.name, MARGIN + 4, bankY, { width: CONTENT_W * 0.55 });
+    doc.font('Bold').fontSize(9).fillColor('#000').text(C.name, MARGIN + 4, bankY, { width: CONTENT_W * 0.55 });
     doc.font('Regular').fontSize(8).fillColor('#333')
-        .text(`ИНН: ${CARRIER.inn}  КПП: ${CARRIER.kpp}`, MARGIN + 4, bankY + 12, { width: CONTENT_W * 0.55 });
+        .text(`ИНН: ${C.inn}  КПП: ${C.kpp}`, MARGIN + 4, bankY + 12, { width: CONTENT_W * 0.55 });
     doc.font('Regular').fontSize(8).fillColor('#333')
-        .text(CARRIER.address, MARGIN + 4, bankY + 22, { width: CONTENT_W * 0.55 });
+        .text(C.address, MARGIN + 4, bankY + 22, { width: CONTENT_W * 0.55 });
 
     // Банк справа
     const bx = MARGIN + CONTENT_W * 0.58;
-    doc.font('Regular').fontSize(8).fillColor('#333').text(`Банк: ${CARRIER.bank}`, bx, bankY, { width: CONTENT_W * 0.42 });
-    doc.font('Regular').fontSize(8).fillColor('#333').text(`БИК: ${CARRIER.bik}`, bx, bankY + 12, { width: CONTENT_W * 0.42 });
-    doc.font('Regular').fontSize(8).fillColor('#333').text(`р/с: ${CARRIER.account}`, bx, bankY + 22, { width: CONTENT_W * 0.42 });
-    doc.font('Regular').fontSize(8).fillColor('#333').text(`к/с: ${CARRIER.corr}`, bx, bankY + 34, { width: CONTENT_W * 0.42 });
+    doc.font('Regular').fontSize(8).fillColor('#333').text(`Банк: ${C.bank}`, bx, bankY, { width: CONTENT_W * 0.42 });
+    doc.font('Regular').fontSize(8).fillColor('#333').text(`БИК: ${C.bik}`, bx, bankY + 12, { width: CONTENT_W * 0.42 });
+    doc.font('Regular').fontSize(8).fillColor('#333').text(`р/с: ${C.account}`, bx, bankY + 22, { width: CONTENT_W * 0.42 });
+    doc.font('Regular').fontSize(8).fillColor('#333').text(`к/с: ${C.corr}`, bx, bankY + 34, { width: CONTENT_W * 0.42 });
 
     doc.y = bankY + 52;
     drawHLine(doc);
@@ -68,7 +71,7 @@ export async function generateInvoicePdf(data: InvoicePdfInput): Promise<Buffer>
 
     // Поставщик
     doc.font('Bold').fontSize(9).text('Поставщик:', MARGIN, pairY, { width: lw });
-    doc.font('Regular').fontSize(9).text(CARRIER.name, MARGIN + lw, pairY, { width: CONTENT_W / 2 - lw });
+    doc.font('Regular').fontSize(9).text(C.name, MARGIN + lw, pairY, { width: CONTENT_W / 2 - lw });
 
     doc.moveDown(0.4);
     const pairY2 = doc.y;
@@ -155,7 +158,7 @@ export async function generateInvoicePdf(data: InvoicePdfInput): Promise<Buffer>
     drawHLine(doc);
     doc.font('Regular').fontSize(7).fillColor('#999')
         .text(
-            `Счёт № ${data.number} | ${CARRIER.name} | ИНН ${CARRIER.inn} | Сформирован: ${formatDate(new Date())}`,
+            `Счёт № ${data.number} | ${C.name} | ИНН ${C.inn} | Сформирован: ${formatDate(new Date())}`,
             MARGIN, doc.y + 4, { width: CONTENT_W, align: 'center' },
         );
 
