@@ -2047,9 +2047,9 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                                     defaultValue=""
                                                 >
                                                     <option value="">Перейти в...</option>
-                                                    <option value="signed_by_carrier">signed_by_carrier</option>
-                                                    <option value="signed_by_client">signed_by_client</option>
-                                                    <option value="rejected">rejected</option>
+                                                    <option value="signed_by_carrier">Подписан перевозчиком</option>
+                                                    <option value="signed_by_client">Подписан клиентом</option>
+                                                    <option value="rejected">Отклонён</option>
                                                 </select>
                                             </div>
                                         </>
@@ -2070,7 +2070,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
 
             <div className="grid gap-4 xl:grid-cols-2">
                 <TimelineCard
-                    title="Transport documents timeline"
+                    title="Хронология транспортных документов"
                     subtitle={`Latest activity: ${formatTimelineDate(transportDocuments?.summary?.latestActivityAt)}`}
                     events={transportDocuments?.timeline || []}
                     emptyLabel="Пока нет событий по persisted transport documents"

@@ -112,7 +112,7 @@ export default function LogistPage() {
             if (json.success) {
                 setOrdersList(json.data ?? []);
             } else {
-                throw new Error(json.error || 'Unknown error');
+                throw new Error(json.error || 'Неизвестная ошибка');
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Не удалось загрузить заявки');
@@ -169,7 +169,7 @@ export default function LogistPage() {
         try {
             const json = await api.post(`/orders/${orderId}/status`, { status: toCol });
             if (!json.success) {
-                throw new Error(json.error || 'API Error');
+                throw new Error(json.error || 'Ошибка сервера');
             }
             showToast(`Статус → ${label(ORDER_STATUS, toCol)}`);
         } catch (err) {
