@@ -28,6 +28,8 @@ import {
     type InvoiceType,
     type InvoiceCorrectionKind,
     type TaxRegime,
+    INVOICE_STATUS,
+    label,
 } from '@tms/shared';
 import { recordEvent } from '../../events/journal.js';
 import { isPlatformSuperAdmin } from '../../auth/guards.js';
@@ -248,7 +250,7 @@ export async function issueDraftInvoice(
     const { invoice, taxRegime } = ctx;
 
     if (invoice.status !== 'draft') {
-        throw new InvoiceWorkflowError('INVALID_STATE', `Только draft можно выпускать. Текущий статус: ${invoice.status}`);
+        throw new InvoiceWorkflowError('INVALID_STATE', `Выпускать можно только черновик. Текущий статус: ${label(INVOICE_STATUS, invoice.status)}`);
     }
 
     // spec §4 — tax_regime guard
@@ -654,7 +656,7 @@ export async function registerPayment(
         if (!invoice) throw new InvoiceWorkflowError('NOT_FOUND', 'Счёт не найден', 404);
 
         if (!['issued', 'paid_partial'].includes(invoice.status)) {
-            throw new InvoiceWorkflowError('INVALID_STATE', `Оплата возможна только для issued/paid_partial. Текущий: ${invoice.status}`);
+            throw new InvoiceWorkflowError('INVALID_STATE', `Оплата возможна только для выпущенного или частично оплаченного счёта. Текущий: ${label(INVOICE_STATUS, invoice.status)}`);
         }
 
         const total = num(invoice.total);
