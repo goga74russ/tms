@@ -89,6 +89,9 @@ export async function processFinesSync(job: Job): Promise<{
                 await recordEvent({
                     authorId: SYSTEM_USER_ID,
                     authorRole: 'system',
+                    // F-21b: привязываем system-событие к орг ТС (а не null от
+                    // system-автора), иначе org-scoped аудит-лог его не показывает.
+                    organizationId: v.organizationId,
                     eventType: 'fine.auto_imported',
                     entityType: 'fine',
                     entityId: newFine.id,

@@ -112,7 +112,10 @@ export default async function waybillRoutes(app: FastifyInstance) {
             return { success: true, data: waybill };
         } catch (error: any) {
             request.log.error(error);
-            return reply.status(500).send({
+            // F-22: cross-org/no-access (AccessDeniedError=403) и не-найден
+            // (EntityNotFoundError=404) — чистый отказ, а не 500. Раньше catch
+            // всегда отдавал 500, не единообразно с trip/invoice.
+            return reply.status(error.statusCode ?? 500).send({
                 success: false,
                 error: safeClientError(error, 'Ошибка'),
             });

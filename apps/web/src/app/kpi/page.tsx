@@ -125,11 +125,23 @@ function DriverScoreboardSection() {
         setLoading(true);
         setError(null);
         try {
-            const res = await api.get<{ success: boolean; data: { top: DriverScoreEntry[]; bottom: DriverScoreEntry[] } }>(
-                `/drivers/scoreboard?from=${from}&to=${to}&limit=5`,
+            // F-20: API отдаёт единый entries[] (отсортирован по score DESC), а не
+            // top/bottom. Маппим поля (tripCount→tripsCount) и разбиваем: top — лучшие 5,
+            // bottom — худшие 5 (хвост, по возрастанию). При ≤5 водителях bottom пуст
+            // (нет отдельных «худших»), а не «Нет данных» в обоих.
+            const res = await api.get<{ success: boolean; data: { entries: Array<{ driverId: string; fullName: string; score: number; tripCount: number }> } }>(
+                `/drivers/scoreboard?from=${from}&to=${to}&limit=20`,
             );
-            setTop(res.data?.top || []);
-            setBottom(res.data?.bottom || []);
+            const entries: DriverScoreEntry[] = (res.data?.entries ?? []).map((e) => ({
+                id: e.driverId,
+                driverId: e.driverId,
+                name: e.fullName,
+                fullName: e.fullName,
+                score: e.score,
+                tripsCount: e.tripCount,
+            }));
+            setTop(entries.slice(0, 5));
+            setBottom(entries.length > 5 ? entries.slice(-5).reverse() : []);
         } catch (err: any) {
             setError(err?.message || "Не удалось загрузить рейтинг");
         } finally {
