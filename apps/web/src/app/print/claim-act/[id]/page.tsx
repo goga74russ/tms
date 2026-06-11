@@ -111,10 +111,17 @@ function collectEvidence(claim: Claim) {
     return rows.slice(0, 8);
 }
 
+// BUG-2 (integration-pass-2026-06-11): в блоке «СВЯЗАННЫЕ ОБЪЕКТЫ» выводились
+// сырые UUID. Резолвим человекочитаемые номера/имя по связанным сущностям
+// (trip.number=TRP-…, order.number=ORD-…, contractor.name) с фолбэком на UUID,
+// чтобы печать оставалась полной даже при недоступности связанной записи.
+type RelatedLabels = { trip?: string; order?: string; contractor?: string };
+
 export default function ClaimActPrintPage() {
     const params = useParams();
     const id = params?.id as string;
     const [claim, setClaim] = useState<Claim | null>(null);
+    const [related, setRelated] = useState<RelatedLabels>({});
     const [error, setError] = useState<string | null>(null);
     const printedRef = useRef(false);
 
@@ -128,6 +135,33 @@ export default function ClaimActPrintPage() {
             })
             .catch(err => setError(err.message));
     }, [id]);
+
+    // Резолв номеров рейса/заявки и имени контрагента (одиночного GET для
+    // контрагента нет — ищем в списке). Фейл любого запроса не ломает печать.
+    useEffect(() => {
+        if (!claim) return;
+        let cancelled = false;
+        (async () => {
+            const next: RelatedLabels = {};
+            const safeJson = async (url: string) => {
+                try {
+                    const r = await fetch(url, { credentials: 'include' });
+                    if (!r.ok) return null;
+                    const j = await r.json();
+                    return j.success ? j.data : null;
+                } catch { return null; }
+            };
+            if (claim.tripId) next.trip = (await safeJson(`${API_BASE}/trips/${claim.tripId}`))?.number ?? undefined;
+            if (claim.orderId) next.order = (await safeJson(`${API_BASE}/orders/${claim.orderId}`))?.number ?? undefined;
+            if (claim.contractorId) {
+                const list = await safeJson(`${API_BASE}/fleet/contractors?limit=500`);
+                const arr = Array.isArray(list) ? list : (list?.items ?? []);
+                next.contractor = arr.find((c: { id?: string }) => c?.id === claim.contractorId)?.name ?? undefined;
+            }
+            if (!cancelled) setRelated(next);
+        })();
+        return () => { cancelled = true; };
+    }, [claim]);
 
     useEffect(() => {
         if (!claim || printedRef.current) return;
@@ -166,9 +200,9 @@ export default function ClaimActPrintPage() {
                     </div>
                     <div>
                         <div style={{ fontWeight: 700, fontSize: '9pt' }}>СВЯЗАННЫЕ ОБЪЕКТЫ:</div>
-                        <div style={{ fontSize: '8pt', color: '#555' }}>Рейс: {claim.tripId ?? '-'}</div>
-                        <div style={{ fontSize: '8pt', color: '#555' }}>Заявка: {claim.orderId ?? '-'}</div>
-                        <div style={{ fontSize: '8pt', color: '#555' }}>Контрагент: {claim.contractorId ?? '-'}</div>
+                        <div style={{ fontSize: '8pt', color: '#555' }}>Рейс: {claim.tripId ? (related.trip ?? `${claim.tripId.slice(0, 8)}…`) : '-'}</div>
+                        <div style={{ fontSize: '8pt', color: '#555' }}>Заявка: {claim.orderId ? (related.order ?? `${claim.orderId.slice(0, 8)}…`) : '-'}</div>
+                        <div style={{ fontSize: '8pt', color: '#555' }}>Контрагент: {claim.contractorId ? (related.contractor ?? `${claim.contractorId.slice(0, 8)}…`) : '-'}</div>
                     </div>
                 </div>
 
