@@ -28,12 +28,19 @@ function money(n: number | string | null | undefined) {
     return Number(n).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const CARRIER = {
-    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'ИП Бардин Георгий Дмитриевич',
-    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? '746003023587',
-    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? '',
-    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'Челябинская область, Чебаркульский район, село Непряхино',
-};
+// CFG-1/OBS-1: реквизиты продавца КСФ — из организации-получателя счёта
+// (data.carrierRequisites), не из build-env и без хардкода ИП Бардина
+// (Юр-аудит §2.1/§2.2). Незаполненная орг → 'НЕ УСТАНОВЛЕНО'.
+const NOT_SET = 'НЕ УСТАНОВЛЕНО';
+type CarrierReq = { name?: string | null; inn?: string | null; kpp?: string | null; address?: string | null };
+function carrierFrom(cr: CarrierReq | null | undefined) {
+    return {
+        name: cr?.name?.trim() || NOT_SET,
+        inn: cr?.inn?.trim() || NOT_SET,
+        kpp: cr?.kpp?.trim() || '',
+        address: cr?.address?.trim() || NOT_SET,
+    };
+}
 
 export default function CorrectiveSfPrintPage() {
     const params = useParams();
@@ -74,6 +81,7 @@ export default function CorrectiveSfPrintPage() {
     if (!data) return <div className="loading">Загрузка корректировочного СФ…</div>;
 
     const inv = data;
+    const CARRIER = carrierFrom(data.carrierRequisites);
     const isReplacement = inv.correctionKind === 'replacement';
     const title = isReplacement ? 'ИСПРАВЛЕНИЕ' : 'КОРРЕКТИРОВОЧНЫЙ СЧЁТ-ФАКТУРА';
 

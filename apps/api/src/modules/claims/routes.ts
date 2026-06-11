@@ -10,6 +10,7 @@ import { contractors } from '../../db/schema.js';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { safeClientError } from '../../utils/safe-error.js';
+import { resolveOrgRequisites } from '../documents/org-requisites.js';
 
 const ClaimCreateSchema = z.object({
     tripId: z.string().uuid().optional().nullable(),
@@ -169,7 +170,10 @@ export default async function claimsRoutes(app: FastifyInstance) {
         const claim = await ensureClaimAccess(id, user, reply);
         if (!claim) return;
 
-        return { success: true, data: claim };
+        // CFG-1/OBS-1: реквизиты исполнителя для акта претензии — из организации
+        // претензии (а не из build-env NEXT_PUBLIC_CARRIER_*).
+        const carrierRequisites = await resolveOrgRequisites(claim.organizationId);
+        return { success: true, data: { ...claim, carrierRequisites } };
     });
 
     // Create claim

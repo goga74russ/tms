@@ -19,6 +19,7 @@ import { drivers, waybills, waybillAttachments, deliveryConfirmations } from '..
 import { and, eq } from 'drizzle-orm';
 import { hasPrivilege } from '@tms/shared';
 import { safeClientError } from '../../utils/safe-error.js';
+import { resolveOrgRequisitesByTrip } from '../documents/org-requisites.js';
 
 const WAYBILL_UPLOADS_DIR = resolve(process.cwd(), 'uploads', 'waybills');
 const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
@@ -109,7 +110,10 @@ export default async function waybillRoutes(app: FastifyInstance) {
                     error: 'Waybill not found',
                 });
             }
-            return { success: true, data: waybill };
+            // CFG-1/OBS-1: реквизиты перевозчика для ПЛ/ЭТрН — из организации
+            // рейса (waybill.tripId → trip.org), а не из build-env.
+            const carrierRequisites = await resolveOrgRequisitesByTrip(waybill.tripId);
+            return { success: true, data: { ...waybill, carrierRequisites } };
         } catch (error: any) {
             request.log.error(error);
             // F-22: cross-org/no-access (AccessDeniedError=403) и не-найден

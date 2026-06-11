@@ -81,8 +81,26 @@ const formatCompactMoney = (value: number | string | null | undefined) => {
 };
 
 function computeChange(current: number, previous: number): { value: number; direction: 'up' | 'down' | 'flat' } | undefined {
-    if (!Number.isFinite(previous) || previous === 0) return undefined;
+    // База прошлого периода должна быть осмысленной. При |previous| < 1 (ноль/
+    // микро-база: демо засеяно только свежей активностью, прошлый период ≈0)
+    // относительный % бессмысленен и раздувается в «↑15322%» — бейдж не
+    // показываем (нет базы для сравнения). Бэкап-клэмп ±999% на прочие случаи.
+    if (!Number.isFinite(previous) || Math.abs(previous) < 1) return undefined;
     const diff = ((current - previous) / Math.abs(previous)) * 100;
+    // |diff| > 500% — это почти всегда не реальный рост, а околонулевая база
+    // прошлого периода (демо/новая орг). Осмысленного сравнения нет — бейдж
+    // не показываем (лучше пусто, чем «↑999%» в кадре).
+    if (Math.abs(diff) > 500) return undefined;
+    if (Math.abs(diff) < 0.5) return { value: 0, direction: 'flat' };
+    return { value: Math.round(diff), direction: diff > 0 ? 'up' : 'down' };
+}
+
+// Для метрик, которые сами выражены в процентах (маржинальность), относительное
+// изменение бессмысленно: при микро-базе прошлого периода (0.5%) даёт абсурдные
+// «↑15322%». Корректная дельта — в процентных ПУНКТАХ (current − previous).
+function computePointChange(current: number, previous: number): { value: number; direction: 'up' | 'down' | 'flat' } | undefined {
+    if (!Number.isFinite(previous) || !Number.isFinite(current)) return undefined;
+    const diff = current - previous;
     if (Math.abs(diff) < 0.5) return { value: 0, direction: 'flat' };
     return { value: Math.round(diff), direction: diff > 0 ? 'up' : 'down' };
 }
@@ -393,7 +411,8 @@ export default function KPIDashboard() {
                 <MetricCard
                     label="Маржинальность"
                     value={kpi ? `${marginPercent.toFixed(1)}%` : "—"}
-                    change={computeChange(marginPercent, prevMargin)}
+                    change={prevKpi && prevRevenue >= 1 ? computePointChange(marginPercent, prevMargin) : undefined}
+                    changeUnit="пп"
                     hint="цель >30%"
                     sparkline={sparkBetween(prevMargin, marginPercent)}
                     sparklineTone={marginPercent >= 30 ? 'success' : 'warning'}

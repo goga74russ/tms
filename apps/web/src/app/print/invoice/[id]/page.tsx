@@ -14,24 +14,24 @@ function money(n: number | string | null | undefined) {
     return Number(n).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Fallbacks mirror apps/api/src/modules/documents/pdf-base.ts CARRIER defaults
-// (ИП Бардин Г.Д. — actual registered entity). Operators should still set
-// NEXT_PUBLIC_CARRIER_* env vars at build time; these defaults exist so a
-// missed env doesn't render fictional "ООО ТМС Логистик" placeholder data.
-// Юр-аудит §2.1/§2.2: НЕ хардкодить реальные реквизиты (банк/счёт/ИНН) в
-// fallback — на новой инсталляции без env счёт уйдёт с реквизитами ИП Бардина,
-// деньги клиента придут на чужой счёт (денежный риск). Унифицировано с
-// act/ttn/cancellation-act → 'НЕ УСТАНОВЛЕНО', чтобы мисконфиг был виден.
+// CFG-1/OBS-1 (demo-readiness 2026-06-11): реквизиты исполнителя берём из данных
+// счёта (data.carrierRequisites = организация-получатель платежа), а не из
+// build-env NEXT_PUBLIC_CARRIER_*. Юр-аудит §2.1/§2.2: банк/счёт/ИНН не
+// хардкодим — при незаполненной орг показываем 'НЕ УСТАНОВЛЕНО' и гейтим печать.
+// (Наименование банка в орг-модели не хранится — есть только БИК+счёт.)
 const NOT_SET = 'НЕ УСТАНОВЛЕНО';
-const CARRIER = {
-    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? NOT_SET,
-    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? NOT_SET,
-    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? '', // ИП — без КПП
-    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? NOT_SET,
-    bank: process.env.NEXT_PUBLIC_CARRIER_BANK ?? NOT_SET,
-    bik: process.env.NEXT_PUBLIC_CARRIER_BIK ?? NOT_SET,
-    account: process.env.NEXT_PUBLIC_CARRIER_ACCOUNT ?? NOT_SET,
-};
+type CarrierReq = { name?: string | null; inn?: string | null; kpp?: string | null; address?: string | null; bankBik?: string | null; bankAccount?: string | null };
+function carrierFrom(cr: CarrierReq | null | undefined) {
+    return {
+        name: cr?.name?.trim() || NOT_SET,
+        inn: cr?.inn?.trim() || NOT_SET,
+        kpp: cr?.kpp?.trim() || '', // ИП — без КПП
+        address: cr?.address?.trim() || NOT_SET,
+        bank: NOT_SET, // наименование банка в орг-модели отсутствует
+        bik: cr?.bankBik?.trim() || NOT_SET,
+        account: cr?.bankAccount?.trim() || NOT_SET,
+    };
+}
 
 export default function InvoicePrintPage() {
     const params = useParams();
@@ -64,15 +64,17 @@ export default function InvoicePrintPage() {
     if (error) return <div className="loading">Ошибка: {error}</div>;
     if (!data) return <div className="loading">Загрузка счёта…</div>;
 
+    const CARRIER = carrierFrom(data.carrierRequisites);
+
     // Юр-аудит §9 #5: блокировка печати счёта при ненастроенных реквизитах
     // исполнителя — иначе уйдёт счёт без банка/ИНН (клиент не сможет оплатить
-    // или оплатит не туда). Defense-in-depth поверх fallback 'НЕ УСТАНОВЛЕНО'.
+    // или оплатит не туда). Реквизиты резолвятся из организации-получателя счёта.
     if (CARRIER.name === NOT_SET || CARRIER.inn === NOT_SET || CARRIER.account === NOT_SET) {
         return (
             <div className="loading" style={{ padding: 24, maxWidth: 540 }}>
                 Реквизиты исполнителя (наименование / ИНН / расчётный счёт) не настроены
-                (env <code>NEXT_PUBLIC_CARRIER_*</code>). Печать счёта с пустыми реквизитами
-                недопустима — обратитесь к администратору.
+                в профиле организации. Печать счёта с пустыми реквизитами недопустима —
+                заполните банковские реквизиты в настройках организации.
             </div>
         );
     }

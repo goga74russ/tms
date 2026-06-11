@@ -19,6 +19,7 @@ import { db } from '../../db/connection.js';
 import { drivers, users, trips } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { getOrderFulfillment } from '../operational-core/service.js';
+import { resolveOrgRequisites } from '../documents/org-requisites.js';
 import { splitOrderIntoLots } from '../operational-core/write-service.js';
 import { safeClientError } from '../../utils/safe-error.js';
 
@@ -273,7 +274,10 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             invoiceLinks: null,
         };
 
-        return { success: true, data: filteredOrder };
+        // CFG-1/OBS-1: реквизиты перевозчика для ТТН — из организации заявки.
+        const carrierRequisites = await resolveOrgRequisites((order as { organizationId?: string | null }).organizationId);
+
+        return { success: true, data: { ...filteredOrder, carrierRequisites } };
     });
 
     // --- GET /orders/:id/ttn — Download ТТН as PDF ---

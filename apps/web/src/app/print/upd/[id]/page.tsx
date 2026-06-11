@@ -24,12 +24,19 @@ function money(n: number | string | null | undefined) {
     return Number(n).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const CARRIER = {
-    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'ИП Бардин Георгий Дмитриевич',
-    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? '746003023587',
-    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? '',
-    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'Челябинская область, Чебаркульский район, село Непряхино',
-};
+// CFG-1/OBS-1: реквизиты продавца УПД — из организации-получателя счёта
+// (data.carrierRequisites), не из build-env и без хардкода ИП Бардина
+// (Юр-аудит §2.1/§2.2). Незаполненная орг → 'НЕ УСТАНОВЛЕНО'.
+const NOT_SET = 'НЕ УСТАНОВЛЕНО';
+type CarrierReq = { name?: string | null; inn?: string | null; kpp?: string | null; address?: string | null };
+function carrierFrom(cr: CarrierReq | null | undefined) {
+    return {
+        name: cr?.name?.trim() || NOT_SET,
+        inn: cr?.inn?.trim() || NOT_SET,
+        kpp: cr?.kpp?.trim() || '',
+        address: cr?.address?.trim() || NOT_SET,
+    };
+}
 
 export default function UpdPrintPage() {
     const params = useParams();
@@ -61,6 +68,7 @@ export default function UpdPrintPage() {
     if (!data) return <div className="loading">Загрузка УПД…</div>;
 
     const inv = data;
+    const CARRIER = carrierFrom(data.carrierRequisites);
     const orders = Array.isArray(inv.orders) ? inv.orders : [];
     const vatRate = inv.vatRate != null ? Number(inv.vatRate) : null;
     const isVatStatus1 = vatRate != null; // Status 1 = СФ+акт; Status 2 = акт без НДС

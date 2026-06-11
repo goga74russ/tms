@@ -52,13 +52,18 @@ const CAUSE_LABELS: Record<string, string> = {
     other: 'Прочее',
 };
 
-// Carrier requisites — env-driven; 'НЕ УСТАНОВЛЕНО' fallback signals misconfig.
-const CARRIER = {
-    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'НЕ УСТАНОВЛЕНО',
-    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? 'НЕ УСТАНОВЛЕНО',
-    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? 'НЕ УСТАНОВЛЕНО',
-    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'НЕ УСТАНОВЛЕНО',
-};
+// CFG-1/OBS-1: реквизиты исполнителя — из организации претензии
+// (claim.carrierRequisites), не из build-env. 'НЕ УСТАНОВЛЕНО' сигналит мисконфиг.
+const NOT_SET = 'НЕ УСТАНОВЛЕНО';
+type CarrierReq = { name?: string | null; inn?: string | null; kpp?: string | null; address?: string | null };
+function carrierFrom(cr: CarrierReq | null | undefined) {
+    return {
+        name: cr?.name?.trim() || NOT_SET,
+        inn: cr?.inn?.trim() || NOT_SET,
+        kpp: cr?.kpp?.trim() || NOT_SET,
+        address: cr?.address?.trim() || NOT_SET,
+    };
+}
 
 function fmt(value?: string | null) {
     if (!value) return '-';
@@ -174,6 +179,7 @@ export default function ClaimActPrintPage() {
     if (!claim) return <div className="loading">Загрузка акта претензии...</div>;
 
     const evidence = collectEvidence(claim);
+    const CARRIER = carrierFrom((claim as { carrierRequisites?: CarrierReq }).carrierRequisites);
     const titleStatus = STATUS_LABELS[claim.status] ?? claim.status;
     const titleType = TYPE_LABELS[claim.type ?? ''] ?? claim.type ?? '-';
     const cause = CAUSE_LABELS[claim.cause ?? ''] ?? claim.cause ?? '-';

@@ -27,6 +27,7 @@ import { z } from 'zod';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { PRIVILEGED_ROLES, hasPrivilege } from '@tms/shared';
 import { safeClientError } from '../../utils/safe-error.js';
+import { resolveOrgRequisites } from '../documents/org-requisites.js';
 
 function num(value: unknown): number {
     return typeof value === 'number' ? value : Number(value ?? 0);
@@ -511,10 +512,16 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                     .innerJoin(orders, eq(invoiceOrdersTbl.orderId, orders.id))
                     .where(eq(invoiceOrdersTbl.invoiceId, invoice.id));
 
+                // CFG-1/OBS-1: реквизиты исполнителя из организации-получателя
+                // платежа (payee = продавец/исполнитель счёта) — единый источник
+                // для invoice/sf/upd/act вместо build-env / хардкода.
+                const carrierRequisites = await resolveOrgRequisites(invoice.payeeOrganizationId);
+
                 return {
                     success: true,
                     data: {
                         ...invoice,
+                        carrierRequisites,
                         contractorName: contractor?.name ?? null,
                         contractorInn: contractor?.inn ?? null,
                         contractorKpp: contractor?.kpp ?? null,

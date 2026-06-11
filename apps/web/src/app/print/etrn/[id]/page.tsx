@@ -55,12 +55,13 @@ export default function EtrnPreviewPage() {
     if (error) return <div className="loading">Ошибка: {error}</div>;
     if (!data) return <div className="loading">Загрузка предпросмотра ЭТрН…</div>;
 
-    // Реквизиты перевозчика берём ТОЛЬКО из конфигурации. Никаких фейковых
-    // заглушек (ИНН '0000000000', «ООО ТМС Логистик», адрес-заглушка):
-    // официальная ЭТрН с фиктивными реквизитами юридически недействительна.
-    const carrierNameRaw = (process.env.NEXT_PUBLIC_CARRIER_NAME ?? '').trim();
-    const carrierInnRaw = (process.env.NEXT_PUBLIC_CARRIER_INN ?? '').trim();
-    const carrierAddressRaw = (process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? '').trim();
+    // CFG-1/OBS-1: реквизиты перевозчика — из организации рейса (data.carrierRequisites),
+    // не из build-env. Никаких фейковых заглушек: официальная ЭТрН с фиктивными
+    // реквизитами юридически недействительна, поэтому при незаполненной орг — гейт.
+    const cr = (data.carrierRequisites ?? {}) as { name?: string | null; inn?: string | null; address?: string | null };
+    const carrierNameRaw = (cr.name ?? '').trim();
+    const carrierInnRaw = (cr.inn ?? '').trim();
+    const carrierAddressRaw = (cr.address ?? '').trim();
 
     // ИНН перевозчика обязателен и должен быть валидным (10 или 12 цифр, не нули).
     const carrierInnValid = /^\d{10}$|^\d{12}$/.test(carrierInnRaw) && !/^0+$/.test(carrierInnRaw);

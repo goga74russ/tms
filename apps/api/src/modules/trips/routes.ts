@@ -41,6 +41,7 @@ import { assignLotToTrip, captureShipmentFact } from '../operational-core/write-
 import { registerExecutionRoutes } from '../operational-core/execution-routes.js';
 import { evaluateDossierCloseGate, getDossierItemsForTrip, syncDossierItemsForTrip } from '../operational-core/dossier-service.js';
 import { safeClientError } from '../../utils/safe-error.js';
+import { resolveOrgRequisitesByTrip } from '../documents/org-requisites.js';
 import {
     TripCreateSchema,
     TripUpdateSchema,
@@ -226,6 +227,10 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
             return reply.status(404).send({ success: false, error: 'Рейс не найден' });
         }
 
+        // CFG-1/OBS-1: реквизиты исполнителя для актов о срыве подачи / отказе от
+        // подписи — из организации рейса (а не build-env NEXT_PUBLIC_CARRIER_*).
+        const carrierRequisites = await resolveOrgRequisitesByTrip(id);
+
         // K4 + L3 RBAC — все cost-поля и margin видят только manager+/accountant/admin.
         const canViewFinance = user.roles.includes('manager')
             || user.roles.includes('accountant')
@@ -235,6 +240,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
                 success: true,
                 data: {
                     ...trip,
+                    carrierRequisites,
                     carrierCost: null,
                     carrierCostIncludesVat: false,
                     // L1 dual cost — тоже скрываем для не-finance ролей
@@ -246,7 +252,7 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
 
         // Для финансовых ролей — дополнительно прикладываем margin расчёт.
         const margin = await computeTripMargin(id);
-        return { success: true, data: { ...trip, margin } };
+        return { success: true, data: { ...trip, carrierRequisites, margin } };
     });
 
     // --- POST /trips вЂ” create ---
@@ -1437,7 +1443,10 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
         const dossierItems = await getDossierItemsForTrip({ tripId: id, organizationId: user.organizationId });
         const closeGate = evaluateDossierCloseGate({ tripId: id, dossierItems });
 
-        return { success: true, data: { ...dossier, transportDocuments, dossierItems, closeGate } };
+        // CFG-1/OBS-1: реквизиты исполнителя для акта об отказе от подписи.
+        const carrierRequisites = await resolveOrgRequisitesByTrip(id);
+
+        return { success: true, data: { ...dossier, transportDocuments, dossierItems, closeGate, carrierRequisites } };
     });
 
     // --- GET /trips/:id/eta — Wave 4: расчёт ETA по последней позиции ТС ---

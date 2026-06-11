@@ -23,6 +23,9 @@ export interface MetricCardProps {
     label: string;
     value: React.ReactNode;
     change?: MetricChange;
+    /** Суффикс дельты. '%' (default) — относительное изменение; 'пп' — процентные
+     *  пункты для метрик, которые сами выражены в % (маржинальность). */
+    changeUnit?: '%' | 'пп';
     /** When true (default), "up" is good (green). When false, "up" is bad (red) — for metrics like overdue debt. */
     changeGood?: boolean;
     hint?: string;
@@ -48,6 +51,7 @@ export function MetricCard({
     label,
     value,
     change,
+    changeUnit = '%',
     changeGood = true,
     hint,
     sparkline,
@@ -102,7 +106,7 @@ export function MetricCard({
                     {change && (
                         <span className={cn('inline-flex items-center gap-0.5 text-xs font-semibold tabular-nums', changeColor)}>
                             <ChangeIcon className="h-3 w-3" />
-                            {Math.abs(change.value)}%
+                            {Math.abs(change.value)}{changeUnit === 'пп' ? ' пп' : '%'}
                         </span>
                     )}
                     {hint && <span className="text-xs text-neutral-400 truncate">{hint}</span>}

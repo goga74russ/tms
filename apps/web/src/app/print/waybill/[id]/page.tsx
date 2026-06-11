@@ -35,7 +35,8 @@ export default function WaybillPrintPage() {
     }, [id]);
 
     useEffect(() => {
-        const carrierConfigured = !!process.env.NEXT_PUBLIC_CARRIER_NAME?.trim();
+        // CFG-1/OBS-1: реквизиты перевозчика из организации рейса, не из build-env.
+        const carrierConfigured = !!(data?.carrierRequisites?.name ?? '').trim();
         if (data && carrierConfigured && !printedRef.current) {
             printedRef.current = true;
             const timer = setTimeout(() => window.print(), 400);
@@ -47,7 +48,7 @@ export default function WaybillPrintPage() {
     if (!data) return <div className="loading">Загрузка путевого листа…</div>;
 
     const w = data;
-    const carrier = process.env.NEXT_PUBLIC_CARRIER_NAME?.trim();
+    const carrier = (w.carrierRequisites?.name ?? '').trim();
     if (!carrier) {
         return (
             <div className="loading">

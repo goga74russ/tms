@@ -62,13 +62,18 @@ type Dossier = {
     } | null;
 };
 
-// Carrier requisites — env-driven; 'НЕ УСТАНОВЛЕНО' fallback signals misconfig.
-const CARRIER = {
-    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'НЕ УСТАНОВЛЕНО',
-    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? 'НЕ УСТАНОВЛЕНО',
-    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? 'НЕ УСТАНОВЛЕНО',
-    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'НЕ УСТАНОВЛЕНО',
-};
+// CFG-1/OBS-1: реквизиты исполнителя — из организации рейса (dossier.carrierRequisites),
+// не из build-env. 'НЕ УСТАНОВЛЕНО' сигналит незаполненную орг.
+const NOT_SET = 'НЕ УСТАНОВЛЕНО';
+type CarrierReq = { name?: string | null; inn?: string | null; kpp?: string | null; address?: string | null };
+function carrierFrom(cr: CarrierReq | null | undefined) {
+    return {
+        name: cr?.name?.trim() || NOT_SET,
+        inn: cr?.inn?.trim() || NOT_SET,
+        kpp: cr?.kpp?.trim() || NOT_SET,
+        address: cr?.address?.trim() || NOT_SET,
+    };
+}
 
 // Роли подписантов шире канона ROLE_LABELS (ЭДО: shipper/consignee/forwarder,
 // плюс фолбэк 'operator' из trips/page.tsx) — локальное расширение поверх канона.
@@ -157,6 +162,7 @@ export default function SignatureRefusalPrintPage() {
     if (error) return <div className="loading">Ошибка: {error}</div>;
     if (!dossier) return <div className="loading">Загрузка акта отказа от подписи...</div>;
 
+    const CARRIER = carrierFrom((dossier as { carrierRequisites?: CarrierReq }).carrierRequisites);
     const firstOrder = dossier.orders?.[0];
 
     return (

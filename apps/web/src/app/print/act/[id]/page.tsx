@@ -14,16 +14,19 @@ function money(n: number | string | null | undefined) {
     return Number(n).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Реквизиты перевозчика — берутся из NEXT_PUBLIC_CARRIER_* env.
-// Если не заданы — печатаем «НЕ УСТАНОВЛЕНО», чтобы было сразу видно,
-// что прод-окружение не сконфигурировано. Раньше fallback был на тестовые
-// 7701234567 / 770101001, что попадало в реальные печатные документы.
-const CARRIER = {
-    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'НЕ УСТАНОВЛЕНО',
-    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? 'НЕ УСТАНОВЛЕНО',
-    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? 'НЕ УСТАНОВЛЕНО',
-    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'НЕ УСТАНОВЛЕНО',
-};
+// CFG-1/OBS-1: реквизиты исполнителя акта — из организации-получателя счёта
+// (data.carrierRequisites), не из build-env. Незаполненная орг → 'НЕ УСТАНОВЛЕНО',
+// чтобы мисконфиг был сразу виден (не печатаем фиктивные реквизиты).
+const NOT_SET = 'НЕ УСТАНОВЛЕНО';
+type CarrierReq = { name?: string | null; inn?: string | null; kpp?: string | null; address?: string | null };
+function carrierFrom(cr: CarrierReq | null | undefined) {
+    return {
+        name: cr?.name?.trim() || NOT_SET,
+        inn: cr?.inn?.trim() || NOT_SET,
+        kpp: cr?.kpp?.trim() || NOT_SET,
+        address: cr?.address?.trim() || NOT_SET,
+    };
+}
 
 export default function ActPrintPage() {
     const params = useParams();
@@ -57,6 +60,7 @@ export default function ActPrintPage() {
     if (!data) return <div className="loading">Загрузка акта…</div>;
 
     const inv = data;
+    const CARRIER = carrierFrom(data.carrierRequisites);
     // Юр-аудит §1.1: type-guard — этот шаблон только для актов. УПД/СФ/корректировки
     // имеют свои шаблоны (роутинг печати исправлен в finance/page); но при прямом
     // заходе по ссылке покажем чёткое сообщение вместо ничтожного «акта».

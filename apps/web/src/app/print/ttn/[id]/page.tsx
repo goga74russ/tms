@@ -10,13 +10,18 @@ function fmt(d: string | null | undefined) {
     return new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-// Carrier requisites — env-driven; 'НЕ УСТАНОВЛЕНО' fallback signals misconfig.
-const CARRIER = {
-    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'НЕ УСТАНОВЛЕНО',
-    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? 'НЕ УСТАНОВЛЕНО',
-    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? 'НЕ УСТАНОВЛЕНО',
-    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'НЕ УСТАНОВЛЕНО',
-};
+// CFG-1/OBS-1: реквизиты перевозчика — из организации заявки (data.carrierRequisites),
+// не из build-env. 'НЕ УСТАНОВЛЕНО' сигналит незаполненную орг.
+const NOT_SET = 'НЕ УСТАНОВЛЕНО';
+type CarrierReq = { name?: string | null; inn?: string | null; kpp?: string | null; address?: string | null };
+function carrierFrom(cr: CarrierReq | null | undefined) {
+    return {
+        name: cr?.name?.trim() || NOT_SET,
+        inn: cr?.inn?.trim() || NOT_SET,
+        kpp: cr?.kpp?.trim() || NOT_SET,
+        address: cr?.address?.trim() || NOT_SET,
+    };
+}
 
 export default function TtnPrintPage() {
     const params = useParams();
@@ -50,6 +55,7 @@ export default function TtnPrintPage() {
     if (!data) return <div className="loading">Загрузка ТТН…</div>;
 
     const o = data;
+    const CARRIER = carrierFrom(data.carrierRequisites);
 
     return (
         <>
