@@ -18,15 +18,19 @@ function money(n: number | string | null | undefined) {
 // (ИП Бардин Г.Д. — actual registered entity). Operators should still set
 // NEXT_PUBLIC_CARRIER_* env vars at build time; these defaults exist so a
 // missed env doesn't render fictional "ООО ТМС Логистик" placeholder data.
+// Юр-аудит §2.1/§2.2: НЕ хардкодить реальные реквизиты (банк/счёт/ИНН) в
+// fallback — на новой инсталляции без env счёт уйдёт с реквизитами ИП Бардина,
+// деньги клиента придут на чужой счёт (денежный риск). Унифицировано с
+// act/ttn/cancellation-act → 'НЕ УСТАНОВЛЕНО', чтобы мисконфиг был виден.
+const NOT_SET = 'НЕ УСТАНОВЛЕНО';
 const CARRIER = {
-    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? 'ИП Бардин Георгий Дмитриевич',
-    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? '746003023587',
-    // ИП has no КПП.
-    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? '',
-    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? 'Челябинская область, Чебаркульский район, село Непряхино',
-    bank: process.env.NEXT_PUBLIC_CARRIER_BANK ?? 'ООО "Банк Точка"',
-    bik: process.env.NEXT_PUBLIC_CARRIER_BIK ?? '044525104',
-    account: process.env.NEXT_PUBLIC_CARRIER_ACCOUNT ?? '40802810220000919838',
+    name: process.env.NEXT_PUBLIC_CARRIER_NAME ?? NOT_SET,
+    inn: process.env.NEXT_PUBLIC_CARRIER_INN ?? NOT_SET,
+    kpp: process.env.NEXT_PUBLIC_CARRIER_KPP ?? '', // ИП — без КПП
+    address: process.env.NEXT_PUBLIC_CARRIER_ADDRESS ?? NOT_SET,
+    bank: process.env.NEXT_PUBLIC_CARRIER_BANK ?? NOT_SET,
+    bik: process.env.NEXT_PUBLIC_CARRIER_BIK ?? NOT_SET,
+    account: process.env.NEXT_PUBLIC_CARRIER_ACCOUNT ?? NOT_SET,
 };
 
 export default function InvoicePrintPage() {

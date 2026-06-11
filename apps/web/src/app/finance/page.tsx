@@ -763,7 +763,19 @@ export default function FinanceDashboard() {
                                                         <FileDown className="w-4 h-4 text-red-500" />
                                                     </button>
                                                     <button
-                                                        onClick={e => { e.stopPropagation(); window.open(`/print/${inv.type === 'act' ? 'act' : 'invoice'}/${inv.id}`, '_blank'); }}
+                                                        onClick={e => {
+                                                            e.stopPropagation();
+                                                            // Юр-аудит §1.1/§5.5: печать по ПОЛНОМУ типу документа,
+                                                            // иначе УПД/СФ/корректировки уходили в /print/invoice (act),
+                                                            // где legacy-таблица пуста и заголовок не тот.
+                                                            const seg =
+                                                                inv.type === 'act' ? 'act' :
+                                                                inv.type === 'sf' ? 'sf' :
+                                                                inv.type === 'upd' ? 'upd' :
+                                                                (inv.type === 'corrective_sf' || inv.type === 'corrective_upd') ? 'corrective-sf' :
+                                                                'invoice'; // payment, advance
+                                                            window.open(`/print/${seg}/${inv.id}`, '_blank');
+                                                        }}
                                                         className="p-1 rounded hover:bg-purple-100 transition-colors" title="Печать"
                                                     >
                                                         <Printer className="w-4 h-4 text-purple-500" />

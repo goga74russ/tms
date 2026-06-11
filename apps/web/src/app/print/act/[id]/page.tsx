@@ -57,7 +57,44 @@ export default function ActPrintPage() {
     if (!data) return <div className="loading">Загрузка акта…</div>;
 
     const inv = data;
-    const tripRows: any[] = Array.isArray(inv.tripRows) ? inv.tripRows : [];
+    // Юр-аудит §1.1: type-guard — этот шаблон только для актов. УПД/СФ/корректировки
+    // имеют свои шаблоны (роутинг печати исправлен в finance/page); но при прямом
+    // заходе по ссылке покажем чёткое сообщение вместо ничтожного «акта».
+    if (inv.type && inv.type !== 'act') {
+        return (
+            <div className="loading" style={{ padding: 24, maxWidth: 520 }}>
+                Документ <b>{inv.number}</b> имеет тип «{inv.type}», а не «Акт».
+                Откройте его в соответствующем шаблоне печати (кнопка «Печать» в реестре
+                счетов выберет правильный автоматически).
+            </div>
+        );
+    }
+    // Юр-аудит §1.2: пустая таблица услуг. Раньше читали ТОЛЬКО legacy inv.tripRows
+    // (заполняется из invoice_trips); документы, связанные через invoice_orders
+    // (ручной выпуск), давали пустой акт → юр-ничтожный (ст.9 ФЗ-402). Теперь
+    // fallback на inv.orders[] (API его отдаёт).
+    const tripRows: any[] = Array.isArray(inv.tripRows) && inv.tripRows.length > 0
+        ? inv.tripRows
+        : (Array.isArray(inv.orders) ? inv.orders.map((o: any) => ({
+            tripNumber: o.number ?? null,
+            date: inv.createdAt,
+            route: (o.loadingAddress && o.unloadingAddress) ? `${o.loadingAddress} → ${o.unloadingAddress}` : (o.cargoDescription ?? '—'),
+            distanceKm: null,
+            amount: o.allocatedAmount,
+        })) : []);
+
+    // Юр-аудит §1.2 #3: запрет печати акта без позиций — без перечня услуг документ
+    // юр-ничтожен (нет обязательного реквизита «содержание факта хозяйственной жизни»,
+    // ст. 9 ФЗ-402; заказчик не примет расход, ст. 252 НК).
+    if (tripRows.length === 0) {
+        return (
+            <div className="loading" style={{ padding: 24, maxWidth: 540 }}>
+                Акт <b>{inv.number}</b> не содержит позиций (рейсов/заявок) — печать запрещена:
+                без перечня оказанных услуг документ юридически ничтожен (ст. 9 ФЗ-402).
+                Свяжитесь с бухгалтером для пересчёта.
+            </div>
+        );
+    }
     // C2: фактическая ставка НДС (из inv.vatRate или выведенная из сумм), не хардкод 20%.
     const subtotalNum = Number(inv.subtotal) || 0;
     const vatNum = Number(inv.vatAmount) || 0;
