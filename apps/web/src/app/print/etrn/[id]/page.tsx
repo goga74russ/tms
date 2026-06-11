@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { WAYBILL_STATUS, label } from '@tms/shared';
 
 const API_BASE = '/api';
 
@@ -139,7 +140,7 @@ export default function EtrnPreviewPage() {
                     </div>
                     <div>
                         <div className="field-row"><span className="field-label">Дата формирования:</span><span className="field-value">{fmtDateTime(data.issuedAt)}</span></div>
-                        <div className="field-row"><span className="field-label">Статус путевого листа:</span><span className="field-value">{valueOrDash(data.status)}</span></div>
+                        <div className="field-row"><span className="field-label">Статус путевого листа:</span><span className="field-value">{data.status ? label(WAYBILL_STATUS, data.status) : '—'}</span></div>
                         <div className="field-row"><span className="field-label">Перевозчик:</span><span className="field-value">{carrierName}</span></div>
                     </div>
                 </div>

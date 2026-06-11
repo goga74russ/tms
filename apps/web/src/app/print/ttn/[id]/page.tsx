@@ -63,11 +63,15 @@ export default function TtnPrintPage() {
                 <div className="doc-header-row">
                     <div style={{ flex: 1 }}>
                         <div className="org-name">{CARRIER.name}</div>
-                        <div style={{ fontSize: '8pt', color: '#555' }}>ИНН {CARRIER.inn} / КПП {CARRIER.kpp}</div>
+                        <div style={{ fontSize: '8pt', color: '#555' }}>ИНН {CARRIER.inn}{CARRIER.kpp && CARRIER.kpp !== 'НЕ УСТАНОВЛЕНО' ? ` / КПП ${CARRIER.kpp}` : ' (ИП — без КПП)'}</div>
                         <div style={{ fontSize: '8pt', color: '#555' }}>{CARRIER.address}</div>
                     </div>
                     <div style={{ border: '2px solid #000', padding: '8px 12px', textAlign: 'center', minWidth: 200 }}>
-                        <div style={{ fontSize: '7pt', color: '#555' }}>Форма № 1-Т</div>
+                        {/* Юр-аудит §3.1: форма 1-Т (Госкомстат №78) с 25.07.2011 не
+                            обязательна. Основной документ — транспортная накладная (ПП РФ
+                            №272) / ЭТрН. Помечаем как вспомогательную, чтобы не вводить в
+                            заблуждение. */}
+                        <div style={{ fontSize: '7pt', color: '#555' }}>Вспомогательная форма (ТТН). Основной документ — транспортная накладная (ПП РФ от 15.04.2011 №272) или ЭТрН.</div>
                         <div style={{ fontWeight: 700, fontSize: '11pt' }}>Товарно-транспортная накладная</div>
                         <div style={{ fontSize: '10pt' }}>№ {o.number}</div>
                         <div style={{ fontSize: '9pt' }}>от {fmt(o.createdAt)}</div>

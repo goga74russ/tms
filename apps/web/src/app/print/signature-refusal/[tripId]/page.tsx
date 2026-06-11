@@ -175,7 +175,7 @@ export default function SignatureRefusalPrintPage() {
                     <div>
                         <div style={{ fontWeight: 700, fontSize: '9pt' }}>Перевозчик:</div>
                         <div style={{ fontSize: '10pt' }}>{CARRIER.name}</div>
-                        <div style={{ fontSize: '8pt', color: '#555' }}>ИНН: {CARRIER.inn} / КПП: {CARRIER.kpp}</div>
+                        <div style={{ fontSize: '8pt', color: '#555' }}>ИНН: {CARRIER.inn}{CARRIER.kpp && CARRIER.kpp !== 'НЕ УСТАНОВЛЕНО' ? ` / КПП: ${CARRIER.kpp}` : ' (ИП — без КПП)'}</div>
                         <div style={{ fontSize: '8pt', color: '#555' }}>{CARRIER.address}</div>
                     </div>
                     <div>
@@ -191,7 +191,7 @@ export default function SignatureRefusalPrintPage() {
                 <div className="field-row"><div className="field-label">Тип:</div><div className="field-value-bold">{docLabel(document)}</div></div>
                 <div className="field-row"><div className="field-label">Внешний номер:</div><div className="field-value">{document?.externalId || document?.titleNumber || '-'}</div></div>
                 <div className="field-row"><div className="field-label">Статус:</div><div className="field-value">{label(DOC_STATUS, document?.status)}</div></div>
-                <div className="field-row"><div className="field-label">Провайдер:</div><div className="field-value">{document?.providerName || 'internal'} / {document?.providerStatus || '-'}</div></div>
+                <div className="field-row"><div className="field-label">Провайдер:</div><div className="field-value">{document?.providerName || 'внутренний'} / {document?.providerStatus || '-'}</div></div>
 
                 <div className="section-title">Отказ</div>
                 <div className="field-row"><div className="field-label">Дата и время:</div><div className="field-value">{fmt(refusal?.refusedAt)}</div></div>

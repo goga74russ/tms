@@ -64,6 +64,19 @@ export default function InvoicePrintPage() {
     if (error) return <div className="loading">Ошибка: {error}</div>;
     if (!data) return <div className="loading">Загрузка счёта…</div>;
 
+    // Юр-аудит §9 #5: блокировка печати счёта при ненастроенных реквизитах
+    // исполнителя — иначе уйдёт счёт без банка/ИНН (клиент не сможет оплатить
+    // или оплатит не туда). Defense-in-depth поверх fallback 'НЕ УСТАНОВЛЕНО'.
+    if (CARRIER.name === NOT_SET || CARRIER.inn === NOT_SET || CARRIER.account === NOT_SET) {
+        return (
+            <div className="loading" style={{ padding: 24, maxWidth: 540 }}>
+                Реквизиты исполнителя (наименование / ИНН / расчётный счёт) не настроены
+                (env <code>NEXT_PUBLIC_CARRIER_*</code>). Печать счёта с пустыми реквизитами
+                недопустима — обратитесь к администратору.
+            </div>
+        );
+    }
+
     const inv = data;
     const tripCount = Array.isArray(inv.tripIds) ? inv.tripIds.length : 1;
     const pricePerTrip = tripCount ? Number(inv.subtotal) / tripCount : Number(inv.subtotal);
@@ -101,7 +114,7 @@ export default function InvoicePrintPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div>
                             <div style={{ fontWeight: 700, fontSize: '11pt' }}>{CARRIER.name}</div>
-                            <div style={{ fontSize: '9pt', color: '#555' }}>ИНН: {CARRIER.inn} / КПП: {CARRIER.kpp}</div>
+                            <div style={{ fontSize: '9pt', color: '#555' }}>ИНН: {CARRIER.inn}{CARRIER.kpp && CARRIER.kpp !== 'НЕ УСТАНОВЛЕНО' ? ` / КПП: ${CARRIER.kpp}` : ' (ИП — без КПП)'}</div>
                             <div style={{ fontSize: '9pt', color: '#555' }}>{CARRIER.address}</div>
                         </div>
                         <div style={{ fontSize: '9pt', color: '#444' }}>
@@ -129,7 +142,7 @@ export default function InvoicePrintPage() {
                 {inv.contractorInn && (
                     <div className="field-row">
                         <span className="field-label" />
-                        <span className="field-value" style={{ fontSize: '8pt', color: '#555' }}>ИНН: {inv.contractorInn} КПП: {inv.contractorKpp || '—'}</span>
+                        <span className="field-value" style={{ fontSize: '8pt', color: '#555' }}>ИНН: {inv.contractorInn}{inv.contractorKpp ? ` КПП: ${inv.contractorKpp}` : ''}</span>
                     </div>
                 )}
 

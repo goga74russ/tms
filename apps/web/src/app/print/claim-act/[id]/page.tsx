@@ -161,7 +161,7 @@ export default function ClaimActPrintPage() {
                     <div>
                         <div style={{ fontWeight: 700, fontSize: '9pt' }}>ИСПОЛНИТЕЛЬ:</div>
                         <div style={{ fontSize: '10pt' }}>{CARRIER.name}</div>
-                        <div style={{ fontSize: '8pt', color: '#555' }}>ИНН: {CARRIER.inn} / КПП: {CARRIER.kpp}</div>
+                        <div style={{ fontSize: '8pt', color: '#555' }}>ИНН: {CARRIER.inn}{CARRIER.kpp && CARRIER.kpp !== 'НЕ УСТАНОВЛЕНО' ? ` / КПП: ${CARRIER.kpp}` : ' (ИП — без КПП)'}</div>
                         <div style={{ fontSize: '8pt', color: '#555' }}>{CARRIER.address}</div>
                     </div>
                     <div>

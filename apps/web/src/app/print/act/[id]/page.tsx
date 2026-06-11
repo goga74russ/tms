@@ -122,14 +122,14 @@ export default function ActPrintPage() {
                     <div>
                         <div style={{ fontWeight: 700, fontSize: '9pt' }}>ИСПОЛНИТЕЛЬ:</div>
                         <div style={{ fontSize: '10pt' }}>{CARRIER.name}</div>
-                        <div style={{ fontSize: '8pt', color: '#555' }}>ИНН: {CARRIER.inn} / КПП: {CARRIER.kpp}</div>
+                        <div style={{ fontSize: '8pt', color: '#555' }}>ИНН: {CARRIER.inn}{CARRIER.kpp && CARRIER.kpp !== 'НЕ УСТАНОВЛЕНО' ? ` / КПП: ${CARRIER.kpp}` : ' (ИП — без КПП)'}</div>
                         <div style={{ fontSize: '8pt', color: '#555' }}>{CARRIER.address}</div>
                     </div>
                     <div>
                         <div style={{ fontWeight: 700, fontSize: '9pt' }}>ЗАКАЗЧИК:</div>
                         <div style={{ fontSize: '10pt' }}>{inv.contractorName || '—'}</div>
                         {inv.contractorInn && (
-                            <div style={{ fontSize: '8pt', color: '#555' }}>ИНН: {inv.contractorInn} / КПП: {inv.contractorKpp || '—'}</div>
+                            <div style={{ fontSize: '8pt', color: '#555' }}>ИНН: {inv.contractorInn}{inv.contractorKpp ? ` / КПП: ${inv.contractorKpp}` : ''}</div>
                         )}
                     </div>
                 </div>
