@@ -175,7 +175,13 @@ export default function ActPrintPage() {
                 </div>
 
                 <div style={{ marginTop: 10, fontSize: '9pt', color: '#444' }}>
-                    Всего оказано услуг на сумму {money(inv.total)} руб. ({vatRatePct > 0 ? `${vatLabel} включён` : 'без НДС'}).
+                    {/* Юр-аудит §1.4: формулировка НДС согласована с inv.includesVat
+                        (ст. 168 ч.4 НК) — «в т.ч.» при НДС в составе vs «сверху» иначе. */}
+                    Всего оказано услуг на сумму {money(inv.total)} руб. ({vatRatePct > 0
+                        ? (inv.includesVat
+                            ? `в т.ч. ${vatLabel}: ${money(inv.vatAmount)} руб.`
+                            : `${vatLabel} сверху: ${money(inv.vatAmount)} руб.`)
+                        : 'без НДС'}).
                 </div>
 
                 <div style={{ marginTop: 10, fontSize: '9pt' }}>

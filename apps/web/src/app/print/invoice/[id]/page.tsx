@@ -180,7 +180,12 @@ export default function InvoicePrintPage() {
                 </div>
 
                 <div style={{ marginTop: 10, fontSize: '9pt', color: '#444' }}>
-                    Всего к оплате: {money(inv.total)} руб. {hasVat ? `(включая НДС ${vatRateNum}%: ${money(inv.vatAmount)} руб.)` : '(НДС не облагается)'}
+                    {/* Юр-аудит §1.4: формулировка по inv.includesVat (ст. 168 ч.4 НК). */}
+                    Всего к оплате: {money(inv.total)} руб. {hasVat
+                        ? (inv.includesVat
+                            ? `(в т.ч. НДС ${vatRateNum}%: ${money(inv.vatAmount)} руб.)`
+                            : `(НДС ${vatRateNum}% сверху: ${money(inv.vatAmount)} руб.)`)
+                        : '(НДС не облагается)'}
                 </div>
                 {isPayable && (
                     <div style={{ marginTop: 4, fontSize: '9pt', color: '#e65c00' }}>
