@@ -163,12 +163,29 @@ function isStaleEtrnPlaceholder(item: DossierItem, hasConcreteEtrn: boolean) {
         && item.status === 'missing';
 }
 
+// RU-название типа документа для пользовательских строк close-gate.
+function docTypeRu(documentType: string): string {
+    const map: Record<string, string> = {
+        etrn: 'ЭТрН',
+        waybill: 'путевой лист',
+        transport_document: 'транспортный документ',
+        ttn: 'ТТН',
+        upd: 'УПД',
+        sf: 'счёт-фактура',
+        act: 'акт',
+    };
+    return map[documentType.toLowerCase()] ?? documentType;
+}
+
+// Нейтральные формулировки (документ-имя в конце) — без конфликта рода
+// (ЭТрН ж / путевой лист м / документ м).
 function closeGateReason(item: DossierItem, severity: DossierCloseGateSeverity) {
-    if (item.status === 'missing') return `${item.documentType} is required but missing`;
-    if (item.status === 'rejected') return item.blockedReason ?? `${item.documentType} was rejected`;
-    if (item.status === 'exceptioned') return item.blockedReason ?? `${item.documentType} is covered by a manual paper exception`;
-    if (severity === 'warning') return `${item.documentType} is not fully completed yet`;
-    return item.blockedReason ?? `${item.documentType} blocks trip close`;
+    const d = docTypeRu(item.documentType);
+    if (item.status === 'missing') return `Не хватает обязательного документа: ${d}`;
+    if (item.status === 'rejected') return item.blockedReason ?? `Документ отклонён: ${d}`;
+    if (item.status === 'exceptioned') return item.blockedReason ?? `Закрыт бумажным исключением: ${d}`;
+    if (severity === 'warning') return `Документ ещё не оформлен: ${d}`;
+    return item.blockedReason ?? `Блокирует закрытие рейса: ${d}`;
 }
 
 function toCloseGateItem(item: DossierItem, severity: DossierCloseGateSeverity): DossierCloseGateItem {
@@ -196,12 +213,12 @@ function queueBucket(item: DossierItem): DossierDocumentQueueItem['bucket'] | nu
 }
 
 function queueAction(item: DossierItem, bucket: DossierDocumentQueueItem['bucket']): string {
-    if (bucket === 'overdue') return 'Escalate owner and request original document';
-    if (bucket === 'exceptioned' && item.sourceDocumentKind === 'transport_document') return 'Review refusal/rejection evidence and attach paper act';
-    if (bucket === 'exceptioned') return 'Review exception reason and close paper trail';
-    if (item.documentType.toLowerCase() === 'etrn') return 'Create ETRN or register paper exception';
-    if (item.documentType.toLowerCase() === 'waybill') return 'Issue waybill before close';
-    return 'Request or upload missing document';
+    if (bucket === 'overdue') return 'Эскалировать ответственному и запросить оригинал документа';
+    if (bucket === 'exceptioned' && item.sourceDocumentKind === 'transport_document') return 'Проверить доказательства отказа/отклонения и приложить бумажный акт';
+    if (bucket === 'exceptioned') return 'Проверить причину исключения и закрыть бумажный след';
+    if (item.documentType.toLowerCase() === 'etrn') return 'Сформировать ЭТрН или зарегистрировать бумажное исключение';
+    if (item.documentType.toLowerCase() === 'waybill') return 'Оформить путевой лист до закрытия';
+    return 'Запросить или загрузить отсутствующий документ';
 }
 
 function queueResponsibleRole(item: DossierItem): DossierDocumentQueueItem['responsibleRole'] {
@@ -219,7 +236,7 @@ function queuePrintLink(item: DossierItem) {
     ) {
         return {
             printUrl: `/print/signature-refusal/${item.scopeId}?documentId=${item.sourceDocumentId}`,
-            printLabel: 'Signature refusal act',
+            printLabel: 'Акт отказа от подписи',
         };
     }
 

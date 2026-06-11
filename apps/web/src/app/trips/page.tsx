@@ -549,7 +549,7 @@ function CloseGateBlock({
                 <span className="rounded-full bg-neutral-50 px-2 py-0.5">{dossierItemStatusLabel(item.status)}</span>
                 <span className="rounded-full bg-neutral-50 px-2 py-0.5">{item.required ? 'обязательный' : 'необязательный'}</span>
                 {item.sourceDocumentKind && (
-                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">{item.sourceDocumentKind}</span>
+                    <span className="rounded-full bg-neutral-50 px-2 py-0.5">{item.sourceDocumentKind === 'transport_document' ? 'транспортный документ' : item.sourceDocumentKind}</span>
                 )}
                 {item.dueAt && (
                     <span className="rounded-full bg-neutral-50 px-2 py-0.5">срок: {formatTimelineDate(item.dueAt)}</span>
@@ -865,30 +865,30 @@ function OperationalStructureBlock({
                     <p className="mt-1 text-xs text-neutral-500">Сгруппировано по связанным заявкам из досье.</p>
                 </div>
                 <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Lot load plan</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">План загрузки</p>
                     <p className="mt-1 text-sm font-semibold text-neutral-900">
                         {formatWeightKg(summary?.totalAssignedWeightKg)} / {formatWeightKg(summary?.payloadCapacityKg)}
                     </p>
                     <p className={`mt-1 text-xs ${summary?.overweight || summary?.overVolume ? 'text-rose-600' : 'text-neutral-500'}`}>
-                        {summary?.overweight ? 'Over payload capacity' : summary?.overVolume ? 'Over volume capacity' : 'Capacity summary from load-plan.'}
+                        {summary?.overweight ? 'Перегруз по массе' : summary?.overVolume ? 'Перегруз по объёму' : 'Сводка вместимости из плана загрузки.'}
                     </p>
                 </div>
                 <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Multi-stop route</p>
-                    <p className="mt-1 text-sm font-semibold text-neutral-900">{loadingCount} loading / {unloadingCount} unloading</p>
-                    <p className="mt-1 text-xs text-neutral-500">Visual sequence only; no solver or VRP changes.</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Мультистоп-маршрут</p>
+                    <p className="mt-1 text-sm font-semibold text-neutral-900">{loadingCount} погрузка / {unloadingCount} выгрузка</p>
+                    <p className="mt-1 text-xs text-neutral-500">Только визуальный порядок; без оптимизатора маршрута.</p>
                 </div>
             </div>
 
             <div className="mt-4 grid gap-4 lg:grid-cols-3">
                 <div className="rounded-xl border border-neutral-200">
                     <div className="border-b border-neutral-100 bg-neutral-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                        Lot assignments
+                        Распределение партий
                     </div>
                     <div className="divide-y divide-neutral-100">
                         {assignments.length === 0 ? (
                             <div className="px-3 py-4 text-sm text-neutral-500">
-                                No lot assignments returned yet. Split/assignment data will appear here when the load-plan API has it.
+                                Распределение партий пока не получено. Данные появятся, когда план загрузки их вернёт.
                             </div>
                         ) : assignments.slice(0, 6).map((assignment) => (
                             <div key={assignment.id} className="px-3 py-3">
@@ -907,11 +907,11 @@ function OperationalStructureBlock({
                                     <span className="rounded-full bg-neutral-50 px-2 py-0.5">{formatWeightKg(assignment.assignedWeightKg || assignment.plannedWeightKg)}</span>
                                     <span className="rounded-full bg-neutral-50 px-2 py-0.5">{formatVolumeM3(assignment.assignedVolumeM3)}</span>
                                     {assignment.assignedPlaces != null && (
-                                        <span className="rounded-full bg-neutral-50 px-2 py-0.5">{assignment.assignedPlaces} places</span>
+                                        <span className="rounded-full bg-neutral-50 px-2 py-0.5">{assignment.assignedPlaces} мест</span>
                                     )}
                                 </div>
                                 <p className="mt-2 text-[11px] text-neutral-400">
-                                    {`${routePointById.get(assignment.loadingRoutePointId || '') || 'Loading stop not linked'} to ${routePointById.get(assignment.unloadingRoutePointId || '') || 'Unloading stop not linked'}`}
+                                    {`${routePointById.get(assignment.loadingRoutePointId || '') || 'Погрузка не привязана'} → ${routePointById.get(assignment.unloadingRoutePointId || '') || 'Выгрузка не привязана'}`}
                                 </p>
                             </div>
                         ))}
@@ -923,7 +923,7 @@ function OperationalStructureBlock({
 
                 <div className="rounded-xl border border-neutral-200">
                     <div className="flex items-center justify-between gap-2 border-b border-neutral-100 bg-neutral-50 px-3 py-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Route sequence</span>
+                        <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Порядок маршрута</span>
                         {canSort && (
                             <button
                                 type="button"
@@ -939,7 +939,7 @@ function OperationalStructureBlock({
                     <div className="divide-y divide-neutral-100">
                         {sortedPoints.length === 0 ? (
                             <div className="px-3 py-4 text-sm text-neutral-500">
-                                No route points returned. The route timeline will appear after points are generated.
+                                Точки маршрута пока не получены. Хронология появится после их генерации.
                             </div>
                         ) : sortedPoints.map((point, index) => {
                             const overdue = isWindowOverdue(point);
@@ -995,12 +995,12 @@ function OperationalStructureBlock({
 
                 <div className="rounded-xl border border-neutral-200">
                     <div className="border-b border-neutral-100 bg-neutral-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                        Order grouping
+                        Группировка по заявкам
                     </div>
                     <div className="divide-y divide-neutral-100">
                         {orders.length === 0 ? (
                             <div className="px-3 py-4 text-sm text-neutral-500">
-                                No linked orders in dossier.
+                                Связанных заявок в досье нет.
                             </div>
                         ) : orders.map((order: any) => {
                             const group = assignmentsByOrder.get(order.number) || assignmentsByOrder.get(order.id) || [];
@@ -1023,11 +1023,11 @@ function OperationalStructureBlock({
                                             <p className="truncate text-xs text-neutral-500">{order.cargoDescription || 'Cargo details not provided'}</p>
                                         </div>
                                         <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
-                                            {group.length} lots
+                                            {group.length} партий
                                         </span>
                                     </div>
                                     <p className="mt-2 text-[11px] text-neutral-400">
-                                        {`${order.loadingAddress || 'Loading address not set'} to ${order.unloadingAddress || 'Unloading address not set'}`}
+                                        {`${order.loadingAddress || 'Адрес погрузки не указан'} → ${order.unloadingAddress || 'Адрес выгрузки не указан'}`}
                                     </p>
                                 </div>
                             );
