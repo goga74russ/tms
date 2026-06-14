@@ -35,12 +35,13 @@ function money(n: number | string | null | undefined) {
 // (data.carrierRequisites), не из build-env и без хардкода ИП Бардина
 // (Юр-аудит §2.1/§2.2). Незаполненная орг → 'НЕ УСТАНОВЛЕНО'.
 const NOT_SET = 'НЕ УСТАНОВЛЕНО';
-type CarrierReq = { name?: string | null; inn?: string | null; kpp?: string | null; address?: string | null };
+type CarrierReq = { name?: string | null; inn?: string | null; kpp?: string | null; address?: string | null; ogrn?: string | null };
 function carrierFrom(cr: CarrierReq | null | undefined) {
     return {
         name: cr?.name?.trim() || NOT_SET,
         inn: cr?.inn?.trim() || NOT_SET,
         kpp: cr?.kpp?.trim() || '',
+        ogrn: cr?.ogrn?.trim() || '', // ② форма СФ 01.04.2026 — ОГРНИП для ИП
         address: cr?.address?.trim() || NOT_SET,
     };
 }
@@ -136,6 +137,8 @@ export default function SfPrintPage() {
                                 {CARRIER.name}<br />
                                 Адрес: {CARRIER.address}<br />
                                 ИНН: {CARRIER.inn}{CARRIER.kpp ? ` / КПП: ${CARRIER.kpp}` : ' (ИП — без КПП)'}
+                                {/* ② форма СФ с 01.04.2026: для ИП — ОГРНИП */}
+                                {CARRIER.ogrn && !CARRIER.kpp ? <><br />ОГРНИП: {CARRIER.ogrn}</> : null}
                             </td>
                             <td style={{ padding: '4px 8px', border: '1px solid #999', verticalAlign: 'top' }}>
                                 <strong>Покупатель:</strong><br />
@@ -172,6 +175,13 @@ export default function SfPrintPage() {
                                 </td>
                             </tr>
                         )}
+                        {/* ② форма СФ с 01.04.2026 — строка 5б (реализация в счёт ранее
+                            полученной оплаты). Для услуг без предоплаты — прочерк. */}
+                        <tr>
+                            <td colSpan={2} style={{ padding: '4px 8px', border: '1px solid #999', fontSize: '8pt', color: '#555' }}>
+                                <strong>Стр. 5б</strong> (идентификатор реализации в счёт ранее полученной оплаты): {inv.advancePaymentRef ?? '—'}
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
 
@@ -188,6 +198,8 @@ export default function SfPrintPage() {
                             <th style={{ padding: 3, border: '1px solid #999', width: '6%' }}>Ставка НДС</th>
                             <th style={{ padding: 3, border: '1px solid #999', width: '10%' }}>Сумма НДС, ₽</th>
                             <th style={{ padding: 3, border: '1px solid #999', width: '11%' }}>Стоимость с НДС, ₽</th>
+                            {/* ② графа 14 — прослеживаемые товары; транспортные услуги не подлежат → прочерк */}
+                            <th style={{ padding: 3, border: '1px solid #999', width: '9%' }}>Гр.14: прослеж., ₽</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -202,6 +214,7 @@ export default function SfPrintPage() {
                                 <td style={{ padding: 3, border: '1px solid #999', textAlign: 'center' }}>{vatRate != null ? `${vatRate}%` : '—'}</td>
                                 <td style={{ padding: 3, border: '1px solid #999', textAlign: 'right' }}>{money(r.vat)}</td>
                                 <td style={{ padding: 3, border: '1px solid #999', textAlign: 'right' }}>{money(r.total)}</td>
+                                <td style={{ padding: 3, border: '1px solid #999', textAlign: 'center' }}>—</td>
                             </tr>
                         ))}
                         <tr style={{ fontWeight: 700, background: '#f5f5f5' }}>
@@ -210,6 +223,7 @@ export default function SfPrintPage() {
                             <td style={{ padding: 3, border: '1px solid #999' }}></td>
                             <td style={{ padding: 3, border: '1px solid #999', textAlign: 'right' }}>{money(totalVat)}</td>
                             <td style={{ padding: 3, border: '1px solid #999', textAlign: 'right' }}>{money(totalAll)}</td>
+                            <td style={{ padding: 3, border: '1px solid #999' }}></td>
                         </tr>
                     </tbody>
                 </table>

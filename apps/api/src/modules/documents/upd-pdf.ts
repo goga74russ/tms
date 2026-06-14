@@ -7,7 +7,7 @@ import {
     createDoc, streamToBuffer, formatDate, formatMoney, drawHLine,
     sectionHeader, drawTable, drawSignatureLine, MARGIN, CONTENT_W, PAGE_W,
 } from './pdf-base.js';
-import { carrierForPdf, type CarrierRequisites } from './org-requisites.js';
+import { carrierForPdf, NOT_SET, type CarrierRequisites } from './org-requisites.js';
 
 export interface UpdTripRow {
     date: string | Date | null;
@@ -96,8 +96,11 @@ export async function generateUpdPdf(data: UpdPdfInput): Promise<Buffer> {
         .text(`\u0418\u041d\u041d: ${C.inn}  \u041a\u041f\u041f: ${C.kpp}`, MARGIN, sidesY + 25, { width: halfW });
     doc.font('Regular').fontSize(8).fillColor('#555')
         .text(C.address, MARGIN, sidesY + 37, { width: halfW });
-    doc.font('Regular').fontSize(8).fillColor('#555')
-        .text(`\u0422\u0435\u043b: ${C.phone}`, MARGIN, sidesY + 49, { width: halfW });
+    // \u2461 \u0444\u043e\u0440\u043c\u0430 \u0421\u0424 \u0441 01.04.2026 \u2014 \u0434\u043b\u044f \u0418\u041f \u041e\u0413\u0420\u041d\u0418\u041f \u0432\u043c\u0435\u0441\u0442\u043e \u0441\u0432\u0438\u0434\u0435\u0442\u0435\u043b\u044c\u0441\u0442\u0432\u0430 \u043e \u0433\u043e\u0441\u0440\u0435\u0433.
+    const sellerExtra = (C.ogrn !== NOT_SET && !C.kpp) ? `\u041e\u0413\u0420\u041d\u0418\u041f: ${C.ogrn}` : (C.phone ? `\u0422\u0435\u043b: ${C.phone}` : '');
+    if (sellerExtra) {
+        doc.font('Regular').fontSize(8).fillColor('#555').text(sellerExtra, MARGIN, sidesY + 49, { width: halfW });
+    }
 
     // \u041f\u043e\u043a\u0443\u043f\u0430\u0442\u0435\u043b\u044c (\u043f\u0440\u0430\u0432\u0430\u044f \u043a\u043e\u043b\u043e\u043d\u043a\u0430)
     doc.font('Bold').fontSize(9).fillColor('#000').text('\u041f\u041e\u041a\u0423\u041f\u0410\u0422\u0415\u041b\u042c:', x2, sidesY, { width: halfW });
@@ -182,6 +185,16 @@ export async function generateUpdPdf(data: UpdPdfInput): Promise<Buffer> {
     doc.font('Regular').fontSize(9).fillColor('#444')
         .text(
             `\u0412\u0441\u0435\u0433\u043e \u043f\u043e \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0443: ${formatMoney(data.total)} \u0440\u0443\u0431. (${vatLabel}: ${formatMoney(data.vatAmount)} \u0440\u0443\u0431.)`,
+            MARGIN, doc.y, { width: CONTENT_W },
+        );
+
+    // \u2461 \u0444\u043e\u0440\u043c\u0430 \u0421\u0424/\u0423\u041f\u0414 \u0441 01.04.2026 \u2014 \u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u044c\u043d\u044b\u0435 \u0441\u0432\u0435\u0434\u0435\u043d\u0438\u044f: \u0441\u0442\u0440. 5\u0431 (\u0440\u0435\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f \u0432
+    // \u0441\u0447\u0451\u0442 \u0440\u0430\u043d\u0435\u0435 \u043f\u043e\u043b\u0443\u0447\u0435\u043d\u043d\u043e\u0439 \u043e\u043f\u043b\u0430\u0442\u044b) \u0438 \u0433\u0440\u0430\u0444\u0430 14 (\u043f\u0440\u043e\u0441\u043b\u0435\u0436\u0438\u0432\u0430\u0435\u043c\u044b\u0435 \u0442\u043e\u0432\u0430\u0440\u044b). \u0414\u043b\u044f
+    // \u0442\u0440\u0430\u043d\u0441\u043f\u043e\u0440\u0442\u043d\u044b\u0445 \u0443\u0441\u043b\u0443\u0433 \u2014 \u043d\u0435 \u043f\u0440\u0438\u043c\u0435\u043d\u044f\u044e\u0442\u0441\u044f (\u043f\u0440\u043e\u0447\u0435\u0440\u043a), \u043d\u043e \u0434\u043e\u043b\u0436\u043d\u044b \u043f\u0440\u0438\u0441\u0443\u0442\u0441\u0442\u0432\u043e\u0432\u0430\u0442\u044c.
+    doc.moveDown(0.3);
+    doc.font('Regular').fontSize(7.5).fillColor('#888')
+        .text(
+            '\u0421\u0442\u0440. 5\u0431 (\u0440\u0435\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f \u0432 \u0441\u0447\u0451\u0442 \u0440\u0430\u043d\u0435\u0435 \u043f\u043e\u043b\u0443\u0447\u0435\u043d\u043d\u043e\u0439 \u043e\u043f\u043b\u0430\u0442\u044b): \u2014.   \u0413\u0440\u0430\u0444\u0430 14 (\u043f\u0440\u043e\u0441\u043b\u0435\u0436\u0438\u0432\u0430\u0435\u043c\u044b\u0435 \u0442\u043e\u0432\u0430\u0440\u044b): \u043d\u0435 \u043f\u0440\u0438\u043c\u0435\u043d\u044f\u0435\u0442\u0441\u044f (\u0442\u0440\u0430\u043d\u0441\u043f\u043e\u0440\u0442\u043d\u044b\u0435 \u0443\u0441\u043b\u0443\u0433\u0438).',
             MARGIN, doc.y, { width: CONTENT_W },
         );
 
