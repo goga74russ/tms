@@ -23,6 +23,9 @@ docs
 # P1-6: cookie + refund — rendered by /legal/cookies, /legal/refunds.
 !docs/legal/cookie-policy.md
 !docs/legal/refund-policy.md
+# P1-3: ЭТрН-пакет — rendered by /legal/etrn/* (dpa уже исключён выше).
+!docs/legal/etrn
+!docs/legal/etrn/**
 **/playwright.config.ts
 **/e2e
 **/*.tsbuildinfo

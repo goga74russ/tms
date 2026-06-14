@@ -30,6 +30,9 @@ COPY docs/legal/terms-of-service.md ./docs/legal/terms-of-service.md
 # P1-6: cookie + refund политики (/legal/cookies, /legal/refunds).
 COPY docs/legal/cookie-policy.md ./docs/legal/cookie-policy.md
 COPY docs/legal/refund-policy.md ./docs/legal/refund-policy.md
+# P1-3: юр-пакет ЭТрН + DPA-каталог (/legal/etrn/*, /legal/dpa/*).
+COPY docs/legal/etrn ./docs/legal/etrn
+COPY docs/legal/dpa ./docs/legal/dpa
 
 # Build shared, then web
 RUN pnpm --filter @tms/shared exec tsc -p tsconfig.json

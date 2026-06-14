@@ -24,6 +24,8 @@ const COLUMNS = [
             { href: '/legal/personal-data', label: 'Согласие на обработку ПД' },
             { href: '/legal/cookies', label: 'Файлы cookie' },
             { href: '/legal/refunds', label: 'Возврат средств' },
+            { href: '/legal/etrn', label: 'Пакет ЭТрН' },
+            { href: '/legal/dpa', label: 'Соглашения DPA' },
         ],
     },
 ];
