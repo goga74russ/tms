@@ -22,6 +22,8 @@ const COLUMNS = [
             { href: '/legal/privacy', label: 'Конфиденциальность' },
             { href: '/legal/terms', label: 'Условия использования' },
             { href: '/legal/personal-data', label: 'Согласие на обработку ПД' },
+            { href: '/legal/cookies', label: 'Файлы cookie' },
+            { href: '/legal/refunds', label: 'Возврат средств' },
         ],
     },
 ];

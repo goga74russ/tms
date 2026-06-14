@@ -27,6 +27,9 @@ COPY apps/web/ ./apps/web/
 # .dockerignore exempts these two files from the global `*.md` rule.
 COPY docs/legal/privacy-policy.md ./docs/legal/privacy-policy.md
 COPY docs/legal/terms-of-service.md ./docs/legal/terms-of-service.md
+# P1-6: cookie + refund политики (/legal/cookies, /legal/refunds).
+COPY docs/legal/cookie-policy.md ./docs/legal/cookie-policy.md
+COPY docs/legal/refund-policy.md ./docs/legal/refund-policy.md
 
 # Build shared, then web
 RUN pnpm --filter @tms/shared exec tsc -p tsconfig.json
