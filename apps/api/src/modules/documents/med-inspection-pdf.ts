@@ -146,10 +146,17 @@ export async function generateMedInspectionPdf(inspectionId: string): Promise<Bu
 
     doc.moveDown(3.5);
     drawHLine(doc);
+    // P1-2 (юр-аудит): ссылка на профильный приказ о порядке медосмотров.
+    doc.font('Regular').fontSize(7).fillColor('#999')
+        .text(
+            'Форма соответствует Приказу Минздрава России от 30.05.2023 № 266н (порядок предрейсовых/послерейсовых медосмотров). Медданные — особая категория ПДн (ст. 10 ФЗ-152).',
+            MARGIN, doc.y + 4, { width: CONTENT_W, align: 'center' },
+        );
+    doc.moveDown(0.3);
     doc.font('Regular').fontSize(7).fillColor('#999')
         .text(
             `Акт № ${insp.id} | ${C.name} | Дата формирования: ${formatDate(new Date())}`,
-            MARGIN, doc.y + 4, { width: CONTENT_W, align: 'center' },
+            MARGIN, doc.y + 2, { width: CONTENT_W, align: 'center' },
         );
 
     return streamToBuffer(doc);

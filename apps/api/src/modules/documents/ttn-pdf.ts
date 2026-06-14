@@ -62,6 +62,11 @@ export async function generateTtnPdf(data: TtnPdfInput): Promise<Buffer> {
         .text(C.address, MARGIN, doc.y - 20, { width: CONTENT_W - 210 });
 
     doc.y = bY + 58;
+    // P1-1 (юр-аудит §3.1): форма 1-Т (Госкомстат №78) с 25.07.2011 не обязательна.
+    // Помечаем как вспомогательную — основной документ ТН (ПП РФ №272) или ЭТрН.
+    doc.font('Regular').fontSize(7).fillColor('#888')
+        .text('Вспомогательная форма (ТТН). Основной перевозочный документ — транспортная накладная (ПП РФ от 15.04.2011 № 272) или ЭТрН.', MARGIN, doc.y, { width: CONTENT_W });
+    doc.moveDown(0.3);
     drawHLine(doc);
     doc.moveDown(0.5);
 
