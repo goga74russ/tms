@@ -8,6 +8,8 @@
 
 > Замещает черновик TransPult'а от 25.05.2026. Подписан Jurist'ом 26.05.2026 после проверки коммита `3d04e14` против Acceptance Criteria spec §10.
 
+> **⚠️ Дополнение 11.06.2026 (НДС 22%):** на момент подписания acceptance действовала ставка НДС 20%. С 01.01.2026 основная ставка — **22%** (ФЗ-425). M-batch реализован под 20% (`allowedVatRates=[0,10,20]`, `vatRate default 20`). Это **НЕ отзывает** acceptance структурной части (enum, FSM, junction, triggers, audit — они корректны), но **требует обновления ставки** — см. invoice-spec.md §4.1 и задачу ① в [legal-register-triage-2026-06-11.md](../qa/legal-register-triage-2026-06-11.md). После фикса ставки — отдельная ре-верификация vatRate-логики.
+
 ---
 
 ## §1 Acceptance Checklist (10 пунктов из spec §10)
