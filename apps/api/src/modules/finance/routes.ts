@@ -618,8 +618,30 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         total: Number(invoice.total),
                         carrier: carrierReq,
                     });
+                } else if (invoice.type === 'upd' || invoice.type === 'corrective_upd') {
+                    // ④ (legal-register §6): УПД печатается СВОИМ генератором (УПД,
+                    // не «Акт»). Иначе покупатель получал документ с заголовком
+                    // «АКТ ВЫПОЛНЕННЫХ РАБОТ» → нет права на вычет НДС.
+                    const { generateUpdPdf } = await import('../documents/upd-pdf.js');
+                    pdfBuffer = await generateUpdPdf({
+                        number: invoice.number,
+                        date: invoice.createdAt,
+                        periodStart: invoice.periodStart,
+                        periodEnd: invoice.periodEnd,
+                        status: 1,
+                        contractorName: contractor?.name ?? '—',
+                        contractorInn: contractor?.inn,
+                        contractorKpp: contractor?.kpp,
+                        contractorAddress: contractor?.legalAddress,
+                        trips: tripRows.map((t) => ({ ...t, qty: 1, unit: 'рейс', price: t.amount })),
+                        subtotal: Number(invoice.subtotal),
+                        vatAmount: Number(invoice.vatAmount),
+                        vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
+                        total: Number(invoice.total),
+                        carrier: carrierReq,
+                    });
                 } else {
-                    // act or upd
+                    // act / sf (отдельного sf-генератора нет — печатается как акт услуг)
                     const { generateActPdf } = await import('../documents/act-pdf.js');
                     pdfBuffer = await generateActPdf({
                         number: invoice.number,
@@ -819,22 +841,44 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                             distanceKm: t.distanceKm ? Number(t.distanceKm) : null,
                             amount: costPerTrip,
                         }));
-                        pdfBuffer = await generateActPdf({
-                            number: invoice.number,
-                            date: invoice.createdAt,
-                            periodStart: invoice.periodStart,
-                            periodEnd: invoice.periodEnd,
-                            contractorName: contractor?.name ?? '—',
-                            contractorInn: contractor?.inn,
-                            contractorKpp: contractor?.kpp,
-                            contractorAddress: contractor?.legalAddress,
-                            trips: tripRows,
-                            subtotal: Number(invoice.subtotal),
-                            vatAmount: Number(invoice.vatAmount),
-                            vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
-                            total: Number(invoice.total),
-                            carrier: carrierReq,
-                        });
+                        if (invoice.type === 'upd' || invoice.type === 'corrective_upd') {
+                            // ④ — УПД своим генератором, не «Акт».
+                            const { generateUpdPdf } = await import('../documents/upd-pdf.js');
+                            pdfBuffer = await generateUpdPdf({
+                                number: invoice.number,
+                                date: invoice.createdAt,
+                                periodStart: invoice.periodStart,
+                                periodEnd: invoice.periodEnd,
+                                status: 1,
+                                contractorName: contractor?.name ?? '—',
+                                contractorInn: contractor?.inn,
+                                contractorKpp: contractor?.kpp,
+                                contractorAddress: contractor?.legalAddress,
+                                trips: tripRows.map((t) => ({ ...t, qty: 1, unit: 'рейс', price: t.amount })),
+                                subtotal: Number(invoice.subtotal),
+                                vatAmount: Number(invoice.vatAmount),
+                                vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
+                                total: Number(invoice.total),
+                                carrier: carrierReq,
+                            });
+                        } else {
+                            pdfBuffer = await generateActPdf({
+                                number: invoice.number,
+                                date: invoice.createdAt,
+                                periodStart: invoice.periodStart,
+                                periodEnd: invoice.periodEnd,
+                                contractorName: contractor?.name ?? '—',
+                                contractorInn: contractor?.inn,
+                                contractorKpp: contractor?.kpp,
+                                contractorAddress: contractor?.legalAddress,
+                                trips: tripRows,
+                                subtotal: Number(invoice.subtotal),
+                                vatAmount: Number(invoice.vatAmount),
+                                vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
+                                total: Number(invoice.total),
+                                carrier: carrierReq,
+                            });
+                        }
                     }
 
                     // F-19: имя файла отражает тип документа (раньше всё кроме payment

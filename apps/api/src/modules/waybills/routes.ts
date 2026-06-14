@@ -375,7 +375,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             const { trips: tripsTable, tripOrders, orders: ordersTable, vehicles: vehiclesTable, contractors, techInspections, medInspections, users, drivers: driversTable } = await import('../../db/schema.js');
             const [trip] = await db.select().from(tripsTable).where(eq(tripsTable.id, waybill.tripId!)).limit(1);
             const [order] = trip ? await db.select({ order: ordersTable }).from(tripOrders).innerJoin(ordersTable, eq(tripOrders.orderId, ordersTable.id)).where(eq(tripOrders.tripId, trip.id)).limit(1) : [null];
-            const [vehicle] = waybill.vehicleId ? await db.select({ make: vehiclesTable.make, model: vehiclesTable.model, plateNumber: vehiclesTable.plateNumber, vin: vehiclesTable.vin }).from(vehiclesTable).where(eq(vehiclesTable.id, waybill.vehicleId)).limit(1) : [null];
+            const [vehicle] = waybill.vehicleId ? await db.select({ make: vehiclesTable.make, model: vehiclesTable.model, plateNumber: vehiclesTable.plateNumber, vin: vehiclesTable.vin, osagoNumber: vehiclesTable.osagoNumber, osagoExpiry: vehiclesTable.osagoExpiry, diagnosticCardNumber: vehiclesTable.diagnosticCardNumber, diagnosticCardExpiry: vehiclesTable.diagnosticCardExpiry }).from(vehiclesTable).where(eq(vehiclesTable.id, waybill.vehicleId)).limit(1) : [null];
 
             // Fetch driver SNILS for \u041c\u0438\u043d\u0442\u0440\u0430\u043d\u0441 \u2116390 section
             let driverSnils: string | null = null;
@@ -460,6 +460,11 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 validTo: waybill.validTo ?? null,
                 transportServiceType: waybill.transportServiceType ?? null,
                 transportMode: waybill.transportMode ?? null,
+                // ⑥ Приказ №390 — ОСАГО + диагностическая карта ТС.
+                osagoNumber: vehicle?.osagoNumber ?? null,
+                osagoExpiry: vehicle?.osagoExpiry ?? null,
+                diagnosticCardNumber: vehicle?.diagnosticCardNumber ?? null,
+                diagnosticCardExpiry: vehicle?.diagnosticCardExpiry ?? null,
             });
 
             reply.header('Content-Type', 'application/pdf');

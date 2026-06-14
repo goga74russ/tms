@@ -815,6 +815,11 @@ export async function getWaybillById(id: string) {
             model: vehicles.model,
             bodyType: vehicles.bodyType,
             payloadCapacityKg: vehicles.payloadCapacityKg,
+            // ⑥ Приказ №390 — ОСАГО + диагностическая карта.
+            osagoNumber: vehicles.osagoNumber,
+            osagoExpiry: vehicles.osagoExpiry,
+            diagnosticCardNumber: vehicles.diagnosticCardNumber,
+            diagnosticCardExpiry: vehicles.diagnosticCardExpiry,
         })
         .from(vehicles)
         .where(eq(vehicles.id, waybill.vehicleId))

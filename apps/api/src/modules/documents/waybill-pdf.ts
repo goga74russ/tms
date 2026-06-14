@@ -6,7 +6,7 @@ import {
     sectionHeader, drawSignatureLine, MARGIN, CONTENT_W,
     PAGE_W,
 } from './pdf-base.js';
-import { carrierForPdf, type CarrierRequisites } from './org-requisites.js';
+import { carrierForPdf, NOT_SET, type CarrierRequisites } from './org-requisites.js';
 
 export interface WaybillPdfInput {
     number: string;
@@ -47,6 +47,11 @@ export interface WaybillPdfInput {
     validTo?: string | Date | null;
     transportServiceType?: string | null;
     transportMode?: string | null;
+    // ⑥ Приказ №390 — ОСАГО и диагностическая карта ТС.
+    osagoNumber?: string | null;
+    osagoExpiry?: string | Date | null;
+    diagnosticCardNumber?: string | null;
+    diagnosticCardExpiry?: string | Date | null;
     carrier: CarrierRequisites | null; // ③ — реквизиты перевозчика из организации
 }
 
@@ -190,10 +195,41 @@ export async function generateWaybillPdf(data: WaybillPdfInput): Promise<Buffer>
     // ── \u0420\u0435\u043a\u0432\u0438\u0437\u0438\u0442\u044b \u043f\u043e \u041f\u0440\u0438\u043a\u0430\u0437\u0443 \u041c\u0438\u043d\u0442\u0440\u0430\u043d\u0441\u0430 \u21162390 ───────────────────────────────
     const has390 = data.driverSnils || data.issuedByName || data.issuedByPosition
         || data.validFrom || data.validTo
-        || data.transportServiceType || data.transportMode;
+        || data.transportServiceType || data.transportMode
+        || data.osagoNumber || data.osagoExpiry
+        || data.diagnosticCardNumber || data.diagnosticCardExpiry
+        || (C.ogrn && C.ogrn !== NOT_SET);
 
     if (has390) {
-        sectionHeader(doc, '\u0420\u0415\u041a\u0412\u0418\u0417\u0418\u0422\u042b \u041f\u041e \u041f\u0420\u0418\u041a\u0410\u0417\u0423 \u041c\u0418\u041d\u0422\u0420\u0410\u041d\u0421\u0410 \u21162390');
+        sectionHeader(doc, '\u0420\u0415\u041a\u0412\u0418\u0417\u0418\u0422\u042b \u041f\u041e \u041f\u0420\u0418\u041a\u0410\u0417\u0423 \u041c\u0418\u041d\u0422\u0420\u0410\u041d\u0421\u0410 \u2116390');
+
+        // \u041e\u0413\u0420\u041d/\u041e\u0413\u0420\u041d\u0418\u041f \u0432\u043b\u0430\u0434\u0435\u043b\u044c\u0446\u0430 \u0422\u0421 (\u043f\u0435\u0440\u0435\u0432\u043e\u0437\u0447\u0438\u043a).
+        if (C.ogrn && C.ogrn !== NOT_SET) {
+            const ogrnY = doc.y + 2;
+            doc.font('Regular').fontSize(9).fillColor('#666').text('\u041e\u0413\u0420\u041d/\u041e\u0413\u0420\u041d\u0418\u041f \u0432\u043b\u0430\u0434\u0435\u043b\u044c\u0446\u0430:', MARGIN, ogrnY, { width: 150 });
+            doc.font('Regular').fontSize(10).fillColor('#000').text(C.ogrn, MARGIN + 155, ogrnY, { width: 200 });
+            doc.moveDown(1);
+        }
+
+        // \u041e\u0421\u0410\u0413\u041e \u2014 \u0441\u0435\u0440\u0438\u044f/\u043d\u043e\u043c\u0435\u0440 + \u0441\u0440\u043e\u043a.
+        if (data.osagoNumber || data.osagoExpiry) {
+            const osY = doc.y + 2;
+            doc.font('Regular').fontSize(9).fillColor('#666').text('\u041f\u043e\u043b\u0438\u0441 \u041e\u0421\u0410\u0413\u041e:', MARGIN, osY, { width: 150 });
+            const osText = [data.osagoNumber || '\u2014', data.osagoExpiry ? `\u0434\u043e ${formatDate(data.osagoExpiry)}` : null]
+                .filter(Boolean).join(', ');
+            doc.font('Regular').fontSize(10).fillColor('#000').text(osText, MARGIN + 155, osY, { width: CONTENT_W - 155 });
+            doc.moveDown(1);
+        }
+
+        // \u0414\u0438\u0430\u0433\u043d\u043e\u0441\u0442\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u043a\u0430\u0440\u0442\u0430 \u2014 \u043d\u043e\u043c\u0435\u0440 + \u0441\u0440\u043e\u043a.
+        if (data.diagnosticCardNumber || data.diagnosticCardExpiry) {
+            const dcY = doc.y + 2;
+            doc.font('Regular').fontSize(9).fillColor('#666').text('\u0414\u0438\u0430\u0433\u043d\u043e\u0441\u0442\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u043a\u0430\u0440\u0442\u0430:', MARGIN, dcY, { width: 150 });
+            const dcText = [data.diagnosticCardNumber || '\u2014', data.diagnosticCardExpiry ? `\u0434\u043e ${formatDate(data.diagnosticCardExpiry)}` : null]
+                .filter(Boolean).join(', ');
+            doc.font('Regular').fontSize(10).fillColor('#000').text(dcText, MARGIN + 155, dcY, { width: CONTENT_W - 155 });
+            doc.moveDown(1);
+        }
 
         if (data.driverSnils) {
             const snilsY = doc.y + 2;

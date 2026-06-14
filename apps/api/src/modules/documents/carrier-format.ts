@@ -21,7 +21,7 @@ export type CarrierRequisites = {
 // мисконфиг был виден, а не печатались чужие/пустые реквизиты.
 export const NOT_SET = 'НЕ УСТАНОВЛЕНО';
 export type PdfCarrier = {
-    name: string; inn: string; kpp: string; address: string;
+    name: string; inn: string; kpp: string; ogrn: string; address: string;
     bank: string; bik: string; account: string; corr: string; phone: string;
 };
 export function carrierForPdf(req: CarrierRequisites | null): PdfCarrier {
@@ -29,6 +29,7 @@ export function carrierForPdf(req: CarrierRequisites | null): PdfCarrier {
         name: req?.name?.trim() || NOT_SET,
         inn: req?.inn?.trim() || NOT_SET,
         kpp: req?.kpp?.trim() || '', // ИП — без КПП
+        ogrn: req?.ogrn?.trim() || NOT_SET, // ⑥ Приказ №390 — ОГРН/ОГРНИП владельца ТС
         address: req?.address?.trim() || NOT_SET,
         bank: req?.bankName?.trim() || NOT_SET,
         bik: req?.bankBik?.trim() || NOT_SET,

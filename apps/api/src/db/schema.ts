@@ -340,6 +340,11 @@ export const vehicles = pgTable('vehicles', {
     // Сроки документов
     techInspectionExpiry: timestamp('tech_inspection_expiry', { withTimezone: true }),
     osagoExpiry: timestamp('osago_expiry', { withTimezone: true }),
+    // ⑥ (Приказ Минтранса №390, миграция 0049) — обязательные реквизиты ОСАГО и
+    // диагностической карты для путевого листа (серия/номер + срок).
+    osagoNumber: varchar('osago_number', { length: 50 }),
+    diagnosticCardNumber: varchar('diagnostic_card_number', { length: 50 }),
+    diagnosticCardExpiry: timestamp('diagnostic_card_expiry', { withTimezone: true }),
     maintenanceNextDate: timestamp('maintenance_next_date', { withTimezone: true }),
     maintenanceNextKm: doublePrecision('maintenance_next_km'),
     tachographCalibrationExpiry: timestamp('tachograph_calibration_expiry', { withTimezone: true }),

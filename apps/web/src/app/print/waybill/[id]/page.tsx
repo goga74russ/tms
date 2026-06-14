@@ -149,6 +149,21 @@ export default function WaybillPrintPage() {
                     </div>
                 </div>
 
+                {/* ⑥ Реквизиты по Приказу Минтранса №390 */}
+                <div className="section-title">Реквизиты по Приказу Минтранса № 390</div>
+                <div className="two-col">
+                    <div>
+                        <div className="field-row"><span className="field-label">ОГРН/ОГРНИП владельца:</span><span className="field-value">{w.carrierRequisites?.ogrn || '—'}</span></div>
+                        <div className="field-row"><span className="field-label">Полис ОСАГО:</span><span className="field-value">{[w.vehicle?.osagoNumber, w.vehicle?.osagoExpiry ? `до ${fmt(w.vehicle.osagoExpiry)}` : null].filter(Boolean).join(', ') || '—'}</span></div>
+                        <div className="field-row"><span className="field-label">Диагностическая карта:</span><span className="field-value">{[w.vehicle?.diagnosticCardNumber, w.vehicle?.diagnosticCardExpiry ? `до ${fmt(w.vehicle.diagnosticCardExpiry)}` : null].filter(Boolean).join(', ') || '—'}</span></div>
+                    </div>
+                    <div>
+                        <div className="field-row"><span className="field-label">Вид перевозки:</span><span className="field-value">{w.transportServiceType || '—'}</span></div>
+                        <div className="field-row"><span className="field-label">Вид сообщения:</span><span className="field-value">{w.transportMode || '—'}</span></div>
+                        <div className="field-row"><span className="field-label">СНИЛС водителя:</span><span className="field-value">{w.driverSnils || w.driver?.snils || '—'}</span></div>
+                    </div>
+                </div>
+
                 {/* Подписи */}
                 <hr style={{ marginTop: 16 }} />
                 <div className="three-col" style={{ marginTop: 12 }}>
