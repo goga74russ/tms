@@ -772,7 +772,8 @@ export default function FinanceDashboard() {
                                                                 inv.type === 'act' ? 'act' :
                                                                 inv.type === 'sf' ? 'sf' :
                                                                 inv.type === 'upd' ? 'upd' :
-                                                                (inv.type === 'corrective_sf' || inv.type === 'corrective_upd') ? 'corrective-sf' :
+                                                                inv.type === 'corrective_upd' ? 'corrective-upd' : // P1-5
+                                                                inv.type === 'corrective_sf' ? 'corrective-sf' :
                                                                 'invoice'; // payment, advance
                                                             window.open(`/print/${seg}/${inv.id}`, '_blank');
                                                         }}
