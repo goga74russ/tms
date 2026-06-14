@@ -15,7 +15,7 @@ const NAV = [
 export default function LegalLayout({ children }: { children: ReactNode }) {
     return (
         <div className="min-h-screen bg-neutral-50">
-            <header className="bg-white border-b border-neutral-200 sticky top-0 z-30 backdrop-blur-md bg-white/85">
+            <header className="bg-white border-b border-neutral-200 sticky top-0 z-30 backdrop-blur-md bg-white/85 print:hidden">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <Link href="/landing" className="flex items-center gap-2">
@@ -49,11 +49,11 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
                 </div>
             </header>
 
-            <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-                <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-6 sm:p-10 lg:p-12">
+            <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 print:p-0 print:max-w-none">
+                <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-6 sm:p-10 lg:p-12 print:border-0 print:shadow-none print:rounded-none print:p-0">
                     {children}
                 </div>
-                <footer className="mt-8 text-center text-xs text-neutral-500">
+                <footer className="mt-8 text-center text-xs text-neutral-500 print:hidden">
                     Другие документы:{' '}
                     {NAV.map((l, idx) => (
                         <span key={l.href}>

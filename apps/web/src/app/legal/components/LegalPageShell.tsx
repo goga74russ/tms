@@ -45,7 +45,7 @@ export function LegalPageShell({ title, dateline, toc, draft = false, children }
     }, [toc]);
 
     return (
-        <div className="grid lg:grid-cols-[1fr_220px] gap-10">
+        <div className="grid lg:grid-cols-[1fr_220px] gap-10 print:block">
             <article
                 className={`prose prose-neutral max-w-none ${'[&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mb-2 [&_h1]:tracking-tight'} [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:scroll-mt-24 [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-2 [&_p]:text-neutral-700 [&_p]:leading-relaxed [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_li]:text-neutral-700 [&_li]:mb-1 [&_li]:leading-relaxed [&_a]:text-brand-600 [&_a]:underline hover:[&_a]:text-brand-700`}
             >
@@ -67,11 +67,14 @@ export function LegalPageShell({ title, dateline, toc, draft = false, children }
                         <FileText className="w-3.5 h-3.5" />
                         {dateline ?? 'Действует с 13 мая 2026 года'}
                     </div>
+                    {/* F4 — выгрузка в PDF через печать (Сохранить как PDF). Печатный CSS
+                        (print:hidden) убирает навигацию/оглавление/кнопку — в файл уходит
+                        только документ с версией/датой (архив редакции на момент акцепта). */}
                     <button
                         type="button"
-                        title="Скачать PDF (в разработке)"
-                        disabled
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500 px-3 py-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 disabled:cursor-not-allowed"
+                        title="Скачать PDF (печать → «Сохранить как PDF»)"
+                        onClick={() => window.print()}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-600 px-3 py-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 print:hidden"
                     >
                         <Download className="w-3.5 h-3.5" /> PDF
                     </button>
@@ -85,7 +88,7 @@ export function LegalPageShell({ title, dateline, toc, draft = false, children }
             </article>
 
             {toc.length > 0 && (
-                <aside className="hidden lg:block">
+                <aside className="hidden lg:block print:hidden">
                     <div className="sticky top-24">
                         <div className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-3">
                             Содержание
