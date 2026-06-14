@@ -100,9 +100,11 @@ export const TariffSchema = z.object({
     returnPercentage: z.number().default(100),
     cancellationFee: z.number().default(0),
     weekendCoefficient: z.number().default(1),
-    // НДС
+    // НДС — ① (ФЗ-425): основная ставка с 01.01.2026 = 22% (была 20%). Тариф
+    // хранит текущую ставку; историчность по дате отгрузки применяется при
+    // выпуске счёта (resolveVatRate в invoice-workflow), не здесь.
     vatIncluded: z.boolean().default(true),
-    vatRate: z.number().default(20),
+    vatRate: z.number().default(22),
     minTripCost: z.number().default(0),
     createdAt: dateStr,
 });

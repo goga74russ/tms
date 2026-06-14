@@ -254,10 +254,74 @@ export function defaultIncludesVat(taxRegime: TaxRegime): boolean {
     return REGIMES_THAT_CAN_VAT.includes(taxRegime);
 }
 
+// ============================================================
+// ① НДС 22% + историчность (invoice-spec v1.2 §4 + §4.1, ФЗ-425)
+// ============================================================
+
+// Граница смены основной ставки 20→22%. Привязка к началу 2026 по МСК (РФ):
+// отгрузка по календарной дате МСК ≤ 31.12.2025 → 20%, ≥ 01.01.2026 → 22%.
+export const VAT_RATE_CHANGE_DATE = new Date('2026-01-01T00:00:00+03:00');
+
+/** Основная ставка НДС по дате отгрузки (ст. 167 НК): 20% до 2026, 22% с 2026. */
+export function baseVatRateForDate(shipmentDate: Date): 20 | 22 {
+    return shipmentDate.getTime() >= VAT_RATE_CHANGE_DATE.getTime() ? 22 : 20;
+}
+
+// allowedVatRates включает ОБЕ основные ставки (20 и 22) — 20% нужна для
+// исторических документов и корректировок к отгрузкам ≤ 2025. Соответствие
+// ставки дате отгрузки проверяется отдельно (assertVatRateMatchesShipment).
 export function allowedVatRates(taxRegime: TaxRegime): number[] {
-    if (taxRegime === 'osno') return [0, 10, 20];
-    if (taxRegime === 'usn_with_vat') return [5, 7, 20];
+    if (taxRegime === 'osno') return [0, 10, 20, 22];
+    if (taxRegime === 'usn_with_vat') return [5, 7, 20, 22];
     return [];
+}
+
+/**
+ * Ставка НДС по умолчанию для документа (spec v1.2 §4.1).
+ * Приоритет usn_vat_rate (5/7) над датой — это осознанный выбор УСН-плательщика,
+ * зафиксированный в учётной политике на год, не зависит от даты отгрузки.
+ * Возвращает null для режимов без НДС.
+ */
+export function resolveVatRate(
+    taxRegime: TaxRegime,
+    shipmentDate: Date,
+    usnVatRate?: number | null,
+): number | null {
+    if (!isVatPayingRegime(taxRegime)) return null;
+    if (taxRegime === 'usn_with_vat' && (usnVatRate === 5 || usnVatRate === 7)) {
+        return usnVatRate;
+    }
+    // osno, либо usn_with_vat на основной ставке — по дате отгрузки.
+    return baseVatRateForDate(shipmentDate);
+}
+
+/** Ставочный период отгрузки — для Q1 (запрет смешивания 2025/2026 в одном СФ). */
+export function vatPeriodOf(shipmentDate: Date): 'pre2026' | 'from2026' {
+    return shipmentDate.getTime() >= VAT_RATE_CHANGE_DATE.getTime() ? 'from2026' : 'pre2026';
+}
+
+/** Q1: все отгрузки счёта должны быть в одном ставочном периоде. */
+export function allSameVatPeriod(shipmentDates: Date[]): boolean {
+    if (shipmentDates.length <= 1) return true;
+    const first = vatPeriodOf(shipmentDates[0]);
+    return shipmentDates.every((d) => vatPeriodOf(d) === first);
+}
+
+/**
+ * Проверка соответствия ставки дате отгрузки (spec v1.2 §4.1):
+ * 20% допустима только для отгрузок ≤ 2025; с 2026 основная — 22%.
+ * Льготные 0/5/7/10 — вне этой проверки (не зависят от смены основной ставки).
+ * Возвращает null если ок, иначе текст ошибки (для 422).
+ */
+export function vatRateShipmentMismatch(vatRate: number, shipmentDate: Date): string | null {
+    const isFrom2026 = vatPeriodOf(shipmentDate) === 'from2026';
+    if (vatRate === 20 && isFrom2026) {
+        return 'Ставка НДС 20% недопустима для отгрузки с 01.01.2026 — основная ставка 22% (ФЗ-425).';
+    }
+    if (vatRate === 22 && !isFrom2026) {
+        return 'Ставка НДС 22% недопустима для отгрузки до 31.12.2025 — действовала ставка 20%.';
+    }
+    return null;
 }
 
 // ============================================================

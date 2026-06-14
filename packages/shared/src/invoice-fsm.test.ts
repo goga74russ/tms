@@ -10,6 +10,10 @@ import {
     checkSfIssueDeadline,
     isVatPayingRegime,
     SF_ISSUE_DEADLINE_DAYS,
+    resolveVatRate,
+    baseVatRateForDate,
+    allSameVatPeriod,
+    vatRateShipmentMismatch,
 } from './invoice-fsm.js';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -157,14 +161,14 @@ describe('canIssueInvoiceType — tax_regime rules (spec §4)', () => {
 });
 
 describe('defaultIncludesVat / allowedVatRates', () => {
-    it('osno: includes_vat default true, ставки 0/10/20', () => {
+    it('osno: includes_vat default true, ставки 0/10/20/22 (① ФЗ-425)', () => {
         expect(defaultIncludesVat('osno')).toBe(true);
-        expect(allowedVatRates('osno')).toEqual([0, 10, 20]);
+        expect(allowedVatRates('osno')).toEqual([0, 10, 20, 22]);
     });
 
-    it('usn_with_vat: includes_vat default true, ставки 5/7/20', () => {
+    it('usn_with_vat: includes_vat default true, ставки 5/7/20/22', () => {
         expect(defaultIncludesVat('usn_with_vat')).toBe(true);
-        expect(allowedVatRates('usn_with_vat')).toEqual([5, 7, 20]);
+        expect(allowedVatRates('usn_with_vat')).toEqual([5, 7, 20, 22]);
     });
 
     it('usn_income / ausn / npd: НДС не платят', () => {
@@ -172,5 +176,52 @@ describe('defaultIncludesVat / allowedVatRates', () => {
             expect(defaultIncludesVat(r)).toBe(false);
             expect(allowedVatRates(r)).toEqual([]);
         }
+    });
+});
+
+// ① НДС 22% + историчность (spec v1.2 §4.1, ФЗ-425)
+describe('resolveVatRate / историчность по дате отгрузки', () => {
+    const dec2025 = new Date('2025-12-15T10:00:00+03:00');
+    const jan2026 = new Date('2026-01-15T10:00:00+03:00');
+
+    it('osno: 20% до 2026, 22% с 2026 (по дате отгрузки)', () => {
+        expect(resolveVatRate('osno', dec2025)).toBe(20);
+        expect(resolveVatRate('osno', jan2026)).toBe(22);
+    });
+
+    it('usn_with_vat: usn_vat_rate 5/7 имеет приоритет над датой', () => {
+        expect(resolveVatRate('usn_with_vat', jan2026, 5)).toBe(5);
+        expect(resolveVatRate('usn_with_vat', dec2025, 7)).toBe(7);
+        // без выбранной 5/7 — по дате (основная ставка)
+        expect(resolveVatRate('usn_with_vat', jan2026, null)).toBe(22);
+        expect(resolveVatRate('usn_with_vat', dec2025, null)).toBe(20);
+    });
+
+    it('режимы без НДС → null', () => {
+        for (const r of ['usn_income', 'ausn', 'patent', 'npd'] as const) {
+            expect(resolveVatRate(r, jan2026)).toBeNull();
+        }
+    });
+
+    it('граница 01.01.2026 по МСК', () => {
+        expect(baseVatRateForDate(new Date('2025-12-31T23:59:00+03:00'))).toBe(20);
+        expect(baseVatRateForDate(new Date('2026-01-01T00:00:00+03:00'))).toBe(22);
+    });
+
+    it('allSameVatPeriod: Q1 запрет смешивания периодов', () => {
+        expect(allSameVatPeriod([dec2025, jan2026])).toBe(false);
+        expect(allSameVatPeriod([jan2026, new Date('2026-03-01T00:00:00+03:00')])).toBe(true);
+        expect(allSameVatPeriod([dec2025])).toBe(true);
+        expect(allSameVatPeriod([])).toBe(true);
+    });
+
+    it('vatRateShipmentMismatch: 20% c 2026 и 22% до 2026 — ошибка', () => {
+        expect(vatRateShipmentMismatch(20, jan2026)).toMatch(/недопустима/);
+        expect(vatRateShipmentMismatch(22, dec2025)).toMatch(/недопустима/);
+        expect(vatRateShipmentMismatch(22, jan2026)).toBeNull();
+        expect(vatRateShipmentMismatch(20, dec2025)).toBeNull();
+        // льготные не зависят от смены основной ставки
+        expect(vatRateShipmentMismatch(10, jan2026)).toBeNull();
+        expect(vatRateShipmentMismatch(0, jan2026)).toBeNull();
     });
 });

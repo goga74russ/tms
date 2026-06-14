@@ -23,6 +23,9 @@ import {
     canTransitionInvoice,
     canIssueInvoiceType,
     allowedVatRates,
+    resolveVatRate,
+    allSameVatPeriod,
+    vatRateShipmentMismatch,
     checkSfIssueDeadline,
     FIVE_DAY_DEADLINE_TYPES,
     type InvoiceType,
@@ -56,6 +59,7 @@ async function getInvoiceWithOrgRegime(invoiceId: string, author?: Author) {
     const [row] = await db.select({
         invoice: invoices,
         taxRegime: organizations.taxRegime,
+        usnVatRate: organizations.usnVatRate, // ① — приоритет 5/7 над датой (spec §4.1)
         // P0-S1: владелец счёта = payee-организация ИЛИ организация контрагента-плательщика.
         payerOrgId: contractors.organizationId,
     })
@@ -78,7 +82,7 @@ async function getInvoiceWithOrgRegime(invoiceId: string, author?: Author) {
     if (author?.organizationId && ownerOrgId && author.organizationId !== ownerOrgId) {
         throw new InvoiceWorkflowError('FORBIDDEN', 'Счёт принадлежит другой организации', 403);
     }
-    return { invoice: row.invoice, taxRegime: (row.taxRegime ?? 'unspecified') as TaxRegime };
+    return { invoice: row.invoice, taxRegime: (row.taxRegime ?? 'unspecified') as TaxRegime, usnVatRate: row.usnVatRate ?? null };
 }
 
 // H5 (P1-C) + #17 (E2): генерация номера счёта — PER-ORG серия.
@@ -231,6 +235,28 @@ async function resolveRealizationDate(
     return max;
 }
 
+/**
+ * ① (spec §4.1) — ВСЕ даты отгрузки счёта (не max), для выбора ставки НДС по
+ * историчности и Q1-проверки «один ставочный период». Источник тот же, что у
+ * resolveRealizationDate: order.unloadingDate (приоритет) → trip.actualCompletionAt.
+ */
+async function resolveShipmentDates(orderIds: string[], tripIds: string[]): Promise<Date[]> {
+    const dates: Date[] = [];
+    if (orderIds.length > 0) {
+        const rows = await db.select({ d: orders.unloadingDate })
+            .from(orders)
+            .where(inArray(orders.id, orderIds));
+        for (const r of rows) if (r.d) dates.push(r.d);
+    }
+    if (dates.length === 0 && tripIds.length > 0) {
+        const rows = await db.select({ d: trips.actualCompletionAt })
+            .from(trips)
+            .where(inArray(trips.id, tripIds));
+        for (const r of rows) if (r.d) dates.push(r.d);
+    }
+    return dates;
+}
+
 export async function issueDraftInvoice(
     invoiceId: string,
     input: {
@@ -247,7 +273,7 @@ export async function issueDraftInvoice(
 ): Promise<{ id: string; number: string; total: number; overdue?: boolean; daysLate?: number }> {
     const ctx = await getInvoiceWithOrgRegime(invoiceId, author);
     if (!ctx) throw new InvoiceWorkflowError('NOT_FOUND', 'Счёт не найден', 404);
-    const { invoice, taxRegime } = ctx;
+    const { invoice, taxRegime, usnVatRate } = ctx;
 
     if (invoice.status !== 'draft') {
         throw new InvoiceWorkflowError('INVALID_STATE', `Выпускать можно только черновик. Текущий статус: ${label(INVOICE_STATUS, invoice.status)}`);
@@ -276,21 +302,48 @@ export async function issueDraftInvoice(
         throw new InvoiceWorkflowError('ORDERS_REQUIRED', 'Требуется хотя бы одна связка с заявкой');
     }
 
-    // Для sf/upd — обязательная ставка НДС.
+    // ① НДС 22% + историчность (spec v1.2 §4.1). Дата отгрузки = max даты
+    // завершения рейсов/разгрузки заявок счёта; ставка вычисляется по ней, если
+    // не передана явно. Приоритет usn_vat_rate (5/7) над датой — внутри resolveVatRate.
+    const issuedAtDate = input.issuedAt ? new Date(input.issuedAt) : new Date();
     const isVatDoc = ['sf', 'upd', 'corrective_sf', 'corrective_upd'].includes(invoice.type);
-    if (isVatDoc && input.vatRate == null) {
+    const shipmentDates = await resolveShipmentDates(
+        input.invoiceOrders.map((o) => o.orderId),
+        (invoice.tripIds as string[] | null) ?? [],
+    );
+    const shipmentDate = shipmentDates.length
+        ? new Date(Math.max(...shipmentDates.map((d) => d.getTime())))
+        : issuedAtDate;
+
+    // Q1 (spec §4.1, вариант B): СФ/УПД не может смешивать отгрузки 2025 (20%) и
+    // 2026 (22%) — разные ставочные периоды. Только для НДС-документов.
+    if (isVatDoc && shipmentDates.length > 1 && !allSameVatPeriod(shipmentDates)) {
+        throw new InvoiceWorkflowError(
+            'VAT_PERIOD_MIXED',
+            'Счёт-фактура не может включать рейсы с разными ставками НДС (отгрузки 2025 и 2026 года). Разделите на отдельные документы.',
+        );
+    }
+
+    // Историчность: ставка не передана → вычисляем по дате отгрузки (не дефолтим 20).
+    const effectiveVatRate = input.vatRate ?? (isVatDoc ? resolveVatRate(taxRegime, shipmentDate, usnVatRate) : null);
+    if (isVatDoc && effectiveVatRate == null) {
         throw new InvoiceWorkflowError('VAT_RATE_REQUIRED', 'Для СФ/УПД ставка НДС обязательна');
     }
     // H3 (P1-C): ставка НДС должна соответствовать налоговому режиму орг.
     // Без этого ОСНО мог выпустить СФ под 5/7% (ставки УСН-с-НДС) или любую
     // произвольную ставку → неверный НДС в книге продаж/1С-экспорте.
-    if (isVatDoc && input.vatRate != null) {
+    if (isVatDoc && effectiveVatRate != null) {
         const allowed = allowedVatRates(taxRegime);
-        if (!allowed.includes(input.vatRate)) {
+        if (!allowed.includes(effectiveVatRate)) {
             throw new InvoiceWorkflowError(
                 'VAT_RATE_NOT_ALLOWED',
-                `Ставка НДС ${input.vatRate}% недопустима для режима ${taxRegime}. Допустимые: ${allowed.length ? allowed.join('/') + '%' : 'нет (режим без НДС)'}`,
+                `Ставка НДС ${effectiveVatRate}% недопустима для режима ${taxRegime}. Допустимые: ${allowed.length ? allowed.join('/') + '%' : 'нет (режим без НДС)'}`,
             );
+        }
+        // ① соответствие ставки дате отгрузки: 20% только ≤2025, 22% только ≥2026.
+        const mismatch = vatRateShipmentMismatch(effectiveVatRate, shipmentDate);
+        if (mismatch) {
+            throw new InvoiceWorkflowError('VAT_RATE_PERIOD_MISMATCH', mismatch);
         }
     }
 
@@ -302,7 +355,7 @@ export async function issueDraftInvoice(
     //    сверху и ГРОССИМ строку, иначе total<Σ нетто·(1+rate) и недосбор НДС.
     // Строка с явным allocatedVat трактуется как gross (UI прислал готовый разрез).
     const round2 = (x: number) => Math.round(x * 100) / 100;
-    const rate = input.vatRate ?? 0;
+    const rate = effectiveVatRate ?? 0;
     const grossUp = !input.includesVat && rate > 0; // «НДС сверху»
     const computedOrders = input.invoiceOrders.map((o) => {
         if (o.allocatedVat != null) {
@@ -328,7 +381,7 @@ export async function issueDraftInvoice(
     // SF_OVERDUE_WARNING (422) с деталями — UI показывает диалог «Подтвердить
     // выпуск с просрочкой» и обязательным полем причины. С причиной — выпускаем
     // и фиксируем факт+причину в аудит-журнале (для отчёта «СФ с просрочкой»).
-    const issuedAtDate = input.issuedAt ? new Date(input.issuedAt) : new Date();
+    // (issuedAtDate вычислен выше в блоке ① НДС.)
     const realizationDate = await resolveRealizationDate(
         input.invoiceOrders.map((o) => o.orderId),
         (invoice.tripIds as string[] | null) ?? [],
@@ -372,7 +425,7 @@ export async function issueDraftInvoice(
             status: 'issued',
             basisText: input.basisText,
             issuedAt: issuedAtDate,
-            vatRate: input.vatRate ?? null,
+            vatRate: effectiveVatRate ?? null,
             includesVat: input.includesVat ?? false,
             total,
             vatAmount,

@@ -34,7 +34,8 @@ export interface InvoicePdfInput {
 export async function generateInvoicePdf(data: InvoicePdfInput): Promise<Buffer> {
     const doc = createDoc();
     const C = carrierForPdf(data.carrier);
-    const vatLabel = `НДС ${data.vatRate ?? 20}%`;
+    // ① — ставка из данных счёта (вычислена по дате отгрузки при выпуске), без дефолта 20.
+    const vatLabel = data.vatRate ? `НДС ${data.vatRate}%` : 'Без НДС';
 
     // ── Банковские реквизиты (шапка) ───────────────────────
     // Серая полоса с реквизитами

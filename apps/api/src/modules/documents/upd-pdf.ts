@@ -56,7 +56,7 @@ export interface UpdPdfInput {
 export async function generateUpdPdf(data: UpdPdfInput): Promise<Buffer> {
     const doc = createDoc();
     const C = carrierForPdf(data.carrier);
-    const vatRate = data.vatRate ?? 20;
+    const vatRate = data.vatRate ?? 0; // ① — без дефолта 20; ставка из данных счёта
     const vatLabel = `\u041d\u0414\u0421 ${vatRate}%`;
 
     const statusText = data.status === 1
