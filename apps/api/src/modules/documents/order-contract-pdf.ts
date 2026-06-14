@@ -97,7 +97,7 @@ export async function generateOrderContractPdf(data: OrderContractPdfInput): Pro
         .text(`ИНН: ${val(cu.inn)}${cu.kpp ? ` / КПП: ${cu.kpp}` : ''}`, MARGIN, sidesY + 25, { width: halfW });
     doc.font('Regular').fontSize(7.5).fillColor('#555').text(`ОГРН(ИП): ${val(cu.ogrn)}`, MARGIN, sidesY + 35, { width: halfW });
     doc.font('Regular').fontSize(7.5).fillColor('#555').text(`Адрес: ${val(cu.address)}`, MARGIN, sidesY + 45, { width: halfW });
-    doc.font('Regular').fontSize(7.5).fillColor('#555').text(`Тел: ${val(cu.phone)}   Банк: ${val(null)}`, MARGIN, sidesY + 55, { width: halfW });
+    doc.font('Regular').fontSize(7.5).fillColor('#555').text(`Тел: ${val(cu.phone)}`, MARGIN, sidesY + 55, { width: halfW });
 
     doc.font('Bold').fontSize(9).fillColor('#000').text('ПЕРЕВОЗЧИК (ИСПОЛНИТЕЛЬ):', x2, sidesY, { width: halfW });
     doc.font('Regular').fontSize(8).fillColor('#000').text(C.name, x2, sidesY + 13, { width: halfW });

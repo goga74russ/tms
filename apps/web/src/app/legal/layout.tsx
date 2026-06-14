@@ -1,11 +1,15 @@
 import Link from 'next/link';
-import { Truck, ArrowLeft, ShieldCheck, FileText, UserCheck } from 'lucide-react';
+import { Truck, ArrowLeft, ShieldCheck, FileText, UserCheck, Cookie, Undo2, FileSignature, FileStack } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 const NAV = [
     { href: '/legal/privacy', label: 'Конфиденциальность', icon: ShieldCheck },
     { href: '/legal/terms', label: 'Условия', icon: FileText },
     { href: '/legal/personal-data', label: 'Согласие 152-ФЗ', icon: UserCheck },
+    { href: '/legal/cookies', label: 'Cookie', icon: Cookie },
+    { href: '/legal/refunds', label: 'Возврат', icon: Undo2 },
+    { href: '/legal/etrn', label: 'Пакет ЭТрН', icon: FileSignature },
+    { href: '/legal/dpa', label: 'DPA', icon: FileStack },
 ];
 
 export default function LegalLayout({ children }: { children: ReactNode }) {

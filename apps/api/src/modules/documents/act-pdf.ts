@@ -125,7 +125,7 @@ export async function generateActPdf(data: ActPdfInput): Promise<Buffer> {
     // Сумма прописью (упрощённо)
     doc.moveDown(0.3);
     doc.font('Regular').fontSize(9).fillColor('#444')
-        .text(`Всего оказано услуг на сумму ${formatMoney(data.total)} руб. (${vatLabel} включён).`, MARGIN, doc.y);
+        .text(`Всего оказано услуг на сумму ${formatMoney(data.total)} руб. ${data.vatRate ? `(в т.ч. ${vatLabel}: ${formatMoney(data.vatAmount)} руб.)` : '(НДС не облагается)'}`, MARGIN, doc.y);
 
     doc.moveDown(1.5);
     drawHLine(doc);

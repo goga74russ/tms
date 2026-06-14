@@ -137,7 +137,7 @@ export async function generateInvoicePdf(data: InvoicePdfInput): Promise<Buffer>
 
     doc.moveDown(0.5);
     doc.font('Regular').fontSize(9).fillColor('#444')
-        .text(`Всего к оплате: ${formatMoney(data.total)} руб. (включая ${vatLabel}: ${formatMoney(data.vatAmount)} руб.)`, MARGIN);
+        .text(`Всего к оплате: ${formatMoney(data.total)} руб. ${data.vatRate ? `(включая ${vatLabel}: ${formatMoney(data.vatAmount)} руб.)` : '(НДС не облагается)'}`, MARGIN);
 
     doc.moveDown(0.5);
     doc.font('Regular').fontSize(9).fillColor('#e65c00')
