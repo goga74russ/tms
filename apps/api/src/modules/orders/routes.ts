@@ -14,7 +14,7 @@ import {
     createOrderFromTemplate,
     getOrdersKanban,
 } from './service.js';
-import { OrderCreateSchema, OrderUpdateSchema, PRIVILEGED_ROLES, hasPrivilege } from '@tms/shared';
+import { OrderCreateSchema, OrderUpdateSchema, PRIVILEGED_ROLES, hasPrivilege, resolveVatRate, type TaxRegime } from '@tms/shared';
 import { db } from '../../db/connection.js';
 import { drivers, users, trips } from '../../db/schema.js';
 import { eq, and } from 'drizzle-orm';
@@ -372,6 +372,96 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
 
             reply.header('Content-Type', 'application/pdf');
             reply.header('Content-Disposition', `attachment; filename="ttn_${order.number}.pdf"`);
+            reply.header('Content-Length', pdfBuffer.length);
+            return reply.send(pdfBuffer);
+        } catch (error: any) {
+            request.log.error(error);
+            return reply.status(error.statusCode ?? 500).send({ success: false, error: error.statusCode ? error.message : safeClientError(error, 'Внутренняя ошибка сервера') });
+        }
+    });
+
+    // --- GET /orders/:id/contract — P1-4 договор-заявка (PDF) ---
+    app.get('/orders/:id/contract', {
+        schema: { tags: ['Заявки'], summary: 'PDF договор-заявка', description: 'Договор-заявка на перевозку (акцептированная заявка = договор перевозки, ст. 8 ФЗ-259).' },
+        preHandler: [app.authenticate, requireAbility('read', 'Order')],
+    }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        try {
+            await assertOrderAccess(id, user);
+        } catch (err) {
+            return sendAccessError(reply, err);
+        }
+        const order = await getOrderById(id);
+        if (!order) return reply.status(404).send({ success: false, error: 'Заявка не найдена' });
+
+        try {
+            const { contractors, vehicles, trailers, drivers: driversTable, organizations } = await import('../../db/schema.js');
+            const o = order as Record<string, any>;
+
+            const [customer] = o.contractorId
+                ? await db.select({ name: contractors.name, inn: contractors.inn, kpp: contractors.kpp, legalAddress: contractors.legalAddress, phone: contractors.phone })
+                    .from(contractors).where(eq(contractors.id, o.contractorId)).limit(1)
+                : [null];
+            const consigneeId = o.consigneeContractorId && o.consigneeContractorId !== o.contractorId ? o.consigneeContractorId : null;
+            const [consignee] = consigneeId
+                ? await db.select({ name: contractors.name, legalAddress: contractors.legalAddress }).from(contractors).where(eq(contractors.id, consigneeId)).limit(1)
+                : [null];
+
+            // Реквизиты + налоговый режим организации-перевозчика.
+            const carrierReq = await resolveOrgRequisites(o.organizationId);
+            assertCarrierConfigured(carrierReq);
+            const [org] = o.organizationId
+                ? await db.select({ taxRegime: organizations.taxRegime, usnVatRate: organizations.usnVatRate }).from(organizations).where(eq(organizations.id, o.organizationId)).limit(1)
+                : [null];
+
+            // ① ставка НДС по дате отгрузки (выгрузки/погрузки).
+            const shipmentDate = o.unloadingDate ? new Date(o.unloadingDate) : (o.loadingDate ? new Date(o.loadingDate) : new Date());
+            const vatRate = org ? resolveVatRate((org.taxRegime ?? 'unspecified') as TaxRegime, shipmentDate, org.usnVatRate ?? null) : null;
+
+            let vehicleMake, vehiclePlate, vehicleBodyType, trailerPlate, driverName, driverLicense;
+            if (o.tripId) {
+                const [trip] = await db.select().from(trips).where(eq(trips.id, o.tripId)).limit(1);
+                if (trip) {
+                    if (trip.vehicleId) {
+                        const [v] = await db.select({ make: vehicles.make, plate: vehicles.plateNumber, body: vehicles.bodyType }).from(vehicles).where(eq(vehicles.id, trip.vehicleId)).limit(1);
+                        vehicleMake = [v?.make].filter(Boolean).join(' '); vehiclePlate = v?.plate; vehicleBodyType = v?.body;
+                    }
+                    if (trip.trailerId) {
+                        const [t] = await db.select({ plate: trailers.plateNumber }).from(trailers).where(eq(trailers.id, trip.trailerId)).limit(1);
+                        trailerPlate = t?.plate;
+                    }
+                    if (trip.driverId) {
+                        const [d] = await db.select({ fullName: driversTable.fullName, license: driversTable.licenseNumber }).from(driversTable).where(eq(driversTable.id, trip.driverId)).limit(1);
+                        driverName = d?.fullName; driverLicense = d?.license;
+                    }
+                }
+            }
+
+            const { generateOrderContractPdf } = await import('../documents/order-contract-pdf.js');
+            const pdfBuffer = await generateOrderContractPdf({
+                number: o.number,
+                date: o.createdAt,
+                place: carrierReq?.address ?? null,
+                customer: {
+                    name: customer?.name ?? '—', inn: customer?.inn, kpp: customer?.kpp,
+                    ogrn: null, address: customer?.legalAddress, phone: customer?.phone,
+                },
+                carrier: carrierReq,
+                loadingAddress: o.loadingAddress, unloadingAddress: o.unloadingAddress,
+                loadingDate: o.loadingDate, unloadingDate: o.unloadingDate,
+                cargoDescription: o.cargoDescription, cargoWeightKg: o.cargoWeightKg ? Number(o.cargoWeightKg) : null,
+                cargoVolumeM3: o.cargoVolumeM3 ? Number(o.cargoVolumeM3) : null, cargoPlaces: o.cargoPlaces,
+                cargoType: o.cargoType, adrClass: o.adrClass, adrUnNumber: o.adrUnNumber,
+                temperatureMin: o.temperatureMin, temperatureMax: o.temperatureMax,
+                consigneeName: consignee?.name, consigneeAddress: consignee?.legalAddress,
+                vehicleMake, vehiclePlate, vehicleBodyType, trailerPlate, driverName, driverLicense,
+                price: o.customerPrice != null ? Number(o.customerPrice) : null,
+                includesVat: o.customerPriceIncludesVat, vatRate,
+            });
+
+            reply.header('Content-Type', 'application/pdf');
+            reply.header('Content-Disposition', `attachment; filename="contract_${o.number}.pdf"`);
             reply.header('Content-Length', pdfBuffer.length);
             return reply.send(pdfBuffer);
         } catch (error: any) {

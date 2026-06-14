@@ -10,6 +10,11 @@ async function downloadTtn(orderId: string, orderNumber: string) {
     await downloadFromApi(`/api/orders/${orderId}/ttn`, `ttn_${orderNumber}.pdf`);
 }
 
+// P1-4 — договор-заявка (PDF).
+async function downloadContract(orderId: string, orderNumber: string) {
+    await downloadFromApi(`/api/orders/${orderId}/contract`, `contract_${orderNumber}.pdf`);
+}
+
 interface OrderCardProps {
     key?: string;
     order: Order;
@@ -113,6 +118,15 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
             )}
             {/* ТТН */}
             <div className="flex items-center justify-end mt-2 pt-1 border-t border-neutral-100 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); downloadContract(order.id, order.number); }}
+                    className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-blue-600 px-1.5 py-0.5 rounded hover:bg-blue-50 transition-colors mr-1"
+                    title="Скачать договор-заявку (PDF)"
+                >
+                    <FileText className="w-3 h-3" />
+                    Договор
+                </button>
                 <button
                     onMouseDown={e => e.stopPropagation()}
                     onClick={e => { e.stopPropagation(); downloadTtn(order.id, order.number); }}
