@@ -63,6 +63,15 @@ export default function PrintLayout({ children }: { children: React.ReactNode })
                 `}</style>
             </head>
             <body>
+                {/* ⑤ — экранная пометка «предпросмотр». no-print: не попадает ни в
+                    печать, ни в PDF, ни в кадр демо. Официальный документ для
+                    подписания формируется кнопкой скачивания PDF (server-PDF). */}
+                <div className="no-print" style={{
+                    background: '#fff7ed', borderBottom: '1px solid #fdba74', color: '#9a3412',
+                    padding: '8px 14px', fontSize: 13, textAlign: 'center', fontFamily: 'Arial, sans-serif',
+                }}>
+                    Предпросмотр на экране. Официальный документ для подписания формируется кнопкой «Скачать PDF».
+                </div>
                 {children}
             </body>
         </html>

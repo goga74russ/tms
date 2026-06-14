@@ -640,8 +640,28 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         total: Number(invoice.total),
                         carrier: carrierReq,
                     });
+                } else if (invoice.type === 'sf') {
+                    // ⑤ — СФ своим генератором (раньше печаталась через act-pdf =
+                    // заголовок «АКТ», без права на вычет НДС у покупателя).
+                    const { generateSfPdf } = await import('../documents/sf-pdf.js');
+                    pdfBuffer = await generateSfPdf({
+                        number: invoice.number,
+                        date: invoice.createdAt,
+                        contractorName: contractor?.name ?? '—',
+                        contractorInn: contractor?.inn,
+                        contractorKpp: contractor?.kpp,
+                        contractorAddress: contractor?.legalAddress,
+                        trips: tripRows.map((t) => ({ tripNumber: t.tripNumber, route: t.route, qty: 1, unit: 'усл.', price: t.amount, amount: t.amount })),
+                        subtotal: Number(invoice.subtotal),
+                        vatAmount: Number(invoice.vatAmount),
+                        total: Number(invoice.total),
+                        vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : null,
+                        includesVat: invoice.includesVat ?? undefined,
+                        basisText: invoice.basisText,
+                        carrier: carrierReq,
+                    });
                 } else {
-                    // act / sf (отдельного sf-генератора нет — печатается как акт услуг)
+                    // act
                     const { generateActPdf } = await import('../documents/act-pdf.js');
                     pdfBuffer = await generateActPdf({
                         number: invoice.number,
@@ -859,6 +879,25 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                                 vatAmount: Number(invoice.vatAmount),
                                 vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : undefined,
                                 total: Number(invoice.total),
+                                carrier: carrierReq,
+                            });
+                        } else if (invoice.type === 'sf') {
+                            // ⑤ — СФ своим генератором, не «Акт».
+                            const { generateSfPdf } = await import('../documents/sf-pdf.js');
+                            pdfBuffer = await generateSfPdf({
+                                number: invoice.number,
+                                date: invoice.createdAt,
+                                contractorName: contractor?.name ?? '—',
+                                contractorInn: contractor?.inn,
+                                contractorKpp: contractor?.kpp,
+                                contractorAddress: contractor?.legalAddress,
+                                trips: tripRows.map((t) => ({ tripNumber: t.tripNumber, route: t.route, qty: 1, unit: 'усл.', price: t.amount, amount: t.amount })),
+                                subtotal: Number(invoice.subtotal),
+                                vatAmount: Number(invoice.vatAmount),
+                                total: Number(invoice.total),
+                                vatRate: invoice.vatRate != null ? Number(invoice.vatRate) : null,
+                                includesVat: invoice.includesVat ?? undefined,
+                                basisText: invoice.basisText,
                                 carrier: carrierReq,
                             });
                         } else {
