@@ -109,19 +109,24 @@
 | — | confirmationMode bypass (forcedByDispatcher) | `28207d2` | ✅ ЗАКРЫТО |
 | — | gosklyuch HMAC отвергал реальные callback'и | `28207d2` | ✅ ЗАКРЫТО |
 | — | inspections decision-flip каскад (ТС/ремонт) | `28207d2` | ✅ ЗАКРЫТО |
+| — | documents docType collapse (enum waybill/cmr) | `4069f83` | ✅ ЗАКРЫТО |
+| — | import orders.number → per-org (0051) | `4069f83` | ✅ ЗАКРЫТО |
+| — | invite-team email oracle/silent-drop | `4069f83` | ✅ ЗАКРЫТО |
+| — | repairs parts catalog cross-tenant гидрация | `4069f83` | ✅ ЗАКРЫТО |
+| — | repair_part_catalog global UNIQUE(code) → per-org (0052) | `4069f83` | ✅ ЗАКРЫТО |
 
-**Закрыто на 2026-06-15: 21 из 27 P1** (легальные A1/A2/A3 + #9 + money #2/#3/#5/#10 +
-security wave1/2: topDrivers/ordersK3/fleetGET/repairsIDOR/adrIDOR/createOrderFK +
-correctness/auth wave: rate-limit/analytics/credentials/fleetPUT/confirmationMode/
-gosklyuch/inspections). Плюс P2-легальные A4/A5/A6/A7 (ЭТрН-preview, МЧД regex+scope,
-54-ФЗ чек). Все code-only P1 закрыты; остаток 6 P1 — не code-only (см. ниже).
+**Закрыто на 2026-06-15: 26 из 27 P1.** code-only волны (21) + миграционный батч (5:
+documents docType, orders.number, invite-team, parts-гидрация, catalog UNIQUE). Плюс
+P2-легальные A4/A5/A6/A7. Миграции 0050-0052 провалидированы на чистом PG16.
 
-**Осталось — НЕ code-only (отложено по решению владельца):**
-- **Требуют миграцию БД** (отдельный аккуратный прод-деплой): documents docType collapse,
-  import orders.number, invite-team email, repairs parts catalog, global UNIQUE(code) →
-  per-org уникальность. Все — расширение enum / композитный unique / новая колонка.
-- **Требует продуктового решения:** Telegram deep-link (one-time nonce из UI vs in-app
-  подтверждение привязки chatId).
+**Остаётся 1 P1 — требует продуктового решения (не делал):**
+- **Telegram deep-link** (notifications/routes.ts:33-86): привязка chatId к орг по
+  непроверяемому userId из payload. Нужно решить: one-time nonce из UI vs in-app
+  подтверждение. Реализую после выбора подхода.
+
+**⚠️ Деплой:** миграции 0050-0052 меняют прод-схему (DROP/CREATE INDEX, ALTER TYPE).
+Применяются `deploy.sh` атомарно (BEGIN/COMMIT, ON_ERROR_STOP). Перед накатом —
+pg_dump (deploy делает pre-deploy backup). Идемпотентны при повторном прогоне.
 
 ## Главный вывод — системные паттерны
 
@@ -270,7 +275,7 @@ P0 не обнаружено в верифицированном наборе.
 - **QA-корректировка:** Эквивалентная дыра закрыта в compliance/adr/routes.ts (validate-hard, комментарий «C3 механизм а», assertVehicleAccess/assertDriverAccess добавлены), но старый Wave5-роут /orders/:id/adr-validation тем же фиксом НЕ покрыт и остаётся уязвим. Числится закрытым в духе ремедиации C3 cross-tenant; фактически для этого эндпоинта отсутствует.
 
 #### [P1][HIGH] `apps/api/src/modules/documents/routes.ts:21-146` — Несколько разных типов документов схлопываются в docType='other'/'upd' → unique-constraint 409 не даёт зарегистрировать второй оригинал по рейсу  -> /transpult  _(api/documents, корректность)_
-- **⏸ ОТЛОЖЕНО (2026-06-15, нужна миграция):** все варианты фикса (расширить enum documentReturnTypeEnum / композитный unique (tripId, semanticType) / новая колонка) требуют SQL-миграцию `documentReturns`. Code-only решения нет — любой хак теряет документы. В миграционном бакете.
+- **✅ ЗАКРЫТО (`4069f83`, 2026-06-15):** миграция 0050 добавила в enum document_return_type значения 'waybill'/'cmr'; DocReturnTypeMap различимый (waybill→waybill, cmr→cmr). unique(tripId,docType) больше не путает типы — накладная и CMR регистрируются оба. Провалидировано на PG16.
 
 - **Что не так:** DocReturnTypeMap маппит сразу несколько входных типов в один enum БД: waybill→'other', cmr→'other', other→'other', invoice→'upd' (routes.ts:21-28). Таблица documentReturns имеет уникальный индекс idx_doc_returns_trip_type на (tripId, docType) (schema.ts:1299). POST вставляет .values({ tripId: id, docType, ... }) (routes.ts:118-125). Значит на один рейс можно зарегистрировать ТОЛЬКО ОДИН оригинал из группы {waybill, cmr, other}: первый insert проходит, второй (например cmr после waybill) ловит unique-conflict и возвращается как 409 'Не удалось создать запись' (routes.ts:144-147). Семантический тег documentType=cmr пишется в notes, но строка отклоняется — реестр оригиналов теряет документы.
 - **Воспроизведение:** Роль с ability manage DocumentReturn. 1) POST /api/trips/{id}/document-returns {documentType:'waybill'} → 201. 2) POST /api/trips/{id}/document-returns {documentType:'cmr'} → 409 'Не удалось создать запись' (та же пара tripId,'other'). Реестр содержит только waybill; CMR зарегистрировать невозможно.
@@ -328,6 +333,7 @@ P0 не обнаружено в верифицированном наборе.
 - **QA-корректировка:** docs/qa/remediation-tracker.md:153 claims the C3 mechanism «б» root is closed via assertOrganizationScope in auth/guards.ts ('закрывает org-less-аспект для всех guard-защищённых роутов разом'), and lines 158-174 enumerate the individual hand-rolled list endpoints that were additionally fixed (tariffs, invoices, telegram, settings, adr, incidents, sprint9 trailers). Fleet GET list endpoints route through requireAbility only — not through any assert*-guard — and are NOT in that enumerated list (only the fleet create dup-checks 195-196 were touched), so the org-less leak remains open for fleet reads.
 
 #### [P1][HIGH] `apps/api/src/modules/import/routes.ts:357-361` — Импорт заявок: глобальная (не per-org) уникальность orders.number → cross-tenant коллизия и existence-leak  -> /transpult  _(api/import, security)_
+- **✅ ЗАКРЫТО (`4069f83`, 2026-06-15):** миграция 0051 сняла глобальные orders_number_unique + idx_orders_number, добавила composite (organization_id, number) + частичный nullorg-индекс. schema.ts синхронизирован. Проверено на PG16: cross-org один номер ОК, same-org — конфликт.
 
 - **Что не так:** orders.number имеет ГЛОБАЛЬНЫЙ unique (schema.ts:418 `.unique()` + schema.ts:478 `uniqueIndex('idx_orders_number').on(table.number)` — по одной колонке, без organizationId, в отличие от vehicles/contractors, которые уже переведены на per-org composite в C4). При импорте org A номера 'ORD-2025-001', который уже занят org B, INSERT падает с 23505 → mapPgErrorToFriendlyRu(...,'orders') → 'дубликат номера заявки' (routes.ts:358-360), и весь батч откатывается. Это (а) межтенантная утечка факта существования номера чужой орг, (б) DoS на импорт: чужая орг может «занять» номера и блокировать ваш импорт. Контракт C4 (per-org уникальность) применён к ТС/контрагентам, но НЕ к orders.number.
 - **Воспроизведение:** 1) org B создаёт/импортирует заявку number='ORD-2025-001'. 2) admin org A: POST /import/orders {items:[{number:'ORD-2025-001',...валидная...}]}. 3) Контрагент свой найден, INSERT падает 23505, ответ 'Импорт отменён: дубликат номера заявки' — хотя у org A такого номера нет.
@@ -359,6 +365,7 @@ P0 не обнаружено в верифицированном наборе.
 - **Верификация:** apps/api/src/modules/notifications/routes.ts:13-86; apps/api/src/integrations/workers/notification.worker.ts:26-86; apps/api/src/db/schema.ts:1155-1169
 
 #### [P1][HIGH] `apps/api/src/modules/onboarding/routes.ts:254-273` — invite-team: глобальный unique на users.email → cross-tenant молчаливый пропуск + утечка-оракул существования email  -> /transpult  _(api/onboarding, security)_
+- **✅ ЗАКРЫТО (`4069f83`, 2026-06-15):** НЕ миграция — email остаётся глобально уникальным (auth.ts логинит по eq(users.email) без org, per-org сломал бы вход). Тихий continue заменён на единообразный `alreadyRegistered` (in-org/out-org неразличимы) → закрыт оракул + silent data loss. Тест ответа обновлён.
 
 - **Что не так:** users.email объявлен глобально уникальным (schema.ts:231 `email ... .notNull().unique()`). Проверка существования в invite-team тоже глобальная и без фильтра по organizationId: `const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, invite.email)).limit(1); if (existing) continue;`. Если email принадлежит пользователю ДРУГОЙ организации, приглашение тихо пропускается (continue), считается успехом и НЕ попадает в failedToEmail. Это (а) делает невозможным легитимное приглашение сотрудника, чей email уже зарегистрирован в чужой орге, и (б) превращает endpoint в оракул: admin org A может перебором email'ов определить, какие адреса уже зарегистрированы в системе (invitedCount не растёт, в failedToEmail не попадает) — кросс-тенантная утечка факта регистрации.
 - **Воспроизведение:** 1) В org B существует user bob@x.com. 2) admin org A: POST /api/onboarding/invite-team {invites:[{email:'bob@x.com',fullName:'Bob',roles:['driver']}]}. 3) Ответ success, invitedCount=0, failedToEmail=[]. Никакого пользователя в org A не создано, никакой ошибки/предупреждения админу. Перебирая адреса, A узнаёт, кто зарегистрирован в системе глобально.
@@ -390,6 +397,7 @@ P0 не обнаружено в верифицированном наборе.
 - **Верификация:** apps/api/src/modules/repairs/service.ts:602-612 (scopedRepairCondition), 641-645 (listRepairs org-cond), 662-663 (getRepair), 744-775 (updateRepairStatus write через scopedRepairCondition), 829+ (updateRepair); apps/api/src/modules/repairs/routes.ts:43-54,127-136,156-195 (нет assert*Access, organizationId напрямую); apps/api/src/auth/guards.ts:45-79 (isPlatformSuperAdmin + assertOrganizationScope DENY для org-less не-super-admin), 260-274 (assertVehicleAccess); apps/api/src/auth/auth.ts:179-180,304-309,337,638,712-715 (org-less достижим: super-admin, DELETE /me/organization, legacy, user-create); apps/api/src/auth/rbac.ts:117-121,140-141 (mechanic/repair_service manage RepairRequest, org-агностично); docs/qa/remediation-tracker.md:178,533 (C3 cross-tenant объявлен закрытым; repairs-IDOR не в списке).
 
 #### [P1][HIGH] `apps/api/src/modules/repairs/service.ts:328-339` — Cross-tenant утечка справочника запчастей через alias-поиск и глобальные записи  -> /transpult  _(api/repairs, безопасность)_
+- **✅ ЗАКРЫТО (`4069f83`, 2026-06-15):** ensureRepairPartCatalogHydrated теперь PER-ORG (partsUsed читаются только своего org через join vehicles.organizationId, пишутся с organization_id тенанта); org-less чтение каталога → только глобальные сиды (isNull), не чужие тенантские. Сопутствует миграции 0052.
 
 - **Что не так:** loadRepairPartCatalogItems фильтрует по org как `or(isNull(repairPartCatalog.organizationId), eq(organizationId, options.organizationId))` ТОЛЬКО при наличии options.organizationId (строка 328). Для org-less аккаунта org-условие не добавляется → видны позиции всех тенантов. Кроме того, при наличии org возвращаются ещё и все global-записи (isNull org). Эти global-записи создаёт ensureRepairPartCatalogHydrated (строки 304-310: вставка кандидатов БЕЗ organizationId, т.е. organization_id=NULL) из partsUsed заявок ПЕРВОГО тенанта, который дёрнул каталог — данные одного тенанта (названия/категории/цены запчастей) становятся видны всем как global.
 - **Воспроизведение:** 1) Тенант A впервые открывает /repairs/parts/catalog → ensureRepairPartCatalogHydrated читает repairRequests.partsUsed (limit 1000, без org-фильтра, строки 265-268) по ВСЕМ тенантам и вставляет их как organization_id=NULL. 2) Тенант B открывает каталог → видит позиции (названия/цены) тенанта A через isNull(organizationId) ветку. 3) org-less аккаунт: org-условие отсутствует → видит вообще всё.
@@ -397,6 +405,7 @@ P0 не обнаружено в верифицированном наборе.
 - **Верификация:** apps/api/src/modules/repairs/service.ts:244-351 (hydrate+load), 384-385, 422-487 (create/sync, org присваивается явно); apps/api/src/modules/repairs/routes.ts:61-78 (organizationId из request.user); apps/api/src/db/schema.ts:849-866 (organizationId nullable, idx_repair_part_catalog_code уникален на одном code)
 
 #### [P1][HIGH] `apps/api/src/db/schema.ts:858-863` — Глобальный UNIQUE(code) на per-org каталоге: коллизия и тихая потеря данных между тенантами  -> /transpult  _(api/repairs, целостность данных)_
+- **✅ ЗАКРЫТО (`4069f83`, 2026-06-15):** миграция 0052 сняла глобальный idx_repair_part_catalog_code, добавила composite (organization_id, code) + частичный global-индекс (org IS NULL). schema.ts синхронизирован. create/sync используют onConflictDoNothing без таргета — совместимо.
 
 - **Что не так:** repair_part_catalog имеет organization_id (строка 858), но уникальный индекс построен по одному code: `uniqueIndex('idx_repair_part_catalog_code').on(table.code)` (строка 863) — НЕ композитный (organization_id, code). code детерминированно генерится из name-category-unit (service.ts createCatalogCode/syncRepairCatalogFromParts строки 234-242, 466-495). Следствия: (1) createRepairPartCatalogItem (строки 435-448) у тенанта B падает unique-violation, если тенант A уже создал позицию с тем же name/category/unit — раскрытие существования чужих данных и невозможность завести свою позицию; (2) syncRepairCatalogFromParts/гидрация используют onConflictDoNothing → запчасть тенанта B молча не сохраняется в каталог, если совпал code с чужой записью (silent data loss).
 - **Воспроизведение:** 1) Тенант A: POST /repairs/parts/catalog {name:'Масло 5W-30', category:'Масла', unit:'л'} → code 'масло-5w-30-масла-л'. 2) Тенант B: POST с тем же name/category/unit → INSERT нарушает глобальный idx_repair_part_catalog_code → 400 (а до санитайза — потенциальный constraint-name в логах). 3) Либо B сохраняет заявку с такой запчастью → syncRepairCatalogFromParts onConflictDoNothing → позиция B не попадает в его каталог.
