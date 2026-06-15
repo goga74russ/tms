@@ -446,6 +446,11 @@ P0 не обнаружено в верифицированном наборе.
 
 ### P2 — 69 (сжато, по сегментам)
 
+> **Прогресс P2 (сессия 2026-06-15):** закрыто 9 — A4-A7 (`b632f47`) + wave 1 cross-tenant
+> (`20e1667`: broadcastEvent fail-closed, orders RLS fail-closed, marking org-less,
+> demo org, cold-chain SLA-guard). Отметки `✅ ЗАКРЫТО` проставлены в строках ниже.
+> Дальше — wave 2 (money/finance), wave 3 (валидация/500/RBAC), затем остаток.
+
 **api/auth**
 
 - `apps/api/src/auth/auth.ts:1463-1481` — [HIGH] verify-email: накапливающиеся валидные коды + отсутствие лимита попыток на код → брутфорс 6-значного кода  → /transpult
@@ -453,7 +458,7 @@ P0 не обнаружено в верифицированном наборе.
 **api/billing**
 
 - `apps/api/src/modules/billing/service.ts:410-419` — [HIGH] Возврат платежа не отзывает доступ: подписка остаётся active после refund  → /transpult
-- `apps/api/src/modules/billing/routes.ts:262-266` — [HIGH] Фискализация всегда без email/телефона покупателя (54-ФЗ чек без контакта получателя)  → /jurist
+- `apps/api/src/modules/billing/routes.ts:262-266` — [HIGH] Фискализация всегда без email/телефона покупателя (54-ФЗ чек без контакта получателя)  → /jurist  **✅ ЗАКРЫТО `b632f47` (A7)**
 
 **api/carriers**
 
@@ -469,13 +474,13 @@ P0 не обнаружено в верифицированном наборе.
 
 - `apps/api/src/modules/cold-chain/service.ts:78-90` — [HIGH] Несовместимые SLA-диапазоны мульти-лот рейса дают инвертированную границу → ВСЕ замеры = breach  → /transpult
 - `apps/api/src/modules/cold-chain/service.ts:110-145` — [HIGH] recordReading стампит input.orderId на замер без проверки принадлежности рейсу/тенанту  → /transpult
-- `apps/api/src/modules/cold-chain/service.ts:241-247` — [HIGH] summarizeReadings: SLA-границы (resolveTripSla) возвращаются без org-фильтра — info-leak чужого рейса через copilot  → /transpult
+- `apps/api/src/modules/cold-chain/service.ts:241-247` — [HIGH] summarizeReadings: SLA-границы (resolveTripSla) возвращаются без org-фильтра — info-leak чужого рейса через copilot  → /transpult  **✅ ЗАКРЫТО `20e1667`** (guard принадлежности рейса до resolveTripSla)
 - `apps/api/src/modules/cold-chain/service.ts:165-196` — [HIGH] recordEvent внутри транзакции делает SELECT users + сетевой enqueue с timeout 3с — транзакция держится открытой до 6с/замер  → /transpult
 
 **api/compliance+adr**
 
 - `apps/api/src/modules/compliance/tachograph/service.ts:63-89` — [HIGH] TOCTOU: check-then-insert tachograph_records после добавления уникального индекса → 500 вместо идемпотентности  → /transpult
-- `apps/api/src/modules/compliance/marking/routes.ts:134-148` — [HIGH] by-shipment/:lotId не гейтит org-less пользователя — cross-tenant чтение проверок маркировки по lotId  → /transpult
+- `apps/api/src/modules/compliance/marking/routes.ts:134-148` — [HIGH] by-shipment/:lotId не гейтит org-less пользователя — cross-tenant чтение проверок маркировки по lotId  → /transpult  **✅ ЗАКРЫТО `20e1667`** (org-less → пусто)
 - `apps/api/src/modules/compliance/osago/service.ts:78-88` — [HIGH] runOrgOsagoSync: последовательные внешние вызовы + по-строчный insert на весь парк (N+1 / нет батча)  → /transpult
 
 **api/copilot**
@@ -524,8 +529,8 @@ P0 не обнаружено в верифицированном наборе.
 **api/mchd**
 
 - `apps/api/src/modules/mchd/routes.ts:166-169` — [HIGH] Обещанный крон перевода МЧД в 'expired' не существует — status навсегда остаётся 'active' для истёкших доверенностей  → /transpult
-- `apps/api/src/modules/mchd/routes.ts:33-38` — [HIGH] INN/ОГРН принимаются без проверки на цифры — в реестр МЧД можно записать нечисловой ИНН доверителя/доверенного  → /jurist
-- `apps/api/src/modules/mchd/routes.ts:177-184` — [MEDIUM] scope МЧД проверяется только как опциональный substring в find-for-signer и НИГДЕ не валидируется при подписании  → /jurist
+- `apps/api/src/modules/mchd/routes.ts:33-38` — [HIGH] INN/ОГРН принимаются без проверки на цифры — в реестр МЧД можно записать нечисловой ИНН доверителя/доверенного  → /jurist  **✅ ЗАКРЫТО `b632f47` (A5)**
+- `apps/api/src/modules/mchd/routes.ts:177-184` — [MEDIUM] scope МЧД проверяется только как опциональный substring в find-for-signer и НИГДЕ не валидируется при подписании  → /jurist  **✅ ЗАКРЫТО `b632f47` (A6)** (validateMchd проверяет scope при подписании)
 
 **api/notifications**
 
@@ -546,7 +551,7 @@ P0 не обнаружено в верифицированном наборе.
 
 - `apps/api/src/modules/orders/validators.ts:42-119` — [HIGH] validateCargoBounds и validateTemperatureRange — мёртвый код: инварианты груза и cold-chain нигде не применяются на create/update  → /transpult
 - `apps/api/src/modules/orders/service.ts:423-461` — [HIGH] updateOrder: numeric customerPrice читается строкой → audit-событие price_changed срабатывает на каждом update, oldValue логируется строкой  → /transpult
-- `apps/api/src/modules/orders/routes.ts:65-91` — [MEDIUM] GET /orders: RLS fail-open для driver/client без записи driver/contractor — фильтр не применяется, видны все заявки организации  → /transpult
+- `apps/api/src/modules/orders/routes.ts:65-91` — [MEDIUM] GET /orders: RLS fail-open для driver/client без записи driver/contractor — фильтр не применяется, видны все заявки организации  → /transpult  **✅ ЗАКРЫТО `20e1667`** (fail-closed → пусто)
 - `apps/api/src/modules/orders/service.ts:573-616` — [MEDIUM] assignOrderToTrip не проверяет принадлежность trip организации автора (cross-tenant trip-assignment) — латентно, функция не подключена к роутам  → /transpult
 
 **api/repairs**
@@ -579,7 +584,7 @@ P0 не обнаружено в верифицированном наборе.
 **api/misc-modules**
 
 - `apps/api/src/modules/analytics/routes.ts:44-47` — [HIGH] maintenanceByVehicleId хранит САМЫЙ СТАРЫЙ план ТО на ТС, а не актуальный  → /transpult
-- `apps/api/src/modules/demo/service.ts:376-389` — [HIGH] Demo-события events пишутся без organizationId → невидимы в журнале аудита (152-ФЗ scope)  → /transpult
+- `apps/api/src/modules/demo/service.ts:376-389` — [HIGH] Demo-события events пишутся без organizationId → невидимы в журнале аудита (152-ФЗ scope)  → /transpult  **✅ ЗАКРЫТО `20e1667`**
 - `apps/api/src/modules/analytics/routes.ts:134-135` — [HIGH] Falsy-проверка пробега скрывает ТО-алерт для ТС с одометром 0  → /transpult
 
 **api/providers**
@@ -588,7 +593,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/infra**
 
-- `apps/api/src/integrations/websocket-filters.ts:64-70` — [HIGH] broadcastEvent: payload без organizationId доставляется ВСЕМ тенантам (cross-tenant утечка trip.eta_updated)  → /transpult
+- `apps/api/src/integrations/websocket-filters.ts:64-70` — [HIGH] broadcastEvent: payload без organizationId доставляется ВСЕМ тенантам (cross-tenant утечка trip.eta_updated)  → /transpult  **✅ ЗАКРЫТО `20e1667`** (fail-closed дефолт)
 - `apps/api/src/integrations/routes.ts:352-387` — [MEDIUM] fuel-card-mock/sync: нет идемпотентности — повторный вызов на тот же период дублирует fuel_records  → /transpult
 
 **web/ops2**
@@ -601,7 +606,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **web/print**
 
-- `apps/web/src/app/print/etrn/[id]/page.tsx:106-109` — [MEDIUM] ЭТрН-preview: грузополучатель подставляется адресом, ИНН/КПП = «—» без гейта  → /jurist
+- `apps/web/src/app/print/etrn/[id]/page.tsx:106-109` — [MEDIUM] ЭТрН-preview: грузополучатель подставляется адресом, ИНН/КПП = «—» без гейта  → /jurist  **✅ ЗАКРЫТО `b632f47` (A4)**
 
 **mobile**
 
