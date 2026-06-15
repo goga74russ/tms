@@ -583,7 +583,7 @@ P0 не обнаружено в верифицированном наборе.
 **api/sync+sprint9**
 
 - `apps/api/src/modules/sync/routes.ts:153-165` — [HIGH] Sync pull: created/updated классификация route_points привязана к createdAt РОДИТЕЛЬСКОГО рейса, а не к самой точке  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (по point.createdAt)
-- `apps/api/src/modules/sync/routes.ts:126-128` — [HIGH] Sync pull: route_points выгружаются БЕЗ фильтра updatedAt — полная переотдача всех точек изменённых рейсов на каждый pull  → /transpult  **✅ ЗАКРЫТО `d3bd60c`** (миграция 0055 updated_at + триггер + sync-фильтр)  **⏸ ОТЛОЖЕНО** (route_points не имеет колонки updated_at — дельта-фильтр требует миграцию)
+- `apps/api/src/modules/sync/routes.ts:126-128` — [HIGH] Sync pull: route_points выгружаются БЕЗ фильтра updatedAt — полная переотдача всех точек изменённых рейсов на каждый pull  → /transpult  **✅ ЗАКРЫТО `d3bd60c`** (миграция 0055 updated_at + триггер + sync-фильтр)
 - `apps/api/src/modules/sprint9/routes.ts:312-322` — [HIGH] waybillDrivers: сброс isPrimary + вставка нового водителя без транзакции — окно с нулём primary-водителей / гонка двух primary  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (в транзакции)
 
 **api/trips**
