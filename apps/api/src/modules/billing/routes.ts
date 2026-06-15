@@ -104,6 +104,10 @@ const YookassaWebhookSchema = z.object({
     object: z.object({
         id: z.string(),
         status: z.string(),
+        // P1 (код-аудит 2026-06-14, #3): для refund.succeeded `object` — это объект
+        // Возврата, чей id — id рефанда, а связанный платёж лежит в payment_id.
+        // Без извлечения payment_id lookup по object.id (id рефанда) — всегда no-op.
+        payment_id: z.string().optional(),
         cancellation_details: z.object({
             reason: z.string().optional(),
             party: z.string().optional(),
@@ -258,9 +262,19 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
         // body.event_id, которого в конверте {type,event,object} НЕТ → всегда
         // undefined → dedup мёртв → каждый ретрай succeeded катил подписку +30д
         // и плодил дубль чека ОФД. object.id+status стабилен между ретраями.
+        // #3: для refund.succeeded ищем исходный платёж по object.payment_id,
+        // а не по object.id (= id рефанда). Без payment_id возврат не фиксируется.
+        const isRefund = status === 'refunded';
+        const targetExternalId = isRefund ? object.payment_id : object.id;
+        if (isRefund && !targetExternalId) {
+            request.log.warn({ refundId: object.id }, 'refund.succeeded без payment_id — невозможно сопоставить платёж');
+            return reply.status(400).send({ success: false, error: 'refund webhook без payment_id' });
+        }
+        // eventId дедупа — из id события (id рефанда для refund) + статуса: стабилен
+        // между ретраями и не коллизит с дедупом исходного succeeded-платежа.
         const eventId = `${object.id}:${object.status}`;
         const result = await handlePaymentCallback({
-            externalId: object.id,
+            externalId: targetExternalId!,
             status,
             eventId,
         });

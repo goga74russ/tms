@@ -8,10 +8,22 @@ import {
     classifyClaim,
     enrichClaim,
     getClaimExposure,
+    isTerminalClaimStatus,
     type ClaimCause,
     type ClaimStatus,
     type ClaimType,
 } from '../operational-core/claim-policy.js';
+
+// P1 (код-аудит 2026-06-14, #5): FSM-guard для претензий. Терминальные статусы
+// resolved/rejected нельзя переоткрыть или повторно resolve'ить (перезапись
+// resolvedAmount/resolvedBy — денежная мина). httpStatus 409 для роута.
+export class ClaimFsmError extends Error {
+    httpStatus = 409;
+    constructor(message: string) {
+        super(message);
+        this.name = 'ClaimFsmError';
+    }
+}
 
 export type ClaimCreate = {
     tripId?: string | null;
@@ -207,20 +219,32 @@ export const claimsService = {
     },
 
     async updateStatus(id: string, update: { status: 'investigating' | 'open'; settlementNote?: string | null; updatedBy: string; updatedByRole: string }) {
-        let resolution: string | null | undefined;
-        if (update.settlementNote) {
-            const [existing] = await db.select({ resolution: claims.resolution }).from(claims).where(eq(claims.id, id)).limit(1);
-            resolution = appendSettlementNote(existing?.resolution ?? null, update.settlementNote);
-        }
+        // FSM-guard в транзакции: читаем текущий статус FOR UPDATE, отклоняем
+        // переход из терминального resolved/rejected. Раньше UPDATE шёл безусловно
+        // по id → закрытую претензию можно было вернуть в open/investigating.
+        const row = await db.transaction(async (tx) => {
+            const [current] = await tx.select({ status: claims.status, resolution: claims.resolution })
+                .from(claims).where(eq(claims.id, id)).for('update').limit(1);
+            if (!current) return null;
+            if (isTerminalClaimStatus(current.status)) {
+                throw new ClaimFsmError(`Претензия в терминальном статусе «${current.status}» — повторное изменение статуса запрещено`);
+            }
 
-        const [row] = await db.update(claims)
-            .set({
-                status: update.status,
-                ...(resolution !== undefined ? { resolution } : {}),
-                updatedAt: new Date(),
-            })
-            .where(eq(claims.id, id))
-            .returning();
+            let resolution: string | null | undefined;
+            if (update.settlementNote) {
+                resolution = appendSettlementNote(current.resolution ?? null, update.settlementNote);
+            }
+
+            const [updated] = await tx.update(claims)
+                .set({
+                    status: update.status,
+                    ...(resolution !== undefined ? { resolution } : {}),
+                    updatedAt: new Date(),
+                })
+                .where(eq(claims.id, id))
+                .returning();
+            return updated ?? null;
+        });
 
         if (!row) return null;
 
@@ -237,18 +261,31 @@ export const claimsService = {
     },
 
     async resolve(id: string, data: ClaimResolve) {
-        const resolution = appendSettlementNote(data.resolution, data.settlementNote);
-        const [row] = await db.update(claims)
-            .set({
-                status: data.status,
-                resolvedAmount: data.resolvedAmount != null ? String(data.resolvedAmount) : null,
-                resolution,
-                resolvedBy: data.resolvedBy,
-                resolvedAt: new Date(),
-                updatedAt: new Date(),
-            })
-            .where(eq(claims.id, id))
-            .returning();
+        // FSM-guard: resolve/reject допустим только из open/investigating. Раньше
+        // уже-resolved претензию можно было повторно resolve с другой суммой,
+        // перезатирая resolvedAmount/resolvedBy/resolvedAt (перезапись денег).
+        const row = await db.transaction(async (tx) => {
+            const [current] = await tx.select({ status: claims.status })
+                .from(claims).where(eq(claims.id, id)).for('update').limit(1);
+            if (!current) return null;
+            if (isTerminalClaimStatus(current.status)) {
+                throw new ClaimFsmError(`Претензия уже в терминальном статусе «${current.status}» — повторное закрытие запрещено`);
+            }
+
+            const resolution = appendSettlementNote(data.resolution, data.settlementNote);
+            const [updated] = await tx.update(claims)
+                .set({
+                    status: data.status,
+                    resolvedAmount: data.resolvedAmount != null ? String(data.resolvedAmount) : null,
+                    resolution,
+                    resolvedBy: data.resolvedBy,
+                    resolvedAt: new Date(),
+                    updatedAt: new Date(),
+                })
+                .where(eq(claims.id, id))
+                .returning();
+            return updated ?? null;
+        });
 
         if (!row) return null;
 

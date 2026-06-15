@@ -181,12 +181,17 @@ export async function createPayment(orgId: string, planId: PlanId, returnUrl: st
     const registry = getDefaultRegistry();
     const adapter = await selectAdapter(registry.payment, orgId, 'payment');
 
+    // P1 (код-аудит 2026-06-14, #2): запоминаем целевой план на платеже. При смене
+    // тарифа клиент платит цену нового плана, но subscription.planId не менялся —
+    // подписка оставалась на старом плане. targetPlanId применяется на webhook'е
+    // succeeded (handlePaymentCallback). До оплаты planId менять нельзя.
     const [pendingPayment] = await db
         .insert(payments)
         .values({
             subscriptionId: subscription.id,
             amountKopecks: plan.priceMonthlyKopecks,
             status: 'pending',
+            providerMetadata: { targetPlanId: planId },
         })
         .returning();
     if (!pendingPayment) throw new Error('Failed to create payment row');
@@ -339,10 +344,14 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
         if (subRow) {
             const periodStart = paidAt;
             const periodEnd = new Date(paidAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+            // #2: применяем целевой план, за который заплатил клиент (если задан
+            // на платеже при checkout). Иначе подписка осталась бы на старом плане.
+            const targetPlanId = (paymentRow.providerMetadata as { targetPlanId?: string } | null)?.targetPlanId;
             await tx
                 .update(subscriptions)
                 .set({
                     status: 'active',
+                    ...(targetPlanId ? { planId: targetPlanId } : {}),
                     currentPeriodStart: periodStart,
                     currentPeriodEnd: periodEnd,
                     trialEndsAt: null,

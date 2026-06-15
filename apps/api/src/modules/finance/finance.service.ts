@@ -603,6 +603,15 @@ export class FinanceService {
                 .where(eq(invoices.id, invoiceId)).for('update').limit(1);
             if (!invoice) throw new Error('Invoice not found');
 
+            // P1 (код-аудит 2026-06-14, #10): статус-гейт. Раньше recordPartialPayment
+            // принимал оплату по счёту в ЛЮБОМ статусе (draft/cancelled/corrected),
+            // обходя FSM — фиксировались деньги по несуществующему/аннулированному
+            // счёту. Разрешаем только выпущенные счета (issued/paid_partial), как
+            // registerPayment. paid_full уже оплачен; терминальные/draft — нельзя.
+            if (invoice.status !== 'issued' && invoice.status !== 'paid_partial') {
+                throw new Error(`Оплату можно фиксировать только по выпущенному счёту (issued/paid_partial). Текущий статус: ${invoice.status}`);
+            }
+
             await recordEvent({
                 authorId,
                 authorRole,
@@ -629,7 +638,8 @@ export class FinanceService {
             const remainingAmount = Math.max(num(invoice.total) - paidAmount, 0);
 
             // M (Этап 3) — FSM: issued/paid_partial → paid_full когда полностью оплачено.
-            if (remainingAmount === 0 && invoice.status !== 'paid_full') {
+            // (статус-гейт выше уже гарантирует issued|paid_partial, не paid_full.)
+            if (remainingAmount === 0) {
                 await tx.update(invoices).set({ status: 'paid_full', paidAmount: num(invoice.total) }).where(eq(invoices.id, invoiceId));
             } else if (paidAmount > 0 && remainingAmount > 0 && invoice.status === 'issued') {
                 await tx.update(invoices).set({ status: 'paid_partial', paidAmount }).where(eq(invoices.id, invoiceId));

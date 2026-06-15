@@ -1,5 +1,15 @@
 export type ClaimType = 'damage' | 'delay' | 'loss' | 'other';
 export type ClaimStatus = 'open' | 'investigating' | 'resolved' | 'rejected';
+
+/**
+ * P1 (код-аудит 2026-06-14, #5): терминальные статусы претензии. Из них нельзя
+ * переоткрыть (updateStatus) или повторно закрыть (resolve) — иначе перезапись
+ * resolvedAmount/resolvedBy. Чистая функция, чтобы FSM-правило тестировалось
+ * без БД (раньше тесты проверяли только Zod-схему, а не runtime-guard).
+ */
+export function isTerminalClaimStatus(status: ClaimStatus | string | null | undefined): boolean {
+    return status === 'resolved' || status === 'rejected';
+}
 export type ClaimCause = 'shortage' | 'damage' | 'delay' | 'downtime' | 'refusal' | 'overage' | 'wrong_docs' | 'other';
 
 export type ClaimMetadataInput = {

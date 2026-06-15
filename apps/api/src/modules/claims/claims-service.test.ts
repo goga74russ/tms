@@ -14,6 +14,7 @@ import {
     getClaimExposure,
     classifyClaim,
     appendSettlementNote,
+    isTerminalClaimStatus,
     type ClaimLike,
 } from '../operational-core/claim-policy.js';
 
@@ -193,5 +194,26 @@ describe('appendSettlementNote — required-on-resolved guard', () => {
         // Path used when only the optional note is given (rare but possible).
         const out = appendSettlementNote(null, 'see attachments');
         expect(out).toBe('Settlement note: see attachments');
+    });
+});
+
+// P1 (#5): runtime-FSM guard, не только Zod-схема. updateStatus/resolve в сервисе
+// бросают ClaimFsmError при isTerminalClaimStatus(current) — закрытую претензию
+// нельзя переоткрыть или повторно resolve'ить (перезапись resolvedAmount/By).
+describe('isTerminalClaimStatus (FSM-guard для claims)', () => {
+    it('resolved и rejected — терминальные', () => {
+        expect(isTerminalClaimStatus('resolved')).toBe(true);
+        expect(isTerminalClaimStatus('rejected')).toBe(true);
+    });
+
+    it('open и investigating — НЕ терминальные (переходы разрешены)', () => {
+        expect(isTerminalClaimStatus('open')).toBe(false);
+        expect(isTerminalClaimStatus('investigating')).toBe(false);
+    });
+
+    it('null/undefined/мусор трактуются как не-терминальные (не блокируем по неизвестному)', () => {
+        expect(isTerminalClaimStatus(null)).toBe(false);
+        expect(isTerminalClaimStatus(undefined)).toBe(false);
+        expect(isTerminalClaimStatus('cancelled')).toBe(false);
     });
 });

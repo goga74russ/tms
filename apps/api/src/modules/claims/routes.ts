@@ -4,7 +4,7 @@
 import { FastifyInstance, FastifyReply } from 'fastify';
 import { requireAbility } from '../../auth/rbac.js';
 import { assertOrderAccess, assertTripAccess, resolveContractorId, isPlatformSuperAdmin } from '../../auth/guards.js';
-import { claimsService } from './service.js';
+import { claimsService, ClaimFsmError } from './service.js';
 import { db } from '../../db/connection.js';
 import { contractors } from '../../db/schema.js';
 import { and, eq } from 'drizzle-orm';
@@ -239,14 +239,19 @@ export default async function claimsRoutes(app: FastifyInstance) {
         }
         const accessible = await ensureClaimAccess(id, user, reply);
         if (!accessible) return;
-        const claim = await claimsService.updateStatus(id, {
-            status: parsed.data.status,
-            settlementNote: parsed.data.settlementNote,
-            updatedBy: user.userId,
-            updatedByRole: user.roles[0] ?? 'unknown',
-        });
-        if (!claim) return reply.status(404).send({ success: false, error: 'Претензия не найдена' });
-        return { success: true, data: claim };
+        try {
+            const claim = await claimsService.updateStatus(id, {
+                status: parsed.data.status,
+                settlementNote: parsed.data.settlementNote,
+                updatedBy: user.userId,
+                updatedByRole: user.roles[0] ?? 'unknown',
+            });
+            if (!claim) return reply.status(404).send({ success: false, error: 'Претензия не найдена' });
+            return { success: true, data: claim };
+        } catch (err) {
+            if (err instanceof ClaimFsmError) return reply.status(err.httpStatus).send({ success: false, error: err.message });
+            throw err;
+        }
     });
 
     // Resolve or reject claim
@@ -264,13 +269,18 @@ export default async function claimsRoutes(app: FastifyInstance) {
         }
         const accessible = await ensureClaimAccess(id, user, reply);
         if (!accessible) return;
-        const claim = await claimsService.resolve(id, {
-            ...parsed.data,
-            resolvedBy: user.userId,
-            resolvedByRole: user.roles[0] ?? 'unknown',
-        });
-        if (!claim) return reply.status(404).send({ success: false, error: 'Претензия не найдена' });
-        return { success: true, data: claim };
+        try {
+            const claim = await claimsService.resolve(id, {
+                ...parsed.data,
+                resolvedBy: user.userId,
+                resolvedByRole: user.roles[0] ?? 'unknown',
+            });
+            if (!claim) return reply.status(404).send({ success: false, error: 'Претензия не найдена' });
+            return { success: true, data: claim };
+        } catch (err) {
+            if (err instanceof ClaimFsmError) return reply.status(err.httpStatus).send({ success: false, error: err.message });
+            throw err;
+        }
     });
 }
 
