@@ -26,15 +26,21 @@ interface AuthUser {
 
 // ---- Validation schemas ----
 
+// A5 (код-аудит 2026-06-14): ИНН/ОГРН должны быть строгого формата (только
+// цифры, валидная длина). Прежний min(10).max(12) пропускал 11-значные и
+// буквенный мусор в реквизиты МЧД — отклонялось бы оператором ЭДО при подписи.
+const INN_RE = /^(\d{10}|\d{12})$/;   // 10 — ЮЛ, 12 — ФЛ/ИП
+const OGRN_RE = /^(\d{13}|\d{15})$/;  // 13 — ОГРН (ЮЛ), 15 — ОГРНИП
+
 const ParamsSchema = z.object({ id: z.string().uuid() });
 
 const CreateSchema = z.object({
     mchdNumber: z.string().min(1).max(64),
-    granterInn: z.string().min(10).max(12),
+    granterInn: z.string().regex(INN_RE, 'ИНН доверителя: 10 или 12 цифр'),
     granterName: z.string().min(1).max(255),
-    granterOgrn: z.string().max(15).optional(),
+    granterOgrn: z.string().regex(OGRN_RE, 'ОГРН: 13 или 15 цифр').optional(),
     granteeFullName: z.string().min(1).max(255),
-    granteeInn: z.string().min(10).max(12),
+    granteeInn: z.string().regex(INN_RE, 'ИНН представителя: 10 или 12 цифр'),
     granteePassport: z.string().max(20).optional(),
     scope: z.string().min(1),
     issuedAt: z.string().datetime(),
@@ -48,7 +54,7 @@ const RevokeSchema = z.object({
 });
 
 const FindForSignerSchema = z.object({
-    granteeInn: z.string().min(10).max(12),
+    granteeInn: z.string().regex(INN_RE, 'ИНН представителя: 10 или 12 цифр'),
     // Опциональные фильтры. Если переданы — сужают выборку:
     //   granterInn — ИНН доверителя (организации). Должен совпадать
     //                с ИНН org-владельца документа. Если не передан —
@@ -56,7 +62,7 @@ const FindForSignerSchema = z.object({
     //   requiredScope — keyword/подстрока, которая должна встречаться
     //                   в scope МЧД. Без полного формат-1 матчинга,
     //                   но отсекает явно нерелевантные доверенности.
-    granterInn: z.string().min(10).max(12).optional(),
+    granterInn: z.string().regex(INN_RE, 'ИНН доверителя: 10 или 12 цифр').optional(),
     requiredScope: z.string().min(2).max(255).optional(),
 });
 

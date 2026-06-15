@@ -103,10 +103,14 @@ export default function EtrnPreviewPage() {
     const shipperInn = data.contractor?.inn || '—';
     const shipperKpp = data.contractor?.kpp || '—';
     const shipperAddress = data.contractor?.legalAddress || data.loadingAddress || '—';
-    const consigneeName = data.consigneeContractor?.name || data.unloadingAddress || '—';
+    // A4 (код-аудит 2026-06-14): грузополучатель — это контрагент, не место
+    // выгрузки. Имя/адрес берём из consigneeContractor (юр.реквизиты), а
+    // unloadingAddress показываем отдельной строкой «Место выгрузки». Совпадает
+    // с серверным A3 и 422-гейтом CONSIGNEE_REQUISITES_MISSING.
+    const consigneeName = data.consigneeContractor?.name || '—';
     const consigneeInn = data.consigneeContractor?.inn || '—';
     const consigneeKpp = data.consigneeContractor?.kpp || '—';
-    const consigneeAddress = data.unloadingAddress || '—';
+    const consigneeAddress = data.consigneeContractor?.legalAddress || '—';
 
     return (
         <>

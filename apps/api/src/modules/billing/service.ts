@@ -6,7 +6,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '../../db/connection.js';
 import {
-    plans, subscriptions, payments, usageCounters, organizations,
+    plans, subscriptions, payments, usageCounters, organizations, users,
 } from '../../db/schema.js';
 import {
     getDefaultRegistry, selectAdapter, getOfdAdapter,
@@ -365,12 +365,28 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
                 if (mockInProd) {
                     console.warn('[billing] ОФД-фискализация пропущена: в production доступен только mock-адаптер (фейковый чек не выдаём). Для B2B-only установки задайте ALLOW_MOCK_OFD=true.');
                 } else {
+                    // A7 (код-аудит 2026-06-14): 54-ФЗ ч.6.1 ст.4.7 — чек обязан
+                    // содержать контакт покупателя (email или телефон) для выдачи
+                    // в электронной форме. Вебхук ЮKassa контакт не передаёт, поэтому
+                    // берём из самого раннего активного пользователя орг (владелец).
+                    let customerEmail = payload.customerEmail;
+                    let customerPhone = payload.customerPhone;
+                    if (!customerEmail && !customerPhone) {
+                        const [contact] = await tx
+                            .select({ email: users.email, phone: users.phone })
+                            .from(users)
+                            .where(and(eq(users.organizationId, subRow.organizationId), eq(users.isActive, true)))
+                            .orderBy(sql`${users.createdAt} ASC`)
+                            .limit(1);
+                        customerEmail = contact?.email ?? undefined;
+                        customerPhone = contact?.phone ?? undefined;
+                    }
                     const receipt = await ofd.fiscalize({
                         paymentId: paymentRow.id,
                         amountKopecks: paymentRow.amountKopecks,
                         description: 'Подписка ТрансПульт (месяц)',
-                        customerEmail: payload.customerEmail,
-                        customerPhone: payload.customerPhone,
+                        customerEmail,
+                        customerPhone,
                         taxSystem: 'usn_income',
                         vatCode: 'vat_none',
                     });

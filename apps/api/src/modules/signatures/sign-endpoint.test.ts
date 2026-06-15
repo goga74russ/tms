@@ -34,6 +34,7 @@ describe('validateMchd', () => {
         expiresAt: new Date('2027-01-01T00:00:00Z'),
         granteeInn: '7707083893',
         organizationId: 'org-1',
+        scope: 'Подписание транспортных накладных (ЭТрН) и сопутствующих документов',
     };
 
     it('returns empty problems for a valid МЧД', () => {
@@ -80,6 +81,17 @@ describe('validateMchd', () => {
 
     it('allows omitting signerInn (resolved later from certificate)', () => {
         expect(validateMchd(okRecord, { documentOrgId: 'org-1', now })).toEqual([]);
+    });
+
+    it('A6: rejects МЧД whose scope does not cover transport documents', () => {
+        const taxOnly: McheckInput = { ...okRecord, scope: 'Представление отчётности в ФНС' };
+        const problems = validateMchd(taxOnly, { documentOrgId: 'org-1', signerInn: '7707083893', now });
+        expect(problems.some((p) => /не покрывают подписание транспортных/i.test(p))).toBe(true);
+    });
+
+    it('A6: accepts МЧД with перевозка in scope', () => {
+        const ok: McheckInput = { ...okRecord, scope: 'Полномочия на перевозку грузов' };
+        expect(validateMchd(ok, { documentOrgId: 'org-1', signerInn: '7707083893', now })).toEqual([]);
     });
 });
 

@@ -570,7 +570,10 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 consigneeName: consigneeContractor.name,
                 consigneeInn: consigneeContractor.inn,
                 consigneeKpp: consigneeContractor?.kpp || undefined,
-                consigneeAddress: order?.order.unloadingAddress || 'вЂ”',
+                // A3 (код-аудит 2026-06-14): адрес грузополучателя в ЭТрН — его
+                // юр.адрес (реквизит стороны), а не место выгрузки. Место выгрузки
+                // отдельно идёт в unloadingAddress ниже.
+                consigneeAddress: consigneeContractor.legalAddress || 'вЂ”',
                 cargoDescription: order?.order.cargoDescription || 'вЂ”',
                 cargoWeight: order?.order.cargoWeightKg ? Number(order.order.cargoWeightKg) : undefined,
                 loadingAddress: order?.order.loadingAddress || 'вЂ”',
@@ -675,7 +678,10 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 consigneeName: consigneeContractor.name,
                 consigneeInn: consigneeContractor.inn,
                 consigneeKpp: consigneeContractor?.kpp || undefined,
-                consigneeAddress: order?.order.unloadingAddress || 'вЂ”',
+                // A3 (код-аудит 2026-06-14): адрес грузополучателя в ЭТрН — его
+                // юр.адрес (реквизит стороны), а не место выгрузки. Место выгрузки
+                // отдельно идёт в unloadingAddress ниже.
+                consigneeAddress: consigneeContractor.legalAddress || 'вЂ”',
                 cargoDescription: order?.order.cargoDescription || 'вЂ”',
                 loadingAddress: order?.order.loadingAddress || 'вЂ”',
                 unloadingAddress: order?.order.unloadingAddress || 'вЂ”',

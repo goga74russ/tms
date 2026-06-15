@@ -259,6 +259,7 @@ describe('POST /api/transport-documents/:id/sign — МЧД validation', () => {
         expiresAt: new Date('2027-01-01T00:00:00Z'),
         granteeInn: '7707083893',
         organizationId: ORG_ID,
+        scope: 'Подписание транспортных накладных (ЭТрН)',
     };
 
     it('returns 400 when mchdId не принадлежит организации документа (запрос вернул пусто)', async () => {
@@ -359,6 +360,7 @@ describe('POST /api/transport-documents/:id/sign — happy path', () => {
         expiresAt: new Date('2027-01-01T00:00:00Z'),
         granteeInn: '7707083893',
         organizationId: ORG_ID,
+        scope: 'Подписание транспортных накладных (ЭТрН)',
     };
 
     it('returns 200 with externalId + deeplink and writes pendingSignatures + signatureState', async () => {

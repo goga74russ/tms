@@ -218,9 +218,20 @@ const carriersRoutes: FastifyPluginAsync = async (app) => {
         // и без re-check статуса (TOCTOU: статус мог уйти из planning/assigned между
         // проверкой и записью). Переиспользуем tripConditions (id + org) + re-check
         // статуса оптимистичной блокировкой. Пустой результат → гонка/вне доступа.
+        // A2 (код-аудит 2026-06-14): назначение субподрядчика обязано перевести
+        // рейс в execution_mode='subcontract' — иначе в ЭТрН перевозчик получает
+        // роль «свой парк», а не наёмный (искажение роли к 01.09.2026).
+        // CHECK trips_cost_matches_mode: subcontract ⇒ own_cost_estimate IS NULL,
+        // поэтому обнуляем own_cost_estimate в той же транзакции (фактическая
+        // себестоимость теперь = subcontractor_cost, заполнится по счёту перевозчика).
         const [updated] = await db
             .update(trips)
-            .set({ carrierContractorId: parsed.data.carrierContractorId, updatedAt: new Date() })
+            .set({
+                carrierContractorId: parsed.data.carrierContractorId,
+                executionMode: 'subcontract',
+                ownCostEstimate: null,
+                updatedAt: new Date(),
+            })
             .where(and(...tripConditions, inArray(trips.status, ['planning', 'assigned'])))
             .returning();
         if (!updated) {

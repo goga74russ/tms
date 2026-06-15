@@ -33,7 +33,14 @@ export interface McheckInput {
     expiresAt: Date;
     granteeInn: string;
     organizationId: string | null;
+    scope: string;
 }
+
+// A6 (код-аудит 2026-06-14): scope МЧД — свободный текст (без структурных кодов
+// Формат-1), поэтому проверяем эвристикой: полномочия должны упоминать
+// транспортную тематику, иначе доверенностью «на сдачу отчётности в ФНС»
+// нельзя подписывать ЭТрН. Список стемов — пополняемый.
+const TRANSPORT_SCOPE_KEYWORDS = ['этрн', 'транспортн', 'накладн', 'перевозк', 'грузоперев'];
 
 /**
  * Validate an МЧД row against the supplied signer/document context.
@@ -68,6 +75,11 @@ export function validateMchd(
     }
     if (args.signerInn && args.signerInn !== record.granteeInn) {
         problems.push(`ИНН подписанта (${args.signerInn}) не совпадает с granteeInn МЧД (${record.granteeInn})`);
+    }
+    // A6: полномочия МЧД должны покрывать подписание транспортных документов.
+    const scopeLc = (record.scope || '').toLowerCase();
+    if (!TRANSPORT_SCOPE_KEYWORDS.some((k) => scopeLc.includes(k))) {
+        problems.push('Полномочия МЧД (scope) не покрывают подписание транспортных документов (ЭТрН)');
     }
     return problems;
 }
@@ -253,6 +265,7 @@ const signRoutes: FastifyPluginAsync = async (app) => {
                 expiresAt: mchd.expiresAt,
                 granteeInn: mchd.granteeInn,
                 organizationId: mchd.organizationId,
+                scope: mchd.scope,
             }).from(mchd)
                 .where(and(eq(mchd.id, mchdId), eq(mchd.organizationId, documentOrgId)))
                 .limit(1);
