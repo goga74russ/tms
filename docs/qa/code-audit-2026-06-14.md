@@ -475,15 +475,15 @@ P0 не обнаружено в верифицированном наборе.
 **api/cold-chain**
 
 - `apps/api/src/modules/cold-chain/service.ts:78-90` — [HIGH] Несовместимые SLA-диапазоны мульти-лот рейса дают инвертированную границу → ВСЕ замеры = breach  → /transpult
-- `apps/api/src/modules/cold-chain/service.ts:110-145` — [HIGH] recordReading стампит input.orderId на замер без проверки принадлежности рейсу/тенанту  → /transpult
+- `apps/api/src/modules/cold-chain/service.ts:110-145` — [HIGH] recordReading стампит input.orderId на замер без проверки принадлежности рейсу/тенанту  → /transpult  **✅ ЗАКРЫТО `7f8e170`** (валидация orderId∈trip; org из рейса + assertTripAccess)
 - `apps/api/src/modules/cold-chain/service.ts:241-247` — [HIGH] summarizeReadings: SLA-границы (resolveTripSla) возвращаются без org-фильтра — info-leak чужого рейса через copilot  → /transpult  **✅ ЗАКРЫТО `20e1667`** (guard принадлежности рейса до resolveTripSla)
 - `apps/api/src/modules/cold-chain/service.ts:165-196` — [HIGH] recordEvent внутри транзакции делает SELECT users + сетевой enqueue с timeout 3с — транзакция держится открытой до 6с/замер  → /transpult
 
 **api/compliance+adr**
 
-- `apps/api/src/modules/compliance/tachograph/service.ts:63-89` — [HIGH] TOCTOU: check-then-insert tachograph_records после добавления уникального индекса → 500 вместо идемпотентности  → /transpult
+- `apps/api/src/modules/compliance/tachograph/service.ts:63-89` — [HIGH] TOCTOU: check-then-insert tachograph_records после добавления уникального индекса → 500 вместо идемпотентности  → /transpult  **✅ ЗАКРЫТО `7f8e170`** (onConflictDoNothing)
 - `apps/api/src/modules/compliance/marking/routes.ts:134-148` — [HIGH] by-shipment/:lotId не гейтит org-less пользователя — cross-tenant чтение проверок маркировки по lotId  → /transpult  **✅ ЗАКРЫТО `20e1667`** (org-less → пусто)
-- `apps/api/src/modules/compliance/osago/service.ts:78-88` — [HIGH] runOrgOsagoSync: последовательные внешние вызовы + по-строчный insert на весь парк (N+1 / нет батча)  → /transpult
+- `apps/api/src/modules/compliance/osago/service.ts:78-88` — [HIGH] runOrgOsagoSync: последовательные внешние вызовы + по-строчный insert на весь парк (N+1 / нет батча)  → /transpult  **✅ ЗАКРЫТО `7f8e170`** (Promise.all параллельно)
 
 **api/copilot**
 
@@ -540,7 +540,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/onboarding**
 
-- `apps/api/src/modules/onboarding/routes.ts:217-222` — [HIGH] save-integration-choice: onboardingStep выставляется константой (4/5), даёт регрессию шага — тот же класс бага, что C9 чинил в profile через GREATEST  → /transpult
+- `apps/api/src/modules/onboarding/routes.ts:217-222` — [HIGH] save-integration-choice: onboardingStep выставляется константой (4/5), даёт регрессию шага — тот же класс бага, что C9 чинил в profile через GREATEST  → /transpult  **✅ ЗАКРЫТО `7f8e170`** (GREATEST)
 
 **api/operational**
 
@@ -591,7 +591,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/providers**
 
-- `apps/api/src/providers/signature/kontur-sign.ts:24-31` — [HIGH] Go-live trap: skeleton adapters report healthCheck ok:true while all methods throw (PROV-P0-2 applied unevenly)  → /transpult
+- `apps/api/src/providers/signature/kontur-sign.ts:24-31` — [HIGH] Go-live trap: skeleton adapters report healthCheck ok:true while all methods throw (PROV-P0-2 applied unevenly)  → /transpult  **✅ ЗАКРЫТО `7f8e170`** (healthCheck ok:false)
 
 **api/infra**
 
