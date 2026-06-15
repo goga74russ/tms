@@ -156,8 +156,11 @@ export async function getTechInspectionQueue(organizationId?: string | null) {
         })
         .from(trips)
         .where(
+            // P2 (код-аудит 2026-06-14): org-скоуп техочереди через trips.organizationId
+            // напрямую, а не через driverId — иначе рейсы с driverId=null (ещё без
+            // водителя) выпадали из очереди, хотя ТС требует техосмотра.
             organizationId
-                ? and(inArray(trips.status, ['assigned', 'waybill_draft']), inArray(trips.driverId, db.select({ id: drivers.id }).from(drivers).where(eq(drivers.organizationId, organizationId))))
+                ? and(inArray(trips.status, ['assigned', 'waybill_draft']), eq(trips.organizationId, organizationId))
                 : inArray(trips.status, ['assigned', 'waybill_draft'])
         );
 

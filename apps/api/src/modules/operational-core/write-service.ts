@@ -125,11 +125,25 @@ export async function assignLotToTrip(tripId: string, input: { shipmentLotId: st
         }
 
         const [vehicle] = trip.vehicleId ? await tx.select().from(vehicles).where(eq(vehicles.id, trip.vehicleId)).limit(1) : [null];
-        const [tripTotals] = await tx.select({ weight: sql<number>`coalesce(sum(${tripLotAssignments.assignedWeightKg}), 0)::float8` }).from(tripLotAssignments)
+        const [tripTotals] = await tx.select({
+            weight: sql<number>`coalesce(sum(${tripLotAssignments.assignedWeightKg}), 0)::float8`,
+            volume: sql<number>`coalesce(sum(${tripLotAssignments.assignedVolumeM3}), 0)::float8`,
+        }).from(tripLotAssignments)
             .where(and(eq(tripLotAssignments.tripId, tripId), ne(tripLotAssignments.status, 'cancelled'), ne(tripLotAssignments.shipmentLotId, lot.id)));
+        // P2 (код-аудит 2026-06-14): allowOverCapacity — НЕ свободный клиентский флаг.
+        // Обход проверки вместимости разрешён только привилегированной роли
+        // (dispatcher/admin/logist), иначе любой клиент перегружал ТС.
+        const mayOverride = ['admin', 'dispatcher', 'logist'].includes(actor.role);
+        const allowOver = !!input.allowOverCapacity && mayOverride;
         const projectedWeight = Number(tripTotals?.weight ?? 0) + Number(assignedWeightKg ?? 0);
-        if (!input.allowOverCapacity && vehicle?.payloadCapacityKg && projectedWeight > Number(vehicle.payloadCapacityKg)) {
+        if (!allowOver && vehicle?.payloadCapacityKg && projectedWeight > Number(vehicle.payloadCapacityKg)) {
             throw new Error(`Assigned weight exceeds vehicle capacity: ${projectedWeight} > ${vehicle.payloadCapacityKg}`);
+        }
+        // P2 (код-аудит 2026-06-14): помимо веса проверяем ОБЪЁМ против вместимости ТС
+        // (раньше проверялся только вес → перегруз по объёму проходил молча).
+        const projectedVolume = Number(tripTotals?.volume ?? 0) + Number(assignedVolumeM3 ?? 0);
+        if (!allowOver && vehicle?.payloadVolumeM3 && projectedVolume > Number(vehicle.payloadVolumeM3)) {
+            throw new Error(`Assigned volume exceeds vehicle capacity: ${projectedVolume} > ${vehicle.payloadVolumeM3}`);
         }
 
         const seq = await nextRoutePointSeq(tx, tripId);

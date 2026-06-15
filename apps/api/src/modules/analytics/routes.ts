@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { db } from '../../db/connection.js';
 import { vehicles, repairRequests, trips, maintenanceSchedule } from '../../db/schema.js';
-import { eq, desc, and, gte, sql, inArray } from 'drizzle-orm';
+import { eq, desc, asc, and, gte, sql, inArray } from 'drizzle-orm';
 import { calculateFleetKtgMetrics } from '../finance/finance.service.js';
 import { getFuelConsumptionAnalytics, getFleetKtgAnalytics } from '../fleet/service.js';
 import { buildFleetReadinessSnapshot } from './fleet-readiness.js';
@@ -41,9 +41,12 @@ export default async function analyticsRoutes(app: FastifyInstance) {
         if (user.organizationId) {
             maintenanceConditions.push(eq(maintenanceSchedule.organizationId, user.organizationId));
         }
+        // P2 (код-аудит 2026-06-14): Map.set перезаписывает по ключу — при desc
+        // (новейший→старейший) в карте оставался САМЫЙ СТАРЫЙ план на ТС. Сортируем
+        // asc, чтобы новейший план записывался последним и оставался актуальным.
         const plannedMaintenance = await db.select().from(maintenanceSchedule)
             .where(and(...maintenanceConditions))
-            .orderBy(desc(maintenanceSchedule.createdAt));
+            .orderBy(asc(maintenanceSchedule.createdAt));
         const maintenanceByVehicleId = new Map(plannedMaintenance.map((item) => [item.vehicleId, item]));
 
         const now = new Date();
@@ -131,7 +134,9 @@ export default async function analyticsRoutes(app: FastifyInstance) {
                 }
             }
 
-            if (plannedMaintenanceKm && currentOdometerKm) {
+            // P2 (код-аудит 2026-06-14): != null вместо truthy — одометр 0 (новое ТС
+            // или сброс) ранее проваливал falsy-проверку и скрывал ТО-км-алерт.
+            if (plannedMaintenanceKm != null && currentOdometerKm != null) {
                 const kmLeft = plannedMaintenanceKm - currentOdometerKm;
                 if (kmLeft <= 0) {
                     alerts.push({

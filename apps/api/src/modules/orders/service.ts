@@ -453,11 +453,14 @@ export async function updateOrder(
         : eq(orders.id, id);
 
     // K1 — для аудита изменения customer_price нужно знать предыдущее значение.
+    // P2 (код-аудит 2026-06-14): numeric-колонка приходит из PG СТРОКОЙ, поэтому
+    // коэрцируем в число — иначе строка !== число всегда true и событие
+    // price_changed срабатывало на КАЖДЫЙ update (и oldValue логировался строкой).
     let previousCustomerPrice: number | null = null;
     if (updates.customerPrice !== undefined && author) {
         const [prev] = await db.select({ customerPrice: orders.customerPrice })
             .from(orders).where(whereClause).limit(1);
-        previousCustomerPrice = prev?.customerPrice ?? null;
+        previousCustomerPrice = prev?.customerPrice != null ? Number(prev.customerPrice) : null;
     }
 
     const [order] = await db
@@ -475,8 +478,9 @@ export async function updateOrder(
         .where(whereClause)
         .returning();
 
-    // K1 — audit-event для изменения цены (коммерческое событие).
-    if (order && updates.customerPrice !== undefined && author && previousCustomerPrice !== updates.customerPrice) {
+    // K1 — audit-event для изменения цены (коммерческое событие). Сравниваем числа.
+    const newCustomerPrice = updates.customerPrice == null ? null : Number(updates.customerPrice);
+    if (order && updates.customerPrice !== undefined && author && previousCustomerPrice !== newCustomerPrice) {
         await recordEvent({
             authorId: author.userId,
             authorRole: author.role,
