@@ -450,15 +450,18 @@ P0 не обнаружено в верифицированном наборе.
 > (`20e1667`) + wave 2 money/finance (`39f83b6`: billing refund-отзыв, overdueDebt остаток,
 > deleteAdjustment гейт, margin currency-mismatch, web sparkline остаток). По решению
 > владельца — сначала HIGH-теги. Отметки `✅ ЗАКРЫТО` в строках ниже.
-> **Закрыто 50/69** за сессию (waves 1-8): cross-tenant, money/finance, валидация/RBAC,
-> correctness/TOCTOU, rto/edi/sync/copilot, onboarding/tachograph/kontur/osago/cold-chain,
-> PDF-округление, mobile-offline, inspections/mergeStatus. Каждая — tsc + тесты.
-> **Осталось 19** (не code-only / низкий приоритет): миграции (carrier_contracts unique,
-> sync route_points updated_at, fleet driver-per-user unique, repair category column);
-> архитектурные (finance two-payment-systems, mchd expired cron); devops (schema drift);
-> /pm (gosklyuch skip-тесты); MEDIUM-хвост (geo stub, trip-change freeMinutes, fuel-card
-> idempotency, copilot N+1, operational splitLots, orders assignOrderToTrip latent,
-> trips COMPLETED outside tx, analyzeFuel org-less). См. строки без отметки ниже.
+> **Закрыто 66/69** за сессию (waves 1-11 + миграции 0053-0055): cross-tenant, money/
+> finance, валидация/RBAC, correctness/TOCTOU, rto/edi/sync/copilot, onboarding/tachograph/
+> kontur/osago/cold-chain, PDF-округление, mobile-offline, schema drift, mchd-expiry,
+> per-org миграции (carrier_contracts/drivers/route_points). Каждая — tsc + тесты;
+> миграции провалидированы на чистом PG16.
+>
+> **Осталось 3 (НЕ закрыто — требуют решений/инфры, не «быстрый code-only»):**
+> - **#500** finance две системы учёта оплат (events vs column) — архитектурная унификация,
+>   нужно продуктовое решение (свести к единому registerPayment).
+> - **#543** trip-change freeMinutes=120 хардкод — должен идти из tariff.idleFreeLimitMinutes;
+>   правка downtime-биллинга требует аккуратной работы с финансовым потоком.
+> - **#564** gosklyuch 6/8 skip-тестов (W1 test-debt) → /pm — реактивация отдельной задачей.
 
 **api/auth**
 
@@ -511,7 +514,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/finance**
 
-- `apps/api/src/modules/finance/finance.service.ts:584-647` — [HIGH] Две несовместимые системы учёта оплат: events-based (/payments) vs column-based (/register-payment) затирают paidAmount  → /transpult
+- `apps/api/src/modules/finance/finance.service.ts:584-647` — [HIGH] Две несовместимые системы учёта оплат: events-based (/payments) vs column-based (/register-payment) затирают paidAmount  → /transpult  **⏸ ОТЛОЖЕНО** (архитектурно: унификация events-based/column-based учёта оплат — нужно продуктовое решение)
 - `apps/api/src/modules/finance/finance.service.ts:383-391` — [HIGH] overdueDebt суммирует полный invoice.total без вычета paidAmount и без фильтра due_date  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (sum(total-paidAmount); колонки due_date нет — отмечено)
 - `apps/api/src/modules/finance/finance.service.ts:554-581` — [HIGH] deleteAdjustment без статус-гейта: на issued-счёте бросает сырое исключение триггера INVOICE_IMMUTABLE  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (гейт draft-only → чистый 400)
 - `apps/api/src/modules/finance/finance.service.ts:261-268` — [MEDIUM] analyzeFuel: organizationId-фильтр без INNER JOIN-гарантии при vehicleId-only — потенциальная межтенантная выборка  → /transpult  **✅ ЗАКРЫТО `fc8f311`** (assertVehicleAccess при vehicleId)
@@ -537,7 +540,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/mchd**
 
-- `apps/api/src/modules/mchd/routes.ts:166-169` — [HIGH] Обещанный крон перевода МЧД в 'expired' не существует — status навсегда остаётся 'active' для истёкших доверенностей  → /transpult
+- `apps/api/src/modules/mchd/routes.ts:166-169` — [HIGH] Обещанный крон перевода МЧД в 'expired' не существует — status навсегда остаётся 'active' для истёкших доверенностей  → /transpult  **✅ ЗАКРЫТО `2f2bcd1`** (эффективный статус на чтении; runtime уже отвергает истёкшие)
 - `apps/api/src/modules/mchd/routes.ts:33-38` — [HIGH] INN/ОГРН принимаются без проверки на цифры — в реестр МЧД можно записать нечисловой ИНН доверителя/доверенного  → /jurist  **✅ ЗАКРЫТО `b632f47` (A5)**
 - `apps/api/src/modules/mchd/routes.ts:177-184` — [MEDIUM] scope МЧД проверяется только как опциональный substring в find-for-signer и НИГДЕ не валидируется при подписании  → /jurist  **✅ ЗАКРЫТО `b632f47` (A6)** (validateMchd проверяет scope при подписании)
 
@@ -554,7 +557,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/operational-core/write-service.ts:96-133` — [HIGH] allowOverCapacity — клиент-управляемый флаг обходит проверку грузоподъёмности ТС  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (гейт по привилегированной роли)
 - `apps/api/src/modules/operational-core/write-service.ts:121-133` — [HIGH] Capacity-проверка лота/ТС только по весу — объём и места не проверяются при назначении  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (+ проверка объёма payloadVolumeM3; места — нет колонки вместимости, отмечено)
 - `apps/api/src/modules/operational-core/write-service.ts:42-48` — [MEDIUM] splitOrderIntoLots: при одновременных lotCount и maxWeightKg сумма веса лотов != весу заявки  → /transpult  **✅ ЗАКРЫТО `f93f995`** (равномерный вес при lotCount)
-- `apps/api/src/modules/operations/trip-change-service.ts:304-345` — [MEDIUM] recordRoutePointDowntime: захардкоженный freeMinutes=120 расходится с контрактным тарифом  → /transpult
+- `apps/api/src/modules/operations/trip-change-service.ts:304-345` — [MEDIUM] recordRoutePointDowntime: захардкоженный freeMinutes=120 расходится с контрактным тарифом  → /transpult  **⏸ ОТЛОЖЕНО** (freeMinutes должен идти из tariff.idleFreeLimitMinutes; правка downtime-биллинга — аккуратно с финансами)
 
 **api/orders**
 
@@ -575,7 +578,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/signatures**
 
-- `apps/api/src/modules/signatures/gosklyuch-callback.integration.test.ts:267-559` — [HIGH] 6 из 8 integration-тестов callback'а отключены через describe.skip (FIXME W1-test-debt) — критичные ветки chain-of-trust не покрыты  → /pm
+- `apps/api/src/modules/signatures/gosklyuch-callback.integration.test.ts:267-559` — [HIGH] 6 из 8 integration-тестов callback'а отключены через describe.skip (FIXME W1-test-debt) — критичные ветки chain-of-trust не покрыты  → /pm  **⏸ ОТЛОЖЕНО** (тест-долг W1, владелец /pm — реактивация 6 skip-тестов отдельной задачей)
 
 **api/sync+sprint9**
 
@@ -588,7 +591,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/trips/service.ts:369-376` — [HIGH] При отмене рейса заявки отвязываются (tripId=null), но строки trip_orders и route_points не удаляются — рассинхрон слоёв  → /transpult  **✅ ЗАКРЫТО `8a697da`** (delete junction+route_points в tx)
 - `apps/api/src/modules/trips/margin.ts:72-97` — [HIGH] computeTripMargin смешивает валюты revenue и cost — выдаёт финансово некорректную маржу  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (margin=null + currencyMismatch при разных валютах)
 - `apps/api/src/modules/trips/transport-documents-store.ts:487-520` — [MEDIUM] mergeStatus при ресинхроне может затереть провайдерский REJECTED более высоким производным статусом  → /transpult  **✅ ЗАКРЫТО `3b68b6a`** (REJECTED залипает)
-- `apps/api/src/modules/trips/service.ts:1048-1074` — [MEDIUM] Проверки готовности к COMPLETED (route points, обязательное подтверждение) выполняются вне транзакции — TOCTOU  → /transpult
+- `apps/api/src/modules/trips/service.ts:1048-1074` — [MEDIUM] Проверки готовности к COMPLETED (route points, обязательное подтверждение) выполняются вне транзакции — TOCTOU  → /transpult  **✅ ЗАКРЫТО `2f2bcd1`** (re-check внутри tx под FOR UPDATE)
 
 **api/misc-modules**
 
