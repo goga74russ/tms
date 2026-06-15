@@ -27,6 +27,9 @@ export interface TripMargin {
     /** L1 — указывает откуда взяли cost: 'own' | 'subcontract' | 'legacy_carrier_cost'. */
     costSource?: 'own' | 'subcontract' | 'legacy_carrier_cost' | null;
     executionMode?: 'own' | 'subcontract' | null;
+    /** P2 — true, если валюты revenue и cost различаются: margin=null (вычитание
+     * разных валют бессмысленно), потребитель должен показать предупреждение. */
+    currencyMismatch?: boolean;
 }
 
 /** Сырьё из БД (numeric-поля приходят строками либо number). */
@@ -73,7 +76,12 @@ export function reduceTripMargin(trip: MarginTripRow, orderRows: MarginOrderRow[
         ?? toOptionalFiniteNumber(trip.ownCostEstimate)
         ?? toOptionalFiniteNumber(trip.carrierCost);
     const finalRevenue = hasAnyPrice ? round2(revenue) : null;
-    const margin = (finalRevenue != null && cost != null) ? round2(finalRevenue - cost) : null;
+    // P2 (код-аудит 2026-06-14): не вычитаем cost из revenue, если валюты различаются —
+    // это финансово некорректно. margin=null + флаг currencyMismatch для UI.
+    const revCurrency = revenueCurrency ?? 'RUB';
+    const costCurrency = trip.carrierCostCurrency ?? 'RUB';
+    const currencyMismatch = finalRevenue != null && cost != null && revCurrency !== costCurrency;
+    const margin = (finalRevenue != null && cost != null && !currencyMismatch) ? round2(finalRevenue - cost) : null;
 
     const costSource = trip.subcontractorCost != null
         ? 'subcontract' as const
@@ -87,12 +95,13 @@ export function reduceTripMargin(trip: MarginTripRow, orderRows: MarginOrderRow[
         revenue: finalRevenue,
         cost,
         margin,
-        revenueCurrency: revenueCurrency ?? 'RUB',
-        costCurrency: trip.carrierCostCurrency ?? 'RUB',
+        revenueCurrency: revCurrency,
+        costCurrency,
         ordersWithoutPrice,
         ordersChecked: orderRows.length - ordersWithoutPrice,
         costSource,
         executionMode: trip.executionMode ?? null,
+        currencyMismatch,
     };
 }
 

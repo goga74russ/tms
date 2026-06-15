@@ -282,7 +282,11 @@ export default function FinanceDashboard() {
             const ageDays = Math.floor((todayMs - t) / 86_400_000);
             if (ageDays < 0 || ageDays >= days) return;
             const idx = days - 1 - ageDays;
-            buckets[idx] += Number(inv.total) || 0;
+            // P2 (код-аудит 2026-06-14): «К оплате» — это ОСТАТОК (total - paidAmount),
+            // а не полный total. По частично оплаченным счетам полный total завышал
+            // спарклайн и расходился с метрикой «partial».
+            const remaining = (Number(inv.total) || 0) - (Number(inv.paidAmount) || 0);
+            buckets[idx] += Math.max(remaining, 0);
         });
         return buckets;
     }, [invoices]);

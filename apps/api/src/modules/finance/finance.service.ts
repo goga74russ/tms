@@ -380,8 +380,12 @@ export class FinanceService {
                         : undefined,
                 )),
 
-            // M (Этап 3) — 'overdue' computed: issued + paid<total + due_date<now.
-            db.select({ total: sql<number>`coalesce(sum(${invoices.total}), 0)` })
+            // M (Этап 3) — задолженность: issued + paid<total. P2 (код-аудит
+            // 2026-06-14): суммируем ОСТАТОК (total - paidAmount), а не полный total —
+            // иначе по частично оплаченным счетам долг завышался на уже уплаченное.
+            // (Колонки due_date в invoices нет, поэтому фильтр по сроку не применяется —
+            // метрика = «выставлено и не доплачено».)
+            db.select({ total: sql<number>`coalesce(sum(${invoices.total} - ${invoices.paidAmount}), 0)` })
                 .from(invoices)
                 .innerJoin(contractors, eq(invoices.contractorId, contractors.id))
                 .where(and(
@@ -562,11 +566,17 @@ export class FinanceService {
 
             const invoiceId = adjustment.invoiceId;
 
-            await tx.delete(invoiceAdjustments).where(eq(invoiceAdjustments.id, adjustmentId));
-
-            // Recalculate invoice total without the deleted adjustment
+            // P2 (код-аудит 2026-06-14): статус-гейт как в createAdjustment. Раньше
+            // deleteAdjustment на issued-счёте делал UPDATE total и ловил сырое
+            // исключение триггера INVOICE_IMMUTABLE (500). Корректировки total —
+            // только у черновика; у выпущенного — через корректировочный документ.
             const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
             if (!invoice) throw new Error('Invoice not found');
+            if (invoice.status !== 'draft') {
+                throw new Error('Удаление корректировки возможно только для счёта в статусе «черновик». Для выпущенного счёта используйте корректировочный документ.');
+            }
+
+            await tx.delete(invoiceAdjustments).where(eq(invoiceAdjustments.id, adjustmentId));
 
             const remaining = await tx.select({ amount: invoiceAdjustments.amount })
                 .from(invoiceAdjustments)

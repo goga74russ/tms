@@ -440,6 +440,15 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
                 providerMetadata: mergedMeta(paymentRow.providerMetadata),
             })
             .where(eq(payments.id, paymentRow.id));
+        // P2 (код-аудит 2026-06-14): возврат платежа ОТЗЫВАЕТ доступ. Раньше платёж
+        // помечался refunded, но подписка оставалась active → клиент пользовался
+        // сервисом после возврата денег. Переводим подписку в 'cancelled'.
+        if (subRow) {
+            await tx
+                .update(subscriptions)
+                .set({ status: 'cancelled', updatedAt: new Date() })
+                .where(eq(subscriptions.id, subRow.id));
+        }
         return { paymentId: paymentRow.id, subscriptionId: subRow?.id ?? null, receiptUrl: null };
     }
 
