@@ -497,7 +497,7 @@ P0 не обнаружено в верифицированном наборе.
 - `D:/Ai/TMS-prod/apps/api/src/modules/copilot/routes.ts:28-28` — [HIGH] План-квота copilot (requireWithinLimit('copilot_messages')) не подключена — лимит тарифа обходится  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`**
 - `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:125-135` — [HIGH] loadHistory берёт 30 последних строк ВКЛЮЧАЯ tool-строки → реальный диалоговый контекст сильно урезается  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (только user/assistant)
 - `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:302-306` — [HIGH] В Anthropic tool_result отдаётся весь result через JSON.stringify(result) — потенциальная утечка сырых полей/ошибок в контекст модели  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (sanitizeToolResultForModel)
-- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/tools/index.ts:458-470` — [MEDIUM] track_contractor_orders: N+1 последовательные getTripById+computeTripEta в цикле по 50 заказам  → /transpult
+- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/tools/index.ts:458-470` — [MEDIUM] track_contractor_orders: N+1 последовательные getTripById+computeTripEta в цикле по 50 заказам  → /transpult  **✅ ЗАКРЫТО `f93f995`** (Promise.all)
 
 **api/documents**
 
@@ -553,7 +553,7 @@ P0 не обнаружено в верифицированном наборе.
 
 - `apps/api/src/modules/operational-core/write-service.ts:96-133` — [HIGH] allowOverCapacity — клиент-управляемый флаг обходит проверку грузоподъёмности ТС  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (гейт по привилегированной роли)
 - `apps/api/src/modules/operational-core/write-service.ts:121-133` — [HIGH] Capacity-проверка лота/ТС только по весу — объём и места не проверяются при назначении  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (+ проверка объёма payloadVolumeM3; места — нет колонки вместимости, отмечено)
-- `apps/api/src/modules/operational-core/write-service.ts:42-48` — [MEDIUM] splitOrderIntoLots: при одновременных lotCount и maxWeightKg сумма веса лотов != весу заявки  → /transpult
+- `apps/api/src/modules/operational-core/write-service.ts:42-48` — [MEDIUM] splitOrderIntoLots: при одновременных lotCount и maxWeightKg сумма веса лотов != весу заявки  → /transpult  **✅ ЗАКРЫТО `f93f995`** (равномерный вес при lotCount)
 - `apps/api/src/modules/operations/trip-change-service.ts:304-345` — [MEDIUM] recordRoutePointDowntime: захардкоженный freeMinutes=120 расходится с контрактным тарифом  → /transpult
 
 **api/orders**
@@ -561,7 +561,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/orders/validators.ts:42-119` — [HIGH] validateCargoBounds и validateTemperatureRange — мёртвый код: инварианты груза и cold-chain нигде не применяются на create/update  → /transpult  **✅ ЗАКРЫТО `66193fb`** (подключены в createOrder)
 - `apps/api/src/modules/orders/service.ts:423-461` — [HIGH] updateOrder: numeric customerPrice читается строкой → audit-событие price_changed срабатывает на каждом update, oldValue логируется строкой  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (Number-коэрция previous+new)
 - `apps/api/src/modules/orders/routes.ts:65-91` — [MEDIUM] GET /orders: RLS fail-open для driver/client без записи driver/contractor — фильтр не применяется, видны все заявки организации  → /transpult  **✅ ЗАКРЫТО `20e1667`** (fail-closed → пусто)
-- `apps/api/src/modules/orders/service.ts:573-616` — [MEDIUM] assignOrderToTrip не проверяет принадлежность trip организации автора (cross-tenant trip-assignment) — латентно, функция не подключена к роутам  → /transpult
+- `apps/api/src/modules/orders/service.ts:573-616` — [MEDIUM] assignOrderToTrip не проверяет принадлежность trip организации автора (cross-tenant trip-assignment) — латентно, функция не подключена к роутам  → /transpult  **✅ ЗАКРЫТО `f93f995`** (проверка org рейса)
 
 **api/repairs**
 
@@ -571,7 +571,7 @@ P0 не обнаружено в верифицированном наборе.
 
 - `apps/api/src/modules/rto/service.ts:72-98` — [HIGH] getDriverHoursSummary никогда не детектит превышение недельного лимита (56 ч) — breaches содержит только дневные  → /transpult  **✅ ЗАКРЫТО `8a697da`** (weekly breach + kind)
 - `apps/api/src/modules/rto/routes.ts:64-134` — [HIGH] GET-эндпоинты hours-summary/hos-status пишут событие rto.breach как side-effect на каждый запрос → дубли в журнале  → /transpult  **✅ ЗАКРЫТО `8a697da`** (убран side-effect из GET)
-- `apps/api/src/modules/rto/service.ts:15-152` — [MEDIUM] Дневная агрегация РТО по UTC-дате при том, что РФ-водители работают в локальных TZ (MSK+) → записи у границы суток попадают не в тот день  → /transpult
+- `apps/api/src/modules/rto/service.ts:15-152` — [MEDIUM] Дневная агрегация РТО по UTC-дате при том, что РФ-водители работают в локальных TZ (MSK+) → записи у границы суток попадают не в тот день  → /transpult  **✅ ЗАКРЫТО `f93f995`** (МСК UTC+3)
 
 **api/signatures**
 
@@ -603,7 +603,7 @@ P0 не обнаружено в верифицированном наборе.
 **api/infra**
 
 - `apps/api/src/integrations/websocket-filters.ts:64-70` — [HIGH] broadcastEvent: payload без organizationId доставляется ВСЕМ тенантам (cross-tenant утечка trip.eta_updated)  → /transpult  **✅ ЗАКРЫТО `20e1667`** (fail-closed дефолт)
-- `apps/api/src/integrations/routes.ts:352-387` — [MEDIUM] fuel-card-mock/sync: нет идемпотентности — повторный вызов на тот же период дублирует fuel_records  → /transpult
+- `apps/api/src/integrations/routes.ts:352-387` — [MEDIUM] fuel-card-mock/sync: нет идемпотентности — повторный вызов на тот же период дублирует fuel_records  → /transpult  **✅ ЗАКРЫТО `f93f995`** (delete period + reinsert)
 
 **web/ops2**
 
