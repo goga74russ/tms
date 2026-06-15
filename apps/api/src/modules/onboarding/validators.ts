@@ -71,16 +71,23 @@ export const InviteSchema = z.object({
 export interface InviteTeamResponseData {
     invitedCount: number;
     failedToEmail: string[];
+    // P1 (код-аудит 2026-06-14): email'ы, уже зарегистрированные в системе (в любой
+    // организации). Раньше такие тихо пропускались (continue) → (а) silent data loss
+    // для своей орг, (б) оракул существования email чужих орг. Теперь репортятся
+    // ЕДИНООБРАЗНО (внутри/вне org неразличимы), без раскрытия в какой именно орг.
+    alreadyRegistered: string[];
 }
 
 export function buildInviteResponse(
     createdEmails: ReadonlyArray<{ email: string }>,
     failedToEmail: ReadonlyArray<string>,
+    alreadyRegistered: ReadonlyArray<string> = [],
 ): InviteTeamResponseData {
     return {
         invitedCount: createdEmails.length,
         // Surface emails that didn't get the message so admin can resend.
         // Does NOT contain passwords — they are emailed only.
         failedToEmail: [...failedToEmail],
+        alreadyRegistered: [...alreadyRegistered],
     };
 }

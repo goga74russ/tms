@@ -415,7 +415,9 @@ export const drivers = pgTable('drivers', {
 // ================================================================
 export const orders = pgTable('orders', {
     id: uuid('id').primaryKey().defaultRandom(),
-    number: varchar('number', { length: 50 }).notNull().unique(),
+    // 0051 (P1): уникальность номера — per-org (idx_orders_org_number ниже), не
+    // глобальная. Inline .unique() снят, чтобы не плодить orders_number_unique.
+    number: varchar('number', { length: 50 }).notNull(),
     contractorId: uuid('contractor_id').notNull().references(() => contractors.id),
     contractId: uuid('contract_id').references(() => contracts.id),
     status: orderStatusEnum('status').notNull().default('draft'),
@@ -475,7 +477,9 @@ export const orders = pgTable('orders', {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-    uniqueIndex('idx_orders_number').on(table.number),
+    // 0051 (P1): per-org уникальность номера заявки (+ частичный idx_orders_nullorg_number
+    // для org-less строк создаётся в миграции).
+    uniqueIndex('idx_orders_org_number').on(table.organizationId, table.number),
     index('idx_orders_status').on(table.status),
     index('idx_orders_contractor').on(table.contractorId),
     index('idx_orders_trip').on(table.tripId),
@@ -860,7 +864,10 @@ export const repairPartCatalog = pgTable('repair_part_catalog', {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-    uniqueIndex('idx_repair_part_catalog_code').on(table.code),
+    // 0052 (P1): per-org уникальность кода (+ частичный global-индекс для
+    // organization_id IS NULL создаётся в миграции). Раньше глобальный unique(code)
+    // → cross-tenant коллизия и silent data loss при sync/гидрации.
+    uniqueIndex('idx_repair_part_catalog_org_code').on(table.organizationId, table.code),
     index('idx_repair_part_catalog_category').on(table.category),
     index('idx_repair_part_catalog_archived').on(table.isArchived),
 ]);
@@ -1283,7 +1290,9 @@ export const invoiceTrips = pgTable('invoice_trips', {
 // ================================================================
 // Sprint 11 — Document Returns (Реестр возврата первичных документов)
 // ================================================================
-export const documentReturnTypeEnum = pgEnum('document_return_type', ['ttn', 'upd', 'act', 'other']);
+// 0050 (P1 код-аудит 2026-06-14): waybill/cmr — отдельные значения, чтобы не
+// схлопывались в 'other' и unique(tripId, docType) их различал.
+export const documentReturnTypeEnum = pgEnum('document_return_type', ['ttn', 'upd', 'act', 'other', 'waybill', 'cmr']);
 export const documentReturnStatusEnum = pgEnum('document_return_status', ['pending', 'received', 'overdue']);
 
 export const documentReturns = pgTable('document_returns', {

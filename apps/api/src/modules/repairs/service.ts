@@ -242,23 +242,33 @@ function createCatalogCode(input: { code?: string; name?: string }) {
     return base || `part-${Date.now()}`;
 }
 
-async function ensureRepairPartCatalogHydrated() {
+async function ensureRepairPartCatalogHydrated(organizationId?: string | null) {
+    // P1 (код-аудит 2026-06-14): гидрация теперь PER-ORG. Раньше первый тенант,
+    // дёрнувший каталог, материализовал partsUsed заявок ВСЕХ тенантов как
+    // organization_id=NULL (global) → данные одного тенанта (названия/цены
+    // запчастей) становились видны всем. Теперь читаем partsUsed только своего
+    // org (через join vehicles.organizationId) и пишем organization_id своего
+    // тенанта. org-less вызовы (super-admin) глобальный каталог не сеют.
+    if (!organizationId) return;
+
     const [existing] = await db
         .select({ id: repairPartCatalog.id })
         .from(repairPartCatalog)
+        .where(eq(repairPartCatalog.organizationId, organizationId))
         .limit(1);
 
     if (existing) return;
 
-    // Гидрация выполняется один раз. Два параллельных первых запроса оба проходят проверку
-    // LIMIT 1 выше, поэтому захватываем транзакционный advisory-lock и перепроверяем
-    // наличие записей уже внутри транзакции, чтобы только один воркер выполнял гидрацию.
+    // Гидрация выполняется один раз на тенант. Два параллельных первых запроса оба
+    // проходят проверку LIMIT 1 выше, поэтому захватываем транзакционный
+    // advisory-lock (ключ включает org) и перепроверяем наличие внутри транзакции.
     await db.transaction(async (tx) => {
-        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('repair_part_catalog:hydrate')::bigint)`);
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('repair_part_catalog:hydrate:' || ${organizationId})::bigint)`);
 
         const [stillEmpty] = await tx
             .select({ id: repairPartCatalog.id })
             .from(repairPartCatalog)
+            .where(eq(repairPartCatalog.organizationId, organizationId))
             .limit(1);
 
         if (stillEmpty) return;
@@ -266,6 +276,8 @@ async function ensureRepairPartCatalogHydrated() {
         const repairs = await tx
             .select({ partsUsed: repairRequests.partsUsed })
             .from(repairRequests)
+            .innerJoin(vehicles, eq(repairRequests.vehicleId, vehicles.id))
+            .where(eq(vehicles.organizationId, organizationId))
             .limit(1000);
 
         const candidates = new Map<string, {
@@ -306,6 +318,7 @@ async function ensureRepairPartCatalogHydrated() {
             .insert(repairPartCatalog)
             .values(Array.from(candidates.values()).map((item) => ({
                 ...item,
+                organizationId,
                 isArchived: false,
             })))
             .onConflictDoNothing();
@@ -318,7 +331,7 @@ async function loadRepairPartCatalogItems(options?: {
     includeArchived?: boolean;
     organizationId?: string | null;
 }) {
-    await ensureRepairPartCatalogHydrated();
+    await ensureRepairPartCatalogHydrated(options?.organizationId);
 
     const query = options?.search?.trim();
     const conditions = [];
@@ -328,6 +341,10 @@ async function loadRepairPartCatalogItems(options?: {
     }
     if (options?.organizationId) {
         conditions.push(or(isNull(repairPartCatalog.organizationId), eq(repairPartCatalog.organizationId, options.organizationId)));
+    } else {
+        // P1 (код-аудит 2026-06-14): org-less чтение — только глобальные сид-позиции,
+        // НЕ чужие тенантские строки (раньше org-условие отсутствовало → видно всё).
+        conditions.push(isNull(repairPartCatalog.organizationId));
     }
 
     if (query) {
@@ -431,7 +448,7 @@ export async function createRepairPartCatalogItem(
     },
     user: { userId: string; organizationId?: string | null },
 ) {
-    await ensureRepairPartCatalogHydrated();
+    await ensureRepairPartCatalogHydrated(user.organizationId);
 
     const [created] = await db
         .insert(repairPartCatalog)

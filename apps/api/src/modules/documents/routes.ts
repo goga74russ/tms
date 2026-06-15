@@ -18,12 +18,15 @@ import { safeClientError } from '../../utils/safe-error.js';
 const DocumentTypeInput = z.enum(['ttn', 'waybill', 'act', 'invoice', 'cmr', 'other']);
 const DocReturnStatusInput = z.enum(['received', 'lost', 'damaged']);
 
-const DocReturnTypeMap: Record<z.infer<typeof DocumentTypeInput>, 'ttn' | 'upd' | 'act' | 'other'> = {
+// 0050 (P1 код-аудит 2026-06-14): waybill/cmr — отдельные docType (раньше оба
+// схлопывались в 'other' → unique(tripId, docType) не давал зарегистрировать
+// второй оригинал по рейсу). invoice→'upd' остаётся (1:1, без коллизии).
+const DocReturnTypeMap: Record<z.infer<typeof DocumentTypeInput>, 'ttn' | 'upd' | 'act' | 'other' | 'waybill' | 'cmr'> = {
     ttn: 'ttn',
-    waybill: 'other',
+    waybill: 'waybill',
     act: 'act',
     invoice: 'upd',
-    cmr: 'other',
+    cmr: 'cmr',
     other: 'other',
 };
 

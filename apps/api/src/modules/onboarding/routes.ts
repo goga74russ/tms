@@ -249,13 +249,22 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
 
         const created: Array<{ email: string }> = [];
         const failedToEmail: string[] = [];
+        const alreadyRegistered: string[] = [];
         for (const invite of parsed.data.invites) {
-            // Skip if email already exists (idempotent).
+            // P1 (код-аудит 2026-06-14): email — глобальный идентификатор входа
+            // (auth.ts логинит по eq(users.email) без org), поэтому проверка
+            // существования остаётся глобальной. Но раньше существующий email тихо
+            // пропускался (continue) → silent data loss + оракул существования email
+            // чужих орг. Теперь репортим ЕДИНООБРАЗНО в alreadyRegistered, не
+            // различая «в моей орг» vs «в чужой».
             const [existing] = await db.select({ id: users.id })
                 .from(users)
                 .where(eq(users.email, invite.email))
                 .limit(1);
-            if (existing) continue;
+            if (existing) {
+                alreadyRegistered.push(invite.email);
+                continue;
+            }
 
             // A-P0-3/A-P0-13: CSPRNG temp password (16-char base64url, ~96 bits).
             // NEVER include in API response — admin browser history + monitoring
@@ -295,7 +304,7 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         await db.update(organizations).set({ onboardingStep: 6 }).where(eq(organizations.id, orgId));
         return {
             success: true,
-            data: buildInviteResponse(created, failedToEmail),
+            data: buildInviteResponse(created, failedToEmail, alreadyRegistered),
         };
     });
 

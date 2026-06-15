@@ -140,15 +140,22 @@ describe('ProfileSchema', () => {
 });
 
 describe('buildInviteResponse (A-P0-3 / A-P0-13)', () => {
-    it('returns { invitedCount, failedToEmail } shape', () => {
+    it('returns { invitedCount, failedToEmail, alreadyRegistered } shape', () => {
         const out = buildInviteResponse(
             [{ email: 'a@x.com' }, { email: 'b@x.com' }],
             ['b@x.com'],
+            ['c@x.com'],
         );
         expect(out).toEqual({
             invitedCount: 2,
             failedToEmail: ['b@x.com'],
+            alreadyRegistered: ['c@x.com'],
         });
+    });
+
+    it('alreadyRegistered defaults to [] when omitted (back-compat)', () => {
+        const out = buildInviteResponse([{ email: 'a@x.com' }], []);
+        expect(out.alreadyRegistered).toEqual([]);
     });
 
     it('NEVER includes a tempPassword field', () => {
@@ -160,8 +167,8 @@ describe('buildInviteResponse (A-P0-3 / A-P0-13)', () => {
         expect(out).not.toHaveProperty('tempPassword');
         expect(out).not.toHaveProperty('temp_password');
         expect(out).not.toHaveProperty('password');
-        // Object keys are exactly the documented two.
-        expect(Object.keys(out).sort()).toEqual(['failedToEmail', 'invitedCount']);
+        // Object keys are exactly the documented three.
+        expect(Object.keys(out).sort()).toEqual(['alreadyRegistered', 'failedToEmail', 'invitedCount']);
     });
 
     it('handles empty input arrays without leaking optional fields', () => {
