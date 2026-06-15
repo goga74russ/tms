@@ -75,7 +75,15 @@ function verifyExternalIdHmac(externalId: string): boolean {
     const secret = rawSecret;
     const dot = externalId.lastIndexOf('.');
     if (dot <= 0 || dot === externalId.length - 1) {
-        // No signature segment — reject if a secret is configured.
+        // P1 (код-аудит 2026-06-14): Госключ-адаптер генерирует externalId формата
+        // `gk-<8hex>-<ts>` без HMAC-сегмента (sign-endpoint сохраняет именно его, а
+        // deeplink строит сам адаптер — внедрить HMAC туда нельзя). В prod (секрет
+        // задан) строгая проверка точки отклоняла ВСЕ реальные callback'и → подпись
+        // терялась навсегда. Для gk-формата якорь подлинности — существование
+        // externalId на transport_documents (проверяется ниже, 404 если нет) +
+        // рекомендованный GOSKLYUCH_CALLBACK_IP_ALLOWLIST. Прочие форматы без
+        // HMAC-сегмента по-прежнему отклоняем.
+        if (/^gk-[0-9a-f]{8}-\d+$/i.test(externalId)) return true;
         return false;
     }
     const body = externalId.slice(0, dot);

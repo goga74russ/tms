@@ -993,6 +993,40 @@ export async function updateTechInspectionDecision(
             },
         }, tx);
 
+        // P1 (код-аудит 2026-06-14): при смене решения *→rejected реплицируем тот
+        // же каскад, что createTechInspection — блокировка ТС (status='broken') +
+        // заявка на ремонт. Без этого ТС, забракованное через быстрый эндпоинт
+        // очереди, оставалось доступным и могло уйти в рейс. Идемпотентно: только
+        // если предыдущее решение не было rejected (rejected→approved запрещён выше).
+        if (input.decision === 'rejected' && previous !== 'rejected') {
+            const [repairRequest] = await tx.insert(repairRequests).values({
+                vehicleId: updated.vehicleId,
+                description: `Техосмотр отклонён (смена решения)${input.notes ? `: ${input.notes}` : ''}`,
+                priority: 'high',
+                source: 'auto_inspection',
+                inspectionId,
+            }).returning();
+            await recordEvent({
+                authorId: actor.userId,
+                authorRole: actor.role,
+                eventType: 'repair.created',
+                entityType: 'repair_request',
+                entityId: repairRequest.id,
+                data: { vehicleId: updated.vehicleId, source: 'auto_inspection', inspectionId },
+            }, tx);
+            await tx.update(vehicles)
+                .set({ status: 'broken', updatedAt: new Date() })
+                .where(eq(vehicles.id, updated.vehicleId));
+            await recordEvent({
+                authorId: actor.userId,
+                authorRole: actor.role,
+                eventType: 'vehicle.status_changed',
+                entityType: 'vehicle',
+                entityId: updated.vehicleId,
+                data: { newStatus: 'broken', reason: 'tech_inspection_decision_flip' },
+            }, tx);
+        }
+
         return updated;
     });
 
@@ -1067,6 +1101,20 @@ export async function updateMedInspectionDecision(
                 notes: input.notes ?? null,
             },
         }, tx);
+
+        // P1 (код-аудит 2026-06-14): при смене решения *→rejected пишем то же
+        // событие trip.driver_cleared, что createMedInspection на rejection —
+        // водитель снимается с рейса. Идемпотентно (previous !== 'rejected').
+        if (input.decision === 'rejected' && previous !== 'rejected') {
+            await recordEvent({
+                authorId: actor.userId,
+                authorRole: actor.role,
+                eventType: 'trip.driver_cleared',
+                entityType: 'trip',
+                entityId: updated.tripId || updated.driverId,
+                data: { driverId: updated.driverId, decision: 'rejected' },
+            }, tx);
+        }
 
         return updated;
     });

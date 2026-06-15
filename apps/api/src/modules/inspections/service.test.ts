@@ -21,6 +21,19 @@ interface Capture {
     updateSetArgs: any[];
     updateWhereCalled: boolean;
     txUpdateCalled: boolean;
+    insertValues: any[];
+}
+
+// insert-цепочка: awaitable (для medAccessLog) И с .returning() (для repairRequests).
+function makeInsertChain() {
+    return {
+        values: (args: any) => {
+            capture.insertValues.push(args);
+            const p: any = Promise.resolve([{ id: 'repair-1' }]);
+            p.returning = () => Promise.resolve([{ id: 'repair-1' }]);
+            return p;
+        },
+    };
 }
 
 let capture: Capture;
@@ -89,9 +102,7 @@ vi.mock('../../db/connection.js', () => ({
                     capture.txUpdateCalled = true;
                     return makeUpdateChain(updatedRow);
                 },
-                insert: () => ({
-                    values: () => Promise.resolve(undefined),
-                }),
+                insert: () => makeInsertChain(),
                 select: () => makeSelectChain(),
             });
         },
@@ -118,6 +129,7 @@ beforeEach(() => {
         updateSetArgs: [],
         updateWhereCalled: false,
         txUpdateCalled: false,
+        insertValues: [],
     };
 });
 
@@ -137,12 +149,29 @@ describe('updateTechInspectionDecision', () => {
 
         expect(out).toEqual({ id: 'insp-1', decision: 'rejected', tripId: 'trip-1' });
         expect(capture.txUpdateCalled).toBe(true);
-        expect(capture.updateSetArgs).toHaveLength(1);
+        // P1 (код-аудит 2026-06-14): approved→rejected теперь запускает каскад —
+        // (1) update инспекции {comment,decision}, (2) update ТС {status:'broken'}.
+        expect(capture.updateSetArgs).toHaveLength(2);
         const setPayload = capture.updateSetArgs[0];
-        // Must touch only decision + comment — nothing else.
         expect(Object.keys(setPayload).sort()).toEqual(['comment', 'decision']);
         expect(setPayload.decision).toBe('rejected');
         expect(setPayload.comment).toContain('ALL OK');
+        // Каскад: ТС заблокировано + создана заявка на ремонт.
+        expect(capture.updateSetArgs[1].status).toBe('broken');
+        expect(capture.insertValues.some((v) => v?.source === 'auto_inspection' && v?.vehicleId === 'veh-1')).toBe(true);
+    });
+
+    it('P1: rejected→rejected не дублирует каскад (идемпотентность)', async () => {
+        // previous уже rejected → каскад не повторяется (нет второго update ТС/repair).
+        capture.selectResults.push([{ ...baseTechRow, decision: 'rejected' }]);
+        updatedRow = { ...baseTechRow, decision: 'rejected', comment: 'old\nещё раз' };
+        await updateTechInspectionDecision(
+            'insp-1',
+            { decision: 'rejected', notes: 'ещё раз' },
+            { userId: 'u1', role: 'mechanic', organizationId: null },
+        );
+        expect(capture.updateSetArgs).toHaveLength(1); // только инспекция, без каскада
+        expect(capture.insertValues).toHaveLength(0);
     });
 
     it('C1: rejected→approved заблокирован (immutability) — throws, без UPDATE', async () => {

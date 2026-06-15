@@ -465,11 +465,16 @@ const tripsRoutes: FastifyPluginAsync = async (app) => {
                 });
             }
 
+            // P1 (код-аудит 2026-06-14): forcedByDispatcher из произвольного тела на
+            // /status обходил гейт обязательного подтверждения доставки (на этом роуте
+            // нет role-gate, в отличие от delivery-confirmation). Вычищаем флаг —
+            // легитимное форсирование только через POST /trips/:id/delivery-confirmation.
+            const { forcedByDispatcher: _ignoredForce, ...safeBody } = body as Record<string, unknown>;
             const trip = await changeTripStatus(id, body.status, {
                 userId: user.userId,
                 role: user.roles[0],
                 organizationId: user.organizationId,
-            }, body);
+            }, safeBody);
 
             return { success: true, data: trip };
         } catch (err: any) {

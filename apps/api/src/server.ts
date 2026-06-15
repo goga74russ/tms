@@ -219,7 +219,13 @@ await app.register(rateLimit, {
         return user?.userId ? `user:${user.userId}` : `ip:${request.ip}`;
     },
     allowList: (request, _key) => {
-        if (request.ip === '127.0.0.1' || request.ip === '::1') return true;
+        // P1 (код-аудит 2026-06-14): под trustProxy:true request.ip берётся из
+        // X-Forwarded-For, который клиент подделывает → loopback-allowList по
+        // request.ip обходил rate-limit (XFF: 127.0.0.1). Проверяем РЕАЛЬНЫЙ
+        // TCP-пир (socket.remoteAddress) — его XFF не подделать. Внешний клиент
+        // через nginx имеет remoteAddress=IP nginx (не loopback) → не освобождён.
+        const peer = request.socket.remoteAddress;
+        if (peer === '127.0.0.1' || peer === '::1' || peer === '::ffff:127.0.0.1') return true;
         // SSE co-pilot stream — long-lived connection.
         if (request.url.startsWith('/api/copilot/chat')) return true;
         return false;
