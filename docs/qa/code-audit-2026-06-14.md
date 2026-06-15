@@ -472,8 +472,8 @@ P0 не обнаружено в верифицированном наборе.
 **api/carriers**
 
 - `apps/api/src/modules/carriers/routes.ts:200-215` — [HIGH] assign-carrier разрешает назначить архивного контрагента перевозчиком  → /transpult  **✅ ЗАКРЫТО `e0a901a`** (isArchived=false в условие)
-- `apps/api/src/db/schema.ts:1645-1660` — [HIGH] carrier_contracts.number без уникального ограничения — дубли номеров договоров  → /transpult
-- `apps/api/src/db/schema.ts:275-275` — [HIGH] Schema drift: idx_contractors_is_carrier и idx_trips_carrier_contractor — partial в миграции, plain в schema.ts  → /devops
+- `apps/api/src/db/schema.ts:1645-1660` — [HIGH] carrier_contracts.number без уникального ограничения — дубли номеров договоров  → /transpult  **✅ ЗАКРЫТО `d3bd60c`** (миграция 0053 per-org unique)
+- `apps/api/src/db/schema.ts:275-275` — [HIGH] Schema drift: idx_contractors_is_carrier и idx_trips_carrier_contractor — partial в миграции, plain в schema.ts  → /devops  **✅ ЗАКРЫТО `fc8f311`** (partial-WHERE в schema.ts)
 
 **api/claims**
 
@@ -514,11 +514,11 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/finance/finance.service.ts:584-647` — [HIGH] Две несовместимые системы учёта оплат: events-based (/payments) vs column-based (/register-payment) затирают paidAmount  → /transpult
 - `apps/api/src/modules/finance/finance.service.ts:383-391` — [HIGH] overdueDebt суммирует полный invoice.total без вычета paidAmount и без фильтра due_date  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (sum(total-paidAmount); колонки due_date нет — отмечено)
 - `apps/api/src/modules/finance/finance.service.ts:554-581` — [HIGH] deleteAdjustment без статус-гейта: на issued-счёте бросает сырое исключение триггера INVOICE_IMMUTABLE  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (гейт draft-only → чистый 400)
-- `apps/api/src/modules/finance/finance.service.ts:261-268` — [MEDIUM] analyzeFuel: organizationId-фильтр без INNER JOIN-гарантии при vehicleId-only — потенциальная межтенантная выборка  → /transpult
+- `apps/api/src/modules/finance/finance.service.ts:261-268` — [MEDIUM] analyzeFuel: organizationId-фильтр без INNER JOIN-гарантии при vehicleId-only — потенциальная межтенантная выборка  → /transpult  **✅ ЗАКРЫТО `fc8f311`** (assertVehicleAccess при vehicleId)
 
 **api/fleet**
 
-- `apps/api/src/modules/fleet/service.ts:413-426` — [MEDIUM] createDriver does not enforce one-driver-per-user; no DB unique on drivers.userId → nondeterministic driver-RLS  → /transpult
+- `apps/api/src/modules/fleet/service.ts:413-426` — [MEDIUM] createDriver does not enforce one-driver-per-user; no DB unique on drivers.userId → nondeterministic driver-RLS  → /transpult  **✅ ЗАКРЫТО `d3bd60c`** (миграция 0054 drivers.user_id unique)
 
 **api/geo**
 
@@ -580,7 +580,7 @@ P0 не обнаружено в верифицированном наборе.
 **api/sync+sprint9**
 
 - `apps/api/src/modules/sync/routes.ts:153-165` — [HIGH] Sync pull: created/updated классификация route_points привязана к createdAt РОДИТЕЛЬСКОГО рейса, а не к самой точке  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (по point.createdAt)
-- `apps/api/src/modules/sync/routes.ts:126-128` — [HIGH] Sync pull: route_points выгружаются БЕЗ фильтра updatedAt — полная переотдача всех точек изменённых рейсов на каждый pull  → /transpult  **⏸ ОТЛОЖЕНО** (route_points не имеет колонки updated_at — дельта-фильтр требует миграцию)
+- `apps/api/src/modules/sync/routes.ts:126-128` — [HIGH] Sync pull: route_points выгружаются БЕЗ фильтра updatedAt — полная переотдача всех точек изменённых рейсов на каждый pull  → /transpult  **✅ ЗАКРЫТО `d3bd60c`** (миграция 0055 updated_at + триггер + sync-фильтр)  **⏸ ОТЛОЖЕНО** (route_points не имеет колонки updated_at — дельта-фильтр требует миграцию)
 - `apps/api/src/modules/sprint9/routes.ts:312-322` — [HIGH] waybillDrivers: сброс isPrimary + вставка нового водителя без транзакции — окно с нулём primary-водителей / гонка двух primary  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (в транзакции)
 
 **api/trips**
