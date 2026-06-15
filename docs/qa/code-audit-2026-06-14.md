@@ -110,7 +110,11 @@
 | — | gosklyuch HMAC отвергал реальные callback'и | `28207d2` | ✅ ЗАКРЫТО |
 | — | inspections decision-flip каскад (ТС/ремонт) | `28207d2` | ✅ ЗАКРЫТО |
 
-**Закрыто на 2026-06-15: 25 P1** (A1-A7 + #9 + money #2/#3/#5/#10 + security wave1/2 + correctness/auth wave).
+**Закрыто на 2026-06-15: 21 из 27 P1** (легальные A1/A2/A3 + #9 + money #2/#3/#5/#10 +
+security wave1/2: topDrivers/ordersK3/fleetGET/repairsIDOR/adrIDOR/createOrderFK +
+correctness/auth wave: rate-limit/analytics/credentials/fleetPUT/confirmationMode/
+gosklyuch/inspections). Плюс P2-легальные A4/A5/A6/A7 (ЭТрН-preview, МЧД regex+scope,
+54-ФЗ чек). Все code-only P1 закрыты; остаток 6 P1 — не code-only (см. ниже).
 
 **Осталось — НЕ code-only (отложено по решению владельца):**
 - **Требуют миграцию БД** (отдельный аккуратный прод-деплой): documents docType collapse,
