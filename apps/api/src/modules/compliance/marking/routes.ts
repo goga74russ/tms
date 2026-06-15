@@ -143,7 +143,13 @@ const markingRoutes: FastifyPluginAsync = async (app) => {
         if (!params.success) {
             return reply.status(400).send({ success: false, error: 'Некорректный lotId' });
         }
-        const rows = await listVerificationsByLot(params.data.lotId, user.organizationId ?? null);
+        // P2 (код-аудит 2026-06-14): org-less → пусто (как /marking/recent ниже).
+        // Раньше null org шёл в listVerificationsByLot без org-фильтра → cross-tenant
+        // чтение проверок маркировки по lotId.
+        if (!user.organizationId) {
+            return { success: true, data: [] };
+        }
+        const rows = await listVerificationsByLot(params.data.lotId, user.organizationId);
         return { success: true, data: rows };
     });
 

@@ -373,7 +373,10 @@ export async function generateDemoData(
     result.orderIds.push(planningOrder.id);
 
     // 9. Audit event
+    // P2 (код-аудит 2026-06-14): organizationId обязателен, иначе demo-событие
+    // невидимо в журнале аудита (фильтруется по org, 152-ФЗ scope).
     await db.insert(events).values({
+        organizationId,
         authorId: creatorUserId,
         authorRole: 'admin',
         eventType: 'demo.generated',

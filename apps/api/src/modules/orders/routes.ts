@@ -67,16 +67,25 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
         let rlsDriverId: string | undefined = undefined;
         let rlsContractorId = query.contractorId;
 
-        // H-5: RLS — drivers can only see their own orders
+        // H-5: RLS — drivers can only see their own orders.
+        // P2 (код-аудит 2026-06-14): fail-CLOSED. Если driver/client не резолвится
+        // в свою driver/contractor-запись — фильтр раньше не ставился (rls*Id оставался
+        // undefined) → видны ВСЕ заявки организации. Теперь — пустой результат.
         if (!privileged && user.roles.includes('driver')) {
             const myDriverId = await resolveDriverId(user.userId);
-            if (myDriverId) rlsDriverId = myDriverId;
+            if (!myDriverId) {
+                return { success: true, data: [], pagination: { total: 0, page: 1, limit: 0, totalPages: 0 } };
+            }
+            rlsDriverId = myDriverId;
         }
 
-        // H-6: RLS — clients can only see their own orders
+        // H-6: RLS — clients can only see their own orders (fail-closed, см. выше).
         if (!privileged && user.roles.includes('client')) {
             const myContractorId = await resolveContractorId(user.userId);
-            if (myContractorId) rlsContractorId = myContractorId;
+            if (!myContractorId) {
+                return { success: true, data: [], pagination: { total: 0, page: 1, limit: 0, totalPages: 0 } };
+            }
+            rlsContractorId = myContractorId;
         }
 
         const result = await getOrders({

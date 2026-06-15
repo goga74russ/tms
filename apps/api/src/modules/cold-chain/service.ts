@@ -239,6 +239,24 @@ export async function listReadings(tripId: string, filters: ListFilters, orgId?:
 }
 
 export async function summarizeReadings(tripId: string, orgId?: string | null) {
+    // P2 (код-аудит 2026-06-14): при заданном orgId проверяем принадлежность рейса
+    // тенанту ДО resolveTripSla — иначе SLA-границы (slaMinC/slaMaxC) чужого рейса
+    // утекали (агрегаты фильтруются по org и =0, но SLA раскрывалась, в т.ч. через
+    // copilot-инструмент summarizeReadings).
+    if (orgId) {
+        const [tripRow] = await db
+            .select({ id: trips.id })
+            .from(trips)
+            .where(and(eq(trips.id, tripId), eq(trips.organizationId, orgId)))
+            .limit(1);
+        if (!tripRow) {
+            return {
+                minC: null, maxC: null, avgC: null, count: 0, breachCount: 0,
+                slaMinC: null, slaMaxC: null, firstAt: null, lastAt: null,
+            };
+        }
+    }
+
     const sla = await resolveTripSla(tripId);
 
     // A-P2: defense-in-depth tenant filter. Same rationale as listReadings.

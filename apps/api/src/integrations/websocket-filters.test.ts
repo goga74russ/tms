@@ -57,10 +57,12 @@ describe('filterPositionsForSubscription', () => {
 });
 
 describe('shouldDeliverEvent', () => {
-    it('delivers system-wide events (no payload org) to everyone', () => {
-        expect(shouldDeliverEvent(null, 'org-a')).toBe(true);
-        expect(shouldDeliverEvent(undefined, null)).toBe(true);
-        expect(shouldDeliverEvent(null, undefined)).toBe(true);
+    it('P2: payload без org НЕ доставляется (fail-closed, было: всем)', () => {
+        // Код-аудит 2026-06-14: «нет org → всем» делало любое событие без org
+        // cross-tenant утечкой. Теперь fail-closed — не доставляем никому.
+        expect(shouldDeliverEvent(null, 'org-a')).toBe(false);
+        expect(shouldDeliverEvent(undefined, null)).toBe(false);
+        expect(shouldDeliverEvent(null, undefined)).toBe(false);
     });
 
     it('delivers any scoped payload to unscoped (admin) subscribers', () => {

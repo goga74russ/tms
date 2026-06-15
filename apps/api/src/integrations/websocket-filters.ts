@@ -56,16 +56,21 @@ export function filterPositionsForSubscription<T extends ScopedPosition>(
 
 /**
  * Decide whether a generic event payload (broadcastEvent) should reach
- * a subscriber. Mirrors the inline rule in broadcastEvent:
- *   - if payload has no org → everyone sees it (system-wide events)
- *   - if subscriber has no org → admin sees everything
+ * a subscriber.
+ *   - if payload has no org → FAIL-CLOSED: не доставляем никому (P2 код-аудит
+ *     2026-06-14: раньше «нет org → всем» делало любое событие без org
+ *     cross-tenant утечкой. Все реальные вызовы broadcastEvent передают org;
+ *     система-wide событий без org сейчас нет — безопаснее не доставлять, чем
+ *     протекать. Если понадобится явный system-wide broadcast — добавить отдельный
+ *     путь, не дефолт.)
+ *   - if subscriber has no org → admin (super-admin мониторинг) видит всё
  *   - else strict equality
  */
 export function shouldDeliverEvent(
     payloadOrgId: string | null | undefined,
     subscriberOrgId: string | null | undefined,
 ): boolean {
-    if (!payloadOrgId) return true;
+    if (!payloadOrgId) return false;
     if (!subscriberOrgId) return true;
     return payloadOrgId === subscriberOrgId;
 }
