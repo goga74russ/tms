@@ -5,6 +5,7 @@ import path from 'node:path';
 import { LegalPageShell } from '../components/LegalPageShell';
 import { MarkdownView } from '@/components/MarkdownView';
 import { extractToc } from '@/components/markdown-parser';
+import { stripFrontmatter, stripInternal } from '@/lib/legal-docs';
 
 export const metadata = {
     title: 'Политика использования файлов cookie — ТрансПульт',
@@ -53,7 +54,9 @@ function stripHeaderBlock(source: string): string {
 }
 
 export default function CookiePolicyPage() {
-    const source = loadDoc();
+    // T-LEGAL-1/2: срезаем frontmatter (если есть) и внутренний «(не печатать)»-блок
+    // ДО извлечения dateline/TOC и тела, чтобы они не протекали на публичную страницу.
+    const source = stripInternal(stripFrontmatter(loadDoc()));
     const dateline = extractDateline(source);
     const body = stripHeaderBlock(source);
     const toc = extractToc(source);
