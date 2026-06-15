@@ -631,8 +631,8 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/auth/auth.ts:1393-1396` — Незакрытый TODO(security P0-3) помечен в коде как открытый, но прежняя уязвимая ветка переписана — TODO устарел/вводит в заблуждение  _(api/auth)_  **✅ ЗАКРЫТО `ca73c00`**
 - `apps/api/src/auth/plan-guard.ts:49-49` — requireFeature проверяет роль 'super_admin', которой нет в APP_ROLES — мёртвая ветка / рассинхрон ролевой модели  _(api/auth)_  **✅ ЗАКРЫТО `16df216`**
 - `apps/api/src/auth/auth.ts:1483-1498` — verify-email активирует пользователя по совпадению email+код без проверки текущего состояния (re-activation деактивированного аккаунта)  _(api/auth)_  **✅ ЗАКРЫТО `16df216`**
-- `apps/api/src/auth/auth.ts:819-824` — PUT /users/:id: эскалация роли до 'admin' для произвольного пользователя org не дублирует lateral-super-admin guard из POST  _(api/auth)_
-- `apps/api/src/auth/auth.ts:1528-1536` — Расхождение док/реализации: /resend-code документирован «1 раз в минуту на email», но rate-limit задан LOGIN_RATE_LIMIT_MAX=5  _(api/auth)_
+- `apps/api/src/auth/auth.ts:819-824` — PUT /users/:id: эскалация роли до 'admin' для произвольного пользователя org не дублирует lateral-super-admin guard из POST  _(api/auth)_  **✅ ЗАКРЫТО `0cad8bc`**
+- `apps/api/src/auth/auth.ts:1528-1536` — Расхождение док/реализации: /resend-code документирован «1 раз в минуту на email», но rate-limit задан LOGIN_RATE_LIMIT_MAX=5  _(api/auth)_  **✅ ЗАКРЫТО `0cad8bc`**
 - `apps/api/src/auth/auth.ts:740-743` — GET /users пагинация: некорректный/отрицательный page|limit не валидируется (parseInt без guard → NaN/negative offset)  _(api/auth)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/billing/service.ts:273-277` — Устаревший комментарий: idx_payments_provider_id описан как НЕуникальный, хотя миграция 0045 добавила partial-unique  _(api/billing)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/modules/carriers/routes.ts:116-126` — POST /carrier-contracts не проверяет endDate >= startDate (инвариант проверяется только в неподключённом helper)  _(api/carriers)_  **✅ ЗАКРЫТО `3d8bc6b`**
@@ -649,12 +649,12 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/documents/waybill-pdf.ts:146-159` — Путевой лист: сырое значение mechanicDecision/medicDecision печатается как есть при значении != 'approved'  _(api/documents)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/documents/med-inspection-pdf.ts:92-92` — Акты осмотра: сырые enum inspectionType печатаются в документ ('pre_trip'/'post_trip' в поле «Тип осмотра»)  _(api/documents)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/edi/routes.ts:143-152` — Webhook /edi/webhook/:provider: нет валидации provider, нет проверки подписи/HMAC и логируется весь body (документированный stub A-P1-23)  _(api/edi)_
-- `apps/api/src/modules/edi/service.ts:247-287` — progressEdiManually допускает повторный перевод в то же состояние (signed_by_carrier→signed_by_carrier) — дубликат события 'signed' в журнале  _(api/edi)_
+- `apps/api/src/modules/edi/service.ts:247-287` — progressEdiManually допускает повторный перевод в то же состояние (signed_by_carrier→signed_by_carrier) — дубликат события 'signed' в журнале  _(api/edi)_  **✅ ЗАКРЫТО `0cad8bc`**
 - `apps/api/src/modules/finance/tarification.service.ts:386-391` — minTripCost присваивается в subtotal как строка (numeric) до round/VAT  _(api/finance)_  **✅ ЗАКРЫТО `385dfdd`**
 - `apps/api/src/modules/fleet/service.ts:1051-1066` — updateFuelRecord edits liters but never adjusts vehicles.totalFuelConsumedL accumulator → permanent drift  _(api/fleet)_
 - `apps/api/src/modules/fleet/service.ts:101-106` — Mock GPS coordinates injected as real lat/lon in vehicle list/detail responses with no provenance flag  _(api/fleet)_
 - `apps/api/src/modules/geo/routes.ts:10-16` — GeoPointSchema не валидирует диапазоны lat/lon — Haversine считает по бессмысленным координатам  _(api/geo)_  **✅ ЗАКРЫТО `3d8bc6b`**
-- `apps/api/src/modules/geo/distance.service.ts:97-100` — estimateDrivingDistance — фиксированный коэффициент 1.3 подаётся как «дорожное расстояние»  _(api/geo)_
+- `apps/api/src/modules/geo/distance.service.ts:97-100` — estimateDrivingDistance — фиксированный коэффициент 1.3 подаётся как «дорожное расстояние»  _(api/geo)_  **✅ ЗАКРЫТО `0cad8bc`**
 - `apps/api/src/modules/geo/routes.ts:20-134` — Geo-эндпойнты без requireAbility — только authenticate (асимметрия с остальными модулями)  _(api/geo)_
 - `apps/api/src/modules/import/routes.ts:88-103` — All-or-nothing батч: одна дубль/кривая строка откатывает весь импорт без указания строки  _(api/import)_
 - `apps/api/src/modules/import/routes.ts:97-102` — mapPgErrorToFriendlyRu не покрывает 23502/22001/22P02 — частые ошибки импорта дают невнятный 'ошибка вставки' и сбрасывают весь батч  _(api/import)_  **✅ ЗАКРЫТО `ca73c00`**
@@ -666,7 +666,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/integrations/credentials/routes.ts:253-265` — /test для несуществующего/несовпадающего адаптера затирает корректный status строки на 'error'  _(api/integrations)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `apps/api/src/modules/mchd/routes.ts:252-258` — Проверка XML МЧД — только префикс '<?xml', реальная МЧД-структура/подпись ФНС не валидируется при загрузке  _(api/mchd)_
 - `apps/api/src/modules/mchd/routes.ts:298-304` — Детекция дубля МЧД по подстроке текста ошибки вместо кода PG 23505 — хрупко  _(api/mchd)_  **✅ ЗАКРЫТО `f6788ad`**
-- `apps/api/src/modules/notifications/routes.ts:52-83` — /start без payload создаёт мёртвую подписку (org=null) но рапортует «уведомления подключены»  _(api/notifications)_
+- `apps/api/src/modules/notifications/routes.ts:52-83` — /start без payload создаёт мёртвую подписку (org=null) но рапортует «уведомления подключены»  _(api/notifications)_  **✅ ЗАКРЫТО `0cad8bc`**
 - `apps/api/src/modules/onboarding/routes.ts:252-295` — invite-team: вставка пользователей без транзакции + raw PG unique-violation клиенту при гонке  _(api/onboarding)_
 - `apps/api/src/modules/onboarding/routes.ts:187-214` — save-integration-choice: при defer=true вместе с credentials шифрует и сохраняет ключи, помечая запись disabled — противоречивое состояние  _(api/onboarding)_
 - `apps/api/src/modules/onboarding/routes.ts:102-116` — inn-lookup не имеет admin-гейта в отличие от остальных мутирующих/чувствительных шагов  _(api/onboarding)_  **✅ ЗАКРЫТО `9e1ee7b`**
@@ -679,7 +679,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/repairs/routes.ts:182-195` — PUT /repairs/:id/status: status из body не валидируется схемой (raw string в FSM/PG enum)  _(api/repairs)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/repairs/service.ts:384-411` — getRepairPartCatalogMeta загружает до 1000 позиций для отдачи 8 featured + по 4 на категорию (over-fetch)  _(api/repairs)_
 - `apps/api/src/modules/scoring/service.ts:67-167` — computeDriverScore меряет компоненты балла по рассинхронизированным временным полям/множествам → cold-chain и on-time молча теряют рейсы вне окна createdAt  _(api/rto+scoring)_
-- `apps/api/src/modules/scoring/service.ts:159-188` — Скоринг штрафует водителя за ВСЕ штрафы в окне, включая обжалованные (appealed)  _(api/rto+scoring)_
+- `apps/api/src/modules/scoring/service.ts:159-188` — Скоринг штрафует водителя за ВСЕ штрафы в окне, включая обжалованные (appealed)  _(api/rto+scoring)_  **✅ ЗАКРЫТО `0cad8bc`**
 - `apps/api/src/modules/scoring/service.ts:108-121` — On-time: completed-рейс с windowed-точкой без completedAt считается опоздавшим из-за пробелов в данных  _(api/rto+scoring)_
 - `apps/api/src/modules/signatures/gosklyuch-callback.ts:124-129` — IP-allowlist обходится через подменяемый X-Forwarded-For (trustProxy:true доверяет всей цепочке)  _(api/signatures)_
 - `apps/api/src/modules/signatures/gosklyuch-callback.ts:141-145` — Lookup документа по externalId без org-фильтра и без unique-constraint в схеме  _(api/signatures)_
@@ -701,7 +701,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/integrations/workers/fines.worker.ts:37-80` — Дедупликация штрафов только на уровне приложения — нет БД-unique на (vehicleId, resolutionNumber), Set не обновляется после вставок  _(api/infra)_
 - `apps/api/src/integrations/workers/wialon.worker.ts:25-119` — decideOdometerUpdate (экспортируемый pure-helper) не используется — логика продублирована inline, риск рассинхрона  _(api/infra)_
 - `apps/web/src/app/admin/billing/page.tsx:62-84` — Cross-tenant биллинг-запрос уходит ДО клиентского super-admin-guard (ordering)  _(web/admin)_  **✅ ЗАКРЫТО `9e1ee7b`**
-- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:162-206` — Mock-fallback активен в проде при отсутствии ANTHROPIC_API_KEY — копилот молча отвечает заглушками  _(api/copilot)_
+- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:162-206` — Mock-fallback активен в проде при отсутствии ANTHROPIC_API_KEY — копилот молча отвечает заглушками  _(api/copilot)_  **✅ ЗАКРЫТО `0cad8bc`**
 - `apps/web/src/app/admin/audit-log/page.tsx:130-142` — exportCsv: limit=500 перетирает limit из buildQuery, комментарий «5000» вводит в заблуждение  _(web/admin)_  **✅ ЗАКРЫТО `da00c83`**
 - `apps/web/src/app/dispatcher/page.tsx:694-702` — Клик по блокеру/риску в левом рейле диспетчера — мёртвая интеракция (onSelectException не передан)  _(web/ops1)_
 - `apps/web/src/app/dispatcher/components/AssignmentPanel.tsx:172-208` — Назначение из панели диспетчера не блокирует перевес при включённой проверке объёма, и проверяет вес только по одной заявке  _(web/ops1)_
