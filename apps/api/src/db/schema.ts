@@ -407,7 +407,8 @@ export const drivers = pgTable('drivers', {
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-    index('idx_drivers_user').on(table.userId),
+    // 0054 (P2): один driver на user (недетерминированный driver-RLS при дублях).
+    uniqueIndex('idx_drivers_user_unique').on(table.userId),
 ]);
 
 // ================================================================
@@ -617,6 +618,8 @@ export const routePoints = pgTable('route_points', {
     waitingStartedAt: timestamp('waiting_started_at', { withTimezone: true }),
     waitingEndedAt: timestamp('waiting_ended_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    // 0055 (P2): updated_at + триггер автообновления (для дельта-sync route_points).
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
     index('idx_route_points_trip').on(table.tripId),
 ]);
@@ -1666,6 +1669,8 @@ export const carrierContracts = pgTable('carrier_contracts', {
     index('idx_carrier_contracts_contractor').on(table.contractorId),
     index('idx_carrier_contracts_status').on(table.status),
     index('idx_carrier_contracts_org').on(table.organizationId),
+    // 0053 (P2): per-org уникальность номера договора (+ частичный nullorg в миграции).
+    uniqueIndex('idx_carrier_contracts_org_number').on(table.organizationId, table.number),
 ]);
 
 // ================================================================
