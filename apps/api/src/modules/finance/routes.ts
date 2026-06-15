@@ -50,6 +50,33 @@ function serializeInvoice<T extends { subtotal: unknown; vatAmount: unknown; tot
     };
 }
 
+/**
+ * A1 (код-аудит 2026-06-14): для corrective_upd подгружает реквизиты ИСХОДНОГО
+ * документа (relatedInvoiceId) — номер и дату, чтобы генератор УПД напечатал
+ * заголовок КУПД/ИУПД и ссылку «к первичному УПД» (стр. 1а/1б).
+ * Возвращает пустой объект для обычного УПД (correctionKind === null).
+ */
+async function resolveUpdCorrection(invoice: {
+    correctionKind: 'adjustment' | 'replacement' | null;
+    relatedInvoiceId: string | null;
+}): Promise<{
+    correctionKind?: 'adjustment' | 'replacement';
+    correctionNumber?: string | null;
+    correctionDate?: Date | string | null;
+}> {
+    if (!invoice.correctionKind || !invoice.relatedInvoiceId) return {};
+    const [orig] = await db
+        .select({ number: invoices.number, createdAt: invoices.createdAt })
+        .from(invoices)
+        .where(eq(invoices.id, invoice.relatedInvoiceId))
+        .limit(1);
+    return {
+        correctionKind: invoice.correctionKind,
+        correctionNumber: orig?.number ?? null,
+        correctionDate: orig?.createdAt ?? null,
+    };
+}
+
 async function ensureInvoiceAccess(
     invoiceId: string,
     user: { userId: string; roles: string[]; organizationId?: string },
@@ -629,6 +656,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                         periodStart: invoice.periodStart,
                         periodEnd: invoice.periodEnd,
                         status: 1,
+                        ...(await resolveUpdCorrection(invoice)),
                         contractorName: contractor?.name ?? '—',
                         contractorInn: contractor?.inn,
                         contractorKpp: contractor?.kpp,
@@ -870,6 +898,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                                 periodStart: invoice.periodStart,
                                 periodEnd: invoice.periodEnd,
                                 status: 1,
+                                ...(await resolveUpdCorrection(invoice)),
                                 contractorName: contractor?.name ?? '—',
                                 contractorInn: contractor?.inn,
                                 contractorKpp: contractor?.kpp,
@@ -1012,6 +1041,7 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
                     periodStart: invoice.periodStart,
                     periodEnd: invoice.periodEnd,
                     status: 1,
+                    ...(await resolveUpdCorrection(invoice)),
                     carrier: carrierReq,
                     contractorName: contractor?.name ?? '\u2014',
                     contractorInn: contractor?.inn,
