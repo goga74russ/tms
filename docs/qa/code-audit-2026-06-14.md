@@ -641,7 +641,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/cold-chain/service.ts:121-134` — organizationId замера читается из trips ВНЕ транзакции; при отсутствии рейса пишется NULL без отказа  _(api/cold-chain)_
 - `apps/api/src/modules/cold-chain/service.ts:147-163` — Авто-инцидент по breach не фиксирует, какой заказ/лот нарушен — у инцидента нет orderId  _(api/cold-chain)_
 - `apps/api/src/modules/compliance/osago/service.ts:21-58` — OSAGO-проверка никогда не грузит per-org креды — всегда mock-адаптер, фиктивный статус сохраняется как достоверный  _(api/compliance+adr)_
-- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:82-99` — ensureConversation не проверяет принадлежность беседы текущей организации — кросс-орг привязка сообщений  _(api/copilot)_
+- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:82-99` — ensureConversation не проверяет принадлежность беседы текущей организации — кросс-орг привязка сообщений  _(api/copilot)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:117-122` — messageCount/lastActivityAt обновляются вне транзакции с insert сообщения — возможен дрейф счётчика  _(api/copilot)_
 - `apps/api/src/modules/documents/routes.ts:115-147` — POST document-returns: любая ошибка БД маскируется под 409 'Не удалось создать запись'  _(api/documents)_
 - `apps/api/src/modules/documents/routes.ts:116-141` — POST/PUT document-returns: insert/update + recordEvent + syncTransportDocumentsForTrip вне транзакции (частичная рассинхронизация)  _(api/documents)_
@@ -659,7 +659,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/import/routes.ts:88-103` — All-or-nothing батч: одна дубль/кривая строка откатывает весь импорт без указания строки  _(api/import)_
 - `apps/api/src/modules/import/routes.ts:97-102` — mapPgErrorToFriendlyRu не покрывает 23502/22001/22P02 — частые ошибки импорта дают невнятный 'ошибка вставки' и сбрасывают весь батч  _(api/import)_
 - `apps/api/src/modules/import/routes.ts:337-339` — Импорт заявок: невалидные даты погрузки/выгрузки молча уходят как NULL/Invalid Date  _(api/import)_
-- `apps/api/src/modules/import/routes.ts:51-51` — org-less admin (organizationId=null) импортирует записи с NULL-org — обход per-org уникальности и multitenancy-несогласованность  _(api/import)_
+- `apps/api/src/modules/import/routes.ts:51-51` — org-less admin (organizationId=null) импортирует записи с NULL-org — обход per-org уникальности и multitenancy-несогласованность  _(api/import)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `apps/api/src/modules/import/routes.ts:252-267` — preview не ограничивает размер загружаемого XLSX — парсинг файла до проверки лимита строк  _(api/import)_
 - `apps/api/src/modules/integrations/credentials/routes.ts:91-108` — providerType и providerName не валидируются на согласованность → возможен DPA-bypass + строки-сироты, которые никогда не инстанцируют адаптер  _(api/integrations)_
 - `apps/api/src/modules/integrations/credentials/routes.ts:96-154` — POST принимает status='active' напрямую без обязательного успешного health-check → live-операции на непроверенных кредах  _(api/integrations)_
@@ -669,10 +669,10 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/notifications/routes.ts:52-83` — /start без payload создаёт мёртвую подписку (org=null) но рапортует «уведомления подключены»  _(api/notifications)_
 - `apps/api/src/modules/onboarding/routes.ts:252-295` — invite-team: вставка пользователей без транзакции + raw PG unique-violation клиенту при гонке  _(api/onboarding)_
 - `apps/api/src/modules/onboarding/routes.ts:187-214` — save-integration-choice: при defer=true вместе с credentials шифрует и сохраняет ключи, помечая запись disabled — противоречивое состояние  _(api/onboarding)_
-- `apps/api/src/modules/onboarding/routes.ts:102-116` — inn-lookup не имеет admin-гейта в отличие от остальных мутирующих/чувствительных шагов  _(api/onboarding)_
+- `apps/api/src/modules/onboarding/routes.ts:102-116` — inn-lookup не имеет admin-гейта в отличие от остальных мутирующих/чувствительных шагов  _(api/onboarding)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `apps/api/src/modules/operational-core/write-service.ts:190-195` — Маршруты lot-assignments и shipment-facts без серверной zod-валидации тела  _(api/operational)_
 - `apps/api/src/modules/operational-core/write-service.ts:357-361` — captureShipmentFact: overage/wrong_docs/refusal помечаются статусом 'short'  _(api/operational)_
-- `apps/api/src/modules/operations/exceptions-service.ts:284-293` — Запрос events в exceptions-cockpit без org-фильтра (опирается на org-скоуп tripIds)  _(api/operational)_
+- `apps/api/src/modules/operations/exceptions-service.ts:284-293` — Запрос events в exceptions-cockpit без org-фильтра (опирается на org-скоуп tripIds)  _(api/operational)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `apps/api/src/modules/operational-core/write-service.ts:131-132` — Сообщение об ошибке перегруза раскрывает внутренние числовые значения вместимости  _(api/operational)_
 - `apps/api/src/modules/orders/service.ts:540-566` — createOrderFromTemplate строит input в обход Zod — loadingType/maxTiers из шаблона не ре-валидируются перед insert  _(api/orders)_
 - `apps/api/src/modules/repairs/service.ts:510-558` — Платформенный super-admin (org-less) не может править/архивировать каталог (org-фильтр инвертирован)  _(api/repairs)_
@@ -700,7 +700,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/providers/ofd/interface.ts:10-12` — Layer drift: OFD interface doc references getDefaultRegistry().ofd which does not exist  _(api/providers)_
 - `apps/api/src/integrations/workers/fines.worker.ts:37-80` — Дедупликация штрафов только на уровне приложения — нет БД-unique на (vehicleId, resolutionNumber), Set не обновляется после вставок  _(api/infra)_
 - `apps/api/src/integrations/workers/wialon.worker.ts:25-119` — decideOdometerUpdate (экспортируемый pure-helper) не используется — логика продублирована inline, риск рассинхрона  _(api/infra)_
-- `apps/web/src/app/admin/billing/page.tsx:62-84` — Cross-tenant биллинг-запрос уходит ДО клиентского super-admin-guard (ordering)  _(web/admin)_
+- `apps/web/src/app/admin/billing/page.tsx:62-84` — Cross-tenant биллинг-запрос уходит ДО клиентского super-admin-guard (ordering)  _(web/admin)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:162-206` — Mock-fallback активен в проде при отсутствии ANTHROPIC_API_KEY — копилот молча отвечает заглушками  _(api/copilot)_
 - `apps/web/src/app/admin/audit-log/page.tsx:130-142` — exportCsv: limit=500 перетирает limit из buildQuery, комментарий «5000» вводит в заблуждение  _(web/admin)_
 - `apps/web/src/app/dispatcher/page.tsx:694-702` — Клик по блокеру/риску в левом рейле диспетчера — мёртвая интеракция (onSelectException не передан)  _(web/ops1)_
