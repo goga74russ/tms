@@ -633,9 +633,9 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/auth/auth.ts:1483-1498` — verify-email активирует пользователя по совпадению email+код без проверки текущего состояния (re-activation деактивированного аккаунта)  _(api/auth)_
 - `apps/api/src/auth/auth.ts:819-824` — PUT /users/:id: эскалация роли до 'admin' для произвольного пользователя org не дублирует lateral-super-admin guard из POST  _(api/auth)_
 - `apps/api/src/auth/auth.ts:1528-1536` — Расхождение док/реализации: /resend-code документирован «1 раз в минуту на email», но rate-limit задан LOGIN_RATE_LIMIT_MAX=5  _(api/auth)_
-- `apps/api/src/auth/auth.ts:740-743` — GET /users пагинация: некорректный/отрицательный page|limit не валидируется (parseInt без guard → NaN/negative offset)  _(api/auth)_
+- `apps/api/src/auth/auth.ts:740-743` — GET /users пагинация: некорректный/отрицательный page|limit не валидируется (parseInt без guard → NaN/negative offset)  _(api/auth)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/billing/service.ts:273-277` — Устаревший комментарий: idx_payments_provider_id описан как НЕуникальный, хотя миграция 0045 добавила partial-unique  _(api/billing)_
-- `apps/api/src/modules/carriers/routes.ts:116-126` — POST /carrier-contracts не проверяет endDate >= startDate (инвариант проверяется только в неподключённом helper)  _(api/carriers)_
+- `apps/api/src/modules/carriers/routes.ts:116-126` — POST /carrier-contracts не проверяет endDate >= startDate (инвариант проверяется только в неподключённом helper)  _(api/carriers)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/claims/routes.ts:205-221` — create: org-привязка claim берётся из contractor сервисом, но route валидирует org только у переданного contractorId — при создании по tripId/orderId без contractorId cross-tenant контроль опирается лишь на assert*Access  _(api/claims)_
 - `apps/api/src/modules/claims/service.ts:119-149` — exposure() грузит все claims и агрегирует в JS вместо SQL-агрегации  _(api/claims)_
 - `apps/api/src/modules/cold-chain/service.ts:121-134` — organizationId замера читается из trips ВНЕ транзакции; при отсутствии рейса пишется NULL без отказа  _(api/cold-chain)_
@@ -646,14 +646,14 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/documents/routes.ts:115-147` — POST document-returns: любая ошибка БД маскируется под 409 'Не удалось создать запись'  _(api/documents)_
 - `apps/api/src/modules/documents/routes.ts:116-141` — POST/PUT document-returns: insert/update + recordEvent + syncTransportDocumentsForTrip вне транзакции (частичная рассинхронизация)  _(api/documents)_
 - `apps/api/src/modules/documents/sf-pdf.ts:36-140` — SF: поле includesVat объявлено, но не используется — НДС всегда back-calc из gross amount  _(api/documents)_
-- `apps/api/src/modules/documents/waybill-pdf.ts:146-159` — Путевой лист: сырое значение mechanicDecision/medicDecision печатается как есть при значении != 'approved'  _(api/documents)_
-- `apps/api/src/modules/documents/med-inspection-pdf.ts:92-92` — Акты осмотра: сырые enum inspectionType печатаются в документ ('pre_trip'/'post_trip' в поле «Тип осмотра»)  _(api/documents)_
+- `apps/api/src/modules/documents/waybill-pdf.ts:146-159` — Путевой лист: сырое значение mechanicDecision/medicDecision печатается как есть при значении != 'approved'  _(api/documents)_  **✅ ЗАКРЫТО `3d8bc6b`**
+- `apps/api/src/modules/documents/med-inspection-pdf.ts:92-92` — Акты осмотра: сырые enum inspectionType печатаются в документ ('pre_trip'/'post_trip' в поле «Тип осмотра»)  _(api/documents)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/edi/routes.ts:143-152` — Webhook /edi/webhook/:provider: нет валидации provider, нет проверки подписи/HMAC и логируется весь body (документированный stub A-P1-23)  _(api/edi)_
 - `apps/api/src/modules/edi/service.ts:247-287` — progressEdiManually допускает повторный перевод в то же состояние (signed_by_carrier→signed_by_carrier) — дубликат события 'signed' в журнале  _(api/edi)_
 - `apps/api/src/modules/finance/tarification.service.ts:386-391` — minTripCost присваивается в subtotal как строка (numeric) до round/VAT  _(api/finance)_
 - `apps/api/src/modules/fleet/service.ts:1051-1066` — updateFuelRecord edits liters but never adjusts vehicles.totalFuelConsumedL accumulator → permanent drift  _(api/fleet)_
 - `apps/api/src/modules/fleet/service.ts:101-106` — Mock GPS coordinates injected as real lat/lon in vehicle list/detail responses with no provenance flag  _(api/fleet)_
-- `apps/api/src/modules/geo/routes.ts:10-16` — GeoPointSchema не валидирует диапазоны lat/lon — Haversine считает по бессмысленным координатам  _(api/geo)_
+- `apps/api/src/modules/geo/routes.ts:10-16` — GeoPointSchema не валидирует диапазоны lat/lon — Haversine считает по бессмысленным координатам  _(api/geo)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/geo/distance.service.ts:97-100` — estimateDrivingDistance — фиксированный коэффициент 1.3 подаётся как «дорожное расстояние»  _(api/geo)_
 - `apps/api/src/modules/geo/routes.ts:20-134` — Geo-эндпойнты без requireAbility — только authenticate (асимметрия с остальными модулями)  _(api/geo)_
 - `apps/api/src/modules/import/routes.ts:88-103` — All-or-nothing батч: одна дубль/кривая строка откатывает весь импорт без указания строки  _(api/import)_
@@ -676,7 +676,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/operational-core/write-service.ts:131-132` — Сообщение об ошибке перегруза раскрывает внутренние числовые значения вместимости  _(api/operational)_
 - `apps/api/src/modules/orders/service.ts:540-566` — createOrderFromTemplate строит input в обход Zod — loadingType/maxTiers из шаблона не ре-валидируются перед insert  _(api/orders)_
 - `apps/api/src/modules/repairs/service.ts:510-558` — Платформенный super-admin (org-less) не может править/архивировать каталог (org-фильтр инвертирован)  _(api/repairs)_
-- `apps/api/src/modules/repairs/routes.ts:182-195` — PUT /repairs/:id/status: status из body не валидируется схемой (raw string в FSM/PG enum)  _(api/repairs)_
+- `apps/api/src/modules/repairs/routes.ts:182-195` — PUT /repairs/:id/status: status из body не валидируется схемой (raw string в FSM/PG enum)  _(api/repairs)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/repairs/service.ts:384-411` — getRepairPartCatalogMeta загружает до 1000 позиций для отдачи 8 featured + по 4 на категорию (over-fetch)  _(api/repairs)_
 - `apps/api/src/modules/scoring/service.ts:67-167` — computeDriverScore меряет компоненты балла по рассинхронизированным временным полям/множествам → cold-chain и on-time молча теряют рейсы вне окна createdAt  _(api/rto+scoring)_
 - `apps/api/src/modules/scoring/service.ts:159-188` — Скоринг штрафует водителя за ВСЕ штрафы в окне, включая обжалованные (appealed)  _(api/rto+scoring)_
@@ -708,5 +708,5 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/web/src/app/medic/page.tsx:350-404` — Медосмотр: «Допустить» не блокируется клиентом при положительном алкотесте / критических витальных  _(web/ops2)_
 - `apps/web/src/app/analytics/page.tsx:281-283` — Кнопка «Обновить» в Аналитике перезагружает только 3 из 5 датасетов — Топливо и КТГ остаются устаревшими  _(web/finance)_
 - `apps/web/src/app/landing/components/Pricing.tsx:171-184` — Годовой billing-toggle теряется при переходе в signup — выбор тарифного периода не пробрасывается  _(web/public)_
-- `apps/web/src/app/login/page.tsx:102-108` — Несогласованный минимум длины пароля: login допускает 4 символа, signup/reset требуют 8  _(web/public)_
-- `packages/shared/src/billing.ts:143-149` — formatKopecks некорректно форматирует отрицательные суммы  _(shared)_
+- `apps/web/src/app/login/page.tsx:102-108` — Несогласованный минимум длины пароля: login допускает 4 символа, signup/reset требуют 8  _(web/public)_  **✅ ЗАКРЫТО `3d8bc6b`**
+- `packages/shared/src/billing.ts:143-149` — formatKopecks некорректно форматирует отрицательные суммы  _(shared)_  **✅ ЗАКРЫТО `3d8bc6b`**
