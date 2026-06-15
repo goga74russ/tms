@@ -524,7 +524,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/inspections**
 
-- `apps/api/src/modules/inspections/service.ts:159-162` — [HIGH] Org-скоуп очередей фильтрует рейсы по водителю — рейсы с driverId=null выпадают из техочереди  → /transpult
+- `apps/api/src/modules/inspections/service.ts:159-162` — [HIGH] Org-скоуп очередей фильтрует рейсы по водителю — рейсы с driverId=null выпадают из техочереди  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (тех-очередь: org через trips.organizationId)
 - `apps/api/src/modules/inspections/service.ts:702-710` — [MEDIUM] listMedInspections скоупит тенант через users.organizationId, остальные med-запросы — через drivers.organizationId  → /transpult
 - `apps/api/src/modules/inspections/service.ts:364-367` — [MEDIUM] Описание ремонт-заявки и причины брака пишутся сырым английским — i18n-утечка в персистентных данных  → /transpult
 
@@ -544,15 +544,15 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/operational**
 
-- `apps/api/src/modules/operational-core/write-service.ts:96-133` — [HIGH] allowOverCapacity — клиент-управляемый флаг обходит проверку грузоподъёмности ТС  → /transpult
-- `apps/api/src/modules/operational-core/write-service.ts:121-133` — [HIGH] Capacity-проверка лота/ТС только по весу — объём и места не проверяются при назначении  → /transpult
+- `apps/api/src/modules/operational-core/write-service.ts:96-133` — [HIGH] allowOverCapacity — клиент-управляемый флаг обходит проверку грузоподъёмности ТС  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (гейт по привилегированной роли)
+- `apps/api/src/modules/operational-core/write-service.ts:121-133` — [HIGH] Capacity-проверка лота/ТС только по весу — объём и места не проверяются при назначении  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (+ проверка объёма payloadVolumeM3; места — нет колонки вместимости, отмечено)
 - `apps/api/src/modules/operational-core/write-service.ts:42-48` — [MEDIUM] splitOrderIntoLots: при одновременных lotCount и maxWeightKg сумма веса лотов != весу заявки  → /transpult
 - `apps/api/src/modules/operations/trip-change-service.ts:304-345` — [MEDIUM] recordRoutePointDowntime: захардкоженный freeMinutes=120 расходится с контрактным тарифом  → /transpult
 
 **api/orders**
 
 - `apps/api/src/modules/orders/validators.ts:42-119` — [HIGH] validateCargoBounds и validateTemperatureRange — мёртвый код: инварианты груза и cold-chain нигде не применяются на create/update  → /transpult
-- `apps/api/src/modules/orders/service.ts:423-461` — [HIGH] updateOrder: numeric customerPrice читается строкой → audit-событие price_changed срабатывает на каждом update, oldValue логируется строкой  → /transpult
+- `apps/api/src/modules/orders/service.ts:423-461` — [HIGH] updateOrder: numeric customerPrice читается строкой → audit-событие price_changed срабатывает на каждом update, oldValue логируется строкой  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (Number-коэрция previous+new)
 - `apps/api/src/modules/orders/routes.ts:65-91` — [MEDIUM] GET /orders: RLS fail-open для driver/client без записи driver/contractor — фильтр не применяется, видны все заявки организации  → /transpult  **✅ ЗАКРЫТО `20e1667`** (fail-closed → пусто)
 - `apps/api/src/modules/orders/service.ts:573-616` — [MEDIUM] assignOrderToTrip не проверяет принадлежность trip организации автора (cross-tenant trip-assignment) — латентно, функция не подключена к роутам  → /transpult
 
@@ -585,9 +585,9 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/misc-modules**
 
-- `apps/api/src/modules/analytics/routes.ts:44-47` — [HIGH] maintenanceByVehicleId хранит САМЫЙ СТАРЫЙ план ТО на ТС, а не актуальный  → /transpult
+- `apps/api/src/modules/analytics/routes.ts:44-47` — [HIGH] maintenanceByVehicleId хранит САМЫЙ СТАРЫЙ план ТО на ТС, а не актуальный  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (asc + Map-overwrite)
 - `apps/api/src/modules/demo/service.ts:376-389` — [HIGH] Demo-события events пишутся без organizationId → невидимы в журнале аудита (152-ФЗ scope)  → /transpult  **✅ ЗАКРЫТО `20e1667`**
-- `apps/api/src/modules/analytics/routes.ts:134-135` — [HIGH] Falsy-проверка пробега скрывает ТО-алерт для ТС с одометром 0  → /transpult
+- `apps/api/src/modules/analytics/routes.ts:134-135` — [HIGH] Falsy-проверка пробега скрывает ТО-алерт для ТС с одометром 0  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (!= null)
 
 **api/providers**
 
