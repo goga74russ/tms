@@ -628,7 +628,7 @@ P0 не обнаружено в верифицированном наборе.
 ### P3 — 83 (списком)
 
 - `apps/api/src/auth/auth.ts:1402-1422` — signup: bcrypt (CPU-bound ~100мс) выполняется ВНУТРИ db-транзакции — держит соединение/блокировки  _(api/auth)_
-- `apps/api/src/auth/auth.ts:1393-1396` — Незакрытый TODO(security P0-3) помечен в коде как открытый, но прежняя уязвимая ветка переписана — TODO устарел/вводит в заблуждение  _(api/auth)_
+- `apps/api/src/auth/auth.ts:1393-1396` — Незакрытый TODO(security P0-3) помечен в коде как открытый, но прежняя уязвимая ветка переписана — TODO устарел/вводит в заблуждение  _(api/auth)_  **✅ ЗАКРЫТО `ca73c00`**
 - `apps/api/src/auth/plan-guard.ts:49-49` — requireFeature проверяет роль 'super_admin', которой нет в APP_ROLES — мёртвая ветка / рассинхрон ролевой модели  _(api/auth)_
 - `apps/api/src/auth/auth.ts:1483-1498` — verify-email активирует пользователя по совпадению email+код без проверки текущего состояния (re-activation деактивированного аккаунта)  _(api/auth)_
 - `apps/api/src/auth/auth.ts:819-824` — PUT /users/:id: эскалация роли до 'admin' для произвольного пользователя org не дублирует lateral-super-admin guard из POST  _(api/auth)_
@@ -657,8 +657,8 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/geo/distance.service.ts:97-100` — estimateDrivingDistance — фиксированный коэффициент 1.3 подаётся как «дорожное расстояние»  _(api/geo)_
 - `apps/api/src/modules/geo/routes.ts:20-134` — Geo-эндпойнты без requireAbility — только authenticate (асимметрия с остальными модулями)  _(api/geo)_
 - `apps/api/src/modules/import/routes.ts:88-103` — All-or-nothing батч: одна дубль/кривая строка откатывает весь импорт без указания строки  _(api/import)_
-- `apps/api/src/modules/import/routes.ts:97-102` — mapPgErrorToFriendlyRu не покрывает 23502/22001/22P02 — частые ошибки импорта дают невнятный 'ошибка вставки' и сбрасывают весь батч  _(api/import)_
-- `apps/api/src/modules/import/routes.ts:337-339` — Импорт заявок: невалидные даты погрузки/выгрузки молча уходят как NULL/Invalid Date  _(api/import)_
+- `apps/api/src/modules/import/routes.ts:97-102` — mapPgErrorToFriendlyRu не покрывает 23502/22001/22P02 — частые ошибки импорта дают невнятный 'ошибка вставки' и сбрасывают весь батч  _(api/import)_  **✅ ЗАКРЫТО `ca73c00`**
+- `apps/api/src/modules/import/routes.ts:337-339` — Импорт заявок: невалидные даты погрузки/выгрузки молча уходят как NULL/Invalid Date  _(api/import)_  **✅ ЗАКРЫТО `ca73c00`**
 - `apps/api/src/modules/import/routes.ts:51-51` — org-less admin (organizationId=null) импортирует записи с NULL-org — обход per-org уникальности и multitenancy-несогласованность  _(api/import)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `apps/api/src/modules/import/routes.ts:252-267` — preview не ограничивает размер загружаемого XLSX — парсинг файла до проверки лимита строк  _(api/import)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/modules/integrations/credentials/routes.ts:91-108` — providerType и providerName не валидируются на согласованность → возможен DPA-bypass + строки-сироты, которые никогда не инстанцируют адаптер  _(api/integrations)_
@@ -673,7 +673,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/operational-core/write-service.ts:190-195` — Маршруты lot-assignments и shipment-facts без серверной zod-валидации тела  _(api/operational)_
 - `apps/api/src/modules/operational-core/write-service.ts:357-361` — captureShipmentFact: overage/wrong_docs/refusal помечаются статусом 'short'  _(api/operational)_
 - `apps/api/src/modules/operations/exceptions-service.ts:284-293` — Запрос events в exceptions-cockpit без org-фильтра (опирается на org-скоуп tripIds)  _(api/operational)_  **✅ ЗАКРЫТО `9e1ee7b`**
-- `apps/api/src/modules/operational-core/write-service.ts:131-132` — Сообщение об ошибке перегруза раскрывает внутренние числовые значения вместимости  _(api/operational)_
+- `apps/api/src/modules/operational-core/write-service.ts:131-132` — Сообщение об ошибке перегруза раскрывает внутренние числовые значения вместимости  _(api/operational)_  **✅ ЗАКРЫТО `ca73c00`**
 - `apps/api/src/modules/orders/service.ts:540-566` — createOrderFromTemplate строит input в обход Zod — loadingType/maxTiers из шаблона не ре-валидируются перед insert  _(api/orders)_
 - `apps/api/src/modules/repairs/service.ts:510-558` — Платформенный super-admin (org-less) не может править/архивировать каталог (org-фильтр инвертирован)  _(api/repairs)_
 - `apps/api/src/modules/repairs/routes.ts:182-195` — PUT /repairs/:id/status: status из body не валидируется схемой (raw string в FSM/PG enum)  _(api/repairs)_  **✅ ЗАКРЫТО `3d8bc6b`**
@@ -687,7 +687,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/sprint9/routes.ts:355-378` — Waybill expenses (деньги): numeric-колонки сохраняются/читаются как string в рантайме при TS-типе number — рассинхрон слоёв на денежных полях  _(api/sync+sprint9)_
 - `apps/api/src/modules/sync/service.ts:121-122` — Sync: обращение trip.status без null-guard после повторного SELECT в ветках route_point  _(api/sync+sprint9)_
 - `apps/api/src/modules/trips/transport-documents-store.ts:1076-1101` — recordTransportDocumentSignature помечает ЭТрН 'signed' при ≥2 любых ролях — может переоценивать юр-завершённость  _(api/trips)_
-- `apps/api/src/modules/trips/service.ts:863-871` — Дублирующая проверка MED_CERTIFICATE_EXPIRED в assignTrip (одинаковый hard-warning добавляется дважды)  _(api/trips)_
+- `apps/api/src/modules/trips/service.ts:863-871` — Дублирующая проверка MED_CERTIFICATE_EXPIRED в assignTrip (одинаковый hard-warning добавляется дважды)  _(api/trips)_  **✅ ЗАКРЫТО `ca73c00`**
 - `apps/api/src/modules/waybills/routes.ts:262-286` — Загрузка вложения ПЛ доверяет заявленному MIME (нет content-sniffing), в отличие от /uploads  _(api/uploads+waybills)_
 - `apps/api/src/modules/waybills/etrn-titles-generator.ts:33-52` — Титулы 2/5/6 ЭТрН форматируют ДатаДок/ДатаВремя в локальной TZ сервера (off-by-one под Docker UTC)  _(api/uploads+waybills)_
 - `apps/api/src/modules/waybills/routes.ts:274-286` — Загрузка вложения ПЛ: файл на диск пишется до INSERT, нет транзакции — orphan-файл при сбое  _(api/uploads+waybills)_
