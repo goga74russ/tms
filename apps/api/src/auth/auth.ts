@@ -1416,6 +1416,12 @@ export function registerAuthRoutes(app: FastifyInstance) {
                 organizationId: orgId,
             }).returning({ id: users.id });
 
+            // P2 (код-аудит 2026-06-14): инвалидируем прежние неиспользованные коды
+            // этого email перед выдачей нового — иначе валидные коды накапливались,
+            // расширяя поверхность брутфорса 6-значного кода (лимит попыток — через
+            // per-route rateLimit ниже).
+            await tx.update(emailVerifications).set({ usedAt: new Date() })
+                .where(and(eq(emailVerifications.email, email), isNull(emailVerifications.usedAt)));
             await tx.insert(emailVerifications).values({ email, code, expiresAt });
 
             return { organizationId: orgId, userId: user!.id };
@@ -1585,6 +1591,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
 
         const code = generateCode();
         const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MIN * 60_000);
+        // P2 (код-аудит 2026-06-14): инвалидируем прежние неиспользованные коды email
+        // перед выдачей нового (см. выше — против накопления валидных кодов).
+        await db.update(emailVerifications).set({ usedAt: new Date() })
+            .where(and(eq(emailVerifications.email, email), isNull(emailVerifications.usedAt)));
         await db.insert(emailVerifications).values({ email, code, expiresAt });
 
         try {

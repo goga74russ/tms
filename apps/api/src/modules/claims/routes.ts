@@ -102,6 +102,12 @@ export default async function claimsRoutes(app: FastifyInstance) {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string };
         const { contractorId, status, tripId, orderId } = request.query as { contractorId?: string; status?: string; tripId?: string; orderId?: string };
 
+        // P2 (код-аудит 2026-06-14): валидируем status до запроса — иначе невалидное
+        // значение шло прямо в WHERE по PG enum → сырая ошибка приведения = 500.
+        if (status && !['open', 'investigating', 'resolved', 'rejected'].includes(status)) {
+            return reply.status(400).send({ success: false, error: `Некорректный статус претензии: ${status}` });
+        }
+
         let effectiveContractorId = contractorId;
 
         // Clients only see their own contractor's claims (hard enforcement)

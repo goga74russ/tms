@@ -35,9 +35,15 @@ const telegramRoutes: FastifyPluginAsync = async (app) => {
             const username = update.message.from?.username || '';
             const firstName = update.message.from?.first_name || '';
 
-            // Extract deep link payload (userId)
+            // Extract deep link payload (userId).
+            // P2 (код-аудит 2026-06-14): невалидный (не-UUID) userId из payload ронял
+            // хэндлер в 500 (PG invalid uuid на users.id и на insert) и провоцировал
+            // ретраи Telegram. Санитизируем: не-UUID → null (подписка без org).
             const parts = update.message.text.split(' ');
-            const userId = parts[1] || null;
+            const rawUserId = parts[1] || null;
+            const userId = rawUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawUserId)
+                ? rawUserId
+                : null;
 
             // P0-S2: привязываем подписку к организации пользователя из deep-link.
             // Воркер рассылает события только подписчикам той же орг.

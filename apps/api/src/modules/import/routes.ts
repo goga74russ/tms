@@ -7,6 +7,7 @@ import { hashPassword } from '../../auth/auth.js';
 import { buildTemplate, parseTemplate, type TemplateType } from './templates.js';
 import { validate, validateOrder, mapPgErrorToFriendlyRu } from './validators.js';
 import { safeClientError } from '../../utils/safe-error.js';
+import { hasPrivilege } from '@tms/shared';
 
 const TEMPLATE_TYPES: TemplateType[] = ['contractors', 'vehicles', 'drivers', 'orders'];
 
@@ -219,6 +220,13 @@ export default async function importRoutes(app: FastifyInstance) {
         },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
+        // P2 (код-аудит 2026-06-14): импорт — привилегированная операция. Раньше
+        // GET /import/templates/:type был только под authenticate → driver/client/
+        // mechanic качали шаблоны импорта. Гейтим по привилегированной роли.
+        const user = request.user as { roles: string[] };
+        if (!hasPrivilege(user.roles)) {
+            return reply.status(403).send({ success: false, error: 'Недостаточно прав для импорта' });
+        }
         const type = request.params.type as TemplateType;
         if (!TEMPLATE_TYPES.includes(type)) {
             return reply.status(400).send({ success: false, error: `Неизвестный тип: ${type}` });
@@ -394,6 +402,12 @@ export default async function importRoutes(app: FastifyInstance) {
             const item = items[i] as any;
             if (!item.name || !item.inn) {
                 results.errors.push({ index: i, error: `Пропущено: ${item.name || '?'} — не заполнены обязательные поля` });
+                continue;
+            }
+            // P2 (код-аудит 2026-06-14): валидация формата ИНН (10 — ЮЛ, 12 — ФЛ/ИП),
+            // иначе нечисловой мусор попадал в БД через JSON bulk-import.
+            if (!/^(\d{10}|\d{12})$/.test(String(item.inn))) {
+                results.errors.push({ index: i, error: `Пропущено: ${item.name} — некорректный ИНН (нужно 10 или 12 цифр)` });
                 continue;
             }
             validRows.push({

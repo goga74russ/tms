@@ -197,10 +197,12 @@ const carriersRoutes: FastifyPluginAsync = async (app) => {
             });
         }
 
-        // Контрагент должен быть carrier.
+        // Контрагент должен быть carrier и НЕ архивным (P2 код-аудит 2026-06-14:
+        // раньше assign-carrier позволял назначить архивного контрагента перевозчиком).
         const carrierConditions = [
             eq(contractors.id, parsed.data.carrierContractorId),
             eq(contractors.isCarrier, true),
+            eq(contractors.isArchived, false),
         ];
         if (user.organizationId) {
             carrierConditions.push(eq(contractors.organizationId, user.organizationId));
