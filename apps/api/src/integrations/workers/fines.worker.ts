@@ -68,7 +68,13 @@ export async function processFinesSync(job: Job): Promise<{
                     continue;
                 }
 
-                // 4. Insert new fine
+                // 4. Insert new fine.
+                // P3 #701 (код-аудит 2026-06-14): дедуп был только на уровне приложения
+                // (in-memory Set), плюс Set не обновлялся после вставок → один и тот же
+                // resolutionNumber в одном прогоне мог вставиться дважды, а параллельные
+                // прогоны не имели БД-защиты. Добавлен partial-unique индекс
+                // idx_fines_vehicle_resolution (миграция 0057) + onConflictDoNothing:
+                // при гонке/повторе INSERT тихо ничего не делает (returning пуст).
                 const [newFine] = await db.insert(fines).values({
                     vehicleId: v.id,
                     organizationId: v.organizationId, // C3 «в» (миг.0042): прямой org-скоуп
@@ -77,7 +83,16 @@ export async function processFinesSync(job: Job): Promise<{
                     amount: f.amount,
                     resolutionNumber: f.resolutionNumber,
                     status: 'new',
-                }).returning();
+                }).onConflictDoNothing().returning();
+
+                if (!newFine) {
+                    // Конфликт по unique (вставил параллельный прогон) — считаем дублем.
+                    duplicates++;
+                    if (f.resolutionNumber) existingFinesSet.add(fineKey);
+                    continue;
+                }
+                // Обновляем in-memory Set, чтобы дубль в пределах этого же прогона не прошёл.
+                if (f.resolutionNumber) existingFinesSet.add(fineKey);
 
                 details.push({
                     plateNumber: v.plateNumber,

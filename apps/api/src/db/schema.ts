@@ -918,6 +918,12 @@ export const fines = pgTable('fines', {
     index('idx_fines_created_at').on(table.createdAt),
     index('idx_fines_violation_date').on(table.violationDate),
     index('idx_fines_org').on(table.organizationId),
+    // P3 #701 (код-аудит 2026-06-14): БД-дедуп штрафов по (vehicle_id,
+    // resolution_number). Раньше дедуп был только in-memory в воркере. Частичный —
+    // resolution_number nullable (ручные штрафы без номера постановления).
+    uniqueIndex('idx_fines_vehicle_resolution')
+        .on(table.vehicleId, table.resolutionNumber)
+        .where(sql`resolution_number IS NOT NULL`),
 ]);
 
 // ================================================================
@@ -1408,6 +1414,10 @@ export const transportDocuments = pgTable('transport_documents', {
 }, (table) => [
     uniqueIndex('idx_transport_documents_artifact').on(table.artifactId),
     uniqueIndex('idx_transport_documents_source_key').on(table.sourceKey),
+    // P3 #685 (код-аудит 2026-06-14): callback Госключа ищет документ по externalId
+    // без org-контекста (публичный endpoint) — уникальность гарантирует, что
+    // lookup однозначен между тенантами (нет коллизии externalId).
+    uniqueIndex('idx_transport_documents_external_id').on(table.externalId),
     index('idx_transport_documents_trip').on(table.tripId),
     index('idx_transport_documents_waybill').on(table.waybillId),
     index('idx_transport_documents_kind').on(table.artifactKind),

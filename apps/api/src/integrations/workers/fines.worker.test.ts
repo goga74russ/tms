@@ -31,8 +31,12 @@ vi.mock('../../db/connection.js', () => ({
         insert: (_table: any) => ({
             values: (v: any) => {
                 capture.fineInserts.push(v);
+                // P3 #701: воркер теперь вызывает .onConflictDoNothing() перед
+                // .returning() (БД-дедуп по unique(vehicle_id, resolution_number)).
+                const returning = () => Promise.resolve([{ id: `fine-${capture.fineInserts.length}` }]);
                 return {
-                    returning: () => Promise.resolve([{ id: `fine-${capture.fineInserts.length}` }]),
+                    onConflictDoNothing: () => ({ returning }),
+                    returning,
                 };
             },
         }),

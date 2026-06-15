@@ -1408,6 +1408,11 @@ export function registerAuthRoutes(app: FastifyInstance) {
         const code = generateCode();
         const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MIN * 60_000);
 
+        // P3 (код-аудит 2026-06-14): bcrypt (CPU-bound ~100мс) вынесен ИЗ db.transaction —
+        // раньше hashPassword вызывался внутри tx и держал соединение/блокировки во время
+        // хеширования. Хеш вычисляется ДО открытия транзакции; поведение идентично.
+        const passwordHash = await hashPassword(password);
+
         // C7: только НОВЫЙ аккаунт (любой существующий обработан enumeration-safe выше,
         // без перезаписи — ветка `if (existing)` с overwrite удалена как уязвимая).
         const { organizationId, userId } = await db.transaction(async (tx) => {
@@ -1416,7 +1421,6 @@ export function registerAuthRoutes(app: FastifyInstance) {
             }).returning({ id: organizations.id });
             const orgId = org!.id;
 
-            const passwordHash = await hashPassword(password);
             const [user] = await tx.insert(users).values({
                 email,
                 passwordHash,

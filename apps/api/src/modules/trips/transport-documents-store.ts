@@ -1081,16 +1081,33 @@ export async function recordTransportDocumentSignature(params: {
 
         // C9: раньше status был ЗАХАРДКОЖЕН 'partially_signed' → «полностью подписан»
         // в ручном ПЭП-потоке недостижим (gosklyuch-путь использует 'signed').
-        // Правило завершения: ≥2 различных подписанта (обе стороны) → 'signed'.
-        // NB(/jurist): точный требуемый набор ролей зависит от типа документа
-        // (ТрН: грузоотправитель+перевозчик+грузополучатель); signerRole здесь
-        // free-form, поэтому используем консервативный bilateral-критерий.
-        const distinctRoles = new Set(
-            signatures
-                .map((s) => String((s as Record<string, unknown>).signerRole ?? '').trim().toLowerCase())
-                .filter(Boolean),
-        );
-        const signatureStatus = distinctRoles.size >= 2 ? 'signed' : 'partially_signed';
+        // P3 #689 (код-аудит 2026-06-14): раньше любые ≥2 РАЗЛИЧНЫХ роли давали
+        // 'signed' — две произвольные роли (напр. два диспетчера-варианта) могли
+        // переоценить юр-завершённость. Ужесточаем: классифицируем подписантов в
+        // канонические стороны (перевозчик / грузовая сторона = отправитель|
+        // получатель|заказчик) и требуем подпись ПЕРЕВОЗЧИКА + хотя бы одной
+        // грузовой стороны. NB(/jurist): точный набор ролей зависит от типа
+        // документа; signerRole free-form. Fallback: если словарь ролей вовсе не
+        // распознан (все 'other'), не замораживаем легитимный поток — оставляем
+        // прежний bilateral-критерий (≥2 различных).
+        const classifyEtrnRole = (raw: string): 'carrier' | 'cargo' | 'other' => {
+            const r = raw.trim().toLowerCase();
+            if (!r) return 'other';
+            if (/перевозчик|carrier/.test(r)) return 'carrier';
+            if (/грузоотправ|отправит|грузополуч|получател|заказчик|клиент|shipper|consignor|consignee|client/.test(r)) return 'cargo';
+            return 'other';
+        };
+        const rawRoles = signatures
+            .map((s) => String((s as Record<string, unknown>).signerRole ?? '').trim().toLowerCase())
+            .filter(Boolean);
+        const distinctRoles = new Set(rawRoles);
+        const classified = new Set(rawRoles.map(classifyEtrnRole));
+        const canonicalComplete = classified.has('carrier') && classified.has('cargo');
+        const vocabularyUnrecognized = !classified.has('carrier') && !classified.has('cargo');
+        const signatureStatus =
+            canonicalComplete || (vocabularyUnrecognized && distinctRoles.size >= 2)
+                ? 'signed'
+                : 'partially_signed';
 
         await tx.update(transportDocuments).set({
             metadata: {

@@ -108,20 +108,31 @@ export async function computeDriverScore(
         for (const trip of completedTrips) {
             const list = byTrip.get(trip.id) ?? [];
             // считаем только рейсы у которых хотя бы одна точка имеет окно
-            const hasWindows = list.some((p) => p.windowTo ?? p.windowEnd);
-            if (!hasWindows) continue;
+            const windowedPoints = list.filter((p) => p.windowTo ?? p.windowEnd);
+            if (windowedPoints.length === 0) continue;
+            // P3 #683 (код-аудит 2026-06-14): пропуск данных — windowed-точка без
+            // completedAt — это НЕ опоздание, а неполнота телеметрии. Раньше такой
+            // рейс молча считался опоздавшим (completedAt отсутствует → late),
+            // занижая балл из-за дыр в данных. Теперь исключаем рейс с пробелом из
+            // знаменателя on-time целиком (не штрафуем за то, чего не измерили).
+            const hasDataGap = windowedPoints.some((p) => !p.completedAt);
+            if (hasDataGap) continue;
             onTimeTripsTotal += 1;
-            const allOnTime = list.every((p) => {
-                const w = p.windowTo ?? p.windowEnd;
-                if (!w) return true; // у точки нет окна — не штрафуем
-                if (!p.completedAt) return false;
-                return new Date(p.completedAt) <= new Date(w);
+            const allOnTime = windowedPoints.every((p) => {
+                const w = (p.windowTo ?? p.windowEnd) as Date;
+                return new Date(p.completedAt as Date) <= new Date(w);
             });
             if (allOnTime) onTimeTripCount += 1;
         }
     }
 
     // 3. Cold-chain breaches across this driver's trips in window.
+    // P3 #681 (код-аудит 2026-06-14): окно скоринга задаётся ОДНИМ источником —
+    // trip.createdAt (см. выборку tripsRows выше). Все суб-метрики (on-time,
+    // cold-chain, штрафы) считаются по этому набору рейсов. Раньше cold-chain
+    // дополнительно фильтровал замеры по recordedAt ∈ [from,to] — рейс попадал в
+    // окно по createdAt, но его breach-замеры с чуть иным таймштампом молча
+    // выпадали (рассинхрон полей). Скоупим только по tripIds окна.
     let coldChainBreachCount = 0;
     if (tripIds.length > 0) {
         const breaches = await db
@@ -130,8 +141,6 @@ export async function computeDriverScore(
             .where(and(
                 inArray(temperatureReadings.tripId, tripIds),
                 eq(temperatureReadings.breach, true),
-                gte(temperatureReadings.recordedAt, from),
-                lte(temperatureReadings.recordedAt, to),
             ));
         coldChainBreachCount = breaches.length;
     }

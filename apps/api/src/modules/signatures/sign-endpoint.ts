@@ -312,6 +312,17 @@ const signRoutes: FastifyPluginAsync = async (app) => {
             }
         } catch (err) {
             request.log.warn({ err, provider, documentId: id }, 'sign-endpoint: provider.sign() failed, fallback deeplink');
+            // P3 #686 (код-аудит 2026-06-14): для gosklyuch fallback-deeplink
+            // строится с ЛОКАЛЬНЫМ externalId, а callback придёт с adapter-
+            // externalId (gk-...) → документ не найдётся, подпись потеряется молча.
+            // Не маскируем сбой мёртвым deeplink — возвращаем ошибку инициации,
+            // чтобы пользователь повторил, а не ушёл по нерабочей ссылке.
+            if (provider === 'gosklyuch') {
+                return reply.status(502).send({
+                    success: false,
+                    error: 'Не удалось инициировать подпись через Госключ. Повторите попытку позже.',
+                });
+            }
             deeplink = buildFallbackDeeplink(provider, externalId);
         }
 

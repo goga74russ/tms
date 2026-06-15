@@ -131,8 +131,16 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
         // no-op для dev/test. Когда задан — fail-closed: чужой IP → 403.
         const ipAllowlist = (process.env.GOSKLYUCH_CALLBACK_IP_ALLOWLIST ?? '')
             .split(',').map((s) => s.trim()).filter(Boolean);
-        if (ipAllowlist.length > 0 && !ipAllowlist.includes(request.ip)) {
-            request.log.warn({ ip: request.ip }, 'Госключ callback: IP не в allowlist');
+        // P3 #684 (код-аудит 2026-06-14): allowlist сверяем по НЕПОДДЕЛЬНОМУ адресу
+        // TCP-пира (request.socket.remoteAddress), а не по request.ip — последний
+        // при trustProxy:true выводится из X-Forwarded-For, который клиент может
+        // подделать, обходя allowlist. Сверяем непосредственного отправителя
+        // (сервер Госключа или доверенный reverse-proxy). DEVOPS: в allowlist
+        // должен быть IP именно непосредственного пира. HMAC (ниже) остаётся
+        // первичной аутентификацией externalId.
+        const peerIp = request.socket.remoteAddress ?? request.ip;
+        if (ipAllowlist.length > 0 && !ipAllowlist.includes(peerIp)) {
+            request.log.warn({ peerIp, xffIp: request.ip }, 'Госключ callback: IP пира не в allowlist');
             return reply.status(403).send({ success: false, error: 'Источник не разрешён' });
         }
 
@@ -146,6 +154,9 @@ const gosklyuchCallbackRoutes: FastifyPluginAsync = async (app) => {
         }
 
         // Look up the transport document by externalId.
+        // P3 #685 (код-аудит 2026-06-14): callback публичный (без org-контекста),
+        // поэтому org-фильтр неприменим — однозначность lookup гарантирует
+        // UNIQUE-индекс idx_transport_documents_external_id (миграция 0056).
         const [row] = await db
             .select()
             .from(transportDocuments)
