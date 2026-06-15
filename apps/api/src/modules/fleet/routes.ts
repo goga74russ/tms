@@ -5,7 +5,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAbility } from '../../auth/rbac.js';
-import { assertDriverAccess, assertTripAccess, assertVehicleAccess, resolveDriverId } from '../../auth/guards.js';
+import { assertDriverAccess, assertTripAccess, assertVehicleAccess, resolveDriverId, isPlatformSuperAdmin } from '../../auth/guards.js';
 import * as fleetService from './service.js';
 import { safeClientError } from '../../utils/safe-error.js';
 import {
@@ -79,9 +79,9 @@ export default async function fleetRoutes(app: FastifyInstance) {
         const { page, limit, status, search, archived } = request.query as VehicleQuery;
         const parsedPage = page ? Number(page) : undefined;
         const parsedLimit = limit ? Number(limit) : undefined;
-        const { organizationId } = request.user as { userId: string; roles: string[]; organizationId?: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string };
         const result = await fleetService.listVehicles(
-            { status, search, isArchived: archived === 'true', organizationId },
+            { status, search, isArchived: archived === 'true', organizationId: user.organizationId, crossTenant: isPlatformSuperAdmin(user) },
             { page: Number.isFinite(parsedPage) ? parsedPage : undefined, limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined },
         );
         return { success: true, data: result.data, ...result.pagination };
@@ -93,7 +93,7 @@ export default async function fleetRoutes(app: FastifyInstance) {
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
         const user = request.user as { userId: string; roles: string[]; organizationId?: string };
-        const vehicle = await fleetService.getVehicle(id, user.organizationId);
+        const vehicle = await fleetService.getVehicle(id, user.organizationId, isPlatformSuperAdmin(user));
         if (!vehicle) return reply.status(404).send({ success: false, error: 'ТС не найдено' });
         return { success: true, data: vehicle };
     });

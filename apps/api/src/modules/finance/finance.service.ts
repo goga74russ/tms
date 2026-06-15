@@ -402,7 +402,10 @@ export class FinanceService {
                 .where(and(
                     eq(trips.status, 'completed'),
                     gte(trips.actualCompletionAt, startDate),
-                    lte(trips.actualCompletionAt, endDate)
+                    lte(trips.actualCompletionAt, endDate),
+                    // P1 (код-аудит 2026-06-14): org-фильтр как в соседних запросах
+                    // KPI — иначе topDrivers утекали водители всех тенантов.
+                    organizationId ? eq(trips.organizationId, organizationId) : undefined,
                 ))
                 .groupBy(drivers.id, users.fullName)
                 .orderBy(desc(sql`count(${trips.id})`))

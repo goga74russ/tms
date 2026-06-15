@@ -54,7 +54,7 @@ function scopedVehicleCondition(column: any, organizationId?: string | null) {
 // ================================================================
 
 export async function listVehicles(
-    filters: { status?: string; search?: string; isArchived?: boolean; organizationId?: string | null },
+    filters: { status?: string; search?: string; isArchived?: boolean; organizationId?: string | null; crossTenant?: boolean },
     pagination?: Partial<Pagination>,
 ) {
     const p = paginationDefaults(pagination);
@@ -83,6 +83,10 @@ export async function listVehicles(
 
     if (filters.organizationId) {
         conditions.push(eq(vehicles.organizationId, filters.organizationId));
+    } else if (!filters.crossTenant) {
+        // P1 (код-аудит 2026-06-14): org-less не-super-admin → DENY. Раньше список
+        // ТС без org-фильтра отдавал парк всех тенантов.
+        conditions.push(sql`false`);
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -108,8 +112,11 @@ export async function listVehicles(
     return { data: enriched, pagination: paginationMeta(total, p) };
 }
 
-export async function getVehicle(id: string, organizationId?: string | null) {
-    const vehicleWhere = organizationId ? and(eq(vehicles.id, id), eq(vehicles.organizationId, organizationId)) : eq(vehicles.id, id);
+export async function getVehicle(id: string, organizationId?: string | null, crossTenant = false) {
+    // org-less не-super-admin → DENY (sql`false`), а не безусловный eq(id).
+    const vehicleWhere = organizationId
+        ? and(eq(vehicles.id, id), eq(vehicles.organizationId, organizationId))
+        : (crossTenant ? eq(vehicles.id, id) : sql`false`);
     const [vehicle] = await db.select().from(vehicles).where(vehicleWhere);
     if (!vehicle) return null;
 

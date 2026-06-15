@@ -4,7 +4,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAbility } from '../../auth/rbac.js';
-import { assertVehicleAccess } from '../../auth/guards.js';
+import { assertVehicleAccess, isPlatformSuperAdmin } from '../../auth/guards.js';
 import * as repairsService from './service.js';
 import { RepairRequestCreateSchema, RepairRequestSchema } from '@tms/shared';
 import { safeClientError } from '../../utils/safe-error.js';
@@ -45,9 +45,9 @@ export default async function repairsRoutes(app: FastifyInstance) {
         preHandler: [app.authenticate, requireAbility('read', 'RepairRequest')],
     }, async (request) => {
         const { page, limit, status, vehicleId, search, dateFrom, dateTo } = request.query as RepairQuery;
-        const { organizationId } = request.user as { userId: string; roles: string[]; organizationId?: string };
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string };
         const result = await repairsService.listRepairs(
-            { status, vehicleId, search, dateFrom, dateTo, organizationId },
+            { status, vehicleId, search, dateFrom, dateTo, organizationId: user.organizationId, crossTenant: isPlatformSuperAdmin(user) },
             { page: Number(page), limit: Number(limit) },
         );
         return { success: true, data: result.data, ...result.pagination };
@@ -129,8 +129,8 @@ export default async function repairsRoutes(app: FastifyInstance) {
         preHandler: [app.authenticate, requireAbility('read', 'RepairRequest')],
     }, async (request, reply) => {
         const { id } = request.params as { id: string };
-        const { organizationId } = request.user as { organizationId?: string | null };
-        const repair = await repairsService.getRepair(id, organizationId);
+        const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
+        const repair = await repairsService.getRepair(id, user.organizationId, isPlatformSuperAdmin(user));
         if (!repair) return reply.status(404).send({ success: false, error: 'Repair request not found' });
         return { success: true, data: repair };
     });

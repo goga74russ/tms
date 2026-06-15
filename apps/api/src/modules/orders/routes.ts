@@ -90,6 +90,20 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
             organizationId: user.organizationId,
         });
 
+        // P1 (код-аудит 2026-06-14): K3-redaction как на /orders/list и /orders/:id.
+        // Раньше plain GET /orders отдавал customerPrice любой роли с read Order
+        // (logist/dispatcher/driver/client) — утечка коммерческой цены по тенанту.
+        const canViewFinance = user.roles.includes('manager')
+            || user.roles.includes('accountant')
+            || user.roles.includes('admin');
+        if (!canViewFinance) {
+            result.data = result.data.map((r: any) => ({
+                ...r,
+                customerPrice: null,
+                customerPriceIncludesVat: false,
+            }));
+        }
+
         return { success: true, ...result };
     });
 

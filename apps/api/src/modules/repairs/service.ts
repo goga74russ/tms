@@ -8,6 +8,7 @@ import { eq, and, desc, count, or, ilike, gte, lte, sql, inArray, isNull } from 
 import { recordEvent } from '../../events/journal.js';
 import { REPAIR_STATE_TRANSITIONS } from '@tms/shared';
 import { containsLikePattern } from '../../utils/search.js';
+import { isPlatformSuperAdmin } from '../../auth/guards.js';
 import {
     normalizePart,
     mergeRepairParts,
@@ -599,16 +600,21 @@ function paginationMeta(total: number, p: Pagination) {
     return { total, page: p.page, limit: p.limit, totalPages: Math.ceil(total / p.limit) };
 }
 
-function scopedRepairCondition(id: string, organizationId?: string | null) {
-    return organizationId
-        ? and(
+// P1 (код-аудит 2026-06-14): org-less актор раньше вырождал scope в безусловный
+// eq(id) → read+write IDOR по всем тенантам. Теперь: с org — фильтр по vehicles
+// своего тенанта; без org + super-admin — кросс-тенант по дизайну; без org и НЕ
+// super-admin (мисконфиг) — DENY (sql`false` не матчит ничего).
+function scopedRepairCondition(id: string, organizationId?: string | null, crossTenant = false) {
+    if (organizationId) {
+        return and(
             eq(repairRequests.id, id),
             inArray(
                 repairRequests.vehicleId,
                 db.select({ id: vehicles.id }).from(vehicles).where(eq(vehicles.organizationId, organizationId)),
             ),
-        )
-        : eq(repairRequests.id, id);
+        );
+    }
+    return crossTenant ? eq(repairRequests.id, id) : sql`false`;
 }
 
 // ================================================================
@@ -620,6 +626,7 @@ export async function listRepairs(
         status?: string; vehicleId?: string;
         search?: string; dateFrom?: string; dateTo?: string;
         organizationId?: string | null;
+        crossTenant?: boolean;
     },
     pagination?: Partial<Pagination>,
 ) {
@@ -642,6 +649,9 @@ export async function listRepairs(
         conditions.push(
             inArray(repairRequests.vehicleId, db.select({ id: vehicles.id }).from(vehicles).where(eq(vehicles.organizationId, filters.organizationId)))
         );
+    } else if (!filters.crossTenant) {
+        // org-less не-super-admin → DENY (раньше список отдавал заявки всех тенантов).
+        conditions.push(sql`false`);
     }
 
     const where = conditions.length > 0 ? and(...conditions) : undefined;
@@ -659,8 +669,8 @@ export async function listRepairs(
     return { data: rows.map((row: any) => normalizeRepair(row)), pagination: paginationMeta(total, p) };
 }
 
-export async function getRepair(id: string, organizationId?: string | null) {
-    const [repair] = await db.select().from(repairRequests).where(scopedRepairCondition(id, organizationId));
+export async function getRepair(id: string, organizationId?: string | null, crossTenant = false) {
+    const [repair] = await db.select().from(repairRequests).where(scopedRepairCondition(id, organizationId, crossTenant));
     if (!repair) return null;
 
     // Fetch vehicle info
@@ -747,7 +757,7 @@ export async function updateRepairStatus(
     user: { userId: string; roles: string[]; organizationId?: string | null },
 ) {
     // Get current repair
-    const [repair] = await db.select().from(repairRequests).where(scopedRepairCondition(id, user.organizationId));
+    const [repair] = await db.select().from(repairRequests).where(scopedRepairCondition(id, user.organizationId, isPlatformSuperAdmin(user)));
     if (!repair) throw new Error('Заявка на ремонт не найдена');
 
     // Validate transition
@@ -771,7 +781,7 @@ export async function updateRepairStatus(
     const updated = await db.transaction(async (tx) => {
         const [result] = await tx.update(repairRequests)
             .set(updateData)
-            .where(scopedRepairCondition(id, user.organizationId))
+            .where(scopedRepairCondition(id, user.organizationId, isPlatformSuperAdmin(user)))
             .returning();
 
         // On completion, conditionally set vehicle back to available
@@ -868,7 +878,7 @@ export async function updateRepair(
 
     const [updated] = await db.update(repairRequests)
         .set(updateData)
-        .where(scopedRepairCondition(id, user.organizationId))
+        .where(scopedRepairCondition(id, user.organizationId, isPlatformSuperAdmin(user)))
         .returning();
 
     if (!updated) throw new Error('Заявка на ремонт не найдена');
