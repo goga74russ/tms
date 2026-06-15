@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { LayoutShell } from '@/components/layout-shell';
+import { CookieConsent } from '@/components/CookieConsent';
 import { UserProvider } from '@/lib/user-context';
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ export default function RootLayout({
                     <LayoutShell>
                         {children}
                     </LayoutShell>
+                    <CookieConsent />
                 </UserProvider>
             </body>
         </html>
