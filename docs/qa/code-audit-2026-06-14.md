@@ -450,8 +450,15 @@ P0 не обнаружено в верифицированном наборе.
 > (`20e1667`) + wave 2 money/finance (`39f83b6`: billing refund-отзыв, overdueDebt остаток,
 > deleteAdjustment гейт, margin currency-mismatch, web sparkline остаток). По решению
 > владельца — сначала HIGH-теги. Отметки `✅ ЗАКРЫТО` в строках ниже.
-> **Wave 3** валидация/RBAC (`e0a901a`): claims status, import RBAC+ИНН, notifications
-> userId-санитизация, carriers archived, verify-email. Закрыто 20/69. Дальше — остаток HIGH.
+> **Закрыто 50/69** за сессию (waves 1-8): cross-tenant, money/finance, валидация/RBAC,
+> correctness/TOCTOU, rto/edi/sync/copilot, onboarding/tachograph/kontur/osago/cold-chain,
+> PDF-округление, mobile-offline, inspections/mergeStatus. Каждая — tsc + тесты.
+> **Осталось 19** (не code-only / низкий приоритет): миграции (carrier_contracts unique,
+> sync route_points updated_at, fleet driver-per-user unique, repair category column);
+> архитектурные (finance two-payment-systems, mchd expired cron); devops (schema drift);
+> /pm (gosklyuch skip-тесты); MEDIUM-хвост (geo stub, trip-change freeMinutes, fuel-card
+> idempotency, copilot N+1, operational splitLots, orders assignOrderToTrip latent,
+> trips COMPLETED outside tx, analyzeFuel org-less). См. строки без отметки ниже.
 
 **api/auth**
 
@@ -477,7 +484,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/cold-chain/service.ts:78-90` — [HIGH] Несовместимые SLA-диапазоны мульти-лот рейса дают инвертированную границу → ВСЕ замеры = breach  → /transpult
 - `apps/api/src/modules/cold-chain/service.ts:110-145` — [HIGH] recordReading стампит input.orderId на замер без проверки принадлежности рейсу/тенанту  → /transpult  **✅ ЗАКРЫТО `7f8e170`** (валидация orderId∈trip; org из рейса + assertTripAccess)
 - `apps/api/src/modules/cold-chain/service.ts:241-247` — [HIGH] summarizeReadings: SLA-границы (resolveTripSla) возвращаются без org-фильтра — info-leak чужого рейса через copilot  → /transpult  **✅ ЗАКРЫТО `20e1667`** (guard принадлежности рейса до resolveTripSla)
-- `apps/api/src/modules/cold-chain/service.ts:165-196` — [HIGH] recordEvent внутри транзакции делает SELECT users + сетевой enqueue с timeout 3с — транзакция держится открытой до 6с/замер  → /transpult
+- `apps/api/src/modules/cold-chain/service.ts:165-196` — [HIGH] recordEvent внутри транзакции делает SELECT users + сетевой enqueue с timeout 3с — транзакция держится открытой до 6с/замер  → /transpult  **✅ ЗАКРЫТО `62259c4`** (recordEvent вынесен за tx)
 
 **api/compliance+adr**
 
@@ -494,8 +501,8 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/documents**
 
-- `apps/api/src/modules/documents/sf-pdf.ts:124-158` — [HIGH] СФ: сумма построчных НДС/баз (back-calc по строкам) может не сходиться с итоговыми subtotal/vatAmount — копеечные расхождения в счёте-фактуре  → /transpult
-- `apps/api/src/modules/documents/upd-pdf.ts:141-160` — [HIGH] УПД: построчные база/НДС back-calc из gross-amount, а итог берётся из vatAmount — потенциальное расхождение граф по строкам с итогом  → /transpult
+- `apps/api/src/modules/documents/sf-pdf.ts:124-158` — [HIGH] СФ: сумма построчных НДС/баз (back-calc по строкам) может не сходиться с итоговыми subtotal/vatAmount — копеечные расхождения в счёте-фактуре  → /transpult  **✅ ЗАКРЫТО `62259c4`** (reconciliation последней строкой)
+- `apps/api/src/modules/documents/upd-pdf.ts:141-160` — [HIGH] УПД: построчные база/НДС back-calc из gross-amount, а итог берётся из vatAmount — потенциальное расхождение граф по строкам с итогом  → /transpult  **✅ ЗАКРЫТО `62259c4`** (reconciliation последней строкой)
 
 **api/edi**
 
@@ -525,8 +532,8 @@ P0 не обнаружено в верифицированном наборе.
 **api/inspections**
 
 - `apps/api/src/modules/inspections/service.ts:159-162` — [HIGH] Org-скоуп очередей фильтрует рейсы по водителю — рейсы с driverId=null выпадают из техочереди  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (тех-очередь: org через trips.organizationId)
-- `apps/api/src/modules/inspections/service.ts:702-710` — [MEDIUM] listMedInspections скоупит тенант через users.organizationId, остальные med-запросы — через drivers.organizationId  → /transpult
-- `apps/api/src/modules/inspections/service.ts:364-367` — [MEDIUM] Описание ремонт-заявки и причины брака пишутся сырым английским — i18n-утечка в персистентных данных  → /transpult
+- `apps/api/src/modules/inspections/service.ts:702-710` — [MEDIUM] listMedInspections скоупит тенант через users.organizationId, остальные med-запросы — через drivers.organizationId  → /transpult  **✅ ЗАКРЫТО `3b68b6a`** (drivers.organizationId)
+- `apps/api/src/modules/inspections/service.ts:364-367` — [MEDIUM] Описание ремонт-заявки и причины брака пишутся сырым английским — i18n-утечка в персистентных данных  → /transpult  **✅ ЗАКРЫТО `3b68b6a`** (русские строки)
 
 **api/mchd**
 
@@ -580,7 +587,7 @@ P0 не обнаружено в верифицированном наборе.
 
 - `apps/api/src/modules/trips/service.ts:369-376` — [HIGH] При отмене рейса заявки отвязываются (tripId=null), но строки trip_orders и route_points не удаляются — рассинхрон слоёв  → /transpult  **✅ ЗАКРЫТО `8a697da`** (delete junction+route_points в tx)
 - `apps/api/src/modules/trips/margin.ts:72-97` — [HIGH] computeTripMargin смешивает валюты revenue и cost — выдаёт финансово некорректную маржу  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (margin=null + currencyMismatch при разных валютах)
-- `apps/api/src/modules/trips/transport-documents-store.ts:487-520` — [MEDIUM] mergeStatus при ресинхроне может затереть провайдерский REJECTED более высоким производным статусом  → /transpult
+- `apps/api/src/modules/trips/transport-documents-store.ts:487-520` — [MEDIUM] mergeStatus при ресинхроне может затереть провайдерский REJECTED более высоким производным статусом  → /transpult  **✅ ЗАКРЫТО `3b68b6a`** (REJECTED залипает)
 - `apps/api/src/modules/trips/service.ts:1048-1074` — [MEDIUM] Проверки готовности к COMPLETED (route points, обязательное подтверждение) выполняются вне транзакции — TOCTOU  → /transpult
 
 **api/misc-modules**
@@ -600,7 +607,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **web/ops2**
 
-- `apps/web/src/app/repair/page.tsx:126-145` — [MEDIUM] CreateRepairModal отправляет assignedTo/category, которые бэкенд может молча игнорировать  → /transpult
+- `apps/web/src/app/repair/page.tsx:126-145` — [MEDIUM] CreateRepairModal отправляет assignedTo/category, которые бэкенд может молча игнорировать  → /transpult  **✅ ЗАКРЫТО `3b68b6a`** (assignedTo персистится; category не слётся — нет колонки)
 
 **web/finance**
 
@@ -612,8 +619,8 @@ P0 не обнаружено в верифицированном наборе.
 
 **mobile**
 
-- `apps/mobile/src/screens/DeliveryConfirmationScreen.tsx:127-166` — [HIGH] Офлайн-доставка: локальный file:// URI попадает в photoUrls и при replay уходит на сервер как битая ссылка  → /transpult
-- `apps/mobile/src/api/offlineQueue.ts:219-259` — [HIGH] replayQueue: успешные действия теряются при сбое записи усечённой очереди (нет транзакции / порядок setItem)  → /transpult
+- `apps/mobile/src/screens/DeliveryConfirmationScreen.tsx:127-166` — [HIGH] Офлайн-доставка: локальный file:// URI попадает в photoUrls и при replay уходит на сервер как битая ссылка  → /transpult  **✅ ЗАКРЫТО `3b68b6a`** (photoUrls пуст, URI в photos для upload-on-replay)
+- `apps/mobile/src/api/offlineQueue.ts:219-259` — [HIGH] replayQueue: успешные действия теряются при сбое записи усечённой очереди (нет транзакции / порядок setItem)  → /transpult  **✅ ЗАКРЫТО `3b68b6a`** (dead-letter записывается до усечения очереди)
 
 ### P3 — 83 (списком)
 
