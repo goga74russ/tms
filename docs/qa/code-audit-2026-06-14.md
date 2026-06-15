@@ -629,8 +629,8 @@ P0 не обнаружено в верифицированном наборе.
 
 - `apps/api/src/auth/auth.ts:1402-1422` — signup: bcrypt (CPU-bound ~100мс) выполняется ВНУТРИ db-транзакции — держит соединение/блокировки  _(api/auth)_
 - `apps/api/src/auth/auth.ts:1393-1396` — Незакрытый TODO(security P0-3) помечен в коде как открытый, но прежняя уязвимая ветка переписана — TODO устарел/вводит в заблуждение  _(api/auth)_  **✅ ЗАКРЫТО `ca73c00`**
-- `apps/api/src/auth/plan-guard.ts:49-49` — requireFeature проверяет роль 'super_admin', которой нет в APP_ROLES — мёртвая ветка / рассинхрон ролевой модели  _(api/auth)_
-- `apps/api/src/auth/auth.ts:1483-1498` — verify-email активирует пользователя по совпадению email+код без проверки текущего состояния (re-activation деактивированного аккаунта)  _(api/auth)_
+- `apps/api/src/auth/plan-guard.ts:49-49` — requireFeature проверяет роль 'super_admin', которой нет в APP_ROLES — мёртвая ветка / рассинхрон ролевой модели  _(api/auth)_  **✅ ЗАКРЫТО `16df216`**
+- `apps/api/src/auth/auth.ts:1483-1498` — verify-email активирует пользователя по совпадению email+код без проверки текущего состояния (re-activation деактивированного аккаунта)  _(api/auth)_  **✅ ЗАКРЫТО `16df216`**
 - `apps/api/src/auth/auth.ts:819-824` — PUT /users/:id: эскалация роли до 'admin' для произвольного пользователя org не дублирует lateral-super-admin guard из POST  _(api/auth)_
 - `apps/api/src/auth/auth.ts:1528-1536` — Расхождение док/реализации: /resend-code документирован «1 раз в минуту на email», но rate-limit задан LOGIN_RATE_LIMIT_MAX=5  _(api/auth)_
 - `apps/api/src/auth/auth.ts:740-743` — GET /users пагинация: некорректный/отрицательный page|limit не валидируется (parseInt без guard → NaN/negative offset)  _(api/auth)_  **✅ ЗАКРЫТО `3d8bc6b`**
@@ -643,7 +643,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/compliance/osago/service.ts:21-58` — OSAGO-проверка никогда не грузит per-org креды — всегда mock-адаптер, фиктивный статус сохраняется как достоверный  _(api/compliance+adr)_
 - `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:82-99` — ensureConversation не проверяет принадлежность беседы текущей организации — кросс-орг привязка сообщений  _(api/copilot)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:117-122` — messageCount/lastActivityAt обновляются вне транзакции с insert сообщения — возможен дрейф счётчика  _(api/copilot)_
-- `apps/api/src/modules/documents/routes.ts:115-147` — POST document-returns: любая ошибка БД маскируется под 409 'Не удалось создать запись'  _(api/documents)_
+- `apps/api/src/modules/documents/routes.ts:115-147` — POST document-returns: любая ошибка БД маскируется под 409 'Не удалось создать запись'  _(api/documents)_  **✅ ЗАКРЫТО `16df216`**
 - `apps/api/src/modules/documents/routes.ts:116-141` — POST/PUT document-returns: insert/update + recordEvent + syncTransportDocumentsForTrip вне транзакции (частичная рассинхронизация)  _(api/documents)_
 - `apps/api/src/modules/documents/sf-pdf.ts:36-140` — SF: поле includesVat объявлено, но не используется — НДС всегда back-calc из gross amount  _(api/documents)_
 - `apps/api/src/modules/documents/waybill-pdf.ts:146-159` — Путевой лист: сырое значение mechanicDecision/medicDecision печатается как есть при значении != 'approved'  _(api/documents)_  **✅ ЗАКРЫТО `3d8bc6b`**
@@ -689,11 +689,11 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/trips/transport-documents-store.ts:1076-1101` — recordTransportDocumentSignature помечает ЭТрН 'signed' при ≥2 любых ролях — может переоценивать юр-завершённость  _(api/trips)_
 - `apps/api/src/modules/trips/service.ts:863-871` — Дублирующая проверка MED_CERTIFICATE_EXPIRED в assignTrip (одинаковый hard-warning добавляется дважды)  _(api/trips)_  **✅ ЗАКРЫТО `ca73c00`**
 - `apps/api/src/modules/waybills/routes.ts:262-286` — Загрузка вложения ПЛ доверяет заявленному MIME (нет content-sniffing), в отличие от /uploads  _(api/uploads+waybills)_
-- `apps/api/src/modules/waybills/etrn-titles-generator.ts:33-52` — Титулы 2/5/6 ЭТрН форматируют ДатаДок/ДатаВремя в локальной TZ сервера (off-by-one под Docker UTC)  _(api/uploads+waybills)_
+- `apps/api/src/modules/waybills/etrn-titles-generator.ts:33-52` — Титулы 2/5/6 ЭТрН форматируют ДатаДок/ДатаВремя в локальной TZ сервера (off-by-one под Docker UTC)  _(api/uploads+waybills)_  **✅ ЗАКРЫТО `16df216`**
 - `apps/api/src/modules/waybills/routes.ts:274-286` — Загрузка вложения ПЛ: файл на диск пишется до INSERT, нет транзакции — orphan-файл при сбое  _(api/uploads+waybills)_
 - `apps/api/src/modules/waybills/etrn-generator.ts:71-78` — escapeXml не вырезает запрещённые XML-1.0 управляющие символы → невалидный XML ЭТрН  _(api/uploads+waybills)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/modules/demo/service.ts:126-305` — generateDemoData не транзакционен → при сбое посередине дублирование демо-набора при повторе  _(api/misc-modules)_
-- `apps/api/src/modules/dpa/routes.ts:144-164` — POST /dpa/accept возвращает текущее время как acceptedAt при идемпотентном повторе  _(api/misc-modules)_
+- `apps/api/src/modules/dpa/routes.ts:144-164` — POST /dpa/accept возвращает текущее время как acceptedAt при идемпотентном повторе  _(api/misc-modules)_  **✅ ЗАКРЫТО `16df216`**
 - `apps/api/src/providers/_errors.ts:64-69` — extractHttpStatus bare-number fallback can mis-classify provider errors by grabbing unrelated 100-599 numbers  _(api/providers)_
 - `apps/api/src/providers/signature/mock.ts:35-41` — Mock signature interpolates documentId/userId into XML without escaping (breaks/forges envelope on special chars)  _(api/providers)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/providers/telematics/wialon.ts:91-109` — Skeleton telematics methods return [] (silent empty success) instead of signalling not-implemented after the throwing token step  _(api/providers)_
