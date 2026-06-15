@@ -634,7 +634,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/auth/auth.ts:819-824` — PUT /users/:id: эскалация роли до 'admin' для произвольного пользователя org не дублирует lateral-super-admin guard из POST  _(api/auth)_
 - `apps/api/src/auth/auth.ts:1528-1536` — Расхождение док/реализации: /resend-code документирован «1 раз в минуту на email», но rate-limit задан LOGIN_RATE_LIMIT_MAX=5  _(api/auth)_
 - `apps/api/src/auth/auth.ts:740-743` — GET /users пагинация: некорректный/отрицательный page|limit не валидируется (parseInt без guard → NaN/negative offset)  _(api/auth)_  **✅ ЗАКРЫТО `3d8bc6b`**
-- `apps/api/src/modules/billing/service.ts:273-277` — Устаревший комментарий: idx_payments_provider_id описан как НЕуникальный, хотя миграция 0045 добавила partial-unique  _(api/billing)_
+- `apps/api/src/modules/billing/service.ts:273-277` — Устаревший комментарий: idx_payments_provider_id описан как НЕуникальный, хотя миграция 0045 добавила partial-unique  _(api/billing)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/modules/carriers/routes.ts:116-126` — POST /carrier-contracts не проверяет endDate >= startDate (инвариант проверяется только в неподключённом helper)  _(api/carriers)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/claims/routes.ts:205-221` — create: org-привязка claim берётся из contractor сервисом, но route валидирует org только у переданного contractorId — при создании по tripId/orderId без contractorId cross-tenant контроль опирается лишь на assert*Access  _(api/claims)_
 - `apps/api/src/modules/claims/service.ts:119-149` — exposure() грузит все claims и агрегирует в JS вместо SQL-агрегации  _(api/claims)_
@@ -650,7 +650,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/documents/med-inspection-pdf.ts:92-92` — Акты осмотра: сырые enum inspectionType печатаются в документ ('pre_trip'/'post_trip' в поле «Тип осмотра»)  _(api/documents)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/edi/routes.ts:143-152` — Webhook /edi/webhook/:provider: нет валидации provider, нет проверки подписи/HMAC и логируется весь body (документированный stub A-P1-23)  _(api/edi)_
 - `apps/api/src/modules/edi/service.ts:247-287` — progressEdiManually допускает повторный перевод в то же состояние (signed_by_carrier→signed_by_carrier) — дубликат события 'signed' в журнале  _(api/edi)_
-- `apps/api/src/modules/finance/tarification.service.ts:386-391` — minTripCost присваивается в subtotal как строка (numeric) до round/VAT  _(api/finance)_
+- `apps/api/src/modules/finance/tarification.service.ts:386-391` — minTripCost присваивается в subtotal как строка (numeric) до round/VAT  _(api/finance)_  **✅ ЗАКРЫТО `385dfdd`**
 - `apps/api/src/modules/fleet/service.ts:1051-1066` — updateFuelRecord edits liters but never adjusts vehicles.totalFuelConsumedL accumulator → permanent drift  _(api/fleet)_
 - `apps/api/src/modules/fleet/service.ts:101-106` — Mock GPS coordinates injected as real lat/lon in vehicle list/detail responses with no provenance flag  _(api/fleet)_
 - `apps/api/src/modules/geo/routes.ts:10-16` — GeoPointSchema не валидирует диапазоны lat/lon — Haversine считает по бессмысленным координатам  _(api/geo)_  **✅ ЗАКРЫТО `3d8bc6b`**
@@ -660,12 +660,12 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/import/routes.ts:97-102` — mapPgErrorToFriendlyRu не покрывает 23502/22001/22P02 — частые ошибки импорта дают невнятный 'ошибка вставки' и сбрасывают весь батч  _(api/import)_
 - `apps/api/src/modules/import/routes.ts:337-339` — Импорт заявок: невалидные даты погрузки/выгрузки молча уходят как NULL/Invalid Date  _(api/import)_
 - `apps/api/src/modules/import/routes.ts:51-51` — org-less admin (organizationId=null) импортирует записи с NULL-org — обход per-org уникальности и multitenancy-несогласованность  _(api/import)_  **✅ ЗАКРЫТО `9e1ee7b`**
-- `apps/api/src/modules/import/routes.ts:252-267` — preview не ограничивает размер загружаемого XLSX — парсинг файла до проверки лимита строк  _(api/import)_
+- `apps/api/src/modules/import/routes.ts:252-267` — preview не ограничивает размер загружаемого XLSX — парсинг файла до проверки лимита строк  _(api/import)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/modules/integrations/credentials/routes.ts:91-108` — providerType и providerName не валидируются на согласованность → возможен DPA-bypass + строки-сироты, которые никогда не инстанцируют адаптер  _(api/integrations)_
 - `apps/api/src/modules/integrations/credentials/routes.ts:96-154` — POST принимает status='active' напрямую без обязательного успешного health-check → live-операции на непроверенных кредах  _(api/integrations)_
 - `apps/api/src/modules/integrations/credentials/routes.ts:253-265` — /test для несуществующего/несовпадающего адаптера затирает корректный status строки на 'error'  _(api/integrations)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `apps/api/src/modules/mchd/routes.ts:252-258` — Проверка XML МЧД — только префикс '<?xml', реальная МЧД-структура/подпись ФНС не валидируется при загрузке  _(api/mchd)_
-- `apps/api/src/modules/mchd/routes.ts:298-304` — Детекция дубля МЧД по подстроке текста ошибки вместо кода PG 23505 — хрупко  _(api/mchd)_
+- `apps/api/src/modules/mchd/routes.ts:298-304` — Детекция дубля МЧД по подстроке текста ошибки вместо кода PG 23505 — хрупко  _(api/mchd)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/modules/notifications/routes.ts:52-83` — /start без payload создаёт мёртвую подписку (org=null) но рапортует «уведомления подключены»  _(api/notifications)_
 - `apps/api/src/modules/onboarding/routes.ts:252-295` — invite-team: вставка пользователей без транзакции + raw PG unique-violation клиенту при гонке  _(api/onboarding)_
 - `apps/api/src/modules/onboarding/routes.ts:187-214` — save-integration-choice: при defer=true вместе с credentials шифрует и сохраняет ключи, помечая запись disabled — противоречивое состояние  _(api/onboarding)_
@@ -691,13 +691,13 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/waybills/routes.ts:262-286` — Загрузка вложения ПЛ доверяет заявленному MIME (нет content-sniffing), в отличие от /uploads  _(api/uploads+waybills)_
 - `apps/api/src/modules/waybills/etrn-titles-generator.ts:33-52` — Титулы 2/5/6 ЭТрН форматируют ДатаДок/ДатаВремя в локальной TZ сервера (off-by-one под Docker UTC)  _(api/uploads+waybills)_
 - `apps/api/src/modules/waybills/routes.ts:274-286` — Загрузка вложения ПЛ: файл на диск пишется до INSERT, нет транзакции — orphan-файл при сбое  _(api/uploads+waybills)_
-- `apps/api/src/modules/waybills/etrn-generator.ts:71-78` — escapeXml не вырезает запрещённые XML-1.0 управляющие символы → невалидный XML ЭТрН  _(api/uploads+waybills)_
+- `apps/api/src/modules/waybills/etrn-generator.ts:71-78` — escapeXml не вырезает запрещённые XML-1.0 управляющие символы → невалидный XML ЭТрН  _(api/uploads+waybills)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/modules/demo/service.ts:126-305` — generateDemoData не транзакционен → при сбое посередине дублирование демо-набора при повторе  _(api/misc-modules)_
 - `apps/api/src/modules/dpa/routes.ts:144-164` — POST /dpa/accept возвращает текущее время как acceptedAt при идемпотентном повторе  _(api/misc-modules)_
 - `apps/api/src/providers/_errors.ts:64-69` — extractHttpStatus bare-number fallback can mis-classify provider errors by grabbing unrelated 100-599 numbers  _(api/providers)_
-- `apps/api/src/providers/signature/mock.ts:35-41` — Mock signature interpolates documentId/userId into XML without escaping (breaks/forges envelope on special chars)  _(api/providers)_
+- `apps/api/src/providers/signature/mock.ts:35-41` — Mock signature interpolates documentId/userId into XML without escaping (breaks/forges envelope on special chars)  _(api/providers)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/providers/telematics/wialon.ts:91-109` — Skeleton telematics methods return [] (silent empty success) instead of signalling not-implemented after the throwing token step  _(api/providers)_
-- `apps/api/src/providers/ofd/interface.ts:10-12` — Layer drift: OFD interface doc references getDefaultRegistry().ofd which does not exist  _(api/providers)_
+- `apps/api/src/providers/ofd/interface.ts:10-12` — Layer drift: OFD interface doc references getDefaultRegistry().ofd which does not exist  _(api/providers)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/integrations/workers/fines.worker.ts:37-80` — Дедупликация штрафов только на уровне приложения — нет БД-unique на (vehicleId, resolutionNumber), Set не обновляется после вставок  _(api/infra)_
 - `apps/api/src/integrations/workers/wialon.worker.ts:25-119` — decideOdometerUpdate (экспортируемый pure-helper) не используется — логика продублирована inline, риск рассинхрона  _(api/infra)_
 - `apps/web/src/app/admin/billing/page.tsx:62-84` — Cross-tenant биллинг-запрос уходит ДО клиентского super-admin-guard (ordering)  _(web/admin)_  **✅ ЗАКРЫТО `9e1ee7b`**
