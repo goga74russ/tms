@@ -206,6 +206,14 @@ export default async function claimsRoutes(app: FastifyInstance) {
                 effectiveContractorId = myContractorId;
             }
 
+            // P3 (код-аудит 2026-06-14): cross-tenant контроль при создании по
+            // tripId/orderId БЕЗ contractorId уже гарантирован — assertOrderAccess /
+            // assertTripAccess первым делом вызывают assertOrganizationScope([...], user),
+            // т.е. org-принадлежность order/trip текущей организации проверяется ВСЕГДА,
+            // когда orderId/tripId переданы (независимо от contractorId). Сервис берёт
+            // org claim из contractor, но contractor сшит с trip/order через
+            // resolveClaimContractorId (несовпадение → throw), поэтому дублировать
+            // org-фильтр здесь не нужно. Ниже — доп. проверка самого contractorId.
             if (parsed.data.orderId) await assertOrderAccess(parsed.data.orderId, user);
             if (parsed.data.tripId) await assertTripAccess(parsed.data.tripId, user);
             if (effectiveContractorId && user.organizationId) {

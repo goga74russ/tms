@@ -116,29 +116,38 @@ const documentRoutes: FastifyPluginAsync = async (app) => {
         const combinedNotes = buildNotes([semanticTag, expectedTag, parsed.data.notes]);
 
         try {
-            const [row] = await db
-                .insert(documentReturns)
-                .values({
-                    tripId: id,
-                    docType,
-                    status: 'pending',
-                    receivedAt: null,
-                    notes: combinedNotes,
-                })
-                .returning();
+            // P3 #647 (код-аудит 2026-06-14): insert + журнал-событие атомарны в
+            // одной транзакции (recordEvent принимает tx) — раньше при сбое
+            // recordEvent оставалась запись без события. syncTransportDocumentsForTrip
+            // — производная синхронизация, выполняется ПОСЛЕ коммита (best-effort,
+            // глобальный db, не tx-aware).
+            const row = await db.transaction(async (tx) => {
+                const [inserted] = await tx
+                    .insert(documentReturns)
+                    .values({
+                        tripId: id,
+                        docType,
+                        status: 'pending',
+                        receivedAt: null,
+                        notes: combinedNotes,
+                    })
+                    .returning();
 
-            await recordEvent({
-                authorId: user.userId,
-                authorRole: user.roles[0] ?? 'manager',
-                eventType: 'document_return.created',
-                entityType: 'document_return',
-                entityId: row.id,
-                data: {
-                    tripId: id,
-                    documentType: parsed.data.documentType,
-                    docType,
-                    expectedDate: parsed.data.expectedDate ?? null,
-                },
+                await recordEvent({
+                    authorId: user.userId,
+                    authorRole: user.roles[0] ?? 'manager',
+                    eventType: 'document_return.created',
+                    entityType: 'document_return',
+                    entityId: inserted.id,
+                    data: {
+                        tripId: id,
+                        documentType: parsed.data.documentType,
+                        docType,
+                        expectedDate: parsed.data.expectedDate ?? null,
+                    },
+                }, tx);
+
+                return inserted;
             });
 
             await syncTransportDocumentsForTrip(id, user.userId);
@@ -197,29 +206,35 @@ const documentRoutes: FastifyPluginAsync = async (app) => {
         const carriedNotes = parsed.data.notes ?? stripStatusTag(existing.notes);
         const combinedNotes = buildNotes([semanticTag, carriedNotes]);
 
-        const [row] = await db
-            .update(documentReturns)
-            .set({
-                status: dbStatus,
-                receivedAt,
-                notes: combinedNotes,
-                updatedAt: new Date(),
-            })
-            .where(eq(documentReturns.id, id))
-            .returning();
+        // P3 #647 (код-аудит 2026-06-14): update + журнал-событие атомарны в одной
+        // транзакции (recordEvent принимает tx). sync — после коммита (best-effort).
+        const row = await db.transaction(async (tx) => {
+            const [updated] = await tx
+                .update(documentReturns)
+                .set({
+                    status: dbStatus,
+                    receivedAt,
+                    notes: combinedNotes,
+                    updatedAt: new Date(),
+                })
+                .where(eq(documentReturns.id, id))
+                .returning();
 
-        await recordEvent({
-            authorId: user.userId,
-            authorRole: user.roles[0] ?? 'manager',
-            eventType: 'document_return.updated',
-            entityType: 'document_return',
-            entityId: row.id,
-            data: {
-                tripId: row.tripId,
-                status: parsed.data.status,
-                dbStatus,
-                receivedDate: parsed.data.receivedDate ?? null,
-            },
+            await recordEvent({
+                authorId: user.userId,
+                authorRole: user.roles[0] ?? 'manager',
+                eventType: 'document_return.updated',
+                entityType: 'document_return',
+                entityId: updated.id,
+                data: {
+                    tripId: updated.tripId,
+                    status: parsed.data.status,
+                    dbStatus,
+                    receivedDate: parsed.data.receivedDate ?? null,
+                },
+            }, tx);
+
+            return updated;
         });
 
         await syncTransportDocumentsForTrip(row.tripId, user.userId);

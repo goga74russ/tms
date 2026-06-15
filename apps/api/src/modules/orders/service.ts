@@ -5,8 +5,14 @@ import { db } from '../../db/connection.js';
 import { orders, contractors, contracts, trips, tripOrders } from '../../db/schema.js';
 import { eq, and, desc, sql, gte, lte, ilike, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
-import { OrderStatus } from '@tms/shared';
+import { OrderStatus, OrderCreateSchema } from '@tms/shared';
 import { containsLikePattern } from '../../utils/search.js';
+
+// P3 (код-аудит 2026-06-14, находка 677): createOrderFromTemplate собирает input в
+// обход Zod — loadingType/maxTiers копируются из шаблона напрямую. Если в БД-шаблоне
+// эти поля невалидны (legacy/ручная правка), они тихо переносятся в новую заявку.
+// Валидируем именно эти два поля против их zod-энумов из общей OrderCreateSchema.
+const TemplateOrderFieldsSchema = OrderCreateSchema.pick({ loadingType: true, maxTiers: true });
 import { canTransitionOrder, validateCargoBounds, validateTemperatureRange } from './validators.js';
 
 // P1 (код-аудит 2026-06-14): доменная ошибка валидации заявки (cross-tenant FK,
@@ -618,6 +624,18 @@ export async function createOrderFromTemplate(
         createdBy: author.userId,
         organizationId: author.organizationId ?? template.organizationId ?? null,
     };
+
+    // P3 (код-аудит 2026-06-14, находка 677): ре-валидируем loadingType/maxTiers,
+    // перенесённые из шаблона, против zod-энумов — вместо тихого insert невалидных
+    // данных кидаем понятную доменную ошибку (400).
+    const fieldsCheck = TemplateOrderFieldsSchema.safeParse({
+        loadingType: input.loadingType,
+        maxTiers: input.maxTiers,
+    });
+    if (!fieldsCheck.success) {
+        const first = fieldsCheck.error.issues[0];
+        throw new OrderValidationError(`Невалидные данные шаблона: ${first?.path.join('.') || 'поле'} — ${first?.message ?? 'invalid'}`);
+    }
 
     return createOrder(input, author);
 }

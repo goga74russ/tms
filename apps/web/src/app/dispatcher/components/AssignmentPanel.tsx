@@ -180,6 +180,21 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
             return;
         }
 
+        // P3 #707 (код-аудит 2026-06-14): блокируем перевес ПО ОБЪЁМУ на уровне
+        // самой функции, а не только через disabled-кнопку (которая могла быть в
+        // устаревшем состоянии). volumeCheck.requiredVolumeM3 уже агрегирует объём
+        // по всем заявкам назначения (см. серверный расчёт), поэтому это покрывает
+        // и мульти-заявочный случай, который весовая проверка по одной заявке не ловит.
+        if (volumeCheck?.overflow) {
+            const cap = volumeCheck.capacityVolumeM3 ?? null;
+            setToast({
+                message: `Превышение объёма: требуется ${volumeCheck.requiredVolumeM3} м³${cap != null ? ` > вместимость ${cap} м³` : ''}`,
+                type: 'error',
+            });
+            setTimeout(() => setToast(null), 4000);
+            return;
+        }
+
         setIsAssigning(true);
         try {
             if (onAssign) {

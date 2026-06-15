@@ -17,6 +17,17 @@ import {
 import { containsLikePattern } from '../../utils/search.js';
 import { incidentCreateSchema } from './incidents.validators.js';
 
+// P3 #687 (код-аудит 2026-06-14): planned/actualAmount хранятся как numeric и в
+// рантайме возвращаются Drizzle СТРОКОЙ, хотя TS-тип — number. Коэрцируем
+// денежные поля к number на выходе, чтобы слой данных совпадал с типом.
+function coerceExpenseMoney<T extends { plannedAmount: number | null; actualAmount: number | null }>(row: T): T {
+    return {
+        ...row,
+        plannedAmount: row.plannedAmount == null ? null : Number(row.plannedAmount),
+        actualAmount: row.actualAmount == null ? null : Number(row.actualAmount),
+    };
+}
+
 const paginationSchema = z.object({
     page: z.coerce.number().int().min(1).default(1).catch(1),
     limit: z.coerce.number().int().min(1).default(20).catch(20).transform((limit) => Math.min(limit, 100)),
@@ -353,7 +364,10 @@ export default async function sprint9Routes(app: FastifyInstance) {
             .where(eq(waybillExpenses.waybillId, id))
             .orderBy(desc(waybillExpenses.createdAt));
 
-        return { success: true, data: rows };
+        // P3 #687 (код-аудит 2026-06-14): planned/actualAmount — numeric().$type<number>(),
+        // в рантайме это СТРОКА. Коэрцируем к number, чтобы слой данных соответствовал
+        // TS-типу (иначе фронт получает деньги строкой, арифметика/сравнения ломаются).
+        return { success: true, data: rows.map(coerceExpenseMoney) };
     });
 
     app.post('/waybills/:id/expenses', {
@@ -378,7 +392,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
             createdBy: user.userId,
         }).returning();
 
-        return reply.status(201).send({ success: true, data: created });
+        return reply.status(201).send({ success: true, data: coerceExpenseMoney(created) });
     });
 
     app.put('/waybills/:waybillId/expenses/:expenseId', {
@@ -396,7 +410,7 @@ export default async function sprint9Routes(app: FastifyInstance) {
             .where(and(eq(waybillExpenses.id, expenseId), eq(waybillExpenses.waybillId, waybillId)))
             .returning();
         if (!updated) return reply.status(404).send({ success: false, error: 'Расход не найден' });
-        return { success: true, data: updated };
+        return { success: true, data: coerceExpenseMoney(updated) };
     });
 
     app.delete('/waybills/:waybillId/expenses/:expenseId', {
@@ -409,6 +423,6 @@ export default async function sprint9Routes(app: FastifyInstance) {
             .where(and(eq(waybillExpenses.id, expenseId), eq(waybillExpenses.waybillId, waybillId)))
             .returning();
         if (!deleted) return reply.status(404).send({ success: false, error: 'Расход не найден' });
-        return { success: true, data: deleted };
+        return { success: true, data: coerceExpenseMoney(deleted) };
     });
 }

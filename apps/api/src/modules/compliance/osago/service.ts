@@ -34,6 +34,21 @@ export async function runOsagoCheck(args: {
         args.vin ?? undefined,
     );
 
+    // P3 (код-аудит 2026-06-14): per-org резолвинг real-адаптера для OSAGO ещё
+    // не реализован (OSAGO вне формального ProviderType-registry: нет
+    // selectAdapter/loadCredentials для него, getOsagoAdapter без явного имени
+    // всегда отдаёт mockOsagoProvider). Чтобы фиктивный mock-статус не выдавался
+    // за достоверный, помечаем снимок провенансом: adapter.mode==='mock' →
+    // verified:false. Дашборд/потребитель может отличить mock от реальной проверки.
+    // TODO: подключить per-org креды (selectAdapter('osago', orgId, ...) или
+    // loadCredentials + getOsagoAdapter('rsa')) когда РСА-интеграция будет готова.
+    const verified = adapter.mode !== 'mock';
+    const rawWithProvenance: Record<string, unknown> = {
+        ...(status.raw ?? {}),
+        verified,
+        adapterMode: adapter.mode,
+    };
+
     const [row] = await db.insert(osagoChecks).values({
         organizationId: args.organizationId ?? null,
         vehicleId: args.vehicleId,
@@ -41,7 +56,7 @@ export async function runOsagoCheck(args: {
         expiresAt: status.expiresAt ?? null,
         insurer: status.insurer ?? null,
         policyNumber: status.policyNumber ?? null,
-        rawResponse: status.raw ?? null,
+        rawResponse: rawWithProvenance,
         providerName: adapter.name,
     }).returning();
 

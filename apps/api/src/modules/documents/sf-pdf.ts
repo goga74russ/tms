@@ -45,6 +45,16 @@ export async function generateSfPdf(data: SfPdfInput): Promise<Buffer> {
     const rate = data.vatRate ?? null;
     const hasVat = rate != null && rate > 0;
     const vatLabel = hasVat ? `${rate}%` : 'без НДС';
+    // P3 (код-аудит 2026-06-14): семантика флага includesVat.
+    //   includesVat === true (или не задан — сохраняем прежнее поведение):
+    //     SfTripRow.amount — это GROSS (стоимость С НДС), НДС вычленяется
+    //     back-calc: vat = amount * rate / (100 + rate).
+    //   includesVat === false:
+    //     SfTripRow.amount — это БАЗА (без НДС), НДС начисляется СВЕРХ:
+    //     vat = amount * rate / 100, gross = amount + vat.
+    // На практике вызывающий код передаёт gross (true), но ветка false теперь
+    // считается корректно, а не молча трактуется как gross.
+    const vatIncludedInAmount = data.includesVat !== false;
 
     // ── Заголовок (чек-лист #1) ──────────────────────────────
     doc.font('Bold').fontSize(14).fillColor('#000')
@@ -129,8 +139,15 @@ export async function generateSfPdf(data: SfPdfInput): Promise<Buffer> {
     let accVat = 0;
     const rows = data.trips.map((t, i) => {
         const amt = Number(t.amount);
-        let vat = hasVat ? Math.round(amt * (rate as number) / (100 + (rate as number)) * 100) / 100 : 0;
-        let base = amt - vat;
+        // P3 (код-аудит 2026-06-14): база/НДС зависят от семантики includesVat.
+        //   vatIncludedInAmount=true  → amt=gross: vat=amt*r/(100+r), base=amt-vat.
+        //   vatIncludedInAmount=false → amt=база: vat=amt*r/100,      base=amt.
+        let vat = hasVat
+            ? (vatIncludedInAmount
+                ? Math.round(amt * (rate as number) / (100 + (rate as number)) * 100) / 100
+                : Math.round(amt * (rate as number) / 100 * 100) / 100)
+            : 0;
+        let base = vatIncludedInAmount ? amt - vat : amt;
         if (i === lastIdx && hasVat) {
             vat = Math.round((Number(data.vatAmount) - accVat) * 100) / 100;
             base = Math.round((Number(data.subtotal) - accBase) * 100) / 100;

@@ -176,12 +176,17 @@ export async function recordReading(
         if (breach) {
             const severity = severityForBreach(input.tempC, sla);
             const slaText = `SLA ${sla.minC ?? '−∞'}…${sla.maxC ?? '+∞'} °C, замер ${input.tempC} °C`;
+            // P3 (код-аудит 2026-06-14): авто-инцидент не сохранял, какой заказ/лот нарушен.
+            // У incidents нет колонки order_id и нет JSON-поля data → миграцию не добавляем
+            // (вне зоны правки), а фиксируем orderId в текстовом description. orderId уже
+            // провалидирован на принадлежность рейсу выше в recordReading.
+            const orderText = input.orderId ? ` Заявка: ${input.orderId}.` : '';
             const [incident] = await tx
                 .insert(incidents)
                 .values({
                     type: 'cargo',
                     severity,
-                    description: `Нарушение температурного режима. ${slaText}.`,
+                    description: `Нарушение температурного режима. ${slaText}.${orderText}`,
                     tripId: input.tripId,
                     createdBy: author.userId,
                     organizationId, // C3 «в» (миг.0042): org рейса (загружен выше)

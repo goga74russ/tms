@@ -129,6 +129,19 @@ export const claimsService = {
     },
 
     async exposure(filters: ClaimListFilters = {}) {
+        // P3 (код-аудит 2026-06-14): рассмотрена SQL-агрегация (SUM/COUNT) вместо
+        // загрузки всех строк — НЕ применена осознанно по двум причинам:
+        //  1) agregaты завязаны на JS-логику getClaimExposure: reserveAmount/
+        //     estimatedAmount берутся из JSON-поля attachments (findMetadata) ИЛИ
+        //     fallback-regex по тексту description (parseDescriptionAmount), а
+        //     effectiveExposureAmount — приоритетный выбор amount→reserve→estimated.
+        //     Это нельзя выразить в SQL без риска расхождения результата.
+        //  2) метод И ТАК обязан вернуть полный массив enriched-строк (claims: rows)
+        //     наружу (роут /claims/exposure отдаёт их фронту), поэтому строки
+        //     грузятся в любом случае — SQL-агрегация лишь добавила бы 2-й запрос,
+        //     не убрав выборку. Сузить колонки тоже нельзя: enrichClaim использует
+        //     attachments/description/amount/resolvedAmount/type, и они уходят клиенту.
+        // Результат идентичен прежнему; перф-выигрыша от переписывания здесь нет.
         const rows = await this.list(filters);
         const summary = rows.reduce((acc, claim) => {
             const exposure = getClaimExposure(claim);

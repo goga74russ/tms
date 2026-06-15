@@ -1,10 +1,55 @@
 import { and, eq, ne, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { db } from '../../db/connection.js';
 import { claims, orders, routePoints, shipmentFacts, shipmentLots, tripLotAssignments, tripOrders, trips, vehicles } from '../../db/schema.js';
 import { recordEvent } from '../../events/journal.js';
 import { OrderStatus } from '@tms/shared';
 
 type Actor = { userId: string; role: string; organizationId?: string | null };
+
+// P3 (код-аудит 2026-06-14, находка 673): маршруты lot-assignments и shipment-facts
+// прокидывали request.body в write-service без серверной zod-валидации (cast `as any`).
+// Валидируем тело здесь, в слое сервиса (роут-обработчик ловит throw → 400 через
+// safeClientError). id'шники — uuid, количества — неотрицательные, enum-поля —
+// строго против допустимых значений.
+const AssignLotToTripBodySchema = z.object({
+    shipmentLotId: z.string().uuid(),
+    assignedWeightKg: z.number().nonnegative().optional(),
+    assignedVolumeM3: z.number().nonnegative().optional(),
+    assignedPlaces: z.number().int().nonnegative().optional(),
+    allowOverCapacity: z.boolean().optional(),
+});
+
+const CaptureShipmentFactBodySchema = z.object({
+    tripLotAssignmentId: z.string().uuid(),
+    routePointId: z.string().uuid().nullish(),
+    factType: z.enum(['loading', 'unloading', 'return', 'correction', 'discrepancy']),
+    weightKg: z.number().nonnegative().nullish(),
+    volumeM3: z.number().nonnegative().nullish(),
+    places: z.number().int().nonnegative().nullish(),
+    cargoCondition: z.enum(['intact', 'damaged', 'partial']).nullish(),
+    discrepancyCode: z.enum(['shortage', 'overage', 'damage', 'refusal', 'wrong_docs', 'other']).nullish(),
+    notes: z.string().nullish(),
+    attachments: z.array(z.string()).optional(),
+    photoUrls: z.array(z.string()).optional(),
+    signatureUrl: z.string().nullish(),
+    actUrl: z.string().nullish(),
+    palletCount: z.number().int().nonnegative().nullish(),
+    reserveAmount: z.number().nonnegative().nullish(),
+    estimatedAmount: z.number().nonnegative().nullish(),
+    gpsLat: z.number().nullish(),
+    gpsLon: z.number().nullish(),
+    source: z.string().optional(),
+});
+
+function validateBody<T>(schema: z.ZodType<T>, body: unknown): T {
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+        const first = parsed.error.issues[0];
+        throw new Error(`Ошибка валидации тела запроса: ${first?.path.join('.') || 'body'} — ${first?.message ?? 'invalid'}`);
+    }
+    return parsed.data;
+}
 
 function n(value: unknown): number | null {
     if (value === undefined || value === null || value === '') return null;
@@ -101,6 +146,8 @@ export async function splitOrderIntoLots(orderId: string, input: { maxWeightKg?:
     });
 }
 export async function assignLotToTrip(tripId: string, input: { shipmentLotId: string; assignedWeightKg?: number; assignedVolumeM3?: number; assignedPlaces?: number; allowOverCapacity?: boolean }, actor: Actor) {
+    // P3 (код-аудит 2026-06-14, находка 673): серверная zod-валидация тела до любых записей.
+    input = validateBody(AssignLotToTripBodySchema, input);
     return db.transaction(async (tx) => {
         // B-P1-4 (P1-D): FOR UPDATE на trip и lot — capacity-проверка ниже читает
         // sum(assignedWeight) и затем вставляет. Без блокировки две конкурентные
@@ -343,6 +390,8 @@ export async function captureShipmentFact(tripId: string, input: {
     gpsLon?: number | null;
     source?: string;
 }, actor: Actor) {
+    // P3 (код-аудит 2026-06-14, находка 673): серверная zod-валидация тела до любых записей.
+    input = validateBody(CaptureShipmentFactBodySchema, input) as typeof input;
     return db.transaction(async (tx) => {
         const [assignment] = await tx.select().from(tripLotAssignments)
             .where(and(eq(tripLotAssignments.id, input.tripLotAssignmentId), eq(tripLotAssignments.tripId, tripId))).limit(1);
@@ -377,11 +426,31 @@ export async function captureShipmentFact(tripId: string, input: {
             source: input.source ?? 'web',
         }).returning();
 
+        // P3 (код-аудит 2026-06-14, находка 674): раньше ЛЮБОЙ discrepancyCode при
+        // unloading/discrepancy (кроме damaged) схлопывался в 'short'. Излишек, отказ и
+        // документное расхождение — это не недостача. Мапим каждый код на наиболее точный
+        // СУЩЕСТВУЮЩИЙ статус enum trip_lot_assignment_status
+        // (planned|loaded|in_transit|delivered|short|damaged|returned|cancelled).
+        // Маппинг: shortage→short, overage→delivered (груз доставлен, излишек ≠ недостача),
+        // damage→damaged, refusal→returned (отказ → возврат), wrong_docs→delivered
+        // (груз физически доставлен, расхождение документное; claim создаётся отдельно),
+        // other→short (точного статуса нет, консервативно сохраняем прежнее поведение).
+        const discrepancyStatus = (code: typeof input.discrepancyCode, condition: typeof input.cargoCondition): typeof assignment.status => {
+            if (condition === 'damaged' || code === 'damage') return 'damaged';
+            switch (code) {
+                case 'shortage': return 'short';
+                case 'overage': return 'delivered';
+                case 'refusal': return 'returned';
+                case 'wrong_docs': return 'delivered';
+                case 'other': return 'short';
+                default: return 'short';
+            }
+        };
         let status = assignment.status;
         if (input.factType === 'loading') status = 'loaded';
-        if (input.factType === 'unloading') status = input.discrepancyCode || input.cargoCondition === 'damaged' ? (input.cargoCondition === 'damaged' ? 'damaged' : 'short') : 'delivered';
+        if (input.factType === 'unloading') status = (input.discrepancyCode || input.cargoCondition === 'damaged') ? discrepancyStatus(input.discrepancyCode, input.cargoCondition) : 'delivered';
         if (input.factType === 'return') status = 'returned';
-        if (input.factType === 'discrepancy') status = input.cargoCondition === 'damaged' ? 'damaged' : 'short';
+        if (input.factType === 'discrepancy') status = discrepancyStatus(input.discrepancyCode, input.cargoCondition);
 
         await tx.update(tripLotAssignments).set({ status, updatedAt: new Date() }).where(eq(tripLotAssignments.id, assignment.id));
         const lot = await recalcLot(tx, assignment.shipmentLotId);

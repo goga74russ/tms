@@ -3,6 +3,12 @@
 // ================================================================
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+// P3 (код-аудит 2026-06-14): geo-роуты имели только authenticate — асимметрия с
+// остальными модулями (fleet/orders/waybills и т.д. гейтят чтение через
+// requireAbility). Добавляем наименее привилегированную read-ability, доступную
+// большинству ролей, использующих гео в контексте маршрутов заказов: read 'Order'
+// (есть у dispatcher/driver/accountant/client/admin — см. auth/rbac.ts).
+import { requireAbility } from '../../auth/rbac.js';
 import { geocodeAddress, geocodeBatch, reverseGeocode } from './geocoding.service.js';
 import { haversineDistance, calculateDistanceMatrix, calculateRouteDistance, estimateDrivingDistance, findNearest } from './distance.service.js';
 import type { GeoPoint } from './distance.service.js';
@@ -21,7 +27,7 @@ const geoRoutes: FastifyPluginAsync = async (fastify) => {
     // 1. GET /geo/geocode?address=... — Geocode a single address
     fastify.get(
         '/geo/geocode',
-        { schema: { tags: ['Геозоны'], summary: 'Геокодирование', description: 'Преобразование адреса в координаты (lat/lon).' }, preHandler: [fastify.authenticate] },
+        { schema: { tags: ['Геозоны'], summary: 'Геокодирование', description: 'Преобразование адреса в координаты (lat/lon).' }, preHandler: [fastify.authenticate, requireAbility('read', 'Order')] },
         async (request, reply) => {
             const schema = z.object({ address: z.string().min(1) });
             const result = schema.safeParse(request.query);
@@ -37,7 +43,7 @@ const geoRoutes: FastifyPluginAsync = async (fastify) => {
     // 2. POST /geo/geocode/batch — Geocode multiple addresses
     fastify.post(
         '/geo/geocode/batch',
-        { schema: { tags: ['Геозоны'], summary: 'Геокодирование пакетное', description: 'До 50 адресов за один запрос.' }, preHandler: [fastify.authenticate] },
+        { schema: { tags: ['Геозоны'], summary: 'Геокодирование пакетное', description: 'До 50 адресов за один запрос.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Order')] },
         async (request, reply) => {
             const schema = z.object({ addresses: z.array(z.string().min(1)).min(1).max(50) });
             const result = schema.safeParse(request.body);
@@ -53,7 +59,7 @@ const geoRoutes: FastifyPluginAsync = async (fastify) => {
     // 3. GET /geo/reverse?lat=...&lon=... — Reverse geocode
     fastify.get(
         '/geo/reverse',
-        { schema: { tags: ['Геозоны'], summary: 'Обратное геокодирование', description: 'Координаты → адрес.' }, preHandler: [fastify.authenticate] },
+        { schema: { tags: ['Геозоны'], summary: 'Обратное геокодирование', description: 'Координаты → адрес.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Order')] },
         async (request, reply) => {
             const schema = z.object({ lat: z.coerce.number(), lon: z.coerce.number() });
             const result = schema.safeParse(request.query);
@@ -70,7 +76,7 @@ const geoRoutes: FastifyPluginAsync = async (fastify) => {
     // 4. POST /geo/distance — Distance between two points
     fastify.post(
         '/geo/distance',
-        { schema: { tags: ['Геозоны'], summary: 'Расстояние', description: 'Расстояние между двумя точками (Haversine + оценка по дорогам).' }, preHandler: [fastify.authenticate] },
+        { schema: { tags: ['Геозоны'], summary: 'Расстояние', description: 'Расстояние между двумя точками (Haversine + оценка по дорогам).' }, preHandler: [fastify.authenticate, requireAbility('read', 'Order')] },
         async (request, reply) => {
             const schema = z.object({ from: GeoPointSchema, to: GeoPointSchema });
             const result = schema.safeParse(request.body);
@@ -95,7 +101,7 @@ const geoRoutes: FastifyPluginAsync = async (fastify) => {
     // 5. POST /geo/distance-matrix — NxN distance matrix
     fastify.post(
         '/geo/distance-matrix',
-        { schema: { tags: ['Геозоны'], summary: 'Матрица расстояний', description: 'NxN матрица расстояний + общая длина маршрута (до 20 точек).' }, preHandler: [fastify.authenticate] },
+        { schema: { tags: ['Геозоны'], summary: 'Матрица расстояний', description: 'NxN матрица расстояний + общая длина маршрута (до 20 точек).' }, preHandler: [fastify.authenticate, requireAbility('read', 'Order')] },
         async (request, reply) => {
             const schema = z.object({ points: z.array(GeoPointSchema).min(2).max(20) });
             const result = schema.safeParse(request.body);
@@ -121,7 +127,7 @@ const geoRoutes: FastifyPluginAsync = async (fastify) => {
     // 6. POST /geo/nearest — Find nearest point from candidates
     fastify.post(
         '/geo/nearest',
-        { schema: { tags: ['Геозоны'], summary: 'Ближайшая точка', description: 'Поиск ближайшей точки из списка к заданной.' }, preHandler: [fastify.authenticate] },
+        { schema: { tags: ['Геозоны'], summary: 'Ближайшая точка', description: 'Поиск ближайшей точки из списка к заданной.' }, preHandler: [fastify.authenticate, requireAbility('read', 'Order')] },
         async (request, reply) => {
             const schema = z.object({ reference: GeoPointSchema, candidates: z.array(GeoPointSchema).min(1) });
             const result = schema.safeParse(request.body);

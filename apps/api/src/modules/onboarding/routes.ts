@@ -189,8 +189,14 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         }
         const { providerType, providerName, defer, credentials } = parsed.data;
 
-        const status = defer ? 'disabled' : (credentials ? 'sandbox' : 'mock');
-        const encrypted = credentials ? encryptCredentials(credentials) : null;
+        // P3 (код-аудит 2026-06-14, finding 671): defer=true означает «подключу
+        // позже» — ключей пока нет. Раньше при defer=true вместе с credentials
+        // запись всё равно шифровала и сохраняла ключи, но помечалась 'disabled' →
+        // противоречие «сохранили ключи, но запись отключена». Теперь при defer=true
+        // НЕ шифруем и НЕ сохраняем пришедшие credentials.
+        const effectiveCredentials = defer ? null : credentials;
+        const status = defer ? 'disabled' : (effectiveCredentials ? 'sandbox' : 'mock');
+        const encrypted = effectiveCredentials ? encryptCredentials(effectiveCredentials) : null;
 
         const [existing] = await db
             .select({ id: providerCredentials.id })
@@ -258,37 +264,62 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         const created: Array<{ email: string }> = [];
         const failedToEmail: string[] = [];
         const alreadyRegistered: string[] = [];
-        for (const invite of parsed.data.invites) {
-            // P1 (код-аудит 2026-06-14): email — глобальный идентификатор входа
-            // (auth.ts логинит по eq(users.email) без org), поэтому проверка
-            // существования остаётся глобальной. Но раньше существующий email тихо
-            // пропускался (continue) → silent data loss + оракул существования email
-            // чужих орг. Теперь репортим ЕДИНООБРАЗНО в alreadyRegistered, не
-            // различая «в моей орг» vs «в чужой».
-            const [existing] = await db.select({ id: users.id })
-                .from(users)
-                .where(eq(users.email, invite.email))
-                .limit(1);
-            if (existing) {
-                alreadyRegistered.push(invite.email);
-                continue;
-            }
+        // P3 (код-аудит 2026-06-14, finding 670): пользователи, успешно созданные в
+        // транзакции, вместе с temp-паролем — рассылаем письма ТОЛЬКО после коммита,
+        // чтобы не слать приглашения для строк, которые откатятся.
+        const toEmail: Array<{ email: string; fullName: string; tempPassword: string }> = [];
 
-            // A-P0-3/A-P0-13: CSPRNG temp password (16-char base64url, ~96 bits).
-            // NEVER include in API response — admin browser history + monitoring
-            // proxies would retain plaintext. Email-only delivery.
-            const tempPassword = generateTempPassword();
-            const passwordHash = await hashPassword(tempPassword);
-            await db.insert(users).values({
-                email: invite.email,
-                passwordHash,
-                fullName: invite.fullName,
-                roles: invite.roles,
-                organizationId: orgId,
-                isActive: true,
+        // P3 (код-аудит 2026-06-14, finding 670): множественная вставка пользователей
+        // в ОДНОЙ транзакции — раньше без транзакции гонка по email отдавала клиенту
+        // сырой PG unique_violation (23505) и оставляла часть юзеров созданными.
+        // Теперь либо все валидные строки создаются, либо ни одной; 23505 (гонка
+        // между select-проверкой и insert) маппим в понятное сообщение.
+        try {
+            await db.transaction(async (tx) => {
+                for (const invite of parsed.data.invites) {
+                    // P1 (код-аудит 2026-06-14): email — глобальный идентификатор входа
+                    // (auth.ts логинит по eq(users.email) без org), поэтому проверка
+                    // существования остаётся глобальной. Но раньше существующий email тихо
+                    // пропускался (continue) → silent data loss + оракул существования email
+                    // чужих орг. Теперь репортим ЕДИНООБРАЗНО в alreadyRegistered, не
+                    // различая «в моей орг» vs «в чужой».
+                    const [existing] = await tx.select({ id: users.id })
+                        .from(users)
+                        .where(eq(users.email, invite.email))
+                        .limit(1);
+                    if (existing) {
+                        alreadyRegistered.push(invite.email);
+                        continue;
+                    }
+
+                    // A-P0-3/A-P0-13: CSPRNG temp password (16-char base64url, ~96 bits).
+                    // NEVER include in API response — admin browser history + monitoring
+                    // proxies would retain plaintext. Email-only delivery.
+                    const tempPassword = generateTempPassword();
+                    const passwordHash = await hashPassword(tempPassword);
+                    await tx.insert(users).values({
+                        email: invite.email,
+                        passwordHash,
+                        fullName: invite.fullName,
+                        roles: invite.roles,
+                        organizationId: orgId,
+                        isActive: true,
+                    });
+                    created.push({ email: invite.email });
+                    toEmail.push({ email: invite.email, fullName: invite.fullName, tempPassword });
+                }
             });
-            created.push({ email: invite.email });
+        } catch (err: any) {
+            // P3 (код-аудит 2026-06-14, finding 670): не отдаём сырой PG-текст.
+            if (err?.code === '23505') {
+                return reply.status(409).send({ success: false, error: 'Пользователь с таким email уже существует' });
+            }
+            request.log.error({ err }, 'invite-team transaction failed');
+            return reply.status(500).send({ success: false, error: 'Не удалось создать приглашённых пользователей' });
+        }
 
+        // Рассылка писем — после коммита транзакции (см. finding 670 выше).
+        for (const u of toEmail) {
             try {
                 // A-P1-7: escape user-controlled values before HTML
                 // interpolation. fullName is admin-supplied (still untrusted —
@@ -296,16 +327,16 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
                 // is base64url so currently safe but escape on principle so
                 // a future entropy-source change can't introduce XSS.
                 await adapter.send(
-                    invite.email,
+                    u.email,
                     'ТрансПульт — приглашение в систему',
-                    `<p>Здравствуйте, ${escapeHtml(invite.fullName)}!</p>
-                     <p>Вас пригласили в ТрансПульт. Временный пароль: <strong>${escapeHtml(tempPassword)}</strong></p>
+                    `<p>Здравствуйте, ${escapeHtml(u.fullName)}!</p>
+                     <p>Вас пригласили в ТрансПульт. Временный пароль: <strong>${escapeHtml(u.tempPassword)}</strong></p>
                      <p>После входа смените пароль в профиле.</p>`,
-                    `Временный пароль для входа в ТрансПульт: ${tempPassword}`,
+                    `Временный пароль для входа в ТрансПульт: ${u.tempPassword}`,
                 );
             } catch (err) {
-                request.log.error({ err, email: invite.email }, 'Failed to send invite email');
-                failedToEmail.push(invite.email);
+                request.log.error({ err, email: u.email }, 'Failed to send invite email');
+                failedToEmail.push(u.email);
             }
         }
 

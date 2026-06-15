@@ -105,6 +105,9 @@ export async function listVehicles(
     const enriched = rows.map((v: any) => ({
         ...v,
         ...getMockCoordinatesForVehicle(v.plateNumber, v.status),
+        // P3 (код-аудит 2026-06-14): lat/lon берутся из симулятора, а отдавались как
+        // реальные. Помечаем провенанс, чтобы фронт отличал mock-координаты от GPS.
+        gpsSource: 'mock' as const,
         deadlines: getVehicleDeadlines(v),
         isBlocked: hasExpiredDocuments(v),
     }));
@@ -166,6 +169,9 @@ export async function getVehicle(id: string, organizationId?: string | null, cro
     return {
         ...vehicle,
         ...getMockCoordinatesForVehicle(vehicle.plateNumber, vehicle.status),
+        // P3 (код-аудит 2026-06-14): см. listVehicles — lat/lon симулированы,
+        // помечаем провенанс, чтобы фронт не выдавал mock за реальный GPS.
+        gpsSource: 'mock' as const,
         deadlines: getVehicleDeadlines(vehicle),
         isBlocked: hasExpiredDocuments(vehicle),
         repairs,
@@ -1066,10 +1072,30 @@ export async function updateFuelRecord(id: string, data: Partial<{
     if (data.fuelType !== undefined) updateData.fuelType = data.fuelType;
     if (data.station !== undefined) updateData.station = data.station;
     if (data.odometerAtFill !== undefined) updateData.odometerAtFill = data.odometerAtFill;
-    const [updated] = await db.update(fuelRecords).set(updateData)
-        .where(organizationId ? and(eq(fuelRecords.id, id), eq(fuelRecords.organizationId, organizationId)) : eq(fuelRecords.id, id))
-        .returning();
-    return updated ?? null;
+    const recordWhere = organizationId
+        ? and(eq(fuelRecords.id, id), eq(fuelRecords.organizationId, organizationId))
+        : eq(fuelRecords.id, id);
+    // P3 (код-аудит 2026-06-14): редактирование liters не корректировало аккумулятор
+    // vehicles.totalFuelConsumedL (createFuelRecord его наращивает) → постоянный дрейф.
+    // Грузим старую запись, считаем delta = new - old и правим аккумулятор ТС в той же
+    // транзакции. numeric().$type<number>() в рантайме строка → коэрцим через Number().
+    return db.transaction(async (tx) => {
+        const [old] = await tx.select({ vehicleId: fuelRecords.vehicleId, liters: fuelRecords.liters })
+            .from(fuelRecords).where(recordWhere).limit(1);
+        if (!old) return null;
+        const [updated] = await tx.update(fuelRecords).set(updateData)
+            .where(recordWhere)
+            .returning();
+        if (updated && data.liters !== undefined) {
+            const delta = data.liters - Number(old.liters);
+            if (delta !== 0) {
+                await tx.update(vehicles)
+                    .set({ totalFuelConsumedL: sql`total_fuel_consumed_l + ${delta}` })
+                    .where(eq(vehicles.id, old.vehicleId));
+            }
+        }
+        return updated ?? null;
+    });
 }
 
 // ================================================================

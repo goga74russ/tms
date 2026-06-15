@@ -400,7 +400,16 @@ export async function listRepairPartCatalog(
 }
 
 export async function getRepairPartCatalogMeta(organizationId?: string | null): Promise<RepairPartCatalogMeta> {
-    const catalogItems = await loadRepairPartCatalogItems({ limit: 1000, organizationId });
+    // P3 (код-аудит 2026-06-14, находка 680): раньше грузили до 1000 позиций ради
+    // 8 featured + по 4 на категорию. Полное снижение до top-N-per-category небезопасно:
+    // resolveCatalogBundle/Template ищут конкретные позиции по id (engine-oil-5w30 и т.п.)
+    // в этом же наборе — урезанная выборка может их не содержать, и bundles/sourceTemplates
+    // перестанут резолвиться. Поэтому снижаем порог до 500 (тот же безопасный cap, что уже
+    // применяется в loadRepairPartCatalogItems и listRepairPartCatalog), а не до десятков.
+    // При реалистичном размере каталога (сид ~24 глобальных + org-позиции) 500 с запасом
+    // покрывает все категории, featured и bundle-позиции; over-fetch снижен вдвое без
+    // потери корректности вывода.
+    const catalogItems = await loadRepairPartCatalogItems({ limit: 500, organizationId });
     const grouped = new Map<string, RepairPartCatalogItem[]>();
 
     for (const item of catalogItems) {
@@ -523,7 +532,7 @@ export async function updateRepairPartCatalogItem(
         aliases: string[];
         isArchived: boolean;
     }>,
-    user: { userId: string; organizationId?: string | null },
+    user: { userId: string; organizationId?: string | null; roles?: string[]; role?: string },
 ) {
     const [updated] = await db
         .update(repairPartCatalog)
@@ -537,9 +546,12 @@ export async function updateRepairPartCatalogItem(
             isArchived: data.isArchived,
             updatedAt: new Date(),
         })
-        .where(user.organizationId
-            ? and(eq(repairPartCatalog.id, id), eq(repairPartCatalog.organizationId, user.organizationId))
-            : eq(repairPartCatalog.id, id))
+        // P3 (код-аудит 2026-06-14, находка 678): org-less актор раньше попадал в ветку
+        // eq(id) безусловно — IDOR-мисконфиг (любой org-less правит любую позицию). Теперь
+        // различаем по образцу scopedRepairCondition: org-админ — только свои org-scoped;
+        // платформенный super-admin (admin && !org) — ЛЮБАЯ позиция (org-scoped + глобальные
+        // с organizationId=NULL); прочий org-less — DENY (sql`false`).
+        .where(scopedRepairCatalogCondition(id, user))
         .returning();
 
     if (!updated) {
@@ -563,16 +575,17 @@ export async function updateRepairPartCatalogItem(
     return mapPersistedCatalogItem(updated);
 }
 
-export async function archiveRepairPartCatalogItem(id: string, user: { userId: string; organizationId?: string | null }) {
+export async function archiveRepairPartCatalogItem(id: string, user: { userId: string; organizationId?: string | null; roles?: string[]; role?: string }) {
     const [updated] = await db
         .update(repairPartCatalog)
         .set({
             isArchived: true,
             updatedAt: new Date(),
         })
-        .where(user.organizationId
-            ? and(eq(repairPartCatalog.id, id), eq(repairPartCatalog.organizationId, user.organizationId))
-            : eq(repairPartCatalog.id, id))
+        // P3 (код-аудит 2026-06-14, находка 678): см. updateRepairPartCatalogItem —
+        // тот же scope. super-admin архивирует любую позицию (вкл. глобальные NULL),
+        // org-админ — только свои, прочий org-less — DENY.
+        .where(scopedRepairCatalogCondition(id, user))
         .returning();
 
     if (!updated) {
@@ -632,6 +645,23 @@ function scopedRepairCondition(id: string, organizationId?: string | null, cross
         );
     }
     return crossTenant ? eq(repairRequests.id, id) : sql`false`;
+}
+
+// P3 (код-аудит 2026-06-14, находка 678): scope для правки/архивации позиции каталога
+// repair_part_catalog. Глобальные позиции имеют organizationId=NULL.
+// - org-админ (organizationId задан): только свои org-scoped позиции
+//   (eq(organizationId) НЕ матчит NULL → глобальные защищены от обычного org-админа).
+// - платформенный super-admin (admin && !organizationId): ЛЮБАЯ позиция по id
+//   (org-scoped + глобальные).
+// - прочий org-less (мисконфиг): DENY (sql`false`), как в scopedRepairCondition.
+function scopedRepairCatalogCondition(
+    id: string,
+    user: { organizationId?: string | null; roles?: string[]; role?: string },
+) {
+    if (user.organizationId) {
+        return and(eq(repairPartCatalog.id, id), eq(repairPartCatalog.organizationId, user.organizationId));
+    }
+    return isPlatformSuperAdmin(user) ? eq(repairPartCatalog.id, id) : sql`false`;
 }
 
 // ================================================================

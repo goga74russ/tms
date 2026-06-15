@@ -152,8 +152,20 @@ export async function generateDemoData(
         tripIds: [], orderIds: [],
     };
 
+    // P3 (код-аудит 2026-06-14): bcrypt (CPU-bound) для демо-водителей вычисляем
+    // ДО открытия db.transaction ниже — иначе хеширование держало бы tx-соединение
+    // и удлиняло транзакцию. Готовые хеши используются внутри tx.
+    const driverPasswordHashes = await Promise.all(
+        [0, 1].map(() => hashPassword(randomBytes(12).toString('hex'))),
+    );
+
+    // P3 (код-аудит 2026-06-14): весь демо-набор обёрнут в одну db.transaction —
+    // раньше при сбое посередине часть объектов оставалась в БД, и повторный вызов
+    // (idempotency-проверка выше срабатывает только при ПОЛНОМ наборе) создавал
+    // дубликаты/«полу-демо». Теперь при любом сбое всё откатывается атомарно.
+    await db.transaction(async (tx) => {
     // 1. Contractor
-    const [contractor] = await db.insert(contractors).values({
+    const [contractor] = await tx.insert(contractors).values({
         name: `${DEMO_PREFIX} ООО Тестовый клиент`,
         // ИНН-mock — 10 digits, marked clearly as demo
         inn: '7700' + Math.floor(100000 + Math.random() * 899999).toString(),
@@ -167,7 +179,7 @@ export async function generateDemoData(
 
     // 2. Contract + tariff
     const now = new Date();
-    const [contract] = await db.insert(contracts).values({
+    const [contract] = await tx.insert(contracts).values({
         contractorId: contractor.id,
         number: `${DEMO_PREFIX} Договор-001`,
         startDate: new Date(now.getFullYear(), 0, 1),
@@ -176,7 +188,7 @@ export async function generateDemoData(
     }).returning({ id: contracts.id });
     result.contractIds.push(contract.id);
 
-    const [tariff] = await db.insert(tariffs).values({
+    const [tariff] = await tx.insert(tariffs).values({
         contractId: contract.id,
         type: 'per_km',
         ratePerKm: 25,
@@ -184,7 +196,7 @@ export async function generateDemoData(
     result.tariffIds.push(tariff.id);
 
     // 3. Vehicles (тент + рефрижератор)
-    const [tent] = await db.insert(vehicles).values({
+    const [tent] = await tx.insert(vehicles).values({
         plateNumber: rndPlate(),
         vin: rndVin(),
         make: `${DEMO_PREFIX} ГАЗ`,
@@ -200,7 +212,7 @@ export async function generateDemoData(
     }).returning({ id: vehicles.id });
     result.vehicleIds.push(tent.id);
 
-    const [reefer] = await db.insert(vehicles).values({
+    const [reefer] = await tx.insert(vehicles).values({
         plateNumber: rndPlate(),
         vin: rndVin(),
         make: `${DEMO_PREFIX} Volvo`,
@@ -217,7 +229,7 @@ export async function generateDemoData(
     result.vehicleIds.push(reefer.id);
 
     // 4. Trailer
-    const [trailer] = await db.insert(trailers).values({
+    const [trailer] = await tx.insert(trailers).values({
         plateNumber: 'ДМО' + Math.floor(1000 + Math.random() * 8999).toString() + '77',
         vin: rndVin(),
         type: 'tent',
@@ -232,10 +244,10 @@ export async function generateDemoData(
 
     // 5. Drivers — auto-create user accounts
     for (let i = 0; i < 2; i++) {
-        const tempPassword = randomBytes(12).toString('hex');
-        const passwordHash = await hashPassword(tempPassword);
+        // P3 (код-аудит 2026-06-14): хеш пароля взят из предвычисленных вне tx.
+        const passwordHash = driverPasswordHashes[i]!;
         const fullName = i === 0 ? 'Демидов Иван Петрович' : 'Морозов Сергей Александрович';
-        const [user] = await db.insert(users).values({
+        const [user] = await tx.insert(users).values({
             email: `demo_driver_${Date.now()}_${i}@demo.local`,
             passwordHash,
             fullName: `${DEMO_PREFIX} ${fullName}`,
@@ -243,7 +255,7 @@ export async function generateDemoData(
             organizationId,
         }).returning({ id: users.id });
 
-        const [driver] = await db.insert(drivers).values({
+        const [driver] = await tx.insert(drivers).values({
             userId: user.id,
             fullName: `${DEMO_PREFIX} ${fullName}`,
             birthDate: new Date(1985, 5, 15 + i),
@@ -260,7 +272,7 @@ export async function generateDemoData(
     const completedDeparture = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const completedArrival = new Date(completedDeparture.getTime() + 4 * 60 * 60 * 1000);
 
-    const [completedOrder] = await db.insert(orders).values({
+    const [completedOrder] = await tx.insert(orders).values({
         number: `DEMO-${Date.now().toString().slice(-6)}-1`,
         contractorId: contractor.id,
         contractId: contract.id,
@@ -282,7 +294,7 @@ export async function generateDemoData(
     }).returning({ id: orders.id });
     result.orderIds.push(completedOrder.id);
 
-    const [completedTrip] = await db.insert(trips).values({
+    const [completedTrip] = await tx.insert(trips).values({
         number: `DEMO-T-${Date.now().toString().slice(-6)}-1`,
         status: 'completed',
         vehicleId: tent.id,
@@ -302,11 +314,11 @@ export async function generateDemoData(
     }).returning({ id: trips.id });
     result.tripIds.push(completedTrip.id);
 
-    await db.insert(tripOrders).values({ tripId: completedTrip.id, orderId: completedOrder.id });
+    await tx.insert(tripOrders).values({ tripId: completedTrip.id, orderId: completedOrder.id });
 
     // 7. Active trip (in_transit) — for live map demo, near Khimki
     const inTransitDeparture = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-    const [activeOrder] = await db.insert(orders).values({
+    const [activeOrder] = await tx.insert(orders).values({
         number: `DEMO-${Date.now().toString().slice(-6)}-2`,
         contractorId: contractor.id,
         contractId: contract.id,
@@ -328,7 +340,7 @@ export async function generateDemoData(
     }).returning({ id: orders.id });
     result.orderIds.push(activeOrder.id);
 
-    const [activeTrip] = await db.insert(trips).values({
+    const [activeTrip] = await tx.insert(trips).values({
         number: `DEMO-T-${Date.now().toString().slice(-6)}-2`,
         status: 'in_transit',
         vehicleId: reefer.id,
@@ -344,10 +356,10 @@ export async function generateDemoData(
     }).returning({ id: trips.id });
     result.tripIds.push(activeTrip.id);
 
-    await db.insert(tripOrders).values({ tripId: activeTrip.id, orderId: activeOrder.id });
+    await tx.insert(tripOrders).values({ tripId: activeTrip.id, orderId: activeOrder.id });
 
     // 8. Planning order with cold-chain — for cold-chain demo
-    const [planningOrder] = await db.insert(orders).values({
+    const [planningOrder] = await tx.insert(orders).values({
         number: `DEMO-${Date.now().toString().slice(-6)}-3`,
         contractorId: contractor.id,
         contractId: contract.id,
@@ -375,7 +387,7 @@ export async function generateDemoData(
     // 9. Audit event
     // P2 (код-аудит 2026-06-14): organizationId обязателен, иначе demo-событие
     // невидимо в журнале аудита (фильтруется по org, 152-ФЗ scope).
-    await db.insert(events).values({
+    await tx.insert(events).values({
         organizationId,
         authorId: creatorUserId,
         authorRole: 'admin',
@@ -390,6 +402,7 @@ export async function generateDemoData(
             orderIds: result.orderIds.length,
         },
     }).onConflictDoNothing();
+    }); // P3 (код-аудит 2026-06-14): конец db.transaction — атомарность демо-набора.
 
     return { ...result, alreadyExisted: false };
 }

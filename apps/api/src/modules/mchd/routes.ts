@@ -262,14 +262,33 @@ const mchdRoutes: FastifyPluginAsync = async (app) => {
         }
         const payload = parsed.data;
 
-        // Минимальная проверка формата XML. Полную семантическую валидацию
-        // (структура, подпись ФНС, соответствие ГОСТ) делаем на этапе
-        // ЭТрН-подписания, не здесь.
+        // P3 (код-аудит 2026-06-14): прежняя проверка смотрела ТОЛЬКО на пролог
+        // '<?xml' — пролог + мусор без единого тега проходили как валидный XML.
+        // Усиливаем до well-formed-похожей структуры: (1) есть XML-пролог,
+        // (2) после пролога присутствует корневой элемент (открывающий тег
+        // <Имя...>, не комментарий/PI), и (3) встречается закрывающий/самозакрытый
+        // тег — отсекает оборванные/битые документы. Точную структуру МЧД ФНС
+        // (корневой элемент EMCHD/неймспейс) тут не знаем — формат клиент получает
+        // в ФНС/УЦ, в кодовой базе фикстур МЧД нет.
+        // TODO: полноценная валидация по XSD-схеме ФНС МЧД + проверка подписи/ГОСТ —
+        // на этапе ЭТрН-подписания (см. lib/xsd-validator для ЭТрН-титулов <Файл>).
         const trimmed = payload.certificateXml.trimStart();
         if (!trimmed.startsWith('<?xml')) {
             return reply.status(400).send({
                 success: false,
                 error: 'certificateXml должен быть XML-документом (начинаться с <?xml)',
+            });
+        }
+        // Корневой элемент: после пролога ищем первый открывающий тег-элемент
+        // (исключая декларацию <?xml?>, комментарии <!-- --> и PI <? ?>).
+        const ROOT_ELEMENT_RE = /<([A-Za-zА-Яа-яЁё_][\w.\-:]*)[\s>/]/;
+        const afterProlog = trimmed.replace(/^<\?xml[^>]*\?>/, '').trimStart();
+        const hasRootElement = ROOT_ELEMENT_RE.test(afterProlog);
+        const hasClosingTag = afterProlog.includes('</') || /\/\s*>/.test(afterProlog);
+        if (!hasRootElement || !hasClosingTag) {
+            return reply.status(400).send({
+                success: false,
+                error: 'certificateXml не похож на well-formed XML: отсутствует корневой элемент или закрывающий тег',
             });
         }
 

@@ -92,9 +92,14 @@ export default async function importRoutes(app: FastifyInstance) {
         }
 
         if (validRows.length > 0) {
+            // P3 (код-аудит 2026-06-14, finding 659): помним индекс текущей строки,
+            // чтобы при общем откате батча указать пользователю НОМЕР проблемной
+            // строки, а не безликий index:-1.
+            let failedRowIndex = -1;
             try {
                 await db.transaction(async (tx) => {
                     for (const row of validRows) {
+                        failedRowIndex = row.index;
                         await tx.insert(vehicles).values(row.values as any);
                         results.created++;
                     }
@@ -104,7 +109,10 @@ export default async function importRoutes(app: FastifyInstance) {
                 // raw constraint text (leaks index/column names).
                 const friendly = mapPgErrorToFriendlyRu(err?.code, 'vehicles');
                 results.created = 0;
-                results.errors.push({ index: -1, error: `Импорт отменён: ${friendly}` });
+                results.errors.push({
+                    index: failedRowIndex,
+                    error: `Импорт отменён${failedRowIndex >= 0 ? ` (строка ${failedRowIndex + 1})` : ''}: ${friendly}`,
+                });
             }
         }
 
@@ -326,7 +334,9 @@ export default async function importRoutes(app: FastifyInstance) {
 
         // A-P0-8: validate + resolve contractor refs OUTSIDE the tx (it
         // queries reads only). Then INSERT all valid rows in ONE tx.
-        const validRows: Array<{ values: Record<string, unknown> }> = [];
+        // P3 (код-аудит 2026-06-14, finding 659): храним исходный index строки,
+        // чтобы при откате батча сообщить НОМЕР проблемной строки.
+        const validRows: Array<{ index: number; values: Record<string, unknown> }> = [];
         for (let i = 0; i < items.length; i++) {
             const item = items[i] as any;
             const errs = validateOrder(item);
@@ -353,6 +363,7 @@ export default async function importRoutes(app: FastifyInstance) {
                 continue;
             }
             validRows.push({
+                index: i,
                 values: {
                     number: String(item.number),
                     contractorId: contractor.id,
@@ -373,9 +384,12 @@ export default async function importRoutes(app: FastifyInstance) {
         }
 
         if (validRows.length > 0) {
+            // P3 (код-аудит 2026-06-14, finding 659): см. vehicles — указываем номер строки.
+            let failedRowIndex = -1;
             try {
                 await db.transaction(async (tx) => {
                     for (const row of validRows) {
+                        failedRowIndex = row.index;
                         await tx.insert(orders).values(row.values as any);
                         results.created++;
                     }
@@ -383,7 +397,10 @@ export default async function importRoutes(app: FastifyInstance) {
             } catch (err: any) {
                 const friendly = mapPgErrorToFriendlyRu(err?.code, 'orders');
                 results.created = 0;
-                results.errors.push({ index: -1, error: `Импорт отменён: ${friendly}` });
+                results.errors.push({
+                    index: failedRowIndex,
+                    error: `Импорт отменён${failedRowIndex >= 0 ? ` (строка ${failedRowIndex + 1})` : ''}: ${friendly}`,
+                });
             }
         }
 
@@ -420,7 +437,8 @@ export default async function importRoutes(app: FastifyInstance) {
         const results = { created: 0, errors: [] as { index: number, error: string }[] };
 
         // A-P0-8: validate first, then batch insert in one transaction.
-        const validRows: Array<{ values: Record<string, unknown> }> = [];
+        // P3 (код-аудит 2026-06-14, finding 659): храним index для номера строки в ошибке.
+        const validRows: Array<{ index: number; values: Record<string, unknown> }> = [];
         for (let i = 0; i < items.length; i++) {
             const item = items[i] as any;
             if (!item.name || !item.inn) {
@@ -434,6 +452,7 @@ export default async function importRoutes(app: FastifyInstance) {
                 continue;
             }
             validRows.push({
+                index: i,
                 values: {
                     name: item.name,
                     inn: item.inn,
@@ -447,9 +466,12 @@ export default async function importRoutes(app: FastifyInstance) {
         }
 
         if (validRows.length > 0) {
+            // P3 (код-аудит 2026-06-14, finding 659): см. vehicles — указываем номер строки.
+            let failedRowIndex = -1;
             try {
                 await db.transaction(async (tx) => {
                     for (const row of validRows) {
+                        failedRowIndex = row.index;
                         await tx.insert(contractors).values(row.values as any);
                         results.created++;
                     }
@@ -457,7 +479,10 @@ export default async function importRoutes(app: FastifyInstance) {
             } catch (err: any) {
                 const friendly = mapPgErrorToFriendlyRu(err?.code, 'contractors');
                 results.created = 0;
-                results.errors.push({ index: -1, error: `Импорт отменён: ${friendly}` });
+                results.errors.push({
+                    index: failedRowIndex,
+                    error: `Импорт отменён${failedRowIndex >= 0 ? ` (строка ${failedRowIndex + 1})` : ''}: ${friendly}`,
+                });
             }
         }
 

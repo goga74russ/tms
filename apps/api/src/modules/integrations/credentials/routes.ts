@@ -16,6 +16,7 @@ import {
     getAdaptersForType,
     instantiateRealAdapter,
     invalidateAdapterCache,
+    hasRealAdapter,
 } from '../../../providers/index.js';
 import { CredentialsCreateSchema as CreateSchema } from './validators.js';
 import { assertDpaAccepted, DpaNotAcceptedError } from '../../dpa/guard.js';
@@ -28,6 +29,18 @@ interface AuthUser {
 
 function isAdmin(user: AuthUser | undefined): boolean {
     return Boolean(user?.roles?.includes('admin'));
+}
+
+// P3 (код-аудит 2026-06-14, finding 664): providerName должен принадлежать
+// допустимому набору для данного providerType. Иначе создаётся строка-сирота,
+// которую selectAdapter()/instantiateRealAdapter() не может инстанцировать
+// (фабрика по ключу `${type}:${name}` не найдена), и DPA-гейт обходится
+// бессмысленным именем. Источник правды — те же реестры, что использует runtime:
+// статические адаптеры из getAdaptersForType() (mock/console/env-SMTP) +
+// реальные фабрики realAdapterFactories (через hasRealAdapter()).
+function isProviderNameAllowed(providerType: ProviderType, providerName: string): boolean {
+    if (hasRealAdapter(providerType, providerName)) return true;
+    return getAdaptersForType(providerType).some(a => a.name === providerName);
 }
 
 const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -95,6 +108,24 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
 
         const { providerType, providerName, credentials, status } = parsed.data;
 
+        // P3 (код-аудит 2026-06-14, finding 664): валидируем согласованность
+        // providerType ↔ providerName ДО DPA-гейта и шифрования. Иначе строка-
+        // сирота с неизвестным именем сохранялась, но адаптер из неё никогда не
+        // инстанцировался (DPA-bypass + мёртвая запись).
+        if (!isProviderNameAllowed(providerType, providerName)) {
+            return reply.status(422).send({
+                success: false,
+                error: `Провайдер «${providerName}» недоступен для типа «${providerType}»`,
+            });
+        }
+
+        // P3 (код-аудит 2026-06-14, finding 665): нельзя выставить status='active'
+        // напрямую через POST — это означало бы live-операции на непроверенных
+        // кредах. Активация требует успешного health-check (POST :id/test), который
+        // оператор запускает явно. На создании/upsert понижаем входящий 'active' до
+        // 'sandbox'; промоут в 'active' остаётся ручным решением после /test.
+        const requestedStatus = status === 'active' ? 'sandbox' : status;
+
         // C9 (security): серверный DPA-гейт. Клиентская проверка fail-open и
         // обходится прямым POST. Блокируем сохранение, если согласие требуется,
         // но не дано. DPA providerId === providerName (как в UI /dpa/:name).
@@ -125,14 +156,14 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
                 .update(providerCredentials)
                 .set({
                     encryptedCredentials: encrypted,
-                    status: status ?? 'sandbox',
+                    status: requestedStatus ?? 'sandbox',
                     lastError: null,
                     updatedAt: new Date(),
                 })
                 .where(eq(providerCredentials.id, id));
             invalidateCredentialsCache(user.organizationId, providerType);
             invalidateAdapterCache(user.organizationId, providerType);
-            return { success: true, data: { id, providerType, providerName, status: status ?? 'sandbox' } };
+            return { success: true, data: { id, providerType, providerName, status: requestedStatus ?? 'sandbox' } };
         }
 
         const inserted = await db
@@ -141,7 +172,7 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
                 organizationId: user.organizationId,
                 providerType,
                 providerName,
-                status: status ?? 'sandbox',
+                status: requestedStatus ?? 'sandbox',
                 encryptedCredentials: encrypted,
             })
             .returning({ id: providerCredentials.id });
@@ -150,7 +181,7 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
             invalidateAdapterCache(user.organizationId, providerType);
         return reply.status(201).send({
             success: true,
-            data: { id: inserted[0]!.id, providerType, providerName, status: status ?? 'sandbox' },
+            data: { id: inserted[0]!.id, providerType, providerName, status: requestedStatus ?? 'sandbox' },
         });
     });
 

@@ -293,15 +293,24 @@ export default async function waybillRoutes(app: FastifyInstance) {
             const absolutePath = getAttachmentAbsolutePath(join('uploads', 'waybills', storedFileName).replace(/\\/g, '/'));
             await writeFile(absolutePath, buffer);
 
-            const [created] = await db.insert(waybillAttachments).values({
-                waybillId: id,
-                fileName: storedFileName,
-                originalName: sanitizeFileName(file.filename || storedFileName),
-                mimeType,
-                fileSize: buffer.length,
-                storagePath: join('uploads', 'waybills', storedFileName).replace(/\\/g, '/'),
-                uploadedBy: user.userId,
-            }).returning();
+            // P3 (код-аудит 2026-06-14): файл пишется на диск ДО INSERT, поэтому при
+            // сбое INSERT он останется сиротой. Оборачиваем INSERT в try и в catch
+            // удаляем уже записанный файл (unlink) перед rethrow — orphan не остаётся.
+            let created;
+            try {
+                [created] = await db.insert(waybillAttachments).values({
+                    waybillId: id,
+                    fileName: storedFileName,
+                    originalName: sanitizeFileName(file.filename || storedFileName),
+                    mimeType,
+                    fileSize: buffer.length,
+                    storagePath: join('uploads', 'waybills', storedFileName).replace(/\\/g, '/'),
+                    uploadedBy: user.userId,
+                }).returning();
+            } catch (insertErr) {
+                await unlink(absolutePath).catch(() => { /* файл мог не записаться — игнорируем */ });
+                throw insertErr;
+            }
 
             return reply.status(201).send({ success: true, data: created });
         } catch (error: any) {

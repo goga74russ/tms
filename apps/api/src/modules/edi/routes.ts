@@ -143,9 +143,24 @@ const ediRoutes: FastifyPluginAsync = async (app) => {
     app.post('/edi/webhook/:provider', {
         schema: { tags: ['ЭДО'], summary: 'Webhook от ЭДО-провайдера' },
         config: { rawBody: true },
-    }, async (request, _reply) => {
+    }, async (request, reply) => {
         const { provider } = request.params as { provider: string };
-        request.log.info({ provider, body: request.body }, 'EDI webhook received');
+        // P3 (код-аудит 2026-06-14): (1) валидируем provider против известных EDI-
+        // провайдеров — неизвестный путь больше не принимаем (404), чтобы вебхук не
+        // глотал произвольные :provider. (2) НЕ логируем весь body на info (могла
+        // протечь полезная нагрузка/секреты подписи) — логируем только метаданные.
+        const KNOWN_EDI_PROVIDERS = ['diadoc', 'sbis', 'kontur'] as const;
+        if (!(KNOWN_EDI_PROVIDERS as readonly string[]).includes(provider)) {
+            return reply.status(404).send({ success: false, error: 'Неизвестный EDI-провайдер' });
+        }
+        const rawBody = (request as { rawBody?: string | Buffer }).rawBody;
+        const bodySize = typeof rawBody === 'string' || Buffer.isBuffer(rawBody)
+            ? rawBody.length
+            : undefined;
+        request.log.debug({ provider, bodySize }, 'EDI webhook received');
+        // TODO: HMAC/подпись пока не проверяем — секрета провайдера в этой задаче
+        // нет. Когда ключи появятся: верифицировать подпись (Diadoc HMAC /
+        // Kontur TLS-client-cert) ДО обработки, не логировать чувствительное.
         // TODO: lookup org from provider-side correlation id, dispatch to
         // selectAdapter('edi', orgId, provider).handleCallback(body).
         return { success: true };
