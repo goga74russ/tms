@@ -254,8 +254,12 @@ export async function replayQueue(): Promise<{ success: number; failed: number }
         }
     }
 
-    await AsyncStorage.setItem(QUEUE_KEY, encodeQueue(JSON.stringify(remaining)));
+    // P2 (код-аудит 2026-06-14): сначала сохраняем exhausted в dead-letter, и только
+    // ПОТОМ усекаем основную очередь. Иначе при сбое между двумя записями exhausted-
+    // действия терялись (удалены из основной, ещё не в dead-letter). Порядок: сохрани
+    // прежде, чем удалить.
     await appendToFailedQueue(exhausted);
+    await AsyncStorage.setItem(QUEUE_KEY, encodeQueue(JSON.stringify(remaining)));
     return { success, failed };
 }
 

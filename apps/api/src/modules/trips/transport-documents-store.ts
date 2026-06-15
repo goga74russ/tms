@@ -72,6 +72,12 @@ function clampSignedAt(value: string | null | undefined, serverNow: Date): Date 
 function mergeStatus(current: string, source: string) {
     if (!current) return source as TransportDocumentStatus;
     if (current === source) return current as TransportDocumentStatus;
+    // P2 (код-аудит 2026-06-14): провайдерский REJECTED — терминальный. При ресинхроне
+    // не даём более высокому по RANK производному статусу затереть его (отказ ЭДО
+    // должен оставаться видимым, пока документ не пересоздан).
+    if (current === TransportDocumentStatus.REJECTED && source !== TransportDocumentStatus.REJECTED) {
+        return current as TransportDocumentStatus;
+    }
     if (current === TransportDocumentStatus.PENDING && source !== TransportDocumentStatus.ERROR) {
         return source as TransportDocumentStatus;
     }

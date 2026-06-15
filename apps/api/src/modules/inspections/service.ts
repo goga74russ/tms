@@ -364,13 +364,15 @@ export async function createTechInspection(
             },
         }, tx);
         if (input.decision === 'rejected') {
+            // P2 (код-аудит 2026-06-14): описание заявки/причины брака — по-русски
+            // (раньше «Tech inspection failed»/«Fault detected» оседали в БД).
             const faults = input.items
                 .filter(i => i.result === 'fault')
-                .map(i => `${i.name}: ${i.comment || 'Fault detected'}`)
+                .map(i => `${i.name}: ${i.comment || 'неисправность'}`)
                 .join('; ');
             const [repairRequest] = await tx.insert(repairRequests).values({
                 vehicleId: input.vehicleId,
-                description: `Tech inspection failed: ${faults}`,
+                description: `Техосмотр не пройден: ${faults}`,
                 priority: 'high',
                 source: 'auto_inspection',
                 inspectionId: createdInspection.id,
@@ -703,11 +705,13 @@ export async function listMedInspections(
 
     const conditions = [];
     if (organizationId) {
+        // P2 (код-аудит 2026-06-14): скоуп через drivers.organizationId напрямую,
+        // как остальные med-запросы (updateMedInspectionDecision и т.д.) — раньше
+        // listMedInspections джойнил через users.organizationId (рассинхрон скоупа).
         conditions.push(
             inArray(medInspections.driverId,
                 db.select({ id: drivers.id }).from(drivers)
-                    .innerJoin(users, eq(drivers.userId, users.id))
-                    .where(eq(users.organizationId, organizationId))
+                    .where(eq(drivers.organizationId, organizationId))
             )
         );
     }

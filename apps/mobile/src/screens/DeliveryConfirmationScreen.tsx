@@ -124,17 +124,19 @@ export default function DeliveryConfirmationScreen({ route, navigation }: Props)
         try {
             const netState = await NetInfo.fetch();
             const isOnline = Boolean(netState.isConnected && netState.isInternetReachable);
+            // P2 (код-аудит 2026-06-14): локальный file:// URI НЕ кладём в photoUrls —
+            // на сервере это битая ссылка. Если фото есть, но загрузить сейчас нельзя
+            // (offline или сбой upload), photoUrls остаётся пустым, а локальный URI
+            // уходит в queuedBody.photos и загружается при replay (prepareBodyForReplay).
             let photoUrl: string | null = null;
             let shouldQueue = !isOnline;
             if (photoUri && isOnline) {
                 try {
                     photoUrl = await uploadPhoto(photoUri);
                 } catch {
-                    photoUrl = photoUri;
+                    photoUrl = null;
                     shouldQueue = true;
                 }
-            } else if (photoUri) {
-                photoUrl = photoUri;
             }
 
             const recipientNotes = [

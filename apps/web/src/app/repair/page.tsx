@@ -124,18 +124,16 @@ function CreateRepairModal({
         setSubmitting(true);
         setError('');
         try {
-            // Round 5 audit v3: include assignedTo + category in the POST.
-            // If the API/schema does not yet support these fields it will
-            // ignore them silently — we don't block the create either way.
-            // TODO(api): persist `assignedTo` (uuid -> users.id) and
-            // `category` (enum) on the repairs table and surface them on GET.
+            // P2 (код-аудит 2026-06-14): assignedTo персистится бэкендом
+            // (RepairRequestCreateSchema + createRepair). category НЕ слаём — колонки
+            // на repair_requests нет, бэкенд его молча игнорировал (ложный контракт).
+            // TODO(api): добавить колонку category (миграция) и вернуть поле, если нужно.
             const result = await api.post<any>('/repairs', {
                 vehicleId,
                 description,
                 priority,
                 source: initialDraft?.source || 'mechanic',
                 assignedTo: assignedTo || null,
-                category: category || 'other',
             });
             if (result.success) {
                 toast({ variant: 'success', title: 'Заявка на ремонт создана' });
