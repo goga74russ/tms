@@ -126,20 +126,25 @@ async function persistMessage(params: {
     toolInput?: Record<string, unknown> | null;
     toolOutput?: Record<string, unknown> | null;
 }): Promise<void> {
-    await db.insert(copilotMessages).values({
-        conversationId: params.conversationId,
-        role: params.role,
-        content: params.content ?? '',
-        toolName: params.toolName ?? null,
-        toolInput: params.toolInput ?? null,
-        toolOutput: params.toolOutput ?? null,
+    // P3 (код-аудит 2026-06-14): insert сообщения и инкремент messageCount/
+    // lastActivityAt — в одной транзакции, иначе при сбое второго запроса
+    // счётчик дрейфует относительно реального числа сообщений.
+    await db.transaction(async (tx) => {
+        await tx.insert(copilotMessages).values({
+            conversationId: params.conversationId,
+            role: params.role,
+            content: params.content ?? '',
+            toolName: params.toolName ?? null,
+            toolInput: params.toolInput ?? null,
+            toolOutput: params.toolOutput ?? null,
+        });
+        await tx.update(copilotConversations)
+            .set({
+                messageCount: sql`${copilotConversations.messageCount} + 1`,
+                lastActivityAt: new Date(),
+            })
+            .where(eq(copilotConversations.id, params.conversationId));
     });
-    await db.update(copilotConversations)
-        .set({
-            messageCount: sql`${copilotConversations.messageCount} + 1`,
-            lastActivityAt: new Date(),
-        })
-        .where(eq(copilotConversations.id, params.conversationId));
 }
 
 async function loadHistory(conversationId: string): Promise<Array<{ role: string; content: string }>> {

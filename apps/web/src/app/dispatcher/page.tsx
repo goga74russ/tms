@@ -582,6 +582,14 @@ export default function DispatcherPage() {
         }
     }, [enrichedVehicles, mapInstance]);
 
+    // P3 (код-аудит 2026-06-14): клик по блокеру/риску в левом рейле был мёртвым
+    // (onSelectException не пробрасывался). Фокусируем связанный рейс на карте.
+    const handleSelectException = useCallback((item: OperationException) => {
+        if (!item.tripId) return;
+        const lt = liveTrips.find(t => t.id === item.tripId);
+        if (lt) handleSelectTrip(lt);
+    }, [liveTrips, handleSelectTrip]);
+
     const handleSelectVehicle = useCallback((vehicleId: string) => {
         setSelectedVehicle(vehicleId);
         const v = vehicles.find(x => x.id === vehicleId);
@@ -696,6 +704,7 @@ export default function DispatcherPage() {
                             liveTrips={liveTrips}
                             activeFilter={activeFilter}
                             onSelectTrip={handleSelectTrip}
+                            onSelectException={handleSelectException}
                             localizeTitle={localizeExceptionTitle}
                             localizeMessage={localizeExceptionMessage}
                             isMojibake={isMojibake}

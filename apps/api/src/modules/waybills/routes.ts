@@ -5,6 +5,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { basename, join, relative, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { fileTypeFromBuffer } from 'file-type';
 import { requireAbility } from '../../auth/rbac.js';
 import { assertTripAccess, assertWaybillAccess, resolveDriverId } from '../../auth/guards.js';
 import {
@@ -267,6 +268,23 @@ export default async function waybillRoutes(app: FastifyInstance) {
             const buffer = await file.toBuffer();
             if (buffer.length > MAX_ATTACHMENT_SIZE) {
                 return reply.status(400).send({ success: false, error: 'Attachment exceeds 15 MB limit' });
+            }
+
+            // P3 (код-аудит 2026-06-14): content-sniffing по магическим байтам
+            // (как в /uploads) — заявленному Content-Type больше не доверяем.
+            // Разрешённые типы (jpeg/png/webp/pdf) все детектируемы file-type.
+            const sniffed = await fileTypeFromBuffer(buffer.subarray(0, 4100));
+            if (!sniffed || !ALLOWED_ATTACHMENT_MIME_TYPES.has(sniffed.mime)) {
+                return reply.status(400).send({
+                    success: false,
+                    error: `Содержимое файла (${sniffed?.mime ?? 'неизвестно'}) не входит в список разрешённых: JPEG, PNG, WEBP, PDF`,
+                });
+            }
+            if (mimeType !== sniffed.mime) {
+                return reply.status(400).send({
+                    success: false,
+                    error: `Несовпадение Content-Type (${mimeType}) и содержимого (${sniffed.mime})`,
+                });
             }
 
             const extension = MIME_EXTENSIONS[mimeType] ?? '.bin';

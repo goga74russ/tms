@@ -278,7 +278,7 @@ export default function AnalyticsPage() {
                         </p>
                     </div>
                 </div>
-                <Button variant="outline" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={() => { loadAlerts(); loadProfitability(); loadFleetHealth(); }}>
+                <Button variant="outline" leftIcon={<RefreshCw className="w-4 h-4" />} onClick={() => { loadAlerts(); loadProfitability(); loadFleetHealth(); loadFuelConsumption(); loadFleetKtg(); }}>
                     Обновить
                 </Button>
             </div>

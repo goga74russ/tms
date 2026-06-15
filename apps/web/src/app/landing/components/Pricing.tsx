@@ -169,7 +169,9 @@ export function Pricing() {
                             </ul>
 
                             <Link
-                                href={p.href}
+                                // P3 (код-аудит 2026-06-14): пробрасываем выбранный
+                                // период биллинга в signup — раньше тоггл терялся.
+                                href={`${p.href}${p.href.includes('?') ? '&' : '?'}billing=${billing}`}
                                 className={`mt-7 block w-full text-center font-semibold px-4 py-2.5 rounded-xl transition-colors ${
                                     p.accent
                                         ? 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm'

@@ -132,7 +132,10 @@ export async function recordReading(
         .from(trips)
         .where(eq(trips.id, input.tripId))
         .limit(1);
-    const organizationId = tripRow?.organizationId ?? null;
+    // P3 (код-аудит 2026-06-14): раньше отсутствие рейса молча писало замер с
+    // organizationId=NULL (cross-tenant сирота). Отказываем явно.
+    if (!tripRow) throw new Error('Рейс не найден');
+    const organizationId = tripRow.organizationId ?? null;
 
     // P2 (код-аудит 2026-06-14): если указан orderId — проверяем, что заявка
     // относится к этому рейсу (orders.tripId или junction tripOrders). Раньше

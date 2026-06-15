@@ -366,6 +366,25 @@ export default function MedicPage() {
             setToast({ message: 'Укажите результат алкотеста: Отрицательный или Положительный', type: 'error' });
             return;
         }
+        // P3 (код-аудит 2026-06-14): клиент не блокировал «Допустить» при
+        // положительном алкотесте / критических витальных — допуск уезжал на
+        // сервер и зависел только от серверной проверки. Блокируем здесь явно.
+        if (decision === 'approved') {
+            if (formData.alcoholTest === 'positive') {
+                setToast({ message: 'Положительный алкотест — допуск запрещён', type: 'error' });
+                return;
+            }
+            const criticalVital = [
+                checkSystolicBP(formData.systolicBp),
+                checkDiastolicBP(formData.diastolicBp),
+                checkPulse(formData.heartRate),
+                checkTemperature(formData.temperature),
+            ].find((w): w is WarningResult => w?.level === 'critical');
+            if (criticalVital) {
+                setToast({ message: criticalVital.message, type: 'error' });
+                return;
+            }
+        }
 
         try {
             setSubmitting(true);

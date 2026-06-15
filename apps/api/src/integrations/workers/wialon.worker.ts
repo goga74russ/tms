@@ -108,13 +108,20 @@ export async function processWialonSync(job: Job): Promise<{
                 v.currentOdometerKm,
             );
 
-            // 3. Only update if odometer increased (sanity check)
-            if (telemetry.odometerKm > v.currentOdometerKm) {
+            // 3. Only update if odometer increased (sanity check).
+            // P3 (код-аудит 2026-06-14): используем экспортируемый pure-helper
+            // decideOdometerUpdate вместо дублирующей inline-проверки — единый
+            // источник правды, нет риска рассинхрона логики.
+            const decision = decideOdometerUpdate(
+                { id: v.id, plateNumber: v.plateNumber, currentOdometerKm: v.currentOdometerKm },
+                { odometerKm: telemetry.odometerKm },
+            );
+            if (decision) {
                 updatesData.push({
-                    id: v.id,
-                    odometerKm: telemetry.odometerKm,
-                    plateNumber: v.plateNumber,
-                    oldOdometer: v.currentOdometerKm,
+                    id: decision.id,
+                    odometerKm: decision.odometerKm,
+                    plateNumber: decision.plateNumber,
+                    oldOdometer: decision.oldOdometer,
                 });
             }
 
