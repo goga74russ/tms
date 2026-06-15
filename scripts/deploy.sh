@@ -87,12 +87,20 @@ echo ""
 echo "==[4/6]== Rebuild api + web containers"
 compose up -d --build api web
 
+# nginx кэширует upstream-IP пересозданных api/web (docker DNS) → после recreate
+# проксирует на старый IP и отдаёт 502 Bad Gateway. Перезапуск nginx форсит
+# повторный резолв. Без этого деплой проходит, но прод отдаёт 502 клиентам.
+echo "--- restart nginx (re-resolve upstream после recreate) ---"
+compose restart nginx
+
 echo ""
 echo "==[5/6]== Wait for /api/health"
 HEALTH_OK=0
 for i in 1 2 3 4 5 6 7 8 9 10; do
     sleep 3
-    if curl -fsS http://localhost/api/health >/dev/null 2>&1; then
+    # ВАЖНО: через https (-k), не http — http даёт 301→https, и `curl -f` его не
+    # считает ошибкой (ложный «Health OK», маскирует 502 на реальном api-роуте).
+    if curl -fskS https://localhost/api/health >/dev/null 2>&1; then
         HEALTH_OK=1
         echo "Health OK after ${i} attempt(s)"
         break
