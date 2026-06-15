@@ -487,9 +487,9 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/copilot**
 
-- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/routes.ts:28-28` — [HIGH] План-квота copilot (requireWithinLimit('copilot_messages')) не подключена — лимит тарифа обходится  → /transpult
-- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:125-135` — [HIGH] loadHistory берёт 30 последних строк ВКЛЮЧАЯ tool-строки → реальный диалоговый контекст сильно урезается  → /transpult
-- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:302-306` — [HIGH] В Anthropic tool_result отдаётся весь result через JSON.stringify(result) — потенциальная утечка сырых полей/ошибок в контекст модели  → /transpult
+- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/routes.ts:28-28` — [HIGH] План-квота copilot (requireWithinLimit('copilot_messages')) не подключена — лимит тарифа обходится  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`**
+- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:125-135` — [HIGH] loadHistory берёт 30 последних строк ВКЛЮЧАЯ tool-строки → реальный диалоговый контекст сильно урезается  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (только user/assistant)
+- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:302-306` — [HIGH] В Anthropic tool_result отдаётся весь result через JSON.stringify(result) — потенциальная утечка сырых полей/ошибок в контекст модели  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (sanitizeToolResultForModel)
 - `D:/Ai/TMS-prod/apps/api/src/modules/copilot/tools/index.ts:458-470` — [MEDIUM] track_contractor_orders: N+1 последовательные getTripById+computeTripEta в цикле по 50 заказам  → /transpult
 
 **api/documents**
@@ -499,7 +499,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/edi**
 
-- `apps/api/src/modules/edi/service.ts:121-217` — [HIGH] sendDocumentToEdi не проверяет текущий ediStatus — повторная отправка затирает уже подписанный ЭТрН (signed_by_client → sent), обнуляет ediExternalId и перезапускает прогрессию  → /transpult
+- `apps/api/src/modules/edi/service.ts:121-217` — [HIGH] sendDocumentToEdi не проверяет текущий ediStatus — повторная отправка затирает уже подписанный ЭТрН (signed_by_client → sent), обнуляет ediExternalId и перезапускает прогрессию  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (гейт sent/signed/received/accepted)
 - `apps/api/src/modules/edi/service.ts:113-163` — [HIGH] XSD-гейт ЭТрН перед отправкой в ЭДО фактически почти всегда пропускается: срабатывает только если payload содержит ключ 'xml'/'xmlContent', иначе тихий no-op  → /transpult
 
 **api/finance**
@@ -572,9 +572,9 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/sync+sprint9**
 
-- `apps/api/src/modules/sync/routes.ts:153-165` — [HIGH] Sync pull: created/updated классификация route_points привязана к createdAt РОДИТЕЛЬСКОГО рейса, а не к самой точке  → /transpult
-- `apps/api/src/modules/sync/routes.ts:126-128` — [HIGH] Sync pull: route_points выгружаются БЕЗ фильтра updatedAt — полная переотдача всех точек изменённых рейсов на каждый pull  → /transpult
-- `apps/api/src/modules/sprint9/routes.ts:312-322` — [HIGH] waybillDrivers: сброс isPrimary + вставка нового водителя без транзакции — окно с нулём primary-водителей / гонка двух primary  → /transpult
+- `apps/api/src/modules/sync/routes.ts:153-165` — [HIGH] Sync pull: created/updated классификация route_points привязана к createdAt РОДИТЕЛЬСКОГО рейса, а не к самой точке  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (по point.createdAt)
+- `apps/api/src/modules/sync/routes.ts:126-128` — [HIGH] Sync pull: route_points выгружаются БЕЗ фильтра updatedAt — полная переотдача всех точек изменённых рейсов на каждый pull  → /transpult  **⏸ ОТЛОЖЕНО** (route_points не имеет колонки updated_at — дельта-фильтр требует миграцию)
+- `apps/api/src/modules/sprint9/routes.ts:312-322` — [HIGH] waybillDrivers: сброс isPrimary + вставка нового водителя без транзакции — окно с нулём primary-водителей / гонка двух primary  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (в транзакции)
 
 **api/trips**
 
