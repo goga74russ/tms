@@ -685,7 +685,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/signatures/gosklyuch-callback.ts:141-145` — Lookup документа по externalId без org-фильтра и без unique-constraint в схеме  _(api/signatures)_
 - `apps/api/src/modules/signatures/sign-endpoint.ts:300-303` — При ошибке gosklyuch adapter.sign() endpoint молча падает на fallback-deeplink с локальным externalId → callback не найдёт документ  _(api/signatures)_
 - `apps/api/src/modules/sprint9/routes.ts:355-378` — Waybill expenses (деньги): numeric-колонки сохраняются/читаются как string в рантайме при TS-типе number — рассинхрон слоёв на денежных полях  _(api/sync+sprint9)_
-- `apps/api/src/modules/sync/service.ts:121-122` — Sync: обращение trip.status без null-guard после повторного SELECT в ветках route_point  _(api/sync+sprint9)_
+- `apps/api/src/modules/sync/service.ts:121-122` — Sync: обращение trip.status без null-guard после повторного SELECT в ветках route_point  _(api/sync+sprint9)_  **✅ ЗАКРЫТО `da00c83`**
 - `apps/api/src/modules/trips/transport-documents-store.ts:1076-1101` — recordTransportDocumentSignature помечает ЭТрН 'signed' при ≥2 любых ролях — может переоценивать юр-завершённость  _(api/trips)_
 - `apps/api/src/modules/trips/service.ts:863-871` — Дублирующая проверка MED_CERTIFICATE_EXPIRED в assignTrip (одинаковый hard-warning добавляется дважды)  _(api/trips)_  **✅ ЗАКРЫТО `ca73c00`**
 - `apps/api/src/modules/waybills/routes.ts:262-286` — Загрузка вложения ПЛ доверяет заявленному MIME (нет content-sniffing), в отличие от /uploads  _(api/uploads+waybills)_
@@ -694,15 +694,15 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/waybills/etrn-generator.ts:71-78` — escapeXml не вырезает запрещённые XML-1.0 управляющие символы → невалидный XML ЭТрН  _(api/uploads+waybills)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/modules/demo/service.ts:126-305` — generateDemoData не транзакционен → при сбое посередине дублирование демо-набора при повторе  _(api/misc-modules)_
 - `apps/api/src/modules/dpa/routes.ts:144-164` — POST /dpa/accept возвращает текущее время как acceptedAt при идемпотентном повторе  _(api/misc-modules)_  **✅ ЗАКРЫТО `16df216`**
-- `apps/api/src/providers/_errors.ts:64-69` — extractHttpStatus bare-number fallback can mis-classify provider errors by grabbing unrelated 100-599 numbers  _(api/providers)_
+- `apps/api/src/providers/_errors.ts:64-69` — extractHttpStatus bare-number fallback can mis-classify provider errors by grabbing unrelated 100-599 numbers  _(api/providers)_  **✅ ЗАКРЫТО `da00c83`**
 - `apps/api/src/providers/signature/mock.ts:35-41` — Mock signature interpolates documentId/userId into XML without escaping (breaks/forges envelope on special chars)  _(api/providers)_  **✅ ЗАКРЫТО `f6788ad`**
-- `apps/api/src/providers/telematics/wialon.ts:91-109` — Skeleton telematics methods return [] (silent empty success) instead of signalling not-implemented after the throwing token step  _(api/providers)_
+- `apps/api/src/providers/telematics/wialon.ts:91-109` — Skeleton telematics methods return [] (silent empty success) instead of signalling not-implemented after the throwing token step  _(api/providers)_  **✅ ЗАКРЫТО `da00c83`**
 - `apps/api/src/providers/ofd/interface.ts:10-12` — Layer drift: OFD interface doc references getDefaultRegistry().ofd which does not exist  _(api/providers)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/integrations/workers/fines.worker.ts:37-80` — Дедупликация штрафов только на уровне приложения — нет БД-unique на (vehicleId, resolutionNumber), Set не обновляется после вставок  _(api/infra)_
 - `apps/api/src/integrations/workers/wialon.worker.ts:25-119` — decideOdometerUpdate (экспортируемый pure-helper) не используется — логика продублирована inline, риск рассинхрона  _(api/infra)_
 - `apps/web/src/app/admin/billing/page.tsx:62-84` — Cross-tenant биллинг-запрос уходит ДО клиентского super-admin-guard (ordering)  _(web/admin)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:162-206` — Mock-fallback активен в проде при отсутствии ANTHROPIC_API_KEY — копилот молча отвечает заглушками  _(api/copilot)_
-- `apps/web/src/app/admin/audit-log/page.tsx:130-142` — exportCsv: limit=500 перетирает limit из buildQuery, комментарий «5000» вводит в заблуждение  _(web/admin)_
+- `apps/web/src/app/admin/audit-log/page.tsx:130-142` — exportCsv: limit=500 перетирает limit из buildQuery, комментарий «5000» вводит в заблуждение  _(web/admin)_  **✅ ЗАКРЫТО `da00c83`**
 - `apps/web/src/app/dispatcher/page.tsx:694-702` — Клик по блокеру/риску в левом рейле диспетчера — мёртвая интеракция (onSelectException не передан)  _(web/ops1)_
 - `apps/web/src/app/dispatcher/components/AssignmentPanel.tsx:172-208` — Назначение из панели диспетчера не блокирует перевес при включённой проверке объёма, и проверяет вес только по одной заявке  _(web/ops1)_
 - `apps/web/src/app/medic/page.tsx:350-404` — Медосмотр: «Допустить» не блокируется клиентом при положительном алкотесте / критических витальных  _(web/ops2)_
