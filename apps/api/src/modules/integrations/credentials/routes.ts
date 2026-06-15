@@ -252,12 +252,14 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
         }
         if (!adapter) {
             const lastError = `Adapter not registered: ${row.providerName}`;
+            // P3 (код-аудит 2026-06-14): НЕ затираем status строки на 'error' — это
+            // инфраструктурный сбой /test (адаптер не зарегистрирован), а не проблема
+            // самих кред. Корректный 'active'/'sandbox' сохраняем; пишем только lastError.
             await db
                 .update(providerCredentials)
                 .set({
                     lastHealthCheckAt: new Date(),
                     lastError,
-                    status: 'error',
                     updatedAt: new Date(),
                 })
                 .where(eq(providerCredentials.id, id));

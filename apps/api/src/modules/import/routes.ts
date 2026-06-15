@@ -49,7 +49,12 @@ export default async function importRoutes(app: FastifyInstance) {
             return reply.status(400).send({ success: false, error: 'Максимум 200 записей' });
         }
 
-        const orgId = user.organizationId || null;
+        // P3 (код-аудит 2026-06-14): импорт требует привязки к орг — иначе org-less
+        // admin создавал записи с NULL-org (обход per-org уникальности, multitenancy).
+        if (!user.organizationId) {
+            return reply.status(400).send({ success: false, error: 'Импорт требует привязки к организации' });
+        }
+        const orgId = user.organizationId;
         const results = { created: 0, errors: [] as { index: number, error: string }[] };
 
         // A-P0-8: collect valid rows + per-row errors first, then INSERT all
@@ -393,7 +398,12 @@ export default async function importRoutes(app: FastifyInstance) {
             return reply.status(400).send({ success: false, error: 'Максимум 200 записей' });
         }
 
-        const orgId = user.organizationId || null;
+        // P3 (код-аудит 2026-06-14): импорт требует привязки к орг — иначе org-less
+        // admin создавал записи с NULL-org (обход per-org уникальности, multitenancy).
+        if (!user.organizationId) {
+            return reply.status(400).send({ success: false, error: 'Импорт требует привязки к организации' });
+        }
+        const orgId = user.organizationId;
         const results = { created: 0, errors: [] as { index: number, error: string }[] };
 
         // A-P0-8: validate first, then batch insert in one transaction.

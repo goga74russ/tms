@@ -102,6 +102,11 @@ async function ensureConversation(opts: ChatOptions): Promise<string> {
             .where(and(
                 eq(copilotConversations.id, opts.conversationId),
                 eq(copilotConversations.userId, opts.user.userId),
+                // P3 (код-аудит 2026-06-14): + принадлежность беседы текущей орг —
+                // раньше проверялся только userId (кросс-орг привязка сообщений).
+                ...(opts.user.organizationId
+                    ? [eq(copilotConversations.organizationId, opts.user.organizationId)]
+                    : []),
             ))
             .limit(1);
         if (existing) return existing.id;

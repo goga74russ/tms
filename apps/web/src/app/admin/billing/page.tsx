@@ -78,10 +78,14 @@ export default function AdminBillingPage() {
             .finally(() => setLoading(false));
     };
 
+    // P3 (код-аудит 2026-06-14): cross-tenant billing-запрос только ПОСЛЕ подтверждения
+    // super-admin — раньше loadRows на mount уходил до guard-редиректа (запрос летел
+    // даже у не-super-admin; сервер тоже гейтит, но запрос лишний).
     useEffect(() => {
-        loadRows();
+        if (userLoading) return;
+        if (user?.isSuperAdmin) loadRows();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [user, userLoading]);
 
     const filtered = useMemo(() => {
         if (!rows) return [];

@@ -104,6 +104,11 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         schema: { tags: ['Онбординг'], summary: 'Поиск компании по ИНН', description: 'Использует DaData (mock) для поиска реквизитов.' },
         preHandler: [fastify.authenticate],
     }, async (request, reply) => {
+        // P3 (код-аудит 2026-06-14): admin-гейт как у остальных onboarding-шагов
+        // (раньше inn-lookup был под одним authenticate — асимметрия).
+        if (!isAdmin(request.user as AuthUser)) {
+            return reply.status(403).send({ success: false, error: 'admin only' });
+        }
         const parsed = InnLookupSchema.safeParse(request.body);
         if (!parsed.success) {
             return reply.status(400).send({ success: false, error: parsed.error.flatten() });

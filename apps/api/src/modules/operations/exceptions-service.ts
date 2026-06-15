@@ -288,6 +288,9 @@ export async function listOperationExceptions(params: ListOperationExceptionsPar
                 eq(events.entityType, 'trip'),
                 inArray(events.entityId, tripIds),
                 inArray(events.eventType, [...OPERATIONAL_EVENT_TYPES]),
+                // P3 (код-аудит 2026-06-14): прямой org-фильтр на events (defense-in-depth;
+                // раньше скоуп опирался только на org-фильтрованные tripIds).
+                params.organizationId ? eq(events.organizationId, params.organizationId) : undefined,
             ))
             .orderBy(desc(events.timestamp))
             .limit(limit);
