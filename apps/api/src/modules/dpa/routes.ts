@@ -154,12 +154,24 @@ const dpaRoutes: FastifyPluginAsync = async (app) => {
             })
             .onConflictDoNothing();
 
+        // P3 (код-аудит 2026-06-14): при идемпотентном повторе возвращаем ОРИГИНАЛЬНЫЙ
+        // acceptedAt (из БД), а не текущее время — иначе клиент видел «новую» дату акцепта.
+        const [accepted] = await db
+            .select({ acceptedAt: dpaAcceptances.acceptedAt })
+            .from(dpaAcceptances)
+            .where(and(
+                eq(dpaAcceptances.userId, user.userId),
+                eq(dpaAcceptances.providerId, params.data.providerId),
+                eq(dpaAcceptances.version, dpa.frontmatter.version),
+            ))
+            .limit(1);
+
         return {
             success: true,
             data: {
                 providerId: params.data.providerId,
                 version: dpa.frontmatter.version,
-                acceptedAt: new Date().toISOString(),
+                acceptedAt: (accepted?.acceptedAt ?? new Date()).toISOString(),
             },
         };
     });

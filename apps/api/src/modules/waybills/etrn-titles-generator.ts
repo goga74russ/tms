@@ -30,24 +30,27 @@ function escapeXml(str: string): string {
 /**
  * Format ISO date to DD.MM.YYYY (RU document standard).
  */
+// P3 (код-аудит 2026-06-14): даты ЭТрН форматируем в МСК (UTC+3), а не в локальной
+// TZ сервера — под Docker (UTC) был off-by-one в ДатаДок/ДатаВремя.
+const MSK_OFFSET_MS = 3 * 60 * 60 * 1000;
 function formatDate(isoDate: string): string {
-    const d = new Date(isoDate);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
+    const d = new Date(new Date(isoDate).getTime() + MSK_OFFSET_MS);
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const year = d.getUTCFullYear();
     return `${day}.${month}.${year}`;
 }
 
 /**
- * Format ISO datetime to DD.MM.YYYY HH:MM (RU document standard).
+ * Format ISO datetime to DD.MM.YYYY HH:MM (RU document standard, МСК).
  */
 function formatDateTime(isoDate: string): string {
-    const d = new Date(isoDate);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const d = new Date(new Date(isoDate).getTime() + MSK_OFFSET_MS);
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const year = d.getUTCFullYear();
+    const hours = String(d.getUTCHours()).padStart(2, '0');
+    const minutes = String(d.getUTCMinutes()).padStart(2, '0');
     return `${day}.${month}.${year} ${hours}:${minutes}`;
 }
 

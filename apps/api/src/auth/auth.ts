@@ -1496,6 +1496,12 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (!user) {
             return reply.status(404).send({ success: false, error: 'Пользователь не найден' });
         }
+        // P3 (код-аудит 2026-06-14): verify-email — для ПЕРВИЧНОЙ активации. Если email
+        // уже подтверждён ранее, не реактивируем isActive (аккаунт мог быть намеренно
+        // деактивирован админом — повтор verify не должен его «оживлять»).
+        if (user.emailVerifiedAt) {
+            return reply.send({ success: true, message: 'Email уже подтверждён' });
+        }
 
         await db.update(users)
             .set({

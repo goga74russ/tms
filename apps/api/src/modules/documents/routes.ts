@@ -145,8 +145,12 @@ const documentRoutes: FastifyPluginAsync = async (app) => {
 
             return reply.status(201).send({ success: true, data: row });
         } catch (err: any) {
-            // Likely unique-constraint conflict on (tripId, docType)
-            return reply.status(409).send({ success: false, error: safeClientError(err, 'Не удалось создать запись') });
+            // P3 (код-аудит 2026-06-14): 409 только для реального unique-конфликта
+            // (PG 23505 на (tripId, docType)); прочие ошибки БД — 500, а не маскировка под 409.
+            if (err?.code === '23505') {
+                return reply.status(409).send({ success: false, error: 'Документ такого типа уже зарегистрирован по этому рейсу' });
+            }
+            return reply.status(500).send({ success: false, error: safeClientError(err, 'Не удалось создать запись') });
         }
     });
 

@@ -46,7 +46,9 @@ export function requireFeature(name: PlanFeature | string): preHandlerHookHandle
         // through to the normal feature check (returns 402 on Free).
         if (!orgId) {
             const roles = user?.roles ?? [];
-            if (roles.includes('admin') || roles.includes('super_admin')) {
+            // P3 (код-аудит 2026-06-14): убрана мёртвая ветка 'super_admin' (такой роли
+            // нет в APP_ROLES; платформенный super-admin = роль 'admin' без org).
+            if (roles.includes('admin')) {
                 return;
             }
         }
