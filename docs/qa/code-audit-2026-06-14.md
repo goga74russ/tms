@@ -663,7 +663,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/import/routes.ts:252-267` — preview не ограничивает размер загружаемого XLSX — парсинг файла до проверки лимита строк  _(api/import)_
 - `apps/api/src/modules/integrations/credentials/routes.ts:91-108` — providerType и providerName не валидируются на согласованность → возможен DPA-bypass + строки-сироты, которые никогда не инстанцируют адаптер  _(api/integrations)_
 - `apps/api/src/modules/integrations/credentials/routes.ts:96-154` — POST принимает status='active' напрямую без обязательного успешного health-check → live-операции на непроверенных кредах  _(api/integrations)_
-- `apps/api/src/modules/integrations/credentials/routes.ts:253-265` — /test для несуществующего/несовпадающего адаптера затирает корректный status строки на 'error'  _(api/integrations)_
+- `apps/api/src/modules/integrations/credentials/routes.ts:253-265` — /test для несуществующего/несовпадающего адаптера затирает корректный status строки на 'error'  _(api/integrations)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `apps/api/src/modules/mchd/routes.ts:252-258` — Проверка XML МЧД — только префикс '<?xml', реальная МЧД-структура/подпись ФНС не валидируется при загрузке  _(api/mchd)_
 - `apps/api/src/modules/mchd/routes.ts:298-304` — Детекция дубля МЧД по подстроке текста ошибки вместо кода PG 23505 — хрупко  _(api/mchd)_
 - `apps/api/src/modules/notifications/routes.ts:52-83` — /start без payload создаёт мёртвую подписку (org=null) но рапортует «уведомления подключены»  _(api/notifications)_
