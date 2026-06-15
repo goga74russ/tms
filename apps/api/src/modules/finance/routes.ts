@@ -1,6 +1,6 @@
 ﻿import { FastifyPluginAsync } from 'fastify';
 import { requireAbility } from '../../auth/rbac.js';
-import { resolveContractorId, isPlatformSuperAdmin } from '../../auth/guards.js';
+import { resolveContractorId, isPlatformSuperAdmin, assertVehicleAccess } from '../../auth/guards.js';
 import { tarificationService } from './tarification.service.js';
 import { financeService } from './finance.service.js';
 import { evaluateTariffRule } from './tariff-rules.service.js';
@@ -462,7 +462,16 @@ const financeRoutes: FastifyPluginAsync = async (fastify) => {
             const start = q.startDate ? new Date(q.startDate) : undefined;
             const end = q.endDate ? new Date(q.endDate) : undefined;
             const vehicleId = q.vehicleId || undefined;
-            const data = await financeService.analyzeFuel(start, end, vehicleId, (request.user as { organizationId?: string }).organizationId);
+            const user = request.user as { userId: string; roles: string[]; organizationId?: string };
+            // P2 (код-аудит 2026-06-14): при фильтре по vehicleId проверяем принадлежность
+            // ТС орг (assertVehicleAccess) — иначе org-less аккаунт мог получить расход
+            // топлива чужого ТС (org-фильтр в analyzeFuel пропускался без org).
+            try {
+                if (vehicleId) await assertVehicleAccess(vehicleId, user);
+            } catch (err: any) {
+                return reply.code(err.statusCode ?? 403).send({ success: false, error: err.message });
+            }
+            const data = await financeService.analyzeFuel(start, end, vehicleId, user.organizationId);
             return { success: true, data };
         }
     );

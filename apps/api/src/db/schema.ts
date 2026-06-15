@@ -272,7 +272,9 @@ export const contractors = pgTable('contractors', {
 }, (table) => [
     // C4 (миг.0041): per-org уникальность ИНН (был глобальный idx_contractors_inn).
     uniqueIndex('idx_contractors_org_inn').on(table.organizationId, table.inn),
-    index('idx_contractors_is_carrier').on(table.isCarrier),
+    // P2 (код-аудит 2026-06-14): partial-индекс — соответствие миграции 0016
+    // (WHERE is_carrier = true), раньше в schema.ts был plain (schema drift).
+    index('idx_contractors_is_carrier').on(table.isCarrier).where(sql`${table.isCarrier} = true`),
 ]);
 
 // ================================================================
@@ -532,7 +534,8 @@ export const trips = pgTable('trips', {
     index('idx_trips_trailer').on(table.trailerId),
     index('idx_trips_driver').on(table.driverId),
     index('idx_trips_org').on(table.organizationId),
-    index('idx_trips_carrier_contractor').on(table.carrierContractorId),
+    // P2: partial-индекс — соответствие миграции 0016 (WHERE carrier_contractor_id IS NOT NULL).
+    index('idx_trips_carrier_contractor').on(table.carrierContractorId).where(sql`${table.carrierContractorId} IS NOT NULL`),
 ]);
 
 // ================================================================
