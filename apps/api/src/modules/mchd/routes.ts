@@ -308,11 +308,10 @@ const mchdRoutes: FastifyPluginAsync = async (app) => {
 
             return reply.status(201).send({ success: true, data: inserted });
         } catch (err) {
-            // C9 (миг.0043): уникальность mchd_number теперь PER-ORG (uq_mchd_org_number) —
-            // дубль в своей орг → 409; чужой номер другого тенанта больше не даёт 409
-            // (закрыт cross-tenant existence-oracle). Ловим по подстроке 'unique'.
-            const message = err instanceof Error ? err.message : String(err);
-            if (message.includes('mchd_number') || message.includes('unique') || message.includes('uq_mchd_org_number')) {
+            // C9 (миг.0043): уникальность mchd_number PER-ORG (uq_mchd_org_number).
+            // P3 (код-аудит 2026-06-14): детектим дубль по КОДУ PG 23505 (unique_violation),
+            // а не по подстроке текста ошибки (хрупко, ломалось бы при i18n PG/санитайзе).
+            if ((err as { code?: string })?.code === '23505') {
                 return reply.status(409).send({
                     success: false,
                     error: 'МЧД с таким номером уже зарегистрирована',

@@ -32,9 +32,12 @@ export class MockSignatureProvider implements SignatureProvider {
 
     async sign(documentId: string, payload: string, userId: string, _callbackUrl?: string): Promise<SignatureResult> {
         const sig = deterministicSig(documentId, payload);
+        // P3 (код-аудит 2026-06-14): экранируем documentId/userId перед вставкой в XML —
+        // спецсимволы (< > &) ломали/подделывали конверт mock-подписи.
+        const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const signedXml = `<SignedDocument xmlns="urn:tms:mock-sig">
-  <DocumentId>${documentId}</DocumentId>
-  <SignedBy>${userId}</SignedBy>
+  <DocumentId>${esc(documentId)}</DocumentId>
+  <SignedBy>${esc(userId)}</SignedBy>
   <SignedAt>${nowIso()}</SignedAt>
   <Signature algorithm="mock-sha256">${sig}</Signature>
   <Payload encoding="base64">${Buffer.from(payload).toString('base64')}</Payload>

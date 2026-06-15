@@ -267,6 +267,11 @@ export default async function importRoutes(app: FastifyInstance) {
             return reply.status(400).send({ success: false, error: 'Файл не передан' });
         }
         const buf = await file.toBuffer();
+        // P3 (код-аудит 2026-06-14): лимит размера файла ДО парсинга XLSX (раньше
+        // парсили любой размер до проверки лимита строк — риск памяти/DoS).
+        if (buf.length > 5 * 1024 * 1024) {
+            return reply.status(400).send({ success: false, error: 'Файл слишком большой (максимум 5 МБ)' });
+        }
 
         let rows: Record<string, unknown>[];
         try {

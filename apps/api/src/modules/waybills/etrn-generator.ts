@@ -70,6 +70,9 @@ export interface ETrNInput {
  */
 function escapeXml(str: string): string {
     return str
+        // P3 (код-аудит 2026-06-14): вырезаем запрещённые XML-1.0 управляющие символы
+        // (#x0-#x8, #xB, #xC, #xE-#x1F) — иначе ЭТрН-XML становился невалидным.
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')

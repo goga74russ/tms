@@ -8,8 +8,9 @@
 // Note: ОФД is a separate provider domain from `payment` because the
 // same merchant typically uses one ЮKassa + one ОФД (Платформа ОФД,
 // OFD.ru, Такском-Касса …). We don't extend the global ProviderType
-// union here — the registry exposes ofd adapters directly via
-// getDefaultRegistry().ofd.
+// union here. P3 (код-аудит 2026-06-14): ОФД-адаптер берётся через
+// getOfdAdapter() (см. billing/service.ts), а НЕ getDefaultRegistry().ofd —
+// такого поля в реестре нет (исправлен layer drift в доке).
 
 export type OfdProviderMode = 'mock' | 'sandbox' | 'production';
 

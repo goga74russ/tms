@@ -275,8 +275,10 @@ export async function handlePaymentCallback(payload: PaymentCallbackPayload): Pr
     const [paymentRow] = await tx
         .select()
         .from(payments)
-        // idx_payments_provider_id НЕ уникален — теоретически возможны дубли строк
-        // с одним providerPaymentId. Детерминированный orderBy (новейшая запись)
+        // P3 (код-аудит 2026-06-14): миграция 0045 добавила PARTIAL-unique на
+        // idx_payments_provider_id (WHERE provider_payment_id IS NOT NULL). Дубли
+        // возможны только среди строк с NULL provider_payment_id (ещё не отправленные
+        // на провайдер). Детерминированный orderBy (новейшая запись)
         // гарантирует стабильный выбор одной и той же строки на любом ретрае вебхука.
         .where(eq(payments.providerPaymentId, payload.externalId))
         .orderBy(sql`${payments.createdAt} DESC`)
