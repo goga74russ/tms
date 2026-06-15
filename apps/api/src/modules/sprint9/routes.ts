@@ -309,17 +309,21 @@ export default async function sprint9Routes(app: FastifyInstance) {
             return reply.status(409).send({ success: false, error: 'Водитель уже привязан к путевому листу' });
         }
 
-        if (parsed.data.isPrimary) {
-            await db.update(waybillDrivers).set({ isPrimary: false }).where(eq(waybillDrivers.waybillId, id));
-        }
-
-        const [created] = await db.insert(waybillDrivers).values({
-            waybillId: id,
-            driverId: parsed.data.driverId,
-            shiftStart: parsed.data.shiftStart ? new Date(parsed.data.shiftStart) : undefined,
-            shiftEnd: parsed.data.shiftEnd ? new Date(parsed.data.shiftEnd) : undefined,
-            isPrimary: parsed.data.isPrimary,
-        }).returning();
+        // P2 (код-аудит 2026-06-14): reset isPrimary + insert нового водителя — в одной
+        // транзакции. Раньше вне tx было окно с нулём primary-водителей и гонка двух
+        // параллельных insert обоих с isPrimary.
+        const [created] = await db.transaction(async (tx) => {
+            if (parsed.data.isPrimary) {
+                await tx.update(waybillDrivers).set({ isPrimary: false }).where(eq(waybillDrivers.waybillId, id));
+            }
+            return tx.insert(waybillDrivers).values({
+                waybillId: id,
+                driverId: parsed.data.driverId,
+                shiftStart: parsed.data.shiftStart ? new Date(parsed.data.shiftStart) : undefined,
+                shiftEnd: parsed.data.shiftEnd ? new Date(parsed.data.shiftEnd) : undefined,
+                isPrimary: parsed.data.isPrimary,
+            }).returning();
+        });
 
         return reply.status(201).send({ success: true, data: created });
     });

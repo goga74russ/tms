@@ -6,7 +6,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { userCanUseCopilot, type CopilotStreamEvent } from '@tms/shared';
 import { chat, listConversations, getConversationMessages, CopilotRateLimitError } from './service.js';
-import { requireFeature } from '../../auth/plan-guard.js';
+import { requireFeature, requireWithinLimit } from '../../auth/plan-guard.js';
 
 const ChatBodySchema = z.object({
     conversationId: z.string().uuid().optional().nullable(),
@@ -25,7 +25,9 @@ const copilotRoutes: FastifyPluginAsync = async (app) => {
             summary: 'Stream chat reply (SSE)',
             description: 'Server-Sent Events stream of co-pilot reply (text deltas, tool calls, results).',
         },
-        preHandler: [app.authenticate, requireFeature('ai_copilot')],
+        // P2 (код-аудит 2026-06-14): подключена план-квота copilot_messages — раньше
+        // лимит тарифа на сообщения copilot обходился (был только requireFeature).
+        preHandler: [app.authenticate, requireFeature('ai_copilot'), requireWithinLimit('copilot_messages')],
     }, async (request, reply) => {
         const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
         if (!userCanUseCopilot(user.roles)) {

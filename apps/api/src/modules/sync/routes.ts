@@ -157,7 +157,12 @@ export default async function syncRoutes(app: FastifyInstance) {
                 if (!parentTrip) continue;
 
                 const syncRow = toRoutePointSyncRow(point);
-                if (parentTrip.createdAt > since) {
+                // P2 (код-аудит 2026-06-14, #568): created/updated по createdAt САМОЙ
+                // точки, а не родительского рейса (раньше все точки нового рейса шли
+                // в created, а точки старого рейса — в updated, независимо от точки).
+                // #569 (полная переотдача без updatedAt-фильтра) — требует миграцию:
+                // route_points не имеет колонки updated_at, дельта по ней невозможна.
+                if (point.createdAt > since) {
                     routePointCreated.push(syncRow);
                 } else {
                     routePointUpdated.push(syncRow);

@@ -6,10 +6,25 @@
 // ============================================================
 import { db } from '../../db/connection.js';
 import { copilotConversations, copilotMessages, users, organizations } from '../../db/schema.js';
-import { and, eq, desc, gte, sql, asc } from 'drizzle-orm';
+import { and, eq, desc, gte, sql, asc, inArray } from 'drizzle-orm';
 import { ALL_TOOLS, runTool, type CopilotToolContext } from './tools/index.js';
 import { buildSystemPrompt } from './prompt.js';
 import { safeClientError } from '../../utils/safe-error.js';
+
+// P2 (код-аудит 2026-06-14): tool_result отдаётся в контекст модели через
+// JSON.stringify(result) — сырые внутренние поля/ошибки могли утекать в LLM.
+// Санитизируем: вырезаем чувствительные ключи + ограничиваем размер.
+const TOOL_RESULT_SENSITIVE_KEYS = new Set([
+    'stack', 'rawError', 'sql', 'query', 'password', 'passwordHash',
+    'token', 'secret', 'encryptedCredentials', 'apiKey',
+]);
+function sanitizeToolResultForModel(result: unknown): string {
+    const json = JSON.stringify(result, (key, value) =>
+        TOOL_RESULT_SENSITIVE_KEYS.has(key) ? undefined : value);
+    const MAX = 8000;
+    if (!json) return 'null';
+    return json.length > MAX ? `${json.slice(0, MAX)}…(truncated)` : json;
+}
 import type { CopilotStreamEvent, CopilotMessageRole } from '@tms/shared';
 
 const MAX_HISTORY_TURNS = 30;
@@ -129,7 +144,13 @@ async function loadHistory(conversationId: string): Promise<Array<{ role: string
             content: copilotMessages.content,
         })
         .from(copilotMessages)
-        .where(eq(copilotMessages.conversationId, conversationId))
+        // P2 (код-аудит 2026-06-14): берём только реальные ходы диалога (user/assistant),
+        // исключая tool-строки (role='tool', content='') — иначе они съедали лимит
+        // MAX_HISTORY_TURNS и реальный контекст сильно урезался.
+        .where(and(
+            eq(copilotMessages.conversationId, conversationId),
+            inArray(copilotMessages.role, ['user', 'assistant']),
+        ))
         .orderBy(desc(copilotMessages.createdAt))
         .limit(MAX_HISTORY_TURNS);
     return rows.reverse().map((r) => ({ role: r.role, content: r.content }));
@@ -302,7 +323,7 @@ async function runAnthropicChat(
             toolResults.push({
                 type: 'tool_result',
                 tool_use_id: id,
-                content: JSON.stringify(result),
+                content: sanitizeToolResultForModel(result),
             });
             if (result.proposed) {
                 emit({

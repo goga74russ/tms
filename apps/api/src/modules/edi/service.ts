@@ -128,12 +128,22 @@ export async function sendDocumentToEdi(
             titleType: transportDocuments.titleType,
             payload: transportDocuments.payload,
             tripId: transportDocuments.tripId,
+            ediStatus: transportDocuments.ediStatus,
         })
         .from(transportDocuments)
         .where(eq(transportDocuments.id, documentId))
         .limit(1);
     if (!doc) {
         throw new Error('Документ не найден');
+    }
+
+    // P2 (код-аудит 2026-06-14): не отправляем повторно документ, уже продвинутый в
+    // ЭДО — иначе повторная отправка затирала подписанный ЭТрН (signed→sent),
+    // обнуляла ediExternalId и перезапускала прогрессию. Повтор допустим только из
+    // начальных/ошибочных состояний (null/missing/draft/rejected/exceptioned).
+    const EDI_PROGRESSED = new Set(['sent', 'signed', 'received', 'accepted']);
+    if (doc.ediStatus && EDI_PROGRESSED.has(doc.ediStatus)) {
+        throw new Error(`Документ уже отправлен в ЭДО (статус: ${doc.ediStatus}) — повторная отправка затёрла бы прогресс`);
     }
 
     // P0-C2: единый ЭТрН-гейт — не отправляем ЭТрН в ЭДО по субподряд-рейсу
