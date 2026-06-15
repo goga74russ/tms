@@ -5,7 +5,6 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireAbility } from '../../auth/rbac.js';
 import { assertDriverAccess } from '../../auth/guards.js';
-import { recordEvent } from '../../events/journal.js';
 import { getDriverHoursSummary, getDriverHosStatus } from './service.js';
 
 interface AuthUser {
@@ -61,25 +60,9 @@ const rtoRoutes: FastifyPluginAsync = async (app) => {
 
         const summary = await getDriverHoursSummary(params.data.id, from, to);
 
-        if (summary.breaches.length > 0) {
-            try {
-                await recordEvent({
-                    authorId: user.userId,
-                    authorRole: user.roles[0] ?? 'system',
-                    eventType: 'rto.breach',
-                    entityType: 'driver',
-                    entityId: params.data.id,
-                    data: {
-                        breaches: summary.breaches,
-                        from: summary.from,
-                        to: summary.to,
-                    },
-                });
-            } catch (err) {
-                app.log.warn({ err }, 'rto.breach journal write failed');
-            }
-        }
-
+        // P2 (код-аудит 2026-06-14): GET идемпотентен — НЕ пишем rto.breach как
+        // side-effect на каждый запрос (плодило дубли в журнале). Факт превышения
+        // есть в ответе (summary.breaches); журналирование — задача write-пути/крона.
         return { success: true, data: summary };
     });
 
@@ -113,26 +96,8 @@ const rtoRoutes: FastifyPluginAsync = async (app) => {
         const asOf = query.data.asOf ? new Date(query.data.asOf) : undefined;
         const status = await getDriverHosStatus(params.data.id, asOf);
 
-        if (status.breach) {
-            try {
-                await recordEvent({
-                    authorId: user.userId,
-                    authorRole: user.roles[0] ?? 'system',
-                    eventType: 'rto.breach',
-                    entityType: 'driver',
-                    entityId: params.data.id,
-                    data: {
-                        reasons: status.breachReasons,
-                        dayHours: status.dayHours,
-                        weekHours: status.weekHours,
-                        asOf: status.asOf,
-                    },
-                });
-            } catch (err) {
-                app.log.warn({ err }, 'rto.breach journal write failed');
-            }
-        }
-
+        // P2 (код-аудит 2026-06-14): GET идемпотентен — без side-effect записи
+        // rto.breach (плодило дубли). Факт превышения — в ответе (status.breach).
         return { success: true, data: status };
     });
 };

@@ -373,6 +373,14 @@ async function syncLinkedOrdersForTripStatus(
                 .where(eq(orders.id, order.id));
         }
     }
+
+    // P2 (код-аудит 2026-06-14): при отмене рейса заявки отвязывались (tripId=null),
+    // но строки junction trip_orders и route_points оставались — рассинхрон слоёв.
+    // Чистим их в той же транзакции (один раз на рейс, не на заявку).
+    if (newStatus === TripStatus.CANCELLED) {
+        await tx.delete(tripOrders).where(eq(tripOrders.tripId, tripId));
+        await tx.delete(routePoints).where(eq(routePoints.tripId, tripId));
+    }
 }
 
 // --- CRUD ---

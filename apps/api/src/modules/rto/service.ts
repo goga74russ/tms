@@ -26,9 +26,11 @@ export interface DailyHoursMap {
 }
 
 export interface RtoBreach {
-    date: string; // YYYY-MM-DD
+    date: string; // YYYY-MM-DD (для недельного — 'week')
     dayHours: number;
     limit: number;
+    /** P2 — тип превышения: дневное (по умолчанию) или недельное (56 ч). */
+    kind?: 'daily' | 'weekly';
 }
 
 export interface DriverHoursSummary {
@@ -82,8 +84,20 @@ export async function getDriverHoursSummary(
                 date,
                 dayHours: hours,
                 limit: DAY_DRIVING_LIMIT_MIN / MIN_PER_HOUR,
+                kind: 'daily',
             });
         }
+    }
+
+    // P2 (код-аудит 2026-06-14): недельный лимit (56 ч) раньше не детектился —
+    // breaches содержал только дневные. Добавляем недельное превышение.
+    if (totalMin > WEEK_DRIVING_LIMIT_MIN) {
+        breaches.push({
+            date: 'week',
+            dayHours: minutesToHours(totalMin),
+            limit: WEEK_DRIVING_LIMIT_MIN / MIN_PER_HOUR,
+            kind: 'weekly',
+        });
     }
 
     return {

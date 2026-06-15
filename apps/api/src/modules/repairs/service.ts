@@ -794,12 +794,19 @@ export async function updateRepairStatus(
         updateData.completedAt = new Date();
     }
 
-    // H-11: Wrap repair status + vehicle status in single transaction
+    // H-11: Wrap repair status + vehicle status in single transaction.
+    // P2 (код-аудит 2026-06-14): статус читался/валидировался ВНЕ транзакции (TOCTOU).
+    // Добавляем оптимистичную блокировку — UPDATE только если статус не изменился
+    // с момента чтения (status = repair.status в WHERE); 0 строк → параллельная гонка.
     const updated = await db.transaction(async (tx) => {
         const [result] = await tx.update(repairRequests)
             .set(updateData)
-            .where(scopedRepairCondition(id, user.organizationId, isPlatformSuperAdmin(user)))
+            .where(and(
+                scopedRepairCondition(id, user.organizationId, isPlatformSuperAdmin(user)),
+                eq(repairRequests.status, repair.status),
+            ))
             .returning();
+        if (!result) throw new Error('Заявка на ремонт изменилась параллельно — повторите операцию');
 
         // On completion, conditionally set vehicle back to available
         // FIX: Only set available if NO other active repairs exist for this vehicle
