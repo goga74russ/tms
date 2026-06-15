@@ -148,6 +148,15 @@ export const VehicleCreateSchema = VehicleSchema.omit({
     currentOdometerKm: true,
 });
 
+// P1 (код-аудит 2026-06-14): PUT /fleet/vehicles/:id раньше валидировал через
+// VehicleCreateSchema.partial(), который омитит status/currentOdometerKm/isArchived
+// → Zod молча отбрасывал эти поля, и обновить их было нельзя. Update-схема
+// включает их (но не id/createdAt/updatedAt — иммутабельны). organizationId в
+// VehicleSchema нет, так что cross-tenant поле не пройдёт.
+export const VehicleUpdateSchema = VehicleSchema.omit({
+    id: true, createdAt: true, updatedAt: true,
+}).partial();
+
 // ================================================================
 // Водитель (§3.11, §3.12)
 // ================================================================

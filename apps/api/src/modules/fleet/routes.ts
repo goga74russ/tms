@@ -9,7 +9,7 @@ import { assertDriverAccess, assertTripAccess, assertVehicleAccess, resolveDrive
 import * as fleetService from './service.js';
 import { safeClientError } from '../../utils/safe-error.js';
 import {
-    VehicleCreateSchema, DriverCreateSchema, DriverUpdateSchema, ContractorCreateSchema,
+    VehicleCreateSchema, VehicleUpdateSchema, DriverCreateSchema, DriverUpdateSchema, ContractorCreateSchema,
     PermitCreateSchema, PermitUpdateSchema, FineCreateSchema, FineUpdateSchema,
     PRIVILEGED_ROLES, hasPrivilege,
     FuelRecordCreateSchema, OdometerReadingCreateSchema,
@@ -121,10 +121,12 @@ export default async function fleetRoutes(app: FastifyInstance) {
         try {
             const { id } = request.params as { id: string };
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
-            // H-4: Zod partial validation for updates
-            const parsed = VehicleCreateSchema.partial().safeParse(request.body);
+            // P1 (код-аудит 2026-06-14): VehicleUpdateSchema включает status/
+            // currentOdometerKm/isArchived (VehicleCreateSchema.partial() их омитил
+            // → Zod молча отбрасывал, обновить было нельзя).
+            const parsed = VehicleUpdateSchema.safeParse(request.body);
             if (!parsed.success) return reply.status(400).send({ success: false, error: 'Ошибка валидации данных', details: parsed.error.flatten() });
-            const vehicle = await fleetService.updateVehicle(id, parsed.data as z.infer<typeof VehicleCreateSchema>, user);
+            const vehicle = await fleetService.updateVehicle(id, parsed.data as z.infer<typeof VehicleUpdateSchema>, user);
             return { success: true, data: vehicle };
         } catch (err: any) {
             return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });

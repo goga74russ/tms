@@ -266,11 +266,17 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
 
         try {
             const health = await adapter.healthCheck();
+            // P1 (код-аудит 2026-06-14): успешный health-check восстанавливает строку
+            // из 'error' → 'sandbox', иначе провайдер навсегда оставался неактивным
+            // в selectAdapter (status==='active'||'sandbox'). Авто-промоут в 'active'
+            // НЕ делаем — для signature/payment go-live это решение оператора.
+            const recoveredStatus = health.ok && row.status === 'error' ? 'sandbox' : row.status;
             await db
                 .update(providerCredentials)
                 .set({
                     lastHealthCheckAt: new Date(),
                     lastError: health.ok ? null : (health.detail ?? 'unknown'),
+                    status: recoveredStatus,
                     updatedAt: new Date(),
                 })
                 .where(eq(providerCredentials.id, id));

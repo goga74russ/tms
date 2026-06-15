@@ -138,7 +138,7 @@ export default async function analyticsRoutes(app: FastifyInstance) {
                         vehicleId: v.id, plateNumber: v.plateNumber,
                         make: v.make, model: v.model,
                         type: 'odometer', severity: 'critical',
-                        message: `Пробег ${v.currentOdometerKm.toLocaleString()} км — ТО превышен на ${Math.abs(kmLeft).toLocaleString()} км`,
+                        message: `Пробег ${currentOdometerKm.toLocaleString()} км — ТО превышен на ${Math.abs(kmLeft).toLocaleString()} км`,
                         kmLeft,
                     });
                 } else if (kmLeft <= 2000) {
@@ -146,8 +146,10 @@ export default async function analyticsRoutes(app: FastifyInstance) {
                         vehicleId: v.id, plateNumber: v.plateNumber,
                         make: v.make, model: v.model,
                         type: 'odometer', severity: 'warning',
-                        // @ts-ignore legacy fallback text still references nullable field
-                        message: `До ТО ${kmLeft.toLocaleString()} км (${v.currentOdometerKm.toLocaleString()} / ${v.maintenanceNextKm.toLocaleString()})`,
+                        // P1 (код-аудит 2026-06-14): используем уже-гарантированные
+                        // локальные currentOdometerKm/plannedMaintenanceKm (строка 134),
+                        // а не nullable v.* — устранён NPE-краш 500 при null.
+                        message: `До ТО ${kmLeft.toLocaleString()} км (${currentOdometerKm.toLocaleString()} / ${plannedMaintenanceKm.toLocaleString()})`,
                         kmLeft,
                     });
                 }
