@@ -141,6 +141,13 @@ function findCityInAddress(address: string): CityRecord | null {
  */
 export function geocodeAddress(address: string): GeocodeResult {
     const matched = findCityInAddress(address);
+    // P2 (код-аудит 2026-06-14): нераспознанный адрес → fallback на центр Москвы.
+    // Результат уже помечен fallback:true/confidence:0 (потребитель может отличить),
+    // но раньше это происходило «молча» — логируем, чтобы непопадание было слышно
+    // в мониторинге, а не оседало тихой подменой координат.
+    if (!matched) {
+        console.warn(`[geo] адрес не распознан — fallback на центр Москвы (confidence:0): «${address}»`);
+    }
     const city = matched ?? MOSCOW_FALLBACK;
     const latJ = deterministicJitter(address, 0);
     const lonJ = deterministicJitter(address, 1);

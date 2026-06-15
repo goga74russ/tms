@@ -169,6 +169,11 @@ export async function sendDocumentToEdi(
                 throw new XsdValidationError(result.errors);
             }
             console.log(`[edi] XSD-валидация ${titleType} OK для документа ${documentId}`);
+        } else {
+            // P2 (код-аудит 2026-06-14): раньше отсутствие XML в payload давало ТИХИЙ
+            // no-op — ЭТрН уходил в ЭДО без структурной проверки. Делаем пропуск явным:
+            // предупреждение в лог (оператор/мониторинг увидит непроверённую отправку).
+            console.warn(`[edi] XSD-валидация ${titleType} ПРОПУЩЕНА для документа ${documentId}: payload без xml/xmlContent — отправка ЭТрН без структурной проверки.`);
         }
     }
 

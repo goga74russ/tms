@@ -87,6 +87,15 @@ export async function resolveTripSla(tripId: string, orderId?: string | null): P
             if (maxC == null || v < maxC) maxC = v;
         }
     }
+    // P2 (код-аудит 2026-06-14): пересечение несовместимых диапазонов лотов (напр.
+    // [2..8] и [-18..-15]) даёт minC>maxC — инвертированную границу, при которой
+    // detectBreach флагует ЛЮБОЙ замер как нарушение. Пустое пересечение = у рейса
+    // нет единого допустимого SLA (несовместимый груз — проблема назначения, не
+    // мониторинга). Не навязываем ложный all-breach: возвращаем null-границы.
+    if (minC != null && maxC != null && minC > maxC) {
+        console.warn(`[cold-chain] trip ${tripId}: несовместимые SLA-диапазоны лотов (пересечение пусто: min ${minC} > max ${maxC}) — SLA не определён`);
+        return { minC: null, maxC: null };
+    }
     return { minC, maxC };
 }
 

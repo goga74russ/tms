@@ -7,7 +7,7 @@ import { eq, and, desc, sql, gte, lte, ilike, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import { OrderStatus } from '@tms/shared';
 import { containsLikePattern } from '../../utils/search.js';
-import { canTransitionOrder } from './validators.js';
+import { canTransitionOrder, validateCargoBounds, validateTemperatureRange } from './validators.js';
 
 // P1 (код-аудит 2026-06-14): доменная ошибка валидации заявки (cross-tenant FK,
 // и т.п.). statusCode 400 — роут отдаёт клиенту чистый 400, не 500.
@@ -111,6 +111,24 @@ export async function createOrder(
     input: CreateOrderInput,
     author: { userId: string; role: string; organizationId?: string | null },
 ) {
+    // P2 (код-аудит 2026-06-14): подключены ранее мёртвые валидаторы. cold-chain —
+    // безусловно (валидирует только при coldChainRequired); груз — когда вес задан
+    // (черновики без веса не блокируем).
+    const tempCheck = validateTemperatureRange({
+        coldChainRequired: input.coldChainRequired,
+        temperatureMinC: input.temperatureMinC,
+        temperatureMaxC: input.temperatureMaxC,
+    });
+    if (!tempCheck.ok) throw new OrderValidationError(tempCheck.message ?? 'Некорректный температурный диапазон');
+    if (input.cargoWeightKg != null) {
+        const cargoCheck = validateCargoBounds({
+            cargoWeightKg: input.cargoWeightKg,
+            cargoVolumeM3: input.cargoVolumeM3,
+            cargoPlaces: input.cargoPlaces,
+        });
+        if (!cargoCheck.ok) throw new OrderValidationError(cargoCheck.reasons.join('; '));
+    }
+
     for (let attempt = 0; attempt < 3; attempt++) {
         try {
             const order = await db.transaction(async (tx) => {
