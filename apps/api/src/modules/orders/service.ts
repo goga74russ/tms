@@ -634,6 +634,15 @@ export async function assignOrderToTrip(
     if (author.organizationId && order.organizationId !== author.organizationId) {
         throw new Error('Order is outside current organization');
     }
+    // P2 (код-аудит 2026-06-14): проверяем принадлежность РЕЙСА орг автора — иначе
+    // cross-tenant trip-assignment (заявка своей орг привязывается к чужому рейсу).
+    if (author.organizationId) {
+        const [trip] = await db.select({ organizationId: trips.organizationId })
+            .from(trips).where(eq(trips.id, tripId)).limit(1);
+        if (!trip || trip.organizationId !== author.organizationId) {
+            throw new Error('Рейс вне текущей организации');
+        }
+    }
     if (order.status !== OrderStatus.CONFIRMED) {
         throw new Error('Заявка должна быть в статусе "Подтверждена" для назначения');
     }

@@ -446,29 +446,24 @@ const trackContractorOrdersTool: CopilotTool<z.infer<typeof TrackContractorOrder
             ))
             .limit(50);
 
-        const enriched: Array<{
-            orderId: string;
-            orderNumber: string;
-            orderStatus: string;
-            tripId: string | null;
-            tripNumber: string | null;
-            etaIso: string | null;
-            distanceKm: number | null;
-        }> = [];
-        for (const row of rows) {
+        // P2 (код-аудит 2026-06-14): обогащение рейсом/ETA — параллельно (Promise.all)
+        // вместо N+1 последовательных getTripById+computeTripEta по 50 заказам.
+        const enriched = await Promise.all(rows.map(async (row) => {
             let tripNumber: string | null = null;
             let etaIso: string | null = null;
             let distanceKm: number | null = null;
             if (row.tripId) {
-                const trip = await getTripById(row.tripId);
+                const [trip, eta] = await Promise.all([
+                    getTripById(row.tripId),
+                    computeTripEta(row.tripId),
+                ]);
                 tripNumber = trip?.number ?? null;
-                const eta = await computeTripEta(row.tripId);
                 if (eta) {
                     etaIso = eta.etaIso;
                     distanceKm = eta.distanceKm;
                 }
             }
-            enriched.push({
+            return {
                 orderId: row.orderId,
                 orderNumber: row.orderNumber,
                 orderStatus: row.orderStatus,
@@ -476,8 +471,8 @@ const trackContractorOrdersTool: CopilotTool<z.infer<typeof TrackContractorOrder
                 tripNumber,
                 etaIso,
                 distanceKm,
-            });
-        }
+            };
+        }));
 
         return { success: true, data: { count: enriched.length, orders: enriched } };
     },

@@ -170,11 +170,13 @@ describe('getDriverHosStatus', () => {
         expect(out.breachReasons.some((r) => r.startsWith('week_limit_exceeded'))).toBe(true);
     });
 
-    it('returns todayDate as YYYY-MM-DD', async () => {
+    it('returns todayDate as YYYY-MM-DD по МСК (P2: не UTC)', async () => {
+        // 23:00 UTC 10 мая = 02:00 МСК 11 мая. Агрегация по МСК (UTC+3) относит
+        // запись к 11 мая — правильный локальный день РФ-водителя (код-аудит #560).
         const today = new Date('2026-05-10T23:00:00Z');
         nextSelectResult = [];
         const out = await getDriverHosStatus('d1', today);
-        expect(out.todayDate).toBe('2026-05-10');
+        expect(out.todayDate).toBe('2026-05-11');
     });
 
     it('uses asOf parameter when provided (deterministic)', async () => {

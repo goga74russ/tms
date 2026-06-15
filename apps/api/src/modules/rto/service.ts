@@ -12,9 +12,12 @@ export const DAY_DRIVING_LIMIT_MIN = 9 * 60;   // 9 часов
 export const WEEK_DRIVING_LIMIT_MIN = 56 * 60; // 56 часов
 const MIN_PER_HOUR = 60;
 
+// P2 (код-аудит 2026-06-14): агрегируем РТО по МСК-дате (UTC+3), а не UTC — иначе
+// записи у границы суток (РФ-водители в МСК+) попадали не в тот день. Все вызовы
+// dateOnlyIso согласованы (todayDate + бакеты по одной шкале).
+const MSK_OFFSET_MS = 3 * 60 * 60 * 1000;
 function dateOnlyIso(date: Date): string {
-    // Возвращаем YYYY-MM-DD по UTC (стабильно для агрегации)
-    return date.toISOString().slice(0, 10);
+    return new Date(date.getTime() + MSK_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 function minutesToHours(minutes: number): number {

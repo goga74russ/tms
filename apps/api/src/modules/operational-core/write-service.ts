@@ -49,9 +49,16 @@ export async function splitOrderIntoLots(orderId: string, input: { maxWeightKg?:
 
         const basePlaces = count > 0 ? Math.floor(totalPlaces / count) : 0;
         const baseVolume = count > 0 ? totalVolume / count : 0;
+        const baseWeight = count > 0 ? totalWeight / count : 0;
         const lots = Array.from({ length: count }, (_, index) => {
             const last = index === count - 1;
-            const weight = maxWeightKg ? (last ? Math.max(totalWeight - Number(maxWeightKg) * index, 0) : Number(maxWeightKg)) : totalWeight / count;
+            // P2 (код-аудит 2026-06-14): когда задан lotCount (с maxWeightKg или без),
+            // вес распределяется РАВНОМЕРНО по totalWeight (sum лотов = вес заявки).
+            // maxWeightKg-чанки используются только если lotCount НЕ задан — иначе
+            // count*maxWeightKg != весу заявки.
+            const weight = lotCount
+                ? (last ? Math.max(totalWeight - baseWeight * index, 0) : baseWeight)
+                : (maxWeightKg ? (last ? Math.max(totalWeight - Number(maxWeightKg) * index, 0) : Number(maxWeightKg)) : totalWeight / count);
             const volume = totalVolume > 0 ? (last ? Math.max(totalVolume - baseVolume * index, 0) : baseVolume) : null;
             const places = totalPlaces > 0 ? (last ? Math.max(totalPlaces - basePlaces * index, 0) : basePlaces) : null;
             return {

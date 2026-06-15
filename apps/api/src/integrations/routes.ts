@@ -8,7 +8,7 @@ import * as FuelCardMock from './mocks/fuel-card.mock.js';
 import * as WialonMockRunner from './mocks/wialon-mock-runner.js';
 import { db } from '../db/connection.js';
 import { vehicles, vehiclePositions, fuelRecords } from '../db/schema.js';
-import { and, desc, eq, gte } from 'drizzle-orm';
+import { and, desc, eq, gte, lte } from 'drizzle-orm';
 import { requireAbility } from '../auth/rbac.js';
 import { recordEvent } from '../events/journal.js';
 import { z } from 'zod';
@@ -373,6 +373,15 @@ export default async function integrationRoutes(app: FastifyInstance) {
             createdBy: user.userId,
         }));
 
+        // P2 (код-аудит 2026-06-14): идемпотентность — повторный sync на тот же период
+        // не плодит дубли. Удаляем прежние mock-записи этого ТС в диапазоне [from,to]
+        // и пере-вставляем (re-sync семантика).
+        await db.delete(fuelRecords).where(and(
+            eq(fuelRecords.vehicleId, vehicleId),
+            eq(fuelRecords.source, 'fuel_card_mock'),
+            gte(fuelRecords.recordedAt, from),
+            lte(fuelRecords.recordedAt, to),
+        ));
         await db.insert(fuelRecords).values(rows);
 
         await recordEvent({
