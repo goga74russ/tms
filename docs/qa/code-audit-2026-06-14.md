@@ -558,12 +558,12 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/repairs**
 
-- `apps/api/src/modules/repairs/service.ts:744-776` — [HIGH] TOCTOU в updateRepairStatus: чтение статуса вне транзакции, апдейт без оптимистичной блокировки  → /transpult
+- `apps/api/src/modules/repairs/service.ts:744-776` — [HIGH] TOCTOU в updateRepairStatus: чтение статуса вне транзакции, апдейт без оптимистичной блокировки  → /transpult  **✅ ЗАКРЫТО `8a697da`** (status в WHERE + проверка 0 строк)
 
 **api/rto+scoring**
 
-- `apps/api/src/modules/rto/service.ts:72-98` — [HIGH] getDriverHoursSummary никогда не детектит превышение недельного лимита (56 ч) — breaches содержит только дневные  → /transpult
-- `apps/api/src/modules/rto/routes.ts:64-134` — [HIGH] GET-эндпоинты hours-summary/hos-status пишут событие rto.breach как side-effect на каждый запрос → дубли в журнале  → /transpult
+- `apps/api/src/modules/rto/service.ts:72-98` — [HIGH] getDriverHoursSummary никогда не детектит превышение недельного лимита (56 ч) — breaches содержит только дневные  → /transpult  **✅ ЗАКРЫТО `8a697da`** (weekly breach + kind)
+- `apps/api/src/modules/rto/routes.ts:64-134` — [HIGH] GET-эндпоинты hours-summary/hos-status пишут событие rto.breach как side-effect на каждый запрос → дубли в журнале  → /transpult  **✅ ЗАКРЫТО `8a697da`** (убран side-effect из GET)
 - `apps/api/src/modules/rto/service.ts:15-152` — [MEDIUM] Дневная агрегация РТО по UTC-дате при том, что РФ-водители работают в локальных TZ (MSK+) → записи у границы суток попадают не в тот день  → /transpult
 
 **api/signatures**
@@ -578,7 +578,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/trips**
 
-- `apps/api/src/modules/trips/service.ts:369-376` — [HIGH] При отмене рейса заявки отвязываются (tripId=null), но строки trip_orders и route_points не удаляются — рассинхрон слоёв  → /transpult
+- `apps/api/src/modules/trips/service.ts:369-376` — [HIGH] При отмене рейса заявки отвязываются (tripId=null), но строки trip_orders и route_points не удаляются — рассинхрон слоёв  → /transpult  **✅ ЗАКРЫТО `8a697da`** (delete junction+route_points в tx)
 - `apps/api/src/modules/trips/margin.ts:72-97` — [HIGH] computeTripMargin смешивает валюты revenue и cost — выдаёт финансово некорректную маржу  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (margin=null + currencyMismatch при разных валютах)
 - `apps/api/src/modules/trips/transport-documents-store.ts:487-520` — [MEDIUM] mergeStatus при ресинхроне может затереть провайдерский REJECTED более высоким производным статусом  → /transpult
 - `apps/api/src/modules/trips/service.ts:1048-1074` — [MEDIUM] Проверки готовности к COMPLETED (route points, обязательное подтверждение) выполняются вне транзакции — TOCTOU  → /transpult
