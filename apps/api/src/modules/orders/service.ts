@@ -2,12 +2,22 @@
 // Orders Module — Business Logic (§3.1, §4.2, Приложение Б.2)
 // ============================================================
 import { db } from '../../db/connection.js';
-import { orders, contractors, trips, tripOrders } from '../../db/schema.js';
+import { orders, contractors, contracts, trips, tripOrders } from '../../db/schema.js';
 import { eq, and, desc, sql, gte, lte, ilike, inArray } from 'drizzle-orm';
 import { recordEvent } from '../../events/journal.js';
 import { OrderStatus } from '@tms/shared';
 import { containsLikePattern } from '../../utils/search.js';
 import { canTransitionOrder } from './validators.js';
+
+// P1 (код-аудит 2026-06-14): доменная ошибка валидации заявки (cross-tenant FK,
+// и т.п.). statusCode 400 — роут отдаёт клиенту чистый 400, не 500.
+export class OrderValidationError extends Error {
+    statusCode = 400;
+    constructor(message: string) {
+        super(message);
+        this.name = 'OrderValidationError';
+    }
+}
 
 // --- State machine transitions (§4.2) ---
 // Canonical map lives in @tms/shared; the pure helper lives in validators.ts.
@@ -105,6 +115,28 @@ export async function createOrder(
         try {
             const order = await db.transaction(async (tx) => {
                 const number = await generateOrderNumber(tx);
+
+                // P1 (код-аудит 2026-06-14): contractorId/contractId берутся из тела
+                // запроса — без проверки принадлежности орг автора это cross-tenant
+                // FK-инъекция (заявка Org-A с реквизитами контрагента Org-B в печатных
+                // документах). Валидируем против effectiveOrgId перед insert.
+                const effectiveOrgId = input.organizationId ?? author.organizationId ?? null;
+                if (effectiveOrgId) {
+                    if (input.contractorId) {
+                        const [c] = await tx.select({ id: contractors.id }).from(contractors)
+                            .where(and(eq(contractors.id, input.contractorId), eq(contractors.organizationId, effectiveOrgId)))
+                            .limit(1);
+                        if (!c) throw new OrderValidationError('Контрагент не найден в вашей организации');
+                    }
+                    if (input.contractId) {
+                        // contracts скоупится через contractor.organizationId (своего org-поля нет).
+                        const [ct] = await tx.select({ id: contracts.id }).from(contracts)
+                            .innerJoin(contractors, eq(contracts.contractorId, contractors.id))
+                            .where(and(eq(contracts.id, input.contractId), eq(contractors.organizationId, effectiveOrgId)))
+                            .limit(1);
+                        if (!ct) throw new OrderValidationError('Договор не найден в вашей организации');
+                    }
+                }
 
                 const [created] = await tx.insert(orders).values({
                     number,

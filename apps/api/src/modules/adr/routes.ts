@@ -5,7 +5,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireAbility } from '../../auth/rbac.js';
-import { assertOrderAccess } from '../../auth/guards.js';
+import { assertOrderAccess, assertVehicleAccess, assertDriverAccess } from '../../auth/guards.js';
 import { validateAdrCompatibility } from './service.js';
 import { safeClientError } from '../../utils/safe-error.js';
 
@@ -50,7 +50,12 @@ const adrRoutes: FastifyPluginAsync = async (app) => {
         };
 
         try {
+            // P1 (код-аудит 2026-06-14): проверяем принадлежность орг не только заказа,
+            // но и vehicleId/driverId из query — иначе cross-tenant IDOR (ADR-проверка
+            // по чужим ТС/водителю, утечка факта существования и их ADR-данных).
             await assertOrderAccess(params.data.id, user);
+            await assertVehicleAccess(query.data.vehicleId, user);
+            await assertDriverAccess(query.data.driverId, user);
         } catch (err: any) {
             return reply.status(403).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });
         }

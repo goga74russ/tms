@@ -13,6 +13,7 @@ import {
     changeOrderStatus,
     createOrderFromTemplate,
     getOrdersKanban,
+    OrderValidationError,
 } from './service.js';
 import { OrderCreateSchema, OrderUpdateSchema, PRIVILEGED_ROLES, hasPrivilege, resolveVatRate, type TaxRegime } from '@tms/shared';
 import { db } from '../../db/connection.js';
@@ -513,6 +514,9 @@ const ordersRoutes: FastifyPluginAsync = async (app) => {
                     error: 'Ошибка валидации',
                     details: err.flatten().fieldErrors,
                 });
+            }
+            if (err instanceof OrderValidationError || err?.statusCode === 400) {
+                return reply.status(400).send({ success: false, error: err.message });
             }
             throw err;
         }
