@@ -385,19 +385,24 @@ export class TarificationService {
         // Subtotal
         let subtotal = baseCost + idleCost + extraPointsCost + nightCost + urgentCost + weekendCost + returnCost;
         if (tripRecord.status === 'cancelled') subtotal = cancellationCost;
-        if (subtotal < (tariff.minTripCost ?? 0)) subtotal = tariff.minTripCost;
+        // code-audit 2026-06-14 #9: drizzle numeric() возвращает СТРОКУ в рантайме —
+        // tariff.minTripCost/vatRate без num() ломали арифметику (100 + "20.00" =
+        // конкатенация "10020.00" → НДС занижался в ~83×). Коэрсим как остальные поля.
+        const minTrip = num(tariff.minTripCost);
+        if (subtotal < minTrip) subtotal = minTrip;
 
         const roundingPrecision: RoundingPrecision = (tariff.roundingPrecision as RoundingPrecision) || 1;
         subtotal = roundAmount(subtotal, roundingPrecision);
 
+        const vr = num(tariff.vatRate);
         let vatAmount = 0;
         let total = subtotal;
         if (tariff.vatIncluded) {
-            vatAmount = subtotal * (tariff.vatRate / (100 + tariff.vatRate));
+            vatAmount = subtotal * (vr / (100 + vr));
             total = subtotal;
             subtotal = total - vatAmount;
         } else {
-            vatAmount = subtotal * (tariff.vatRate / 100);
+            vatAmount = subtotal * (vr / 100);
             total = subtotal + vatAmount;
         }
 
