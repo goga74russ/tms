@@ -345,6 +345,17 @@ async function runAnthropicChat(
     }
 }
 
+// P3 (код-аудит 2026-06-14): warn-once о том, что в проде активен mock-копилот.
+let warnedMockFallbackInProd = false;
+function warnMockFallbackInProd(): void {
+    if (warnedMockFallbackInProd) return;
+    if (process.env.NODE_ENV === 'production') {
+        warnedMockFallbackInProd = true;
+        // eslint-disable-next-line no-console
+        console.warn('[copilot] ANTHROPIC_API_KEY не задан — в проде активен mock-режим (заглушки). Настройте ключ для полноценных ответов.');
+    }
+}
+
 // ------------------------------------------------------------
 // Public entry
 // ------------------------------------------------------------
@@ -359,6 +370,10 @@ export async function chat(opts: ChatOptions, emit: StreamEmitter): Promise<{ co
         if (client) {
             await runAnthropicChat(client, opts, conversationId, emit);
         } else {
+            // P3 (код-аудит 2026-06-14): в проде mock-fallback без ANTHROPIC_API_KEY
+            // означает, что копилот молча отвечает заглушками — это конфиг-ошибка,
+            // а не нормальный режим. Логируем один раз, чтобы было видно в логах.
+            warnMockFallbackInProd();
             await runMockChat(opts, conversationId, emit);
         }
     } catch (err: unknown) {

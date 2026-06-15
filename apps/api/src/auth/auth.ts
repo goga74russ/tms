@@ -891,6 +891,15 @@ export function registerAuthRoutes(app: FastifyInstance) {
         if (isOutsideActorOrganization(actor, targetUser.organizationId)) {
             return reply.status(403).send({ success: false, error: 'Access denied' });
         }
+        // P3 (код-аудит 2026-06-14): дублируем lateral-super-admin guard из POST —
+        // нельзя выдать роль 'admin' пользователю без организации (org-less admin =
+        // платформенный super-admin, эскалация привилегий).
+        if (body.roles !== undefined && body.roles.includes('admin') && !targetUser.organizationId) {
+            return reply.status(400).send({
+                success: false,
+                error: 'Нельзя назначить admin пользователю без организации (lateral super-admin запрещён)',
+            });
+        }
 
         const updateData: Record<string, unknown> = { updatedAt: new Date() };
         if (body.fullName !== undefined) updateData.fullName = body.fullName;
@@ -1539,9 +1548,12 @@ export function registerAuthRoutes(app: FastifyInstance) {
         };
     });
 
-    // POST /api/auth/resend-code — regenerate the code, rate limited 1/min.
+    // POST /api/auth/resend-code — regenerate the code. Rate limit совпадает с
+    // login: LOGIN_RATE_LIMIT_MAX (по умолчанию 5) за LOGIN_RATE_LIMIT_WINDOW
+    // (по умолчанию 1 минута). P3 (код-аудит 2026-06-14): синхронизируем док с
+    // реальным конфигом — раньше писали «1 раз в минуту», фактически 5/мин.
     app.post('/api/auth/resend-code', {
-        schema: { tags: ['Авторизация'], summary: 'Повторная отправка кода', description: 'Регенерирует 6-значный код. Rate limit: 1 раз в минуту на email.' },
+        schema: { tags: ['Авторизация'], summary: 'Повторная отправка кода', description: 'Регенерирует 6-значный код. Rate limit: до 5 запросов в минуту на email (LOGIN_RATE_LIMIT_MAX/WINDOW).' },
         config: {
             rateLimit: {
                 max: LOGIN_RATE_LIMIT_MAX,

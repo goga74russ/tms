@@ -281,6 +281,12 @@ export async function progressEdiManually(
     if (doc.ediStatus === 'rejected') {
         throw new Error('Документ уже отклонён в EDI');
     }
+    // P3 (код-аудит 2026-06-14): запрещаем no-op переход в тот же статус —
+    // раньше signed_by_carrier→signed_by_carrier писал дубль события 'signed'
+    // в журнал, искажая chain-of-trust.
+    if (doc.ediStatus === to) {
+        throw new Error(`Документ уже в статусе ${to}`);
+    }
     if (doc.ediStatus === 'signed_by_client' && to !== 'rejected') {
         throw new Error('Документ уже подписан клиентом');
     }

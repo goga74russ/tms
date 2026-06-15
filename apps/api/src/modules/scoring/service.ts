@@ -21,7 +21,7 @@ import {
     drivers,
     tachographRecords,
 } from '../../db/schema.js';
-import { and, eq, gte, lte, inArray, isNotNull } from 'drizzle-orm';
+import { and, eq, ne, gte, lte, inArray, isNotNull } from 'drizzle-orm';
 
 export interface DriverScoreBreakdown {
     tripCount: number;
@@ -163,6 +163,8 @@ export async function computeDriverScore(
             eq(fines.driverId, driverId),
             gte(fines.violationDate, from),
             lte(fines.violationDate, to),
+            // P3 (код-аудит 2026-06-14): не штрафуем за ОБЖАЛОВАННЫЕ штрафы (appealed).
+            ne(fines.status, 'appealed'),
         ));
     const finesCount = driverFines.length;
 

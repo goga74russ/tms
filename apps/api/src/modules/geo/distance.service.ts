@@ -91,8 +91,10 @@ export function findNearest(
 }
 
 /**
- * Estimate driving distance from straight-line (Haversine) distance.
- * Uses a detour factor of 1.3 (typical for road networks).
+ * Грубая ЭВРИСТИЧЕСКАЯ оценка дорожного расстояния из прямой (Haversine).
+ * НЕ маршрутизированное расстояние: умножаем на эмпирический detour-factor
+ * 1.3. P3 (код-аудит 2026-06-14): значение нельзя выдавать за фактическое
+ * дорожное расстояние — для биллинга/документов нужен routing-провайдер.
  */
 export function estimateDrivingDistance(straightLineKm: number): number {
     const DETOUR_FACTOR = 1.3;
