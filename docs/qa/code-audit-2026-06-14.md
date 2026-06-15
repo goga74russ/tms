@@ -446,10 +446,11 @@ P0 не обнаружено в верифицированном наборе.
 
 ### P2 — 69 (сжато, по сегментам)
 
-> **Прогресс P2 (сессия 2026-06-15):** закрыто 9 — A4-A7 (`b632f47`) + wave 1 cross-tenant
-> (`20e1667`: broadcastEvent fail-closed, orders RLS fail-closed, marking org-less,
-> demo org, cold-chain SLA-guard). Отметки `✅ ЗАКРЫТО` проставлены в строках ниже.
-> Дальше — wave 2 (money/finance), wave 3 (валидация/500/RBAC), затем остаток.
+> **Прогресс P2 (сессия 2026-06-15):** закрыто 14. A4-A7 (`b632f47`) + wave 1 cross-tenant
+> (`20e1667`) + wave 2 money/finance (`39f83b6`: billing refund-отзыв, overdueDebt остаток,
+> deleteAdjustment гейт, margin currency-mismatch, web sparkline остаток). По решению
+> владельца — сначала HIGH-теги. Отметки `✅ ЗАКРЫТО` в строках ниже. Дальше — wave 3
+> (валидация/500/RBAC) и остаток HIGH.
 
 **api/auth**
 
@@ -457,7 +458,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/billing**
 
-- `apps/api/src/modules/billing/service.ts:410-419` — [HIGH] Возврат платежа не отзывает доступ: подписка остаётся active после refund  → /transpult
+- `apps/api/src/modules/billing/service.ts:410-419` — [HIGH] Возврат платежа не отзывает доступ: подписка остаётся active после refund  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (refunded → подписка 'cancelled')
 - `apps/api/src/modules/billing/routes.ts:262-266` — [HIGH] Фискализация всегда без email/телефона покупателя (54-ФЗ чек без контакта получателя)  → /jurist  **✅ ЗАКРЫТО `b632f47` (A7)**
 
 **api/carriers**
@@ -503,8 +504,8 @@ P0 не обнаружено в верифицированном наборе.
 **api/finance**
 
 - `apps/api/src/modules/finance/finance.service.ts:584-647` — [HIGH] Две несовместимые системы учёта оплат: events-based (/payments) vs column-based (/register-payment) затирают paidAmount  → /transpult
-- `apps/api/src/modules/finance/finance.service.ts:383-391` — [HIGH] overdueDebt суммирует полный invoice.total без вычета paidAmount и без фильтра due_date  → /transpult
-- `apps/api/src/modules/finance/finance.service.ts:554-581` — [HIGH] deleteAdjustment без статус-гейта: на issued-счёте бросает сырое исключение триггера INVOICE_IMMUTABLE  → /transpult
+- `apps/api/src/modules/finance/finance.service.ts:383-391` — [HIGH] overdueDebt суммирует полный invoice.total без вычета paidAmount и без фильтра due_date  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (sum(total-paidAmount); колонки due_date нет — отмечено)
+- `apps/api/src/modules/finance/finance.service.ts:554-581` — [HIGH] deleteAdjustment без статус-гейта: на issued-счёте бросает сырое исключение триггера INVOICE_IMMUTABLE  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (гейт draft-only → чистый 400)
 - `apps/api/src/modules/finance/finance.service.ts:261-268` — [MEDIUM] analyzeFuel: organizationId-фильтр без INNER JOIN-гарантии при vehicleId-only — потенциальная межтенантная выборка  → /transpult
 
 **api/fleet**
@@ -577,7 +578,7 @@ P0 не обнаружено в верифицированном наборе.
 **api/trips**
 
 - `apps/api/src/modules/trips/service.ts:369-376` — [HIGH] При отмене рейса заявки отвязываются (tripId=null), но строки trip_orders и route_points не удаляются — рассинхрон слоёв  → /transpult
-- `apps/api/src/modules/trips/margin.ts:72-97` — [HIGH] computeTripMargin смешивает валюты revenue и cost — выдаёт финансово некорректную маржу  → /transpult
+- `apps/api/src/modules/trips/margin.ts:72-97` — [HIGH] computeTripMargin смешивает валюты revenue и cost — выдаёт финансово некорректную маржу  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (margin=null + currencyMismatch при разных валютах)
 - `apps/api/src/modules/trips/transport-documents-store.ts:487-520` — [MEDIUM] mergeStatus при ресинхроне может затереть провайдерский REJECTED более высоким производным статусом  → /transpult
 - `apps/api/src/modules/trips/service.ts:1048-1074` — [MEDIUM] Проверки готовности к COMPLETED (route points, обязательное подтверждение) выполняются вне транзакции — TOCTOU  → /transpult
 
@@ -602,7 +603,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **web/finance**
 
-- `apps/web/src/app/finance/page.tsx:273-288` — [HIGH] Спарклайн «К оплате» суммирует полный total вместо остатка — завышает по частично оплаченным счетам и рассинхрон с метрикой  → /transpult
+- `apps/web/src/app/finance/page.tsx:273-288` — [HIGH] Спарклайн «К оплате» суммирует полный total вместо остатка — завышает по частично оплаченным счетам и рассинхрон с метрикой  → /transpult  **✅ ЗАКРЫТО `39f83b6`** (остаток total-paidAmount)
 
 **web/print**
 
