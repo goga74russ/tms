@@ -1392,10 +1392,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
         // оставался orphan. На concurrent signup с одинаковым email
         // (race на unique-constraint) могли создаться две org-записи.
         //
-        // TODO(security P0-3): «reuse the unverified record» — анонимный
-        // POST /signup переписывает passwordHash любого user-а с
-        // emailVerifiedAt=null. Закрыть отдельным policy-fix-ом (отказывать
-        // если existing user, или ограничить first-24h окном).
+        // P3 (код-аудит 2026-06-14): прежний security-TODO(P0-3) закрыт — уязвимая
+        // ветка «reuse the unverified record» (overwrite passwordHash существующего
+        // user-а) УДАЛЕНА; signup ниже создаёт только свежие org/user, существующий
+        // email отклоняется на unique-constraint. TODO снят как устаревший.
         const code = generateCode();
         const expiresAt = new Date(Date.now() + VERIFICATION_TTL_MIN * 60_000);
 

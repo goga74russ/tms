@@ -868,15 +868,8 @@ export async function assignTrip(
         }
     }
 
-    // Check 7: Med certificate expiry (hard — expired cert blocks assignment)
-    if (driver.medCertificateExpiry
-        && new Date(driver.medCertificateExpiry) < now) {
-        warnings.push({
-            type: 'hard',
-            code: 'MED_CERTIFICATE_EXPIRED',
-            message: `Медсправка водителя ${driver.fullName} просрочена`,
-        });
-    }
+    // P3 (код-аудит 2026-06-14): дублирующая проверка MED_CERTIFICATE_EXPIRED удалена —
+    // тот же hard-warning уже добавляется выше (см. driver.medCertificateExpiry).
 
     if (trip.plannedDepartureAt && new Date(trip.plannedDepartureAt) < now) {
         warnings.push({

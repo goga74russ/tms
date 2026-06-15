@@ -144,7 +144,9 @@ export async function assignLotToTrip(tripId: string, input: { shipmentLotId: st
         const allowOver = !!input.allowOverCapacity && mayOverride;
         const projectedWeight = Number(tripTotals?.weight ?? 0) + Number(assignedWeightKg ?? 0);
         if (!allowOver && vehicle?.payloadCapacityKg && projectedWeight > Number(vehicle.payloadCapacityKg)) {
-            throw new Error(`Assigned weight exceeds vehicle capacity: ${projectedWeight} > ${vehicle.payloadCapacityKg}`);
+            // P3 (код-аудит 2026-06-14): не раскрываем внутреннюю грузоподъёмность ТС
+            // в тексте ошибки — показываем только назначенный вес.
+            throw new Error(`Назначенный вес (${projectedWeight} кг) превышает грузоподъёмность ТС`);
         }
         // P2 (код-аудит 2026-06-14): помимо веса проверяем ОБЪЁМ против вместимости ТС
         // (раньше проверялся только вес → перегруз по объёму проходил молча).

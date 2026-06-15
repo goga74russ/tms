@@ -344,6 +344,14 @@ export default async function importRoutes(app: FastifyInstance) {
                 results.errors.push({ index: i, error: `Контрагент с ИНН ${item.contractorInn} не найден` });
                 continue;
             }
+            // P3 (код-аудит 2026-06-14): валидируем даты — раньше невалидная дата молча
+            // уходила как Invalid Date/NULL.
+            const loadingDate = item.loadingDate ? new Date(String(item.loadingDate)) : undefined;
+            const unloadingDate = item.unloadingDate ? new Date(String(item.unloadingDate)) : undefined;
+            if ((loadingDate && Number.isNaN(loadingDate.getTime())) || (unloadingDate && Number.isNaN(unloadingDate.getTime()))) {
+                results.errors.push({ index: i, error: 'Некорректная дата погрузки/выгрузки' });
+                continue;
+            }
             validRows.push({
                 values: {
                     number: String(item.number),
@@ -352,9 +360,9 @@ export default async function importRoutes(app: FastifyInstance) {
                     cargoWeightKg: Number(item.cargoWeightKg),
                     cargoVolumeM3: item.cargoVolumeM3 != null ? Number(item.cargoVolumeM3) : undefined,
                     loadingAddress: String(item.loadingAddress),
-                    loadingDate: item.loadingDate ? new Date(String(item.loadingDate)) : undefined,
+                    loadingDate,
                     unloadingAddress: String(item.unloadingAddress),
-                    unloadingDate: item.unloadingDate ? new Date(String(item.unloadingDate)) : undefined,
+                    unloadingDate,
                     coldChainRequired: Boolean(item.coldChainRequired),
                     temperatureMinC: item.temperatureMinC != null && item.temperatureMinC !== '' ? Number(item.temperatureMinC) : undefined,
                     temperatureMaxC: item.temperatureMaxC != null && item.temperatureMaxC !== '' ? Number(item.temperatureMaxC) : undefined,
