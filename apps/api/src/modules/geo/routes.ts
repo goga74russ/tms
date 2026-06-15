@@ -8,8 +8,10 @@ import { haversineDistance, calculateDistanceMatrix, calculateRouteDistance, est
 import type { GeoPoint } from './distance.service.js';
 
 const GeoPointSchema = z.object({
-    lat: z.number(),
-    lon: z.number(),
+    // P3 (код-аудит 2026-06-14): валидируем диапазоны — иначе Haversine считал по
+    // бессмысленным координатам (lat вне [-90,90] / lon вне [-180,180]).
+    lat: z.number().min(-90).max(90),
+    lon: z.number().min(-180).max(180),
     address: z.string().optional(),
     type: z.enum(['loading', 'unloading', 'waypoint']).optional(),
     status: z.enum(['pending', 'arrived', 'completed']).optional(),

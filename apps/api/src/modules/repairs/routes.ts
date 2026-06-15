@@ -185,9 +185,11 @@ export default async function repairsRoutes(app: FastifyInstance) {
     }, async (request, reply) => {
         try {
             const { id } = request.params as { id: string };
-            const { status } = request.body as { status: string };
+            // P3 (код-аудит 2026-06-14): валидируем status схемой (был raw string в FSM/PG enum).
+            const parsed = z.object({ status: z.enum(['created', 'waiting_parts', 'in_progress', 'done']) }).safeParse(request.body ?? {});
+            if (!parsed.success) return reply.status(400).send({ success: false, error: 'Некорректный статус ремонта' });
             const user = request.user as { userId: string; roles: string[]; organizationId?: string | null };
-            const repair = await repairsService.updateRepairStatus(id, status, user);
+            const repair = await repairsService.updateRepairStatus(id, parsed.data.status, user);
             return { success: true, data: repair };
         } catch (err: any) {
             return reply.status(400).send({ success: false, error: safeClientError(err, 'Внутренняя ошибка сервера') });

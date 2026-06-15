@@ -141,11 +141,16 @@ export function kopecksToRubles(kop: number): number {
 
 /** Format kopecks as Russian rubles, e.g. 290000 → "2 900 ₽". */
 export function formatKopecks(kop: number): string {
-    const rub = Math.round(kop) / 100;
-    const intPart = Math.trunc(rub).toLocaleString('ru-RU');
-    const frac = Math.round((rub - Math.trunc(rub)) * 100);
-    if (frac === 0) return `${intPart} ₽`;
-    return `${intPart},${String(frac).padStart(2, '0')} ₽`;
+    // P3 (код-аудит 2026-06-14): корректная обработка отрицательных сумм — знак
+    // выносим отдельно, дробную часть берём из |коп| % 100 (раньше Math.trunc на
+    // отрицательных давал битый результат вида "-2,-50 ₽").
+    const negative = kop < 0;
+    const absKop = Math.abs(Math.round(kop));
+    const intPart = Math.trunc(absKop / 100).toLocaleString('ru-RU');
+    const frac = absKop % 100;
+    const sign = negative ? '−' : '';
+    if (frac === 0) return `${sign}${intPart} ₽`;
+    return `${sign}${intPart},${String(frac).padStart(2, '0')} ₽`;
 }
 
 /** First day of current month (UTC midnight) — the "billing period" key. */

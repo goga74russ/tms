@@ -738,8 +738,10 @@ export function registerAuthRoutes(app: FastifyInstance) {
         }
 
         const { page = '1', limit = '50' } = request.query as Record<string, string>;
-        const pageNum = parseInt(page, 10);
-        const limitNum = Math.min(parseInt(limit, 10), 200); // cap at 200
+        // P3 (код-аудит 2026-06-14): guard от NaN/отрицательных page|limit (parseInt
+        // без проверки давал NaN/negative offset).
+        const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+        const limitNum = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200); // 1..200
         const offset = (pageNum - 1) * limitNum;
 
         let usersQuery = db

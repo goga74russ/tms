@@ -124,6 +124,11 @@ const carriersRoutes: FastifyPluginAsync = async (app) => {
         if (!parsed.success) {
             return reply.code(422).send({ success: false, error: parsed.error.flatten() });
         }
+        // P3 (код-аудит 2026-06-14): инвариант endDate >= startDate (раньше проверялся
+        // только в неподключённом helper).
+        if (parsed.data.endDate && new Date(parsed.data.endDate) < new Date(parsed.data.startDate)) {
+            return reply.code(422).send({ success: false, error: 'Дата окончания договора не может быть раньше даты начала' });
+        }
 
         // Контрагент должен иметь is_carrier=true.
         const conditions = [eq(contractors.id, parsed.data.contractorId)];

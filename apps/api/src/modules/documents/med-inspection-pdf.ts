@@ -89,7 +89,12 @@ export async function generateMedInspectionPdf(inspectionId: string): Promise<Bu
     doc.font('Regular').fontSize(9).fillColor('#666').text('Чек-лист версия:', MARGIN, meta2Y, { width: 120 });
     doc.font('Regular').fontSize(10).fillColor('#000').text(insp.checklistVersion ?? '—', MARGIN + 122, meta2Y, { width: 120 });
     doc.font('Regular').fontSize(9).fillColor('#666').text('Тип осмотра:', MARGIN + 330, meta2Y, { width: 100 });
-    doc.font('Regular').fontSize(10).fillColor('#000').text(insp.inspectionType ?? '—', MARGIN + 432, meta2Y, { width: 110 });
+    // P3 (код-аудит 2026-06-14): тип осмотра по-русски (был сырой enum pre_trip/post_trip).
+    const inspectionTypeRu = insp.inspectionType === 'pre_trip' ? 'Предрейсовый'
+        : insp.inspectionType === 'post_trip' ? 'Послерейсовый'
+        : insp.inspectionType === 'periodic' ? 'Периодический'
+        : (insp.inspectionType ?? '—');
+    doc.font('Regular').fontSize(10).fillColor('#000').text(inspectionTypeRu, MARGIN + 432, meta2Y, { width: 110 });
     doc.moveDown(1.2);
 
     // Driver

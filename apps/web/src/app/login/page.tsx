@@ -99,11 +99,11 @@ export default function LoginPage() {
             setEmailError('Некорректный email');
             ok = false;
         }
+        // P3 (код-аудит 2026-06-14): на логине не навязываем произвольный min (был 4,
+        // в рассинхроне с signup/reset=8). Проверяем только непустоту — корректность
+        // пароля валидирует сервер по хэшу (иначе legacy-пароли <8 не смогли бы войти).
         if (!password) {
             setPasswordError('Введите пароль');
-            ok = false;
-        } else if (password.length < 4) {
-            setPasswordError('Пароль слишком короткий');
             ok = false;
         }
         return ok;

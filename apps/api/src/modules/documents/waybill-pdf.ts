@@ -8,6 +8,14 @@ import {
 } from './pdf-base.js';
 import { carrierForPdf, NOT_SET, type CarrierRequisites } from './org-requisites.js';
 
+// P3 (код-аудит 2026-06-14): решение осмотра по-русски (раньше при != 'approved'
+// печаталось сырое английское значение enum, напр. 'rejected').
+function decisionRu(decision: string | null | undefined): string {
+    if (decision === 'approved') return 'ДОПУЩЕН';
+    if (decision === 'rejected') return 'НЕ ДОПУЩЕН';
+    return decision || '—';
+}
+
 export interface WaybillPdfInput {
     number: string;
     issuedAt: string | Date | null;
@@ -144,7 +152,7 @@ export async function generateWaybillPdf(data: WaybillPdfInput): Promise<Buffer>
     doc.font('Regular').fontSize(10).fillColor('#000').text(data.mechanicName || '—', MARGIN + 72, mechY, { width: 200 });
     doc.font('Regular').fontSize(9).fillColor('#666').text('Решение:', MARGIN + 280, mechY, { width: 60 });
     doc.font('Bold').fontSize(10).fillColor(data.mechanicDecision === 'approved' ? '#006600' : '#000')
-        .text(data.mechanicDecision === 'approved' ? 'ДОПУЩЕН' : (data.mechanicDecision || '—'), MARGIN + 343, mechY, { width: 80 });
+        .text(decisionRu(data.mechanicDecision), MARGIN + 343, mechY, { width: 80 });
     doc.font('Regular').fontSize(9).fillColor('#666').text('Время:', MARGIN + 430, mechY, { width: 50 });
     doc.font('Regular').fontSize(9).fillColor('#000').text(formatDateTime(data.mechanicTime), MARGIN + 482, mechY, { width: 80 });
     doc.moveDown(1.2);
@@ -156,7 +164,7 @@ export async function generateWaybillPdf(data: WaybillPdfInput): Promise<Buffer>
     doc.font('Regular').fontSize(10).fillColor('#000').text(data.medicName || '—', MARGIN + 72, medY, { width: 200 });
     doc.font('Regular').fontSize(9).fillColor('#666').text('Решение:', MARGIN + 280, medY, { width: 60 });
     doc.font('Bold').fontSize(10).fillColor(data.medicDecision === 'approved' ? '#006600' : '#000')
-        .text(data.medicDecision === 'approved' ? 'ДОПУЩЕН' : (data.medicDecision || '—'), MARGIN + 343, medY, { width: 80 });
+        .text(decisionRu(data.medicDecision), MARGIN + 343, medY, { width: 80 });
     doc.font('Regular').fontSize(9).fillColor('#666').text('Время:', MARGIN + 430, medY, { width: 50 });
     doc.font('Regular').fontSize(9).fillColor('#000').text(formatDateTime(data.medicTime), MARGIN + 482, medY, { width: 80 });
     doc.moveDown(1.2);
