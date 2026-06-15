@@ -449,12 +449,13 @@ P0 не обнаружено в верифицированном наборе.
 > **Прогресс P2 (сессия 2026-06-15):** закрыто 14. A4-A7 (`b632f47`) + wave 1 cross-tenant
 > (`20e1667`) + wave 2 money/finance (`39f83b6`: billing refund-отзыв, overdueDebt остаток,
 > deleteAdjustment гейт, margin currency-mismatch, web sparkline остаток). По решению
-> владельца — сначала HIGH-теги. Отметки `✅ ЗАКРЫТО` в строках ниже. Дальше — wave 3
-> (валидация/500/RBAC) и остаток HIGH.
+> владельца — сначала HIGH-теги. Отметки `✅ ЗАКРЫТО` в строках ниже.
+> **Wave 3** валидация/RBAC (`e0a901a`): claims status, import RBAC+ИНН, notifications
+> userId-санитизация, carriers archived, verify-email. Закрыто 20/69. Дальше — остаток HIGH.
 
 **api/auth**
 
-- `apps/api/src/auth/auth.ts:1463-1481` — [HIGH] verify-email: накапливающиеся валидные коды + отсутствие лимита попыток на код → брутфорс 6-значного кода  → /transpult
+- `apps/api/src/auth/auth.ts:1463-1481` — [HIGH] verify-email: накапливающиеся валидные коды + отсутствие лимита попыток на код → брутфорс 6-значного кода  → /transpult  **✅ ЗАКРЫТО `e0a901a`** (инвалидация старых кодов + существующий per-route rateLimit)
 
 **api/billing**
 
@@ -463,13 +464,13 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/carriers**
 
-- `apps/api/src/modules/carriers/routes.ts:200-215` — [HIGH] assign-carrier разрешает назначить архивного контрагента перевозчиком  → /transpult
+- `apps/api/src/modules/carriers/routes.ts:200-215` — [HIGH] assign-carrier разрешает назначить архивного контрагента перевозчиком  → /transpult  **✅ ЗАКРЫТО `e0a901a`** (isArchived=false в условие)
 - `apps/api/src/db/schema.ts:1645-1660` — [HIGH] carrier_contracts.number без уникального ограничения — дубли номеров договоров  → /transpult
 - `apps/api/src/db/schema.ts:275-275` — [HIGH] Schema drift: idx_contractors_is_carrier и idx_trips_carrier_contractor — partial в миграции, plain в schema.ts  → /devops
 
 **api/claims**
 
-- `apps/api/src/modules/claims/routes.ts:98-119` — [HIGH] GET /claims: query-параметр status не валидируется → невалидное значение даёт 500 (raw PG enum error), а не 400  → /transpult
+- `apps/api/src/modules/claims/routes.ts:98-119` — [HIGH] GET /claims: query-параметр status не валидируется → невалидное значение даёт 500 (raw PG enum error), а не 400  → /transpult  **✅ ЗАКРЫТО `e0a901a`**
 
 **api/cold-chain**
 
@@ -518,8 +519,8 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/import**
 
-- `apps/api/src/modules/import/routes.ts:393-410` — [HIGH] JSON bulk-import контрагентов НЕ валидирует формат ИНН (мусор попадает в БД)  → /transpult
-- `apps/api/src/modules/import/routes.ts:214-230` — [HIGH] GET /import/templates/:type без RBAC — любой аутентифицированный (driver/client/mechanic) качает шаблоны импорта  → /transpult
+- `apps/api/src/modules/import/routes.ts:393-410` — [HIGH] JSON bulk-import контрагентов НЕ валидирует формат ИНН (мусор попадает в БД)  → /transpult  **✅ ЗАКРЫТО `e0a901a`** (regex 10/12 цифр)
+- `apps/api/src/modules/import/routes.ts:214-230` — [HIGH] GET /import/templates/:type без RBAC — любой аутентифицированный (driver/client/mechanic) качает шаблоны импорта  → /transpult  **✅ ЗАКРЫТО `e0a901a`** (hasPrivilege-гейт)
 
 **api/inspections**
 
@@ -535,7 +536,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/notifications**
 
-- `apps/api/src/modules/notifications/routes.ts:45-48` — [HIGH] Нет try/catch вокруг DB-вызовов webhook: невалидный userId (не-UUID) роняет хэндлер в 500 и провоцирует ретраи Telegram  → /transpult
+- `apps/api/src/modules/notifications/routes.ts:45-48` — [HIGH] Нет try/catch вокруг DB-вызовов webhook: невалидный userId (не-UUID) роняет хэндлер в 500 и провоцирует ретраи Telegram  → /transpult  **✅ ЗАКРЫТО `e0a901a`** (санитизация userId → null при не-UUID)
 
 **api/onboarding**
 
