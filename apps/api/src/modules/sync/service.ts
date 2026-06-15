@@ -119,7 +119,9 @@ async function processSingleEvent(event: SyncEvent, user: { userId: string, role
         await verifyTripOwnership(point.tripId, user.userId);
 
         const [trip] = await db.select().from(trips).where(eq(trips.id, point.tripId)).limit(1);
-        if (trip.status === 'cancelled') {
+        // P3 (код-аудит 2026-06-14): null-guard — рейс мог быть удалён между SELECT'ами
+        // (раньше trip.status без проверки → NPE).
+        if (trip?.status === 'cancelled') {
             await recordEvent({
                 authorId: user.userId,
                 authorRole: user.roles[0],
@@ -158,7 +160,9 @@ async function processSingleEvent(event: SyncEvent, user: { userId: string, role
         await verifyTripOwnership(point.tripId, user.userId);
 
         const [trip] = await db.select().from(trips).where(eq(trips.id, point.tripId)).limit(1);
-        if (trip.status === 'cancelled') {
+        // P3 (код-аудит 2026-06-14): null-guard — рейс мог быть удалён между SELECT'ами
+        // (раньше trip.status без проверки → NPE).
+        if (trip?.status === 'cancelled') {
             await recordEvent({
                 authorId: user.userId,
                 authorRole: user.roles[0],

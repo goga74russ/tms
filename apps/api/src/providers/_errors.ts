@@ -61,10 +61,12 @@ function extractHttpStatus(message: string): number | null {
     // Prefer an explicitly labelled status; otherwise fall back to a bare
     // 3-digit number, but only one inside the real HTTP status range
     // (100-599) so we don't grab unrelated numbers ("timed out after 800ms").
+    // P3 (код-аудит 2026-06-14): bare-fallback не хватает числа с time-единицей
+    // ("timed out after 500 ms" больше не классифицируется как HTTP 500).
     const labelled = /(?:HTTP|status|code)\s*[:=]?\s*(\d{3})/i.exec(message);
     const n = labelled
         ? Number(labelled[1])
-        : Number(/\b([1-5]\d{2})\b/.exec(message)?.[1] ?? NaN);
+        : Number(/\b([1-5]\d{2})\b(?!\s*(?:ms|m?s|sec|min)\b)/i.exec(message)?.[1] ?? NaN);
     if (!Number.isFinite(n) || n < 100 || n > 599) return null;
     return n;
 }

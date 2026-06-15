@@ -128,7 +128,8 @@ export default function AuditLogPage() {
     };
 
     const exportCsv = async () => {
-        // Pull up to 5000 rows for export
+        // P3 (код-аудит 2026-06-14): экспорт пагинирует по 500 строк/страница (limit=500
+        // намеренно перетирает limit из buildQuery), всего до 5000 строк (цикл ниже).
         const params = new URLSearchParams(buildQuery(1));
         params.set('limit', '500');
         const collected: AuditEvent[] = [];

@@ -96,7 +96,9 @@ export class WialonTelematicsProvider implements TelematicsProvider {
         // }&sid=<eid>
         // Response: { items: Array<{ id, nm, ph, … }> }
         // TODO(real-impl): wire fetch with this.ensureSession().
-        return [];
+        // P3 (код-аудит 2026-06-14): сигналим not-implemented явно, а не тихим []
+        // (silent-empty-success скрывал, что метод-заглушка).
+        throw new Error('wialon.listVehicles() not implemented — awaiting real API integration');
     }
 
     async getPositions(_vehicleIds: string[], _since: Date): Promise<TelematicsPosition[]> {
@@ -105,7 +107,8 @@ export class WialonTelematicsProvider implements TelematicsProvider {
         // (units' last position is in `lmsg` of the item).
         // For history: svc=messages/load_interval, params { itemId, timeFrom, timeTo, flags, flagsMask, loadCount }
         // TODO(real-impl).
-        return [];
+        // P3 (код-аудит 2026-06-14): not-implemented явно, а не тихий [].
+        throw new Error('wialon.getPositions() not implemented — awaiting real API integration');
     }
 
     async startTracking(_vehicleId: string): Promise<void> {
