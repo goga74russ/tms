@@ -481,7 +481,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/cold-chain**
 
-- `apps/api/src/modules/cold-chain/service.ts:78-90` — [HIGH] Несовместимые SLA-диапазоны мульти-лот рейса дают инвертированную границу → ВСЕ замеры = breach  → /transpult
+- `apps/api/src/modules/cold-chain/service.ts:78-90` — [HIGH] Несовместимые SLA-диапазоны мульти-лот рейса дают инвертированную границу → ВСЕ замеры = breach  → /transpult  **✅ ЗАКРЫТО `66193fb`** (пустое пересечение → null-границы + warn)
 - `apps/api/src/modules/cold-chain/service.ts:110-145` — [HIGH] recordReading стампит input.orderId на замер без проверки принадлежности рейсу/тенанту  → /transpult  **✅ ЗАКРЫТО `7f8e170`** (валидация orderId∈trip; org из рейса + assertTripAccess)
 - `apps/api/src/modules/cold-chain/service.ts:241-247` — [HIGH] summarizeReadings: SLA-границы (resolveTripSla) возвращаются без org-фильтра — info-leak чужого рейса через copilot  → /transpult  **✅ ЗАКРЫТО `20e1667`** (guard принадлежности рейса до resolveTripSla)
 - `apps/api/src/modules/cold-chain/service.ts:165-196` — [HIGH] recordEvent внутри транзакции делает SELECT users + сетевой enqueue с timeout 3с — транзакция держится открытой до 6с/замер  → /transpult  **✅ ЗАКРЫТО `62259c4`** (recordEvent вынесен за tx)
@@ -507,7 +507,7 @@ P0 не обнаружено в верифицированном наборе.
 **api/edi**
 
 - `apps/api/src/modules/edi/service.ts:121-217` — [HIGH] sendDocumentToEdi не проверяет текущий ediStatus — повторная отправка затирает уже подписанный ЭТрН (signed_by_client → sent), обнуляет ediExternalId и перезапускает прогрессию  → /transpult  **✅ ЗАКРЫТО `3d0a8ed`** (гейт sent/signed/received/accepted)
-- `apps/api/src/modules/edi/service.ts:113-163` — [HIGH] XSD-гейт ЭТрН перед отправкой в ЭДО фактически почти всегда пропускается: срабатывает только если payload содержит ключ 'xml'/'xmlContent', иначе тихий no-op  → /transpult
+- `apps/api/src/modules/edi/service.ts:113-163` — [HIGH] XSD-гейт ЭТрН перед отправкой в ЭДО фактически почти всегда пропускается: срабатывает только если payload содержит ключ 'xml'/'xmlContent', иначе тихий no-op  → /transpult  **✅ ЗАКРЫТО `66193fb`** (явный warn при пропуске; hard-reject требует гарантии XML в payload)
 
 **api/finance**
 
@@ -522,7 +522,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/geo**
 
-- `apps/api/src/modules/geo/geocoding.service.ts:142-159` — [HIGH] Геокодер — заглушка: нераспознанный адрес молча возвращает координаты центра Москвы  → /transpult
+- `apps/api/src/modules/geo/geocoding.service.ts:142-159` — [HIGH] Геокодер — заглушка: нераспознанный адрес молча возвращает координаты центра Москвы  → /transpult  **✅ ЗАКРЫТО `66193fb`** (warn + уже было fallback:true/confidence:0)
 
 **api/import**
 
@@ -558,7 +558,7 @@ P0 не обнаружено в верифицированном наборе.
 
 **api/orders**
 
-- `apps/api/src/modules/orders/validators.ts:42-119` — [HIGH] validateCargoBounds и validateTemperatureRange — мёртвый код: инварианты груза и cold-chain нигде не применяются на create/update  → /transpult
+- `apps/api/src/modules/orders/validators.ts:42-119` — [HIGH] validateCargoBounds и validateTemperatureRange — мёртвый код: инварианты груза и cold-chain нигде не применяются на create/update  → /transpult  **✅ ЗАКРЫТО `66193fb`** (подключены в createOrder)
 - `apps/api/src/modules/orders/service.ts:423-461` — [HIGH] updateOrder: numeric customerPrice читается строкой → audit-событие price_changed срабатывает на каждом update, oldValue логируется строкой  → /transpult  **✅ ЗАКРЫТО `ac3a3c1`** (Number-коэрция previous+new)
 - `apps/api/src/modules/orders/routes.ts:65-91` — [MEDIUM] GET /orders: RLS fail-open для driver/client без записи driver/contractor — фильтр не применяется, видны все заявки организации  → /transpult  **✅ ЗАКРЫТО `20e1667`** (fail-closed → пусто)
 - `apps/api/src/modules/orders/service.ts:573-616` — [MEDIUM] assignOrderToTrip не проверяет принадлежность trip организации автора (cross-tenant trip-assignment) — латентно, функция не подключена к роутам  → /transpult
