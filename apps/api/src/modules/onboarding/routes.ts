@@ -215,10 +215,13 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
         }
 
         // Bump step pointer based on provider type — EDI = 4, signature = 5.
+        // P2 (код-аудит 2026-06-14): GREATEST, чтобы шаг только продвигался и не
+        // регрессировал (если орг уже на шаге 6, константа 4/5 откатывала назад —
+        // тот же класс бага, что C9 чинил в profile).
         if (providerType === 'edi') {
-            await db.update(organizations).set({ onboardingStep: 4 }).where(eq(organizations.id, orgId));
+            await db.update(organizations).set({ onboardingStep: sql`GREATEST(${organizations.onboardingStep}, 4)` }).where(eq(organizations.id, orgId));
         } else if (providerType === 'signature') {
-            await db.update(organizations).set({ onboardingStep: 5 }).where(eq(organizations.id, orgId));
+            await db.update(organizations).set({ onboardingStep: sql`GREATEST(${organizations.onboardingStep}, 5)` }).where(eq(organizations.id, orgId));
         }
 
         // A-P1-2: drop cached creds so the next selectAdapter() call sees the new row.

@@ -125,6 +125,22 @@ export async function recordReading(
         .limit(1);
     const organizationId = tripRow?.organizationId ?? null;
 
+    // P2 (код-аудит 2026-06-14): если указан orderId — проверяем, что заявка
+    // относится к этому рейсу (orders.tripId или junction tripOrders). Раньше
+    // input.orderId штамповался на замер без проверки принадлежности рейсу.
+    if (input.orderId) {
+        const [linked] = await db
+            .select({ id: orders.id })
+            .from(orders)
+            .leftJoin(tripOrders, eq(tripOrders.orderId, orders.id))
+            .where(and(
+                eq(orders.id, input.orderId),
+                or(eq(orders.tripId, input.tripId), eq(tripOrders.tripId, input.tripId)),
+            ))
+            .limit(1);
+        if (!linked) throw new Error('Указанная заявка не относится к этому рейсу');
+    }
+
     return db.transaction(async (tx) => {
         const [reading] = await tx
             .insert(temperatureReadings)

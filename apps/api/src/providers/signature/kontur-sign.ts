@@ -22,10 +22,14 @@ export class KonturSignSignatureProvider implements SignatureProvider {
     constructor(private readonly creds: KonturSignCredentials) { }
 
     async healthCheck(): Promise<ProviderHealth> {
+        // P2 (код-аудит 2026-06-14): healthCheck не должен рапортовать ok:true, пока
+        // sign()/verify() бросают «not implemented» — это go-live-ловушка (оператор
+        // видит зелёный статус, а подпись падает в рантайме). Skeleton → ok:false до
+        // реальной реализации API. PROV-P0-2 применён единообразно.
         return {
-            ok: Boolean(this.creds.apiKey && this.creds.certificateId),
+            ok: false,
             mode: 'production',
-            detail: 'kontur sign credentials present',
+            detail: 'kontur_sign — адаптер-заглушка: sign()/verify() не реализованы (ждём API-ключ/песочницу)',
             checkedAt: nowIso(),
         };
     }

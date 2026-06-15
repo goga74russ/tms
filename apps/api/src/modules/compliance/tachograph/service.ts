@@ -76,14 +76,19 @@ export async function ingestDddBuffer(args: {
                 ))
                 .limit(1);
             if (existing.length > 0) continue;
-            await db.insert(tachographRecords).values({
+            // P2 (код-аудит 2026-06-14): после миграции 0044 (unique driver_id+date+source)
+            // check-then-insert при гонке двух загрузок ронял 23505 → 500. onConflictDoNothing
+            // делает insert идемпотентным; счётчики инкрементим только если строка реально
+            // вставлена (returning пустой при конфликте).
+            const inserted = await db.insert(tachographRecords).values({
                 driverId,
                 date: d.date,
                 drivingMinutes: d.drivingMinutes,
                 restMinutes: d.restMinutes,
                 continuousDrivingMinutes: d.continuousDrivingMinutes,
                 source: 'ddd',
-            });
+            }).onConflictDoNothing().returning({ id: tachographRecords.id });
+            if (inserted.length === 0) continue;
             recordsInserted++;
             totalDrivingMinutes += d.drivingMinutes;
         }

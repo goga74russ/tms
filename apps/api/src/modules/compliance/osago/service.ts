@@ -72,20 +72,19 @@ export async function runOrgOsagoSync(organizationId: string): Promise<{
             eq(vehicles.isArchived, false),
         ));
 
-    const results: OsagoCheckRow[] = [];
-    let valid = 0;
-    let expired = 0;
-    for (const v of orgVehicles) {
-        const r = await runOsagoCheck({
+    // P2 (код-аудит 2026-06-14): внешние ОСАГО-проверки идут ПАРАЛЛЕЛЬНО (было
+    // последовательно по всему парку — N×latency). Каждый runOsagoCheck сам пишет
+    // свой снимок; агрегируем по факту.
+    const results: OsagoCheckRow[] = await Promise.all(
+        orgVehicles.map((v) => runOsagoCheck({
             organizationId,
             vehicleId: v.id,
             plate: v.plate,
             vin: v.vin,
-        });
-        results.push(r);
-        if (r.valid) valid++;
-        else expired++;
-    }
+        })),
+    );
+    const valid = results.filter((r) => r.valid).length;
+    const expired = results.length - valid;
     return { checked: orgVehicles.length, valid, expired, results };
 }
 
