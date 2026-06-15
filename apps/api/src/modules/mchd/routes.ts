@@ -126,7 +126,17 @@ const mchdRoutes: FastifyPluginAsync = async (app) => {
             .where(eq(mchd.organizationId, user.organizationId))
             .orderBy(desc(mchd.createdAt));
 
-        return { success: true, data: rows };
+        // P2 (код-аудит 2026-06-14): обещанного крона перевода в 'expired' нет, и
+        // status в БД остаётся 'active' для истёкших. Runtime уже отвергает истёкшие
+        // МЧД при подписании (validateMchd проверяет expiresAt), поэтому вместо крона
+        // отдаём ЭФФЕКТИВНЫЙ статус на чтении: active + expiresAt<now → 'expired'.
+        const now = Date.now();
+        const data = rows.map((r) => ({
+            ...r,
+            status: r.status === 'active' && new Date(r.expiresAt).getTime() <= now ? 'expired' : r.status,
+        }));
+
+        return { success: true, data };
     });
 
     // ---- GET /api/mchd/find-for-signer?granteeInn=... ----

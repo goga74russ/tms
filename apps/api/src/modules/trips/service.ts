@@ -1128,6 +1128,33 @@ export async function changeTripStatus(
                 throw new Error('Нельзя перевести рейс в status=waybill_issued без путевого листа');
             }
         }
+        // P2 (код-аудит 2026-06-14): проверки готовности к COMPLETED повторяются
+        // ВНУТРИ транзакции (под FOR UPDATE на рейс) — атомарно с обновлением статуса.
+        // Раньше они шли только до tx → TOCTOU (точки/подтверждение могли измениться
+        // между проверкой и записью). Пред-tx проверки выше оставлены как fast-fail.
+        if (newStatus === TripStatus.COMPLETED) {
+            const incompleteLocked = await getIncompleteRoutePoints(id);
+            if (incompleteLocked.length > 0) {
+                throw new Error('Не все точки маршрута пройдены');
+            }
+            if (data?.forcedByDispatcher !== true) {
+                const linkedOrderModes = await tx
+                    .select({ confirmationMode: orders.confirmationMode })
+                    .from(tripOrders)
+                    .innerJoin(orders, eq(tripOrders.orderId, orders.id))
+                    .where(eq(tripOrders.tripId, id));
+                if (linkedOrderModes.some((o) => o.confirmationMode === 'required')) {
+                    const [confirmed] = await tx
+                        .select({ id: deliveryConfirmations.id })
+                        .from(deliveryConfirmations)
+                        .where(eq(deliveryConfirmations.tripId, id))
+                        .limit(1);
+                    if (!confirmed) {
+                        throw new Error('Требуется подтверждение доставки от получателя (confirmationMode=required)');
+                    }
+                }
+            }
+        }
         const [result] = await tx
             .update(trips)
             .set(updateFields)
