@@ -141,7 +141,7 @@ export async function recordReading(
         if (!linked) throw new Error('Указанная заявка не относится к этому рейсу');
     }
 
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
         const [reading] = await tx
             .insert(temperatureReadings)
             .values({
@@ -178,39 +178,6 @@ export async function recordReading(
             incidentId = incident?.id;
         }
 
-        await recordEvent({
-            authorId: author.userId,
-            authorRole: author.role,
-            eventType: 'temperature.recorded',
-            entityType: 'trip',
-            entityId: input.tripId,
-            data: {
-                readingId: reading.id,
-                tempC: input.tempC,
-                source: reading.source,
-                breach,
-                slaMinC: sla.minC,
-                slaMaxC: sla.maxC,
-            },
-        }, tx);
-
-        if (breach) {
-            await recordEvent({
-                authorId: author.userId,
-                authorRole: author.role,
-                eventType: 'temperature.breach',
-                entityType: 'trip',
-                entityId: input.tripId,
-                data: {
-                    readingId: reading.id,
-                    tempC: input.tempC,
-                    slaMinC: sla.minC,
-                    slaMaxC: sla.maxC,
-                    incidentId,
-                },
-            }, tx);
-        }
-
         return {
             id: reading.id,
             breach,
@@ -219,8 +186,47 @@ export async function recordReading(
             recordedAt: reading.recordedAt,
             tempC: Number(reading.tempC),
             incidentId,
+            readingSource: reading.source,
         };
     });
+
+    // P2 (код-аудит 2026-06-14): события пишем ПОСЛЕ коммита транзакции. recordEvent
+    // делает SELECT users + сетевой enqueue (timeout до 3с) — внутри tx это держало
+    // блокировку до ~6с/замер. Журналирование best-effort, атомарность с insert не нужна.
+    await recordEvent({
+        authorId: author.userId,
+        authorRole: author.role,
+        eventType: 'temperature.recorded',
+        entityType: 'trip',
+        entityId: input.tripId,
+        data: {
+            readingId: result.id,
+            tempC: input.tempC,
+            source: result.readingSource,
+            breach: result.breach,
+            slaMinC: sla.minC,
+            slaMaxC: sla.maxC,
+        },
+    });
+
+    if (result.breach) {
+        await recordEvent({
+            authorId: author.userId,
+            authorRole: author.role,
+            eventType: 'temperature.breach',
+            entityType: 'trip',
+            entityId: input.tripId,
+            data: {
+                readingId: result.id,
+                tempC: input.tempC,
+                slaMinC: sla.minC,
+                slaMaxC: sla.maxC,
+                incidentId: result.incidentId,
+            },
+        });
+    }
+
+    return result;
 }
 
 export interface ListFilters {

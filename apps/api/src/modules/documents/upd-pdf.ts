@@ -160,12 +160,26 @@ export async function generateUpdPdf(data: UpdPdfInput): Promise<Buffer> {
     const colTot  = { header: '\u0421\u0443\u043c\u043c\u0430 \u0441 \u041d\u0414\u0421',  width: 53,  align: 'right'  as const };
 
     // \u041f\u0440\u043e\u0432\u0435\u0440\u044f\u0435\u043c \u0441\u0443\u043c\u043c\u0443 \u0448\u0438\u0440\u0438\u043d: 22+152+30+30+70+64+30+64+53 = 515 = CONTENT_W (515.28 \u043e\u043a)
+    // P2 (\u043a\u043e\u0434-\u0430\u0443\u0434\u0438\u0442 2026-06-14): \u043f\u043e\u0441\u0442\u0440\u043e\u0447\u043d\u0430\u044f \u0431\u0430\u0437\u0430/\u041d\u0414\u0421 back-calc \u0438\u0437 gross-amount \u043c\u043e\u0436\u0435\u0442
+    // \u043d\u0435 \u0441\u043e\u0439\u0442\u0438\u0441\u044c \u0441 \u0438\u0442\u043e\u0433\u043e\u0432\u044b\u043c\u0438 subtotal/vatAmount (\u043a\u043e\u043f\u0435\u0435\u0447\u043d\u043e\u0435 \u0440\u0430\u0441\u0445\u043e\u0436\u0434\u0435\u043d\u0438\u0435). \u041f\u043e\u0441\u043b\u0435\u0434\u043d\u044f\u044f
+    // \u0441\u0442\u0440\u043e\u043a\u0430 \u043f\u043e\u0433\u043b\u043e\u0449\u0430\u0435\u0442 \u0440\u0430\u0437\u043d\u0438\u0446\u0443, \u0447\u0442\u043e\u0431\u044b \u0441\u0443\u043c\u043c\u044b \u0433\u0440\u0430\u0444 \u00ab\u0411\u0430\u0437\u0430\u00bb/\u00ab\u041d\u0414\u0421\u00bb \u0442\u043e\u0447\u043d\u043e \u0440\u0430\u0432\u043d\u044f\u043b\u0438\u0441\u044c \u0438\u0442\u043e\u0433\u0430\u043c.
+    const lastIdx = data.trips.length - 1;
+    let accBase = 0;
+    let accVat = 0;
     const tableRows = data.trips.map((t, i) => {
         const amt = Number(t.amount);
-        const vatAmt = data.status === 1
+        let vatAmt = data.status === 1
             ? Math.round(amt * vatRate / (100 + vatRate) * 100) / 100
             : 0;
-        const base = data.status === 1 ? amt - vatAmt : amt;
+        let base = data.status === 1 ? amt - vatAmt : amt;
+        if (i === lastIdx && data.status === 1) {
+            vatAmt = Math.round((Number(data.vatAmount) - accVat) * 100) / 100;
+            base = Math.round((Number(data.subtotal) - accBase) * 100) / 100;
+        } else {
+            accVat += vatAmt;
+            accBase += base;
+        }
+        const lineAmt = data.status === 1 ? Math.round((base + vatAmt) * 100) / 100 : base;
         return [
             i + 1,
             `${t.tripNumber} ${t.route ? '(' + t.route + ')' : ''}`.trim(),
@@ -175,7 +189,7 @@ export async function generateUpdPdf(data: UpdPdfInput): Promise<Buffer> {
             formatMoney(base),
             data.status === 1 ? `${vatRate}%` : '\u0431\u0435\u0437 \u041d\u0414\u0421',
             data.status === 1 ? formatMoney(vatAmt) : '0,00',
-            formatMoney(amt),
+            formatMoney(lineAmt),
         ];
     });
 

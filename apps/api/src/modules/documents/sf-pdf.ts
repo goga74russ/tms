@@ -121,10 +121,24 @@ export async function generateSfPdf(data: SfPdfInput): Promise<Buffer> {
     const colTot  = { header: 'Стоим. с НДС', width: 65,  align: 'right'  as const };
     // сумма ширин: 20+150+28+28+62+62+38+62+65 = 515 ≈ CONTENT_W
 
+    // P2 (код-аудит 2026-06-14): построчные база/НДС back-calc из gross могут не
+    // сойтись с итоговыми subtotal/vatAmount (копеечное расхождение). Последняя
+    // строка поглощает разницу — суммы граф точно равны итогам СФ.
+    const lastIdx = data.trips.length - 1;
+    let accBase = 0;
+    let accVat = 0;
     const rows = data.trips.map((t, i) => {
         const amt = Number(t.amount);
-        const vat = hasVat ? Math.round(amt * (rate as number) / (100 + (rate as number)) * 100) / 100 : 0;
-        const base = amt - vat;
+        let vat = hasVat ? Math.round(amt * (rate as number) / (100 + (rate as number)) * 100) / 100 : 0;
+        let base = amt - vat;
+        if (i === lastIdx && hasVat) {
+            vat = Math.round((Number(data.vatAmount) - accVat) * 100) / 100;
+            base = Math.round((Number(data.subtotal) - accBase) * 100) / 100;
+        } else {
+            accVat += vat;
+            accBase += base;
+        }
+        const lineAmt = hasVat ? Math.round((base + vat) * 100) / 100 : base;
         return [
             i + 1,
             `${t.tripNumber}${t.route ? ' (' + t.route + ')' : ''}`,
@@ -134,7 +148,7 @@ export async function generateSfPdf(data: SfPdfInput): Promise<Buffer> {
             formatMoney(base),
             vatLabel,
             hasVat ? formatMoney(vat) : 'без НДС',
-            formatMoney(amt),
+            formatMoney(lineAmt),
         ];
     });
     drawTable(doc, [colN, colDesc, colUnit, colQty, colPrc, colAmt, colVatR, colVatA, colTot], rows);
