@@ -638,11 +638,11 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/carriers/routes.ts:116-126` — POST /carrier-contracts не проверяет endDate >= startDate (инвариант проверяется только в неподключённом helper)  _(api/carriers)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `apps/api/src/modules/claims/routes.ts:205-221` — create: org-привязка claim берётся из contractor сервисом, но route валидирует org только у переданного contractorId — при создании по tripId/orderId без contractorId cross-tenant контроль опирается лишь на assert*Access  _(api/claims)_
 - `apps/api/src/modules/claims/service.ts:119-149` — exposure() грузит все claims и агрегирует в JS вместо SQL-агрегации  _(api/claims)_
-- `apps/api/src/modules/cold-chain/service.ts:121-134` — organizationId замера читается из trips ВНЕ транзакции; при отсутствии рейса пишется NULL без отказа  _(api/cold-chain)_
+- `apps/api/src/modules/cold-chain/service.ts:121-134` — organizationId замера читается из trips ВНЕ транзакции; при отсутствии рейса пишется NULL без отказа  _(api/cold-chain)_  **✅ ЗАКРЫТО `00fce49`**
 - `apps/api/src/modules/cold-chain/service.ts:147-163` — Авто-инцидент по breach не фиксирует, какой заказ/лот нарушен — у инцидента нет orderId  _(api/cold-chain)_
 - `apps/api/src/modules/compliance/osago/service.ts:21-58` — OSAGO-проверка никогда не грузит per-org креды — всегда mock-адаптер, фиктивный статус сохраняется как достоверный  _(api/compliance+adr)_
 - `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:82-99` — ensureConversation не проверяет принадлежность беседы текущей организации — кросс-орг привязка сообщений  _(api/copilot)_  **✅ ЗАКРЫТО `9e1ee7b`**
-- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:117-122` — messageCount/lastActivityAt обновляются вне транзакции с insert сообщения — возможен дрейф счётчика  _(api/copilot)_
+- `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:117-122` — messageCount/lastActivityAt обновляются вне транзакции с insert сообщения — возможен дрейф счётчика  _(api/copilot)_  **✅ ЗАКРЫТО `00fce49`**
 - `apps/api/src/modules/documents/routes.ts:115-147` — POST document-returns: любая ошибка БД маскируется под 409 'Не удалось создать запись'  _(api/documents)_  **✅ ЗАКРЫТО `16df216`**
 - `apps/api/src/modules/documents/routes.ts:116-141` — POST/PUT document-returns: insert/update + recordEvent + syncTransportDocumentsForTrip вне транзакции (частичная рассинхронизация)  _(api/documents)_
 - `apps/api/src/modules/documents/sf-pdf.ts:36-140` — SF: поле includesVat объявлено, но не используется — НДС всегда back-calc из gross amount  _(api/documents)_
@@ -688,7 +688,7 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/modules/sync/service.ts:121-122` — Sync: обращение trip.status без null-guard после повторного SELECT в ветках route_point  _(api/sync+sprint9)_  **✅ ЗАКРЫТО `da00c83`**
 - `apps/api/src/modules/trips/transport-documents-store.ts:1076-1101` — recordTransportDocumentSignature помечает ЭТрН 'signed' при ≥2 любых ролях — может переоценивать юр-завершённость  _(api/trips)_
 - `apps/api/src/modules/trips/service.ts:863-871` — Дублирующая проверка MED_CERTIFICATE_EXPIRED в assignTrip (одинаковый hard-warning добавляется дважды)  _(api/trips)_  **✅ ЗАКРЫТО `ca73c00`**
-- `apps/api/src/modules/waybills/routes.ts:262-286` — Загрузка вложения ПЛ доверяет заявленному MIME (нет content-sniffing), в отличие от /uploads  _(api/uploads+waybills)_
+- `apps/api/src/modules/waybills/routes.ts:262-286` — Загрузка вложения ПЛ доверяет заявленному MIME (нет content-sniffing), в отличие от /uploads  _(api/uploads+waybills)_  **✅ ЗАКРЫТО `00fce49`**
 - `apps/api/src/modules/waybills/etrn-titles-generator.ts:33-52` — Титулы 2/5/6 ЭТрН форматируют ДатаДок/ДатаВремя в локальной TZ сервера (off-by-one под Docker UTC)  _(api/uploads+waybills)_  **✅ ЗАКРЫТО `16df216`**
 - `apps/api/src/modules/waybills/routes.ts:274-286` — Загрузка вложения ПЛ: файл на диск пишется до INSERT, нет транзакции — orphan-файл при сбое  _(api/uploads+waybills)_
 - `apps/api/src/modules/waybills/etrn-generator.ts:71-78` — escapeXml не вырезает запрещённые XML-1.0 управляющие символы → невалидный XML ЭТрН  _(api/uploads+waybills)_  **✅ ЗАКРЫТО `f6788ad`**
@@ -699,14 +699,14 @@ P0 не обнаружено в верифицированном наборе.
 - `apps/api/src/providers/telematics/wialon.ts:91-109` — Skeleton telematics methods return [] (silent empty success) instead of signalling not-implemented after the throwing token step  _(api/providers)_  **✅ ЗАКРЫТО `da00c83`**
 - `apps/api/src/providers/ofd/interface.ts:10-12` — Layer drift: OFD interface doc references getDefaultRegistry().ofd which does not exist  _(api/providers)_  **✅ ЗАКРЫТО `f6788ad`**
 - `apps/api/src/integrations/workers/fines.worker.ts:37-80` — Дедупликация штрафов только на уровне приложения — нет БД-unique на (vehicleId, resolutionNumber), Set не обновляется после вставок  _(api/infra)_
-- `apps/api/src/integrations/workers/wialon.worker.ts:25-119` — decideOdometerUpdate (экспортируемый pure-helper) не используется — логика продублирована inline, риск рассинхрона  _(api/infra)_
+- `apps/api/src/integrations/workers/wialon.worker.ts:25-119` — decideOdometerUpdate (экспортируемый pure-helper) не используется — логика продублирована inline, риск рассинхрона  _(api/infra)_  **✅ ЗАКРЫТО `00fce49`**
 - `apps/web/src/app/admin/billing/page.tsx:62-84` — Cross-tenant биллинг-запрос уходит ДО клиентского super-admin-guard (ordering)  _(web/admin)_  **✅ ЗАКРЫТО `9e1ee7b`**
 - `D:/Ai/TMS-prod/apps/api/src/modules/copilot/service.ts:162-206` — Mock-fallback активен в проде при отсутствии ANTHROPIC_API_KEY — копилот молча отвечает заглушками  _(api/copilot)_  **✅ ЗАКРЫТО `0cad8bc`**
 - `apps/web/src/app/admin/audit-log/page.tsx:130-142` — exportCsv: limit=500 перетирает limit из buildQuery, комментарий «5000» вводит в заблуждение  _(web/admin)_  **✅ ЗАКРЫТО `da00c83`**
-- `apps/web/src/app/dispatcher/page.tsx:694-702` — Клик по блокеру/риску в левом рейле диспетчера — мёртвая интеракция (onSelectException не передан)  _(web/ops1)_
+- `apps/web/src/app/dispatcher/page.tsx:694-702` — Клик по блокеру/риску в левом рейле диспетчера — мёртвая интеракция (onSelectException не передан)  _(web/ops1)_  **✅ ЗАКРЫТО `00fce49`**
 - `apps/web/src/app/dispatcher/components/AssignmentPanel.tsx:172-208` — Назначение из панели диспетчера не блокирует перевес при включённой проверке объёма, и проверяет вес только по одной заявке  _(web/ops1)_
-- `apps/web/src/app/medic/page.tsx:350-404` — Медосмотр: «Допустить» не блокируется клиентом при положительном алкотесте / критических витальных  _(web/ops2)_
-- `apps/web/src/app/analytics/page.tsx:281-283` — Кнопка «Обновить» в Аналитике перезагружает только 3 из 5 датасетов — Топливо и КТГ остаются устаревшими  _(web/finance)_
-- `apps/web/src/app/landing/components/Pricing.tsx:171-184` — Годовой billing-toggle теряется при переходе в signup — выбор тарифного периода не пробрасывается  _(web/public)_
+- `apps/web/src/app/medic/page.tsx:350-404` — Медосмотр: «Допустить» не блокируется клиентом при положительном алкотесте / критических витальных  _(web/ops2)_  **✅ ЗАКРЫТО `00fce49`**
+- `apps/web/src/app/analytics/page.tsx:281-283` — Кнопка «Обновить» в Аналитике перезагружает только 3 из 5 датасетов — Топливо и КТГ остаются устаревшими  _(web/finance)_  **✅ ЗАКРЫТО `00fce49`**
+- `apps/web/src/app/landing/components/Pricing.tsx:171-184` — Годовой billing-toggle теряется при переходе в signup — выбор тарифного периода не пробрасывается  _(web/public)_  **✅ ЗАКРЫТО `00fce49`**
 - `apps/web/src/app/login/page.tsx:102-108` — Несогласованный минимум длины пароля: login допускает 4 символа, signup/reset требуют 8  _(web/public)_  **✅ ЗАКРЫТО `3d8bc6b`**
 - `packages/shared/src/billing.ts:143-149` — formatKopecks некорректно форматирует отрицательные суммы  _(shared)_  **✅ ЗАКРЫТО `3d8bc6b`**
