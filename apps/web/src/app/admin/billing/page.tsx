@@ -264,7 +264,7 @@ export default function AdminBillingPage() {
                                 <td className="px-4 py-2.5 text-neutral-900">{r.organizationName}</td>
                                 <td className="px-4 py-2.5 text-neutral-600 font-mono text-xs">{r.inn ?? '—'}</td>
                                 <td className="px-4 py-2.5">
-                                    <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700">
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-700">
                                         {label(PLAN_LABELS, r.planId)}
                                     </span>
                                 </td>

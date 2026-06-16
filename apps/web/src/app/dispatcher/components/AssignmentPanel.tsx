@@ -519,12 +519,12 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                                         selectedOrder === order.id ? null : order.id,
                                     )}
                                     className={`w-full text-left px-3 py-2.5 rounded-lg text-xs transition-all ${selectedOrder === order.id
-                                        ? 'bg-indigo-50 border border-indigo-200 ring-1 ring-indigo-300'
+                                        ? 'bg-brand-50 border border-brand-200 ring-1 ring-brand-300'
                                         : 'bg-neutral-50 border border-transparent hover:bg-neutral-100'
                                         }`}
                                 >
                                     <div className="flex justify-between items-center mb-0.5">
-                                        <span className="font-bold text-indigo-600 font-mono inline-flex items-center gap-1.5">
+                                        <span className="font-bold text-brand-600 font-mono inline-flex items-center gap-1.5">
                                             {order.number}
                                             {order.adrClass && (
                                                 <span
@@ -568,7 +568,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                         return missing.length ? `Выберите ${missing.join(', ')}, чтобы назначить` : undefined;
                     })()}
                     className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${selectedOrder && selectedVehicle && selectedDriver
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl'
+                        ? 'bg-gradient-to-r from-emerald-500 to-accent-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl'
                         : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
                         }`}
                 >

@@ -207,7 +207,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                 <select
                                     value={selectedVehicle}
                                     onChange={e => setSelectedVehicle(e.target.value)}
-                                    className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                                 >
                                     <option value="">Выберите ТС...</option>
                                     {vehicles.map(v => (
@@ -230,7 +230,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                 <select
                                     value={selectedDriver}
                                     onChange={e => setSelectedDriver(e.target.value)}
-                                    className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                                 >
                                     <option value="">Выберите водителя...</option>
                                     {drivers.map(d => (
@@ -256,7 +256,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                             onClick={() => setExecutionMode('own')}
                                             className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
                                                 executionMode === 'own'
-                                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                                    ? 'bg-brand-50 border-brand-300 text-brand-700'
                                                     : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50'
                                             }`}
                                         >
@@ -267,7 +267,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                             onClick={() => setExecutionMode('subcontract')}
                                             className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
                                                 executionMode === 'subcontract'
-                                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                                                    ? 'bg-brand-50 border-brand-300 text-brand-700'
                                                     : 'bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50'
                                             }`}
                                         >
@@ -288,7 +288,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                             value={ownCostEstimate}
                                             onChange={(e) => setOwnCostEstimate(e.target.value)}
                                             placeholder="топливо + з/п + амортизация"
-                                            className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                            className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                                         />
                                         <p className="text-[11px] text-neutral-500 mt-1">
                                             Расчётная себестоимость рейса для своего парка.
@@ -308,7 +308,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                             value={subcontractorCost}
                                             onChange={(e) => setSubcontractorCost(e.target.value)}
                                             placeholder="сумма счёта от перевозчика"
-                                            className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                            className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                                         />
                                         <p className="text-[11px] text-neutral-500 mt-1">
                                             Сколько мы заплатим субподрядчику по его счёту.
@@ -321,7 +321,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                         type="checkbox"
                                         checked={costIncludesVat}
                                         onChange={(e) => setCostIncludesVat(e.target.checked)}
-                                        className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                        className="w-4 h-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
                                     />
                                     Стоимость с НДС
                                 </label>
@@ -330,7 +330,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                             {/* Orders selection */}
                             <div>
                                 <label className="text-sm font-semibold text-neutral-700 flex items-center gap-2 mb-2">
-                                    <Package className="w-4 h-4 text-indigo-500" />
+                                    <Package className="w-4 h-4 text-brand-500" />
                                     Заявки ({selectedOrders.length} выбрано
                                     {totalWeight > 0 && ` • ${(totalWeight / 1000).toFixed(1)}т`})
                                 </label>
@@ -353,7 +353,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                         <label
                                             key={order.id}
                                             className={`flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all ${selectedOrders.includes(order.id)
-                                                ? 'bg-indigo-50 border border-indigo-200'
+                                                ? 'bg-brand-50 border border-brand-200'
                                                 : 'bg-neutral-50 border border-transparent hover:bg-neutral-100'
                                                 }`}
                                         >
@@ -361,11 +361,11 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                                 type="checkbox"
                                                 checked={selectedOrders.includes(order.id)}
                                                 onChange={() => toggleOrder(order.id)}
-                                                className="mt-0.5 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                                className="mt-0.5 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
                                             />
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-xs font-bold text-indigo-600 font-mono">{order.number}</span>
+                                                    <span className="text-xs font-bold text-brand-600 font-mono">{order.number}</span>
                                                     <span className="text-xs text-neutral-500">
                                                         {order.cargoWeightKg >= 1000
                                                             ? `${(order.cargoWeightKg / 1000).toFixed(1)}т`
@@ -452,7 +452,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                         ? 'Добавьте хотя бы один заказ в рейс'
                                         : undefined
                         }
-                        className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-500/25 gap-2"
+                        className="bg-gradient-to-r from-emerald-500 to-accent-600 hover:from-emerald-600 hover:to-accent-700 shadow-lg shadow-emerald-500/25 gap-2"
                     >
                         {submitting ? (
                             <Loader2 className="w-4 h-4 animate-spin" />

@@ -258,7 +258,7 @@ export function Combobox<T>({
                                 onClick={() => handleSelect(item)}
                                 className={`w-full text-left px-3 py-2.5 text-sm transition-colors border-b border-neutral-50 last:border-0
                                     ${idx === highlightIndex
-                                        ? 'bg-indigo-50 text-indigo-900'
+                                        ? 'bg-brand-50 text-brand-900'
                                         : 'hover:bg-neutral-50 text-neutral-700'
                                     }
                                     ${selected && getKey(item) === getKey(selected)

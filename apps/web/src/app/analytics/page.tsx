@@ -298,7 +298,7 @@ export default function AnalyticsPage() {
                     color="amber"
                 />
                 <StatCard
-                    icon={<Activity className="w-5 h-5 text-indigo-500" />}
+                    icon={<Activity className="w-5 h-5 text-brand-500" />}
                     label="Рейсы с маржой"
                     value={summary?.totalTrips ?? 0}
                     subtitle="завершённые рейсы периода"
@@ -390,7 +390,7 @@ export default function AnalyticsPage() {
                     <div className="bg-white rounded-xl shadow-sm border border-neutral-200">
                         {loadingAlerts ? (
                             <div className="flex items-center justify-center py-20">
-                                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                                <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
                             </div>
                         ) : alerts.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
@@ -455,7 +455,7 @@ export default function AnalyticsPage() {
 
                         {loadingProfit ? (
                             <div className="flex items-center justify-center py-20">
-                                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                                <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
                             </div>
                         ) : trips.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
@@ -531,7 +531,7 @@ export default function AnalyticsPage() {
 
                         {loadingFuel ? (
                             <div className="flex items-center justify-center py-20">
-                                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                                <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
                             </div>
                         ) : fuelRows.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
@@ -590,7 +590,7 @@ export default function AnalyticsPage() {
 
                         {loadingKtg ? (
                             <div className="flex items-center justify-center py-20">
-                                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                                <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
                             </div>
                         ) : ktgRows.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
@@ -643,7 +643,7 @@ function StatCard({ icon, label, value, color, subtitle }: {
         red: 'bg-red-50 border-red-100',
         amber: 'bg-amber-50 border-amber-100',
         emerald: 'bg-emerald-50 border-emerald-100',
-        indigo: 'bg-indigo-50 border-indigo-100',
+        indigo: 'bg-brand-50 border-brand-100',
     };
     return (
         <div className={`rounded-xl border p-4 ${bgMap[color] || 'bg-neutral-50 border-neutral-100'}`}>

@@ -52,7 +52,7 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
         >
             {/* Header: Number + SLA */}
             <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-indigo-600 font-mono">
+                <span className="text-xs font-bold text-brand-600 font-mono">
                     {order.number}
                 </span>
                 <div className="flex items-center gap-1.5">

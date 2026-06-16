@@ -117,7 +117,7 @@ function CreateContractorModal({ onClose, onCreated, editingItem }: { onClose: (
                 <div>
                     <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Наименование *</label>
                     <input type="text" value={name} onChange={e => setName(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         placeholder="ООО Логистика" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -138,7 +138,7 @@ function CreateContractorModal({ onClose, onCreated, editingItem }: { onClose: (
                 <div>
                     <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Юридический адрес *</label>
                     <input type="text" value={legalAddress} onChange={e => setLegalAddress(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         placeholder="г. Москва, ул. Примерная, 1" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -158,7 +158,7 @@ function CreateContractorModal({ onClose, onCreated, editingItem }: { onClose: (
                 <div>
                     <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Контактное лицо</label>
                     <input type="text" value={contactPerson} onChange={e => setContactPerson(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         placeholder="Иванов И.И." />
                 </div>
                 {error && <p className="text-sm text-red-600">{error}</p>}

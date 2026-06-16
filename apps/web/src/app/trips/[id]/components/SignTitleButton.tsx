@@ -468,12 +468,12 @@ export function SignTitleButton({
                         <div className="space-y-3">
                             {state.provider === 'gosklyuch' && state.deeplink ? (
                                 <div className="space-y-3">
-                                    <div className="rounded-lg border border-indigo-200 bg-indigo-50/70 px-3 py-2 text-sm text-indigo-800">
+                                    <div className="rounded-lg border border-brand-200 bg-brand-50/70 px-3 py-2 text-sm text-brand-800">
                                         Откройте ссылку на мобильном устройстве с установленным приложением «Госключ» и подтвердите подпись.
                                     </div>
                                     <a
                                         href={state.deeplink}
-                                        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
                                     >
                                         <ExternalLink className="w-4 h-4" />
                                         Открыть Госключ
@@ -511,7 +511,7 @@ export function SignTitleButton({
                             )}
 
                             <div className="flex items-center gap-2 text-xs text-neutral-500">
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-500" />
                                 Ожидаем подтверждения. Проверяем каждые 5 секунд (до 5 минут).
                             </div>
 

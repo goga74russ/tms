@@ -414,7 +414,7 @@ export default function MechanicPage() {
                                 <div className="min-w-0">
                                     <h2 className="text-base font-bold truncate">{selectedVehicle.vehicle.plateNumber}</h2>
                                     {selectedVehicle.vehicle.bodyType && (
-                                        <p className="text-[11px] text-indigo-300 truncate">
+                                        <p className="text-[11px] text-brand-300 truncate">
                                             {getVehicleProfile(selectedVehicle.vehicle.bodyType).displayLabel}
                                         </p>
                                     )}
@@ -842,7 +842,7 @@ export default function MechanicPage() {
                                                             href={`/api/inspections/tech/${record.id}/pdf`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition"
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-brand-100 transition"
                                                             title="Скачать акт PDF"
                                                         >
                                                             <FileText className="w-3.5 h-3.5" />

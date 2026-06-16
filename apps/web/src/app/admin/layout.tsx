@@ -57,7 +57,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (loading) {
         return (
             <div className="flex items-center justify-center h-full">
-                <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
             </div>
         );
     }
@@ -113,14 +113,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 key={item.href}
                                 href={item.href}
                                 className={`relative flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
-                                    ? 'bg-indigo-50 text-indigo-700'
+                                    ? 'bg-brand-50 text-brand-700'
                                     : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
                                     }`}
                             >
                                 {isActive && (
-                                    <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-indigo-600" />
+                                    <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-brand-600" />
                                 )}
-                                <Icon className={`w-4 h-4 ${isActive ? 'text-indigo-600' : 'text-neutral-400'}`} />
+                                <Icon className={`w-4 h-4 ${isActive ? 'text-brand-600' : 'text-neutral-400'}`} />
                                 <span className="truncate">{item.name}</span>
                             </Link>
                         );

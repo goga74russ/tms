@@ -22,7 +22,7 @@ const REPAIR_CATEGORY_PILL_LOCAL: Record<string, string> = {
   brakes: 'bg-rose-50 text-rose-700 border-rose-100',
   electrical: 'bg-sky-50 text-sky-700 border-sky-100',
   body: 'bg-neutral-100 text-neutral-700 border-neutral-200',
-  tires: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+  tires: 'bg-brand-50 text-brand-700 border-brand-100',
   other: 'bg-neutral-100 text-neutral-600 border-neutral-200',
 };
 
@@ -243,7 +243,7 @@ export function RepairCard({ repair }: { repair: Repair }) {
           <div className="flex flex-wrap gap-1.5 text-[11px] text-neutral-500">
             <span className="rounded-full bg-neutral-50 px-2 py-0.5">План: {summary.plannedQuantity}</span>
             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">Получено: {summary.receivedQuantity}</span>
-            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-indigo-700">Использовано: {summary.usedQuantity}</span>
+            <span className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">Использовано: {summary.usedQuantity}</span>
             <span className="rounded-full bg-neutral-50 px-2 py-0.5">
               Выполнено: {summary.plannedQuantity > 0 ? `${(summary.usedRate * 100).toFixed(0)}%` : '0%'}
             </span>

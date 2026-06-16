@@ -115,7 +115,7 @@ export default function AdminDemoPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-base">
-                            <Sparkles className="w-5 h-5 text-indigo-600" />
+                            <Sparkles className="w-5 h-5 text-brand-600" />
                             Создать демо-данные
                         </CardTitle>
                     </CardHeader>
@@ -141,7 +141,7 @@ export default function AdminDemoPage() {
                         {busy === 'generate' && progress > 0 && (
                             <div className="w-full bg-neutral-100 rounded-full h-2 overflow-hidden">
                                 <div
-                                    className="bg-indigo-500 h-2 transition-all duration-200"
+                                    className="bg-brand-500 h-2 transition-all duration-200"
                                     style={{ width: `${progress}%` }}
                                 />
                             </div>
@@ -200,8 +200,8 @@ export default function AdminDemoPage() {
                             <SummaryItem label="Тарифы" count={generated.tariffIds.length} href="/tariffs" />
                         </div>
                         <div className="mt-4 flex gap-2 flex-wrap">
-                            <Link href="/dispatcher" className="text-sm text-indigo-600 hover:underline">Открыть диспетчерскую →</Link>
-                            <Link href="/analytics" className="text-sm text-indigo-600 hover:underline">Открыть аналитику →</Link>
+                            <Link href="/dispatcher" className="text-sm text-brand-600 hover:underline">Открыть диспетчерскую →</Link>
+                            <Link href="/analytics" className="text-sm text-brand-600 hover:underline">Открыть аналитику →</Link>
                         </div>
                     </CardContent>
                 </Card>
@@ -245,7 +245,7 @@ function SummaryItem({ label, count, href }: { label: string; count: number; hre
     return (
         <a
             href={href}
-            className="block rounded-lg border border-neutral-200 bg-white px-3 py-2 hover:border-indigo-400 hover:shadow-sm transition-all"
+            className="block rounded-lg border border-neutral-200 bg-white px-3 py-2 hover:border-brand-400 hover:shadow-sm transition-all"
         >
             <div className="text-xs text-neutral-500">{label}</div>
             <div className="text-lg font-semibold text-neutral-900">{count}</div>

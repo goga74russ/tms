@@ -600,7 +600,7 @@ function PlanPartsDialog({
                     key={item.id}
                     type="button"
                     onClick={() => appendCatalogItem(item)}
-                    className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-left text-xs font-medium text-neutral-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700"
+                    className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-left text-xs font-medium text-neutral-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
                   >
                     <span>{item.name}</span>
                     <span className="text-[11px] text-neutral-400">{item.category}</span>
@@ -667,10 +667,10 @@ function PlanPartsDialog({
           ) : null}
 
           {catalogMeta?.bundles?.length ? (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+            <div className="rounded-lg border border-brand-200 bg-brand-50 p-3">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">Типовые наборы ТО</p>
-                <p className="text-xs text-indigo-500">{catalogMeta.bundles.length} наборов</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Типовые наборы ТО</p>
+                <p className="text-xs text-brand-500">{catalogMeta.bundles.length} наборов</p>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {catalogMeta.bundles.map((bundle) => (
@@ -678,18 +678,18 @@ function PlanPartsDialog({
                     key={bundle.id}
                     type="button"
                     onClick={() => appendCatalogBundle(bundle)}
-                    className="rounded-lg border border-indigo-200 bg-white p-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50"
+                    className="rounded-lg border border-brand-200 bg-white p-3 text-left transition hover:border-brand-300 hover:bg-brand-50"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold text-neutral-900">{bundle.name}</p>
                         <p className="text-xs text-neutral-500">{bundle.description}</p>
                       </div>
-                      <span className="text-[11px] font-medium text-indigo-700">{formatMoney(bundle.totalSuggestedCost)} ₽</span>
+                      <span className="text-[11px] font-medium text-brand-700">{formatMoney(bundle.totalSuggestedCost)} ₽</span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {bundle.items.slice(0, 4).map((item) => (
-                        <span key={`${bundle.id}-${item.id}`} className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] text-indigo-700">
+                        <span key={`${bundle.id}-${item.id}`} className="inline-flex items-center rounded-full bg-brand-50 px-2 py-0.5 text-[11px] text-brand-700">
                           {item.name} ×{item.quantity}
                         </span>
                       ))}
@@ -708,8 +708,8 @@ function PlanPartsDialog({
                   onClick={() => setActiveCategory('all')}
                   className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                     activeCategory === 'all'
-                      ? 'bg-indigo-600 text-white'
-                      : 'border border-neutral-200 bg-white text-neutral-600 hover:border-indigo-300 hover:text-indigo-700'
+                      ? 'bg-brand-600 text-white'
+                      : 'border border-neutral-200 bg-white text-neutral-600 hover:border-brand-300 hover:text-brand-700'
                   }`}
                 >
                   Все категории
@@ -1028,7 +1028,7 @@ function CompleteRepairDialog({
         </div>
 
         
-        <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-800">
+        <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-medium text-brand-800">
           {transitionHint('done')}
         </div>
 
@@ -1038,7 +1038,7 @@ function CompleteRepairDialog({
             value={workDescription}
             onChange={(e) => setWorkDescription(e.target.value)}
             rows={4}
-            className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             placeholder="Например: замена шины, замена ремня, проверка крепежа"
           />
         </div>
@@ -1292,7 +1292,7 @@ export function RepairKanban({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
       </div>
     );
   }

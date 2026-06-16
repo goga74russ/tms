@@ -163,7 +163,7 @@ function HoursChartDialog({ driver, onClose }: { driver: Driver; onClose: () => 
                 <p className="text-sm text-neutral-500">Часы работы за последние 7 дней</p>
                 {loading ? (
                     <div className="flex items-center justify-center py-12">
-                        <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+                        <Loader2 className="w-6 h-6 animate-spin text-brand-500" />
                     </div>
                 ) : chartData.length === 0 ? (
                     <p className="text-sm text-neutral-400 text-center py-8">Нет данных за период</p>

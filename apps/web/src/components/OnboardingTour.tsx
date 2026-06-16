@@ -216,7 +216,7 @@ export function OnboardingTour({ steps, storageKey, onClose, forceShow }: Onboar
                     >
                         <X className="w-4 h-4" />
                     </button>
-                    <div className="text-xs font-medium text-indigo-600 mb-1">
+                    <div className="text-xs font-medium text-brand-600 mb-1">
                         Шаг {stepIndex + 1} из {steps.length}
                     </div>
                     <h3 className="text-sm font-semibold text-neutral-900 mb-2">{step.title}</h3>
@@ -238,7 +238,7 @@ export function OnboardingTour({ steps, storageKey, onClose, forceShow }: Onboar
                             </button>
                             <button
                                 onClick={next}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-brand-600 text-white hover:bg-brand-700"
                             >
                                 {isLast ? <><Check className="w-3 h-3" />Готово</> : <>Далее<ArrowRight className="w-3 h-3" /></>}
                             </button>

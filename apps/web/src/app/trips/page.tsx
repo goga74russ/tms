@@ -189,7 +189,7 @@ type OperationalAction = 'downtime' | 'readdress' | 'cancel' | 'breakdown' | 're
 const STATUS_COLORS: Record<string, string> = {
     planning: 'bg-neutral-100 text-neutral-700',
     assigned: 'bg-blue-100 text-blue-700',
-    waybill_draft: 'bg-indigo-100 text-indigo-700',
+    waybill_draft: 'bg-brand-100 text-brand-700',
     inspection: 'bg-cyan-100 text-cyan-700',
     waybill_issued: 'bg-violet-100 text-violet-700',
     loading: 'bg-orange-100 text-orange-700',
@@ -372,9 +372,9 @@ function transportTone(status: string) {
 
 function toneClass(tone: 'info' | 'warning' | 'critical', variant: 'bg' | 'text' = 'bg') {
     if (variant === 'text') {
-        return tone === 'critical' ? 'text-rose-700' : tone === 'warning' ? 'text-amber-700' : 'text-indigo-700';
+        return tone === 'critical' ? 'text-rose-700' : tone === 'warning' ? 'text-amber-700' : 'text-brand-700';
     }
-    return tone === 'critical' ? 'bg-rose-100 text-rose-700' : tone === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700';
+    return tone === 'critical' ? 'bg-rose-100 text-rose-700' : tone === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-brand-100 text-brand-700';
 }
 
 function documentStatusTone(status: string) {
@@ -672,7 +672,7 @@ function CloseGateBlock({
                                         <button
                                             type="button"
                                             onClick={() => window.open(item.printUrl || '#', '_blank', 'noopener,noreferrer')}
-                                            className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
+                                            className="inline-flex items-center gap-2 rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-50"
                                         >
                                             <FileText className="h-3.5 w-3.5" />
                                             {item.printLabel || 'Печать акта'}
@@ -719,9 +719,9 @@ function DossierNextActions({
                 <button
                     type="button"
                     onClick={() => window.open(repairUrl, '_blank', 'noopener,noreferrer')}
-                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-brand-200 hover:bg-brand-50"
                 >
-                    <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
+                    <span className="flex items-center gap-2 text-xs font-semibold text-brand-700">
                         <Wrench className="h-3.5 w-3.5" />
                         Заявка на ремонт
                     </span>
@@ -730,9 +730,9 @@ function DossierNextActions({
                 <button
                     type="button"
                     onClick={() => onSelectAction('return')}
-                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-brand-200 hover:bg-brand-50"
                 >
-                    <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
+                    <span className="flex items-center gap-2 text-xs font-semibold text-brand-700">
                         <RotateCcw className="h-3.5 w-3.5" />
                         Чек-лист возврата
                     </span>
@@ -741,9 +741,9 @@ function DossierNextActions({
                 <button
                     type="button"
                     onClick={() => onSelectAction('breakdown')}
-                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-brand-200 hover:bg-brand-50"
                 >
-                    <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
+                    <span className="flex items-center gap-2 text-xs font-semibold text-brand-700">
                         <AlertTriangle className="h-3.5 w-3.5" />
                         Поломка в рейсе
                     </span>
@@ -751,9 +751,9 @@ function DossierNextActions({
                 </button>
                 <a
                     href="#document-queue"
-                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                    className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left hover:border-brand-200 hover:bg-brand-50"
                 >
-                    <span className="flex items-center gap-2 text-xs font-semibold text-indigo-700">
+                    <span className="flex items-center gap-2 text-xs font-semibold text-brand-700">
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         Закрытие рейса
                     </span>
@@ -846,7 +846,7 @@ function OperationalStructureBlock({
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiOrder ? 'bg-indigo-100 text-indigo-700' : 'bg-neutral-100 text-neutral-600'}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiOrder ? 'bg-brand-100 text-brand-700' : 'bg-neutral-100 text-neutral-600'}`}>
                         {orderCount} заявок
                     </span>
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${assignments.length > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-600'}`}>
@@ -929,7 +929,7 @@ function OperationalStructureBlock({
                                 type="button"
                                 onClick={onSortRoute}
                                 disabled={sorting || sortedPoints.length === 0}
-                                className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                className="inline-flex items-center gap-1 rounded-md bg-brand-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {sorting && <Loader2 className="h-3 w-3 animate-spin" />}
                                 Сортировать маршрут
@@ -949,7 +949,7 @@ function OperationalStructureBlock({
                                     key={point.id}
                                     className={`flex gap-3 px-3 py-3 ${overdue ? 'bg-rose-50' : ''}`}
                                 >
-                                    <span className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${overdue ? 'bg-rose-200 text-rose-800' : 'bg-indigo-100 text-indigo-700'}`}>
+                                    <span className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${overdue ? 'bg-rose-200 text-rose-800' : 'bg-brand-100 text-brand-700'}`}>
                                         {routePointOrder(point, index)}
                                     </span>
                                     <div className="min-w-0 flex-1">
@@ -1022,7 +1022,7 @@ function OperationalStructureBlock({
                                             </div>
                                             <p className="truncate text-xs text-neutral-500">{order.cargoDescription || 'Cargo details not provided'}</p>
                                         </div>
-                                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                                        <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
                                             {group.length} партий
                                         </span>
                                     </div>
@@ -1255,7 +1255,7 @@ function OperationalActionsBlock({
                         onClick={() => setActiveAction(action.id)}
                         className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                             activeAction === action.id
-                                ? 'bg-indigo-600 text-white shadow-sm'
+                                ? 'bg-brand-600 text-white shadow-sm'
                                 : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                         }`}
                     >
@@ -1280,7 +1280,7 @@ function OperationalActionsBlock({
                     <select
                         value={routePointId}
                         onChange={event => setRoutePointId(event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                     >
                         <option value="">Без привязки к точке</option>
                         {routePoints.map((point, index) => (
@@ -1296,7 +1296,7 @@ function OperationalActionsBlock({
                     <input
                         value={reason}
                         onChange={event => setReason(event.target.value)}
-                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                     />
                 </label>
 
@@ -1307,7 +1307,7 @@ function OperationalActionsBlock({
                             value={address}
                             onChange={event => setAddress(event.target.value)}
                             placeholder="Новый адрес погрузки или выгрузки"
-                            className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                         />
                     </label>
                 )}
@@ -1320,7 +1320,7 @@ function OperationalActionsBlock({
                                 value={reserveAmount}
                                 onChange={event => setReserveAmount(event.target.value)}
                                 inputMode="decimal"
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             />
                         </label>
                         {activeAction === 'downtime' && (
@@ -1330,7 +1330,7 @@ function OperationalActionsBlock({
                                     value={freeMinutes}
                                     onChange={event => setFreeMinutes(event.target.value)}
                                     inputMode="numeric"
-                                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                                 />
                             </label>
                         )}
@@ -1345,7 +1345,7 @@ function OperationalActionsBlock({
                                 value={odometerEnd}
                                 onChange={event => setOdometerEnd(event.target.value)}
                                 inputMode="decimal"
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             />
                         </label>
                         <label className="block">
@@ -1354,7 +1354,7 @@ function OperationalActionsBlock({
                                 value={fuelEnd}
                                 onChange={event => setFuelEnd(event.target.value)}
                                 inputMode="decimal"
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             />
                         </label>
                         <label className="block">
@@ -1362,7 +1362,7 @@ function OperationalActionsBlock({
                             <select
                                 value={postTripInspectionStatus}
                                 onChange={event => setPostTripInspectionStatus(event.target.value as 'pending' | 'passed' | 'failed')}
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             >
                                 <option value="pending">Ожидает</option>
                                 <option value="passed">Пройден</option>
@@ -1379,7 +1379,7 @@ function OperationalActionsBlock({
                             <select
                                 value={replacementVehicleId}
                                 onChange={event => setReplacementVehicleId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             >
                                 <option value="">Не менять ТС</option>
                                 {vehicles.map(vehicle => (
@@ -1394,7 +1394,7 @@ function OperationalActionsBlock({
                             <select
                                 value={replacementDriverId}
                                 onChange={event => setReplacementDriverId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             >
                                 <option value="">Не менять водителя</option>
                                 {drivers.map(driver => (
@@ -1409,7 +1409,7 @@ function OperationalActionsBlock({
                             <select
                                 value={replacementTrailerId}
                                 onChange={event => setReplacementTrailerId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             >
                                 <option value="">Не менять прицеп</option>
                                 {trailers.map(trailer => (
@@ -1429,7 +1429,7 @@ function OperationalActionsBlock({
                             <select
                                 value={crewPrimaryDriverId}
                                 onChange={event => setCrewPrimaryDriverId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             >
                                 <option value="">Выберите водителя</option>
                                 {drivers.map(driver => (
@@ -1444,7 +1444,7 @@ function OperationalActionsBlock({
                             <select
                                 value={crewSecondaryDriverId}
                                 onChange={event => setCrewSecondaryDriverId(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             >
                                 <option value="">Без второго водителя</option>
                                 {drivers.map(driver => (
@@ -1460,7 +1460,7 @@ function OperationalActionsBlock({
                                 type="datetime-local"
                                 value={shiftStart}
                                 onChange={event => setShiftStart(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             />
                         </label>
                         <label className="block">
@@ -1469,7 +1469,7 @@ function OperationalActionsBlock({
                                 type="datetime-local"
                                 value={shiftEnd}
                                 onChange={event => setShiftEnd(event.target.value)}
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             />
                         </label>
                         <label className="block">
@@ -1478,7 +1478,7 @@ function OperationalActionsBlock({
                                 value={maxShiftMinutes}
                                 onChange={event => setMaxShiftMinutes(event.target.value)}
                                 inputMode="numeric"
-                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                             />
                         </label>
                     </>
@@ -1490,7 +1490,7 @@ function OperationalActionsBlock({
                         value={notes}
                         onChange={event => setNotes(event.target.value)}
                         rows={3}
-                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                     />
                 </label>
             </div>
@@ -1538,7 +1538,7 @@ function OperationalActionsBlock({
                         || (activeAction === 'replace' && !replacementVehicleId && !replacementDriverId && !replacementTrailerId)
                         || (activeAction === 'crew' && !crewPrimaryDriverId)
                     }
-                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                     Зафиксировать
@@ -1711,10 +1711,10 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
     };
 
     return (
-        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 space-y-4">
+        <div className="rounded-2xl border border-brand-100 bg-brand-50/70 p-4 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Транспортные документы</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-500">Транспортные документы</p>
                     <p className="text-sm font-semibold text-neutral-900">
                         {phaseLabelMap[transportDocuments?.lifecycle?.documentPhase] || transportDocuments?.lifecycle?.documentPhase || 'сформирован'} · {workflowLabelMap[etrn?.status] || etrn?.status || 'draft'}
                     </p>
@@ -1876,12 +1876,12 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                             {doc.providerDocumentId && (
-                                <span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
+                                <span className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700">
                                     doc {doc.providerDocumentId}
                                 </span>
                             )}
                             {doc.providerMessageId && (
-                                <span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
+                                <span className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700">
                                     msg {doc.providerMessageId}
                                 </span>
                             )}
@@ -1998,9 +1998,9 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                 }
                             })();
                             return (
-                                <div className="mt-3 space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/40 px-3 py-2">
+                                <div className="mt-3 space-y-2 rounded-xl border border-brand-100 bg-brand-50/40 px-3 py-2">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-600">EDI</p>
+                                        <p className="text-[10px] font-bold uppercase tracking-wide text-brand-600">EDI</p>
                                         {badge ? (
                                             <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${badge.cls}`}>
                                                 {badge.label}
@@ -2024,7 +2024,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                                         type="button"
                                                         disabled={ediActionLoading === `send-${doc.id}-${prov}`}
                                                         onClick={() => sendEdi(doc.id, prov)}
-                                                        className="rounded-md border border-indigo-200 bg-white px-2 py-1 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+                                                        className="rounded-md border border-brand-200 bg-white px-2 py-1 text-[10px] font-semibold text-brand-700 hover:bg-brand-100 disabled:opacity-50"
                                                     >
                                                         {ediActionLoading === `send-${doc.id}-${prov}`
                                                             ? '...'
@@ -2057,7 +2057,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                     <button
                                         type="button"
                                         onClick={() => openEdiHistory(doc)}
-                                        className="text-[10px] font-semibold text-indigo-600 underline-offset-2 hover:underline"
+                                        className="text-[10px] font-semibold text-brand-600 underline-offset-2 hover:underline"
                                     >
                                         История EDI
                                     </button>
@@ -2760,7 +2760,7 @@ export default function TripsPage() {
                         {label(TRIP_STATUS, t.status)}
                     </span>
                     {(tripOrderNumbers[t.id] || []).length > 1 && (
-                        <span className="inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700">
+                        <span className="inline-flex items-center w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-100 text-brand-700">
                             Сборный рейс • {(tripOrderNumbers[t.id] || []).length} заявок
                         </span>
                     )}
@@ -2785,7 +2785,7 @@ export default function TripsPage() {
                         </span>
                     </span>
                     {vehicleMap[t.vehicleId]?.bodyType && (
-                        <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                        <span className="inline-flex w-fit rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
                             ПЛ: {getVehicleProfile(vehicleMap[t.vehicleId].bodyType).displayLabel}
                         </span>
                     )}
@@ -2816,7 +2816,7 @@ export default function TripsPage() {
             cell: (t) => (tripOrderNumbers[t.id] || []).length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                     {(tripOrderNumbers[t.id] || []).slice(0, 2).map((orderNumber) => (
-                        <span key={orderNumber} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
+                        <span key={orderNumber} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-100 text-brand-700">
                             {orderNumber}
                         </span>
                     ))}
@@ -2996,7 +2996,7 @@ export default function TripsPage() {
                 <button
                     onClick={() => setStatusFilter('')}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all
-                        ${!statusFilter ? 'bg-indigo-600 text-white shadow-sm' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
+                        ${!statusFilter ? 'bg-brand-600 text-white shadow-sm' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
                 >
                     Все ({trips.length})
                 </button>
@@ -3005,7 +3005,7 @@ export default function TripsPage() {
                         key={key}
                         onClick={() => setStatusFilter(key === statusFilter ? '' : key)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all
-                            ${statusFilter === key ? 'bg-indigo-600 text-white shadow-sm' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
+                            ${statusFilter === key ? 'bg-brand-600 text-white shadow-sm' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}
                     >
                         {statusLabel} ({statusCounts[key] || 0})
                     </button>
@@ -3034,7 +3034,7 @@ export default function TripsPage() {
                 keyField="id"
                 loading={loading}
                 onRowClick={(t) => openDossier(t.id)}
-                rowClassName={(t) => (tripOrderNumbers[t.id] || []).length > 1 ? 'bg-indigo-50/40' : ''}
+                rowClassName={(t) => (tripOrderNumbers[t.id] || []).length > 1 ? 'bg-brand-50/40' : ''}
                 rowActions={(t) => {
                     const actions: Array<{ id: string; label: string; icon?: React.ReactNode; onClick: (r: Trip) => void; tone?: 'default' | 'danger' }> = [
                         {
@@ -3236,7 +3236,7 @@ export default function TripsPage() {
                     <div>
                             {dossierLoading ? (
                                 <div className="flex items-center justify-center py-20">
-                                    <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                                    <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
                                 </div>
                             ) : dossierError ? (
                                 <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -3521,7 +3521,7 @@ export default function TripsPage() {
                                                                     Контрагент: {order.contractor?.name || 'Не указан'}
                                                                 </div>
                                                             </div>
-                                                            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                                                            <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
                                                                 {label(ORDER_STATUS, order.status)}
                                                             </span>
                                                         </div>

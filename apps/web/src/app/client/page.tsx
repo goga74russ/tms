@@ -57,7 +57,7 @@ function formatMoney(value: number | string) {
 const ORDER_STATUS_LABELS: Record<string, { label: string; color: string; icon: any }> = {
     draft: { label: 'Черновик', color: 'bg-neutral-100 text-neutral-600', icon: Clock },
     confirmed: { label: 'В работе', color: 'bg-blue-100 text-blue-700', icon: CheckCircle2 },
-    assigned: { label: 'Назначена', color: 'bg-indigo-100 text-indigo-700', icon: Truck },
+    assigned: { label: 'Назначена', color: 'bg-brand-100 text-brand-700', icon: Truck },
     in_transit: { label: 'В пути', color: 'bg-amber-100 text-amber-700', icon: MapPin },
     delivered: { label: 'Доставлена', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
     completed: { label: 'Завершена', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },

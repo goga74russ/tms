@@ -258,7 +258,7 @@ export default function LogistPage() {
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-brand-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
                         <ClipboardList className="w-5 h-5 text-white" />
                     </div>
                     <div>

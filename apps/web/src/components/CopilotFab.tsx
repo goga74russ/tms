@@ -52,7 +52,7 @@ export function CopilotFab({ enabled }: CopilotFabProps) {
                     data-tour="copilot-fab"
                     data-tour-secondary="dispatcher-copilot"
                     aria-label="Открыть AI Со-пилот"
-                    className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 via-teal-500 to-blue-500 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all flex items-center justify-center text-white group"
+                    className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-emerald-500 via-accent-500 to-blue-500 shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-105 active:scale-95 transition-all flex items-center justify-center text-white group"
                 >
                     <Sparkles className="w-6 h-6" />
                     <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-white animate-pulse" />

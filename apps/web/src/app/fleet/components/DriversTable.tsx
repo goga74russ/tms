@@ -292,7 +292,7 @@ export function DriversTable() {
             <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
                 <p className="text-sm text-neutral-500">
                     Краткий реестр водителей. Полный — на странице{' '}
-                    <Link href="/drivers" className="inline-flex items-center gap-1 text-indigo-600 hover:underline">
+                    <Link href="/drivers" className="inline-flex items-center gap-1 text-brand-600 hover:underline">
                         Водители <ExternalLink className="w-3 h-3" />
                     </Link>.
                 </p>

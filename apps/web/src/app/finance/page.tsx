@@ -69,7 +69,7 @@ const STATUS_OPTIONS = [
 const getStatusColor = (status: string) => {
     switch (status) {
         case 'paid_full': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        case 'paid_partial': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+        case 'paid_partial': return 'bg-brand-50 text-brand-700 border-brand-200';
         case 'issued': return 'bg-blue-50 text-blue-700 border-blue-200';
         case 'corrected': return 'bg-purple-50 text-purple-700 border-purple-200';
         case 'cancelled': return 'bg-neutral-100 text-neutral-500 border-neutral-200';
@@ -922,7 +922,7 @@ export default function FinanceDashboard() {
                                         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Добавить допуслугу</p>
                                         <Select value={serviceForm.serviceType} onChange={(e) => handleServiceTypeChange(e.target.value)} options={ADDITIONAL_SERVICE_OPTIONS} />
                                         <Input placeholder="Описание" value={serviceForm.description} onChange={(e) => setServiceForm({ ...serviceForm, description: e.target.value })} />
-                                        <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2 text-xs text-neutral-700">
+                                        <div className="rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2 text-xs text-neutral-700">
                                             <div className="flex items-center justify-between gap-2">
                                                 <span>Расчет: {SERVICE_UNIT_LABELS[SERVICE_RULES[serviceForm.serviceType]?.unit || 'service']}</span>
                                                 <span className="font-semibold">{fmtMoney(currentServiceAmount || 0)}</span>

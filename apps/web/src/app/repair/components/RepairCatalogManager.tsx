@@ -241,7 +241,7 @@ export function RepairCatalogManager({
                     onClick={() => selectItem(item)}
                     className={`w-full rounded-lg border px-3 py-3 text-left transition ${
                       selectedId === item.id
-                        ? 'border-indigo-300 bg-indigo-50'
+                        ? 'border-brand-300 bg-brand-50'
                         : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50'
                     } ${item.isArchived ? 'opacity-70' : ''}`}
                   >
@@ -331,7 +331,7 @@ export function RepairCatalogManager({
                   value={form.aliasesText}
                   onChange={(e) => setForm((prev) => ({ ...prev, aliasesText: e.target.value }))}
                   rows={4}
-                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                   placeholder="filter oil, масляный фильтр"
                 />
               </div>

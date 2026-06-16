@@ -337,7 +337,7 @@ function MarkingTab() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <StatCard label="Проверено всего" value={totalVerified.toString()} icon={<BarChart3 className="w-5 h-5" />} />
                 <StatCard label="Валидных" value={totalValid.toString()} icon={<CheckCircle2 className="w-5 h-5 text-green-600" />} />
-                <StatCard label="Успех" value={`${successRate}%`} icon={<ShieldCheck className="w-5 h-5 text-indigo-600" />} />
+                <StatCard label="Успех" value={`${successRate}%`} icon={<ShieldCheck className="w-5 h-5 text-brand-600" />} />
             </div>
 
             {error && <ErrorBox message={error} />}

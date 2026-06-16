@@ -145,7 +145,7 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
     if (loading) {
         return (
             <div className="flex items-center justify-center py-20">
-                <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
             </div>
         );
     }
@@ -154,7 +154,7 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
         return (
             <div className="p-6 text-center text-neutral-500">
                 <p>Транспортное средство не найдено</p>
-                <button onClick={onBack} className="mt-4 text-indigo-600 text-sm hover:underline">← Назад</button>
+                <button onClick={onBack} className="mt-4 text-brand-600 text-sm hover:underline">← Назад</button>
             </div>
         );
     }
@@ -209,7 +209,7 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                             onClick={() => setActiveSection(s.id)}
                             className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors
                                 ${activeSection === s.id
-                                    ? 'border-indigo-500 text-indigo-600'
+                                    ? 'border-brand-500 text-brand-600'
                                     : 'border-transparent text-neutral-500 hover:text-neutral-700'
                                 }`}
                         >
@@ -244,8 +244,8 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                             </div>
                         </div>
 
-                        <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Вид ТС для ПЛ</p>
+                        <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">Вид ТС для ПЛ</p>
                             <p className="text-sm font-semibold text-neutral-800">{vehicleProfile.displayLabel}</p>
                             <p className="mt-1 text-[11px] text-neutral-500">{waybillCue.profileLabel}</p>
                         </div>

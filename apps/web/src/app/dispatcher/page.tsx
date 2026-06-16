@@ -831,7 +831,7 @@ export default function DispatcherPage() {
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 text-xs">
                                         <div>
                                             <p className="text-xs uppercase tracking-wide text-neutral-500 mb-0.5">Номер</p>
-                                            <p className="text-sm font-semibold text-indigo-600 font-mono">{activeTripDetails.number}</p>
+                                            <p className="text-sm font-semibold text-brand-600 font-mono">{activeTripDetails.number}</p>
                                         </div>
                                         <div>
                                             <p className="text-xs uppercase tracking-wide text-neutral-500 mb-0.5">Статус</p>
@@ -922,7 +922,7 @@ export default function DispatcherPage() {
                                                         showToast(e?.message || 'Ошибка загрузки ЭТрН');
                                                     }
                                                 }}
-                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md border border-indigo-200 bg-indigo-50 text-indigo-700 text-[11px] font-semibold hover:bg-indigo-100 transition-colors"
+                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md border border-brand-200 bg-brand-50 text-brand-700 text-[11px] font-semibold hover:bg-brand-100 transition-colors"
                                             >
                                                 <FileDown className="w-3 h-3" />
                                                 ЭТрН (XML)

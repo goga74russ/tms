@@ -104,14 +104,14 @@ export function OrganizationSetupBanner() {
     // ---- Вариант B: уже есть org и роль admin — показываем кнопку «Вернуть super-admin» ----
     if (hasOrg && isAdmin) {
         return (
-            <div className="rounded-xl border border-slate-300 bg-slate-50 p-4">
+            <div className="rounded-xl border border-neutral-300 bg-neutral-50 p-4">
                 <div className="flex items-start gap-3">
-                    <Building2 className="w-5 h-5 text-slate-600 flex-shrink-0 mt-0.5" />
+                    <Building2 className="w-5 h-5 text-neutral-600 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-slate-900 mb-1">
+                        <div className="font-semibold text-neutral-900 mb-1">
                             Вы — admin своей организации
                         </div>
-                        <p className="text-sm text-slate-700 mb-3">
+                        <p className="text-sm text-neutral-700 mb-3">
                             Если нужна кросс-тенант видимость (видеть пользователей и объекты всех
                             тенантов), можно отвязать организацию и вернуться в super-admin.
                             Тенант-данные не удаляются.

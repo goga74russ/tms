@@ -210,7 +210,7 @@ export default function TripDocumentReturnsPage() {
                         <ArrowLeft className="w-4 h-4" />
                         К рейсам
                     </button>
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-blue-600 flex items-center justify-center">
                         <FileText className="w-5 h-5 text-white" />
                     </div>
                     <div>
@@ -250,7 +250,7 @@ export default function TripDocumentReturnsPage() {
                 <CardContent className="p-0">
                     {loading ? (
                         <div className="flex items-center justify-center py-16">
-                            <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                            <Loader2 className="w-6 h-6 animate-spin text-brand-600" />
                         </div>
                     ) : sortedRows.length === 0 ? (
                         <div className="text-center py-16 text-neutral-400">
@@ -327,7 +327,7 @@ export default function TripDocumentReturnsPage() {
                         <select
                             value={createDocType}
                             onChange={(e) => setCreateDocType(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-brand-300"
                         >
                             {DOCUMENT_TYPES.map((t) => (
                                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -340,7 +340,7 @@ export default function TripDocumentReturnsPage() {
                             type="date"
                             value={createExpectedDate}
                             onChange={(e) => setCreateExpectedDate(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-brand-300"
                         />
                     </div>
                     <div>
@@ -349,7 +349,7 @@ export default function TripDocumentReturnsPage() {
                             value={createNotes}
                             onChange={(e) => setCreateNotes(e.target.value)}
                             rows={3}
-                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-brand-300"
                             placeholder="Опционально"
                         />
                     </div>
@@ -399,7 +399,7 @@ export default function TripDocumentReturnsPage() {
                             value={updateNotes}
                             onChange={(e) => setUpdateNotes(e.target.value)}
                             rows={3}
-                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-brand-300"
                             placeholder="Опционально"
                         />
                     </div>

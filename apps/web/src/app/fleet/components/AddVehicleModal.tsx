@@ -126,7 +126,7 @@ export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehic
         `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-colors ${
             field && fieldErrors[field]
                 ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
-                : 'border-neutral-200 focus:ring-indigo-500/20 focus:border-indigo-500'
+                : 'border-neutral-200 focus:ring-brand-500/20 focus:border-brand-500'
         }`;
 
     return (
@@ -227,8 +227,8 @@ export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehic
                                     <option key={option.value} value={option.value}>{option.label}</option>
                                 ))}
                             </select>
-                            <div className="mt-2 rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2">
-                                <p className="text-xs font-medium text-indigo-600">Вид для ПЛ</p>
+                            <div className="mt-2 rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2">
+                                <p className="text-xs font-medium text-brand-600">Вид для ПЛ</p>
                                 <p className="text-sm font-semibold text-neutral-800">{vehicleProfile.displayLabel}</p>
                                 <p className="mt-1 text-[11px] text-neutral-500">{waybillCue.profileLabel}</p>
                             </div>
@@ -357,8 +357,8 @@ export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehic
                     <button
                         type="submit"
                         disabled={loading}
-                        className="px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg
-                            hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                        className="px-5 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg
+                            hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                     >
                         {loading ? (isEdit ? 'Сохранение...' : 'Создание...') : (isEdit ? 'Сохранить' : 'Создать ТС')}
                     </button>

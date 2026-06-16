@@ -140,7 +140,7 @@ export function AddTariffModal({ open, onClose, onCreated }: AddTariffModalProps
 
                 <div className="flex justify-end gap-3">
                     <button type="button" onClick={onClose} className="rounded-lg border border-neutral-200 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50">Отмена</button>
-                    <button type="submit" disabled={loading} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
+                    <button type="submit" disabled={loading} className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60">
                         {loading ? 'Создаём...' : 'Создать тариф'}
                     </button>
                 </div>

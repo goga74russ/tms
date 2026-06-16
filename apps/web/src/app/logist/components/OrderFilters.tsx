@@ -32,7 +32,7 @@ export function OrderFilters({ filters, onFiltersChange, contractors }: OrderFil
                         placeholder="Поиск по номеру, грузу, адресу..."
                         value={filters.search || ''}
                         onChange={(e) => onFiltersChange({ ...filters, search: e.target.value || undefined })}
-                        className="w-full pl-9 pr-4 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="w-full pl-9 pr-4 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                     />
                 </div>
 
@@ -40,7 +40,7 @@ export function OrderFilters({ filters, onFiltersChange, contractors }: OrderFil
                 <select
                     value={filters.contractorId || ''}
                     onChange={(e) => onFiltersChange({ ...filters, contractorId: e.target.value || undefined })}
-                    className="px-3 py-2 rounded-lg border border-neutral-200 text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[180px]"
+                    className="px-3 py-2 rounded-lg border border-neutral-200 text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-brand-500 min-w-[180px]"
                 >
                     <option value="">Все клиенты</option>
                     {contractors.map(c => (
@@ -53,7 +53,7 @@ export function OrderFilters({ filters, onFiltersChange, contractors }: OrderFil
                     type="date"
                     value={filters.dateFrom || ''}
                     onChange={(e) => onFiltersChange({ ...filters, dateFrom: e.target.value || undefined })}
-                    className="px-3 py-2 rounded-lg border border-neutral-200 text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="px-3 py-2 rounded-lg border border-neutral-200 text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     placeholder="Дата от"
                 />
 
@@ -62,7 +62,7 @@ export function OrderFilters({ filters, onFiltersChange, contractors }: OrderFil
                     type="date"
                     value={filters.dateTo || ''}
                     onChange={(e) => onFiltersChange({ ...filters, dateTo: e.target.value || undefined })}
-                    className="px-3 py-2 rounded-lg border border-neutral-200 text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="px-3 py-2 rounded-lg border border-neutral-200 text-sm text-neutral-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     placeholder="Дата до"
                 />
 

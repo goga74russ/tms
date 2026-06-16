@@ -63,7 +63,7 @@ const ENTITIES: Record<EntityType, { label: string; description: string; icon: R
         label: 'Заявки',
         description: 'Связь с контрагентом по ИНН',
         icon: Package,
-        color: 'text-indigo-600 bg-indigo-50 border-indigo-200',
+        color: 'text-brand-600 bg-brand-50 border-brand-200',
     },
 };
 
@@ -138,7 +138,7 @@ function ImportCard({
             onClick={onOpen}
             className={`text-left rounded-xl border-2 p-4 transition-all ${
                 active
-                    ? 'border-indigo-400 bg-indigo-50/40 shadow-sm'
+                    ? 'border-brand-400 bg-brand-50/40 shadow-sm'
                     : 'border-neutral-200 bg-white hover:border-neutral-300'
             }`}
         >
@@ -158,7 +158,7 @@ function ImportCard({
                 >
                     <Download className="w-3 h-3" />Шаблон
                 </button>
-                <span className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md text-indigo-600 font-medium">
+                <span className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md text-brand-600 font-medium">
                     <Upload className="w-3 h-3" />{active ? 'Скрыть' : 'Загрузить'}
                 </span>
             </div>
@@ -241,7 +241,7 @@ function ImportPanel({
             <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-base">
-                        <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
+                        <FileSpreadsheet className="w-5 h-5 text-brand-600" />
                         Импорт: {cfg.label}
                     </div>
                     <button onClick={onClose} className="text-neutral-400 hover:text-neutral-700">
@@ -254,8 +254,8 @@ function ImportPanel({
                 <div
                     className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors cursor-pointer ${
                         dragging
-                            ? 'border-indigo-400 bg-indigo-50'
-                            : 'border-neutral-300 bg-white hover:border-indigo-300 hover:bg-neutral-50/50'
+                            ? 'border-brand-400 bg-brand-50'
+                            : 'border-neutral-300 bg-white hover:border-brand-300 hover:bg-neutral-50/50'
                     }`}
                     onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
                     onDragLeave={() => setDragging(false)}
@@ -273,13 +273,13 @@ function ImportPanel({
                             e.target.value = '';
                         }}
                     />
-                    <FileSpreadsheet className={`w-8 h-8 mx-auto mb-2 ${dragging ? 'text-indigo-500' : 'text-neutral-300'}`} />
+                    <FileSpreadsheet className={`w-8 h-8 mx-auto mb-2 ${dragging ? 'text-brand-500' : 'text-neutral-300'}`} />
                     {fileName ? (
                         <p className="text-sm font-medium text-neutral-700">{fileName}</p>
                     ) : (
                         <>
                             <p className="text-sm font-medium text-neutral-600">
-                                Перетащите .xlsx или <span className="text-indigo-600 underline">выберите файл</span>
+                                Перетащите .xlsx или <span className="text-brand-600 underline">выберите файл</span>
                             </p>
                             <p className="text-xs text-neutral-400 mt-1">До 200 строк за импорт</p>
                         </>
@@ -362,7 +362,7 @@ function ImportPanel({
                                 onClick={onCommit}
                                 disabled={committing || preview.validCount === 0}
                                 title={preview.validCount === 0 ? 'Нет валидных строк для импорта — исправьте ошибки выше' : undefined}
-                                className="ml-auto flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+                                className="ml-auto flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
                             >
                                 {committing
                                     ? <><Loader2 className="w-4 h-4 animate-spin" />Импорт…</>
@@ -393,7 +393,7 @@ function ImportPanel({
                         )}
                         <button
                             onClick={reset}
-                            className="text-sm text-indigo-600 hover:underline"
+                            className="text-sm text-brand-600 hover:underline"
                         >
                             Импортировать ещё файл
                         </button>

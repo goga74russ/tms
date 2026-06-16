@@ -231,7 +231,7 @@ export function CopilotChat() {
              style={{ maxHeight: 'calc(100vh - 2rem)' }}>
             {/* Header */}
             <div className="flex items-center gap-2 px-3 py-2 border-b border-neutral-100">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center">
                     <Bot className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -264,7 +264,7 @@ export function CopilotChat() {
                     <button
                         type="button"
                         onClick={startNew}
-                        className="w-full text-left px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-50"
                     >
                         + Новый диалог
                     </button>
@@ -277,7 +277,7 @@ export function CopilotChat() {
                             type="button"
                             onClick={() => void loadConversation(conv.id)}
                             className={`w-full text-left px-3 py-2 text-xs hover:bg-neutral-100 border-t border-neutral-100 ${
-                                conversationId === conv.id ? 'bg-indigo-50' : ''
+                                conversationId === conv.id ? 'bg-brand-50' : ''
                             }`}
                         >
                             <p className="font-medium text-neutral-700 truncate">{conv.title || 'Без темы'}</p>
@@ -300,7 +300,7 @@ export function CopilotChat() {
                     <div key={turn.id} className={turn.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
                         <div className={`max-w-[90%] rounded-lg px-3 py-2 text-xs ${
                             turn.role === 'user'
-                                ? 'bg-indigo-600 text-white'
+                                ? 'bg-brand-600 text-white'
                                 : 'bg-neutral-100 text-neutral-800'
                         }`}>
                             {turn.toolCalls.length > 0 && (
@@ -388,12 +388,12 @@ export function CopilotChat() {
                     rows={2}
                     placeholder="Спросите ассистента..."
                     disabled={busy}
-                    className="flex-1 resize-none text-xs px-2 py-1.5 border border-neutral-200 rounded-md bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-50"
+                    className="flex-1 resize-none text-xs px-2 py-1.5 border border-neutral-200 rounded-md bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:opacity-50"
                 />
                 <button
                     type="submit"
                     disabled={busy || !input.trim()}
-                    className="p-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-2 rounded-md bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Отправить"
                 >
                     {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

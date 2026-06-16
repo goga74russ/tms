@@ -63,7 +63,7 @@ export function CockpitTopBar({
     return (
         <div className="h-12 px-3 flex items-center gap-3 border-b border-neutral-200 bg-white">
             <div className="flex items-center gap-2 shrink-0">
-                <div className="w-7 h-7 rounded-md bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-md bg-gradient-to-br from-emerald-500 to-accent-600 flex items-center justify-center">
                     <MapIcon className="w-4 h-4 text-white" />
                 </div>
                 <h1 className="text-base font-semibold text-neutral-900 leading-none">Диспетчерская</h1>

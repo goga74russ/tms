@@ -154,7 +154,7 @@ function CreateRepairModal({
         `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-colors ${
             touched[field] && errors[field]
                 ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
-                : 'border-neutral-200 focus:ring-indigo-500/20 focus:border-indigo-500'
+                : 'border-neutral-200 focus:ring-brand-500/20 focus:border-brand-500'
         }`;
 
     return (
@@ -311,7 +311,7 @@ export default function RepairPage() {
     const statusColors: Record<string, string> = {
         created: 'bg-amber-500',
         waiting_parts: 'bg-blue-500',
-        in_progress: 'bg-indigo-500',
+        in_progress: 'bg-brand-500',
         done: 'bg-emerald-500',
     };
 
@@ -443,7 +443,7 @@ export default function RepairPage() {
             </div>
 
             {initialDraft?.tripId && (
-                <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-700">
+                <div className="rounded-2xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-700">
                     Заявка на ремонт открыта из закрытия рейса. Контекст рейса уже заполнен в описании — создайте заявку и продолжайте замену или закрытие в карточке рейса.
                 </div>
             )}

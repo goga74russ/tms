@@ -112,7 +112,7 @@ function CreateContractorModal({
                 <div>
                     <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Наименование *</label>
                     <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         placeholder="ООО Логистика" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -133,7 +133,7 @@ function CreateContractorModal({
                 <div>
                     <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Юридический адрес *</label>
                     <input type="text" value={legalAddress} onChange={(e) => setLegalAddress(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         placeholder="г. Москва, ул. Примерная, 1" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -153,7 +153,7 @@ function CreateContractorModal({
                 <div>
                     <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Контактное лицо</label>
                     <input type="text" value={contactPerson} onChange={(e) => setContactPerson(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         placeholder="Иванов И.И." />
                 </div>
                 {error && <p className="text-sm text-red-600">{error}</p>}
@@ -322,7 +322,7 @@ function ContractorAddressesModal({
                                     value={form.addressString}
                                     onChange={(e) => setForm((current) => ({ ...current, addressString: e.target.value }))}
                                     placeholder="Адрес"
-                                    className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                    className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                                 />
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <input
@@ -331,7 +331,7 @@ function ContractorAddressesModal({
                                         placeholder="Широта"
                                         type="number"
                                         step="0.000001"
-                                        className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                        className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                                     />
                                     <input
                                         value={form.lon}
@@ -339,7 +339,7 @@ function ContractorAddressesModal({
                                         placeholder="Долгота"
                                         type="number"
                                         step="0.000001"
-                                        className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                        className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                                     />
                                 </div>
                                 <select
@@ -350,7 +350,7 @@ function ContractorAddressesModal({
                                             type: e.target.value as AddressForm['type'],
                                         }))
                                     }
-                                    className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                    className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                                 >
                                     <option value="loading">Погрузка</option>
                                     <option value="unloading">Выгрузка</option>
@@ -359,13 +359,13 @@ function ContractorAddressesModal({
                                     value={form.fiasId}
                                     onChange={(e) => setForm((current) => ({ ...current, fiasId: e.target.value }))}
                                     placeholder="FIAS ID (необязательно)"
-                                    className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                    className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
                                 />
                                 <button
                                     type="button"
                                     onClick={submitAddress}
                                     disabled={submitting}
-                                    className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     {submitting
                                         ? 'Сохранение...'
@@ -379,7 +379,7 @@ function ContractorAddressesModal({
 
                         <div className="rounded-2xl border border-dashed border-neutral-200 bg-white p-4 text-sm text-neutral-500">
                             <div className="flex items-start gap-3">
-                                <MapPin className="mt-0.5 w-4 h-4 text-indigo-500" />
+                                <MapPin className="mt-0.5 w-4 h-4 text-brand-500" />
                                 <p>
                                     Выбранные здесь адреса будут доступны в создании заявки как частые адреса
                                     погрузки и выгрузки.
@@ -394,14 +394,14 @@ function ContractorAddressesModal({
                                 <Building2 className="w-4 h-4 text-neutral-400" />
                                 Список адресов
                             </div>
-                            <span className="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">
+                            <span className="text-xs px-2 py-1 rounded-full bg-brand-50 text-brand-700">
                                 {addresses.length}
                             </span>
                         </div>
 
                         {loading ? (
                             <div className="flex items-center justify-center py-20">
-                                <div className="w-8 h-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
+                                <div className="w-8 h-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
                             </div>
                         ) : addresses.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
@@ -435,7 +435,7 @@ function ContractorAddressesModal({
                                                 <button
                                                     type="button"
                                                     onClick={() => startEdit(address)}
-                                                    className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 hover:border-indigo-300 hover:text-indigo-700"
+                                                    className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 hover:border-brand-300 hover:text-brand-700"
                                                 >
                                                     <Edit3 className="w-3.5 h-3.5" />
                                                     Изменить

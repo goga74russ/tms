@@ -393,7 +393,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-colors ${
             field && errors[field]
                 ? 'border-red-300 focus:ring-red-500'
-                : 'border-neutral-200 focus:ring-indigo-500'
+                : 'border-neutral-200 focus:ring-brand-500'
         }`;
 
     const basicErrorCount = useMemo(
@@ -425,7 +425,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
             <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="px-5 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                className="px-5 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-brand-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl transition-all disabled:opacity-50 flex items-center gap-2"
             >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {submitting ? 'Создание...' : 'Создать заявку'}
@@ -437,21 +437,21 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
         <SideDrawer open={true} onClose={onClose} title="Новая заявка" width="lg" footer={footer}>
             <div>
                 {draftRestoredAt && (
-                    <div className="mb-3 flex items-start gap-2 rounded-lg border border-indigo-100 bg-indigo-50/70 px-3 py-2 text-sm text-indigo-800">
-                        <Clock className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
+                    <div className="mb-3 flex items-start gap-2 rounded-lg border border-brand-100 bg-brand-50/70 px-3 py-2 text-sm text-brand-800">
+                        <Clock className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
                         <div className="flex-1 min-w-0">
                             <div className="font-medium">
                                 Восстановлен черновик
-                                {draftRestoredLabel ? <span className="text-indigo-600/80"> · {draftRestoredLabel}</span> : null}
+                                {draftRestoredLabel ? <span className="text-brand-600/80"> · {draftRestoredLabel}</span> : null}
                             </div>
-                            <div className="text-xs text-indigo-700/80">
+                            <div className="text-xs text-brand-700/80">
                                 Поля заполнены автоматически. Продолжите или очистите черновик.
                             </div>
                         </div>
                         <button
                             type="button"
                             onClick={handleClearDraft}
-                            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors inline-flex items-center gap-1"
+                            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-100 transition-colors inline-flex items-center gap-1"
                         >
                             <X className="h-3.5 w-3.5" />
                             Очистить черновик
@@ -622,7 +622,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 type="date"
                                 value={form.loadingDate}
                                 onChange={(e) => setForm((current) => ({ ...current, loadingDate: e.target.value }))}
-                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                             />
                         </div>
                     </div>
@@ -675,7 +675,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 type="date"
                                 value={form.unloadingDate}
                                 onChange={(e) => setForm((current) => ({ ...current, unloadingDate: e.target.value }))}
-                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                             />
                         </div>
                     </div>
@@ -688,7 +688,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 type="checkbox"
                                 checked={form.multiTierAllowed}
                                 onChange={(e) => setForm((current) => ({ ...current, multiTierAllowed: e.target.checked }))}
-                                className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                className="w-4 h-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
                             />
                             <Layers className="w-4 h-4 text-neutral-400" />
                             Разрешить негабаритную загрузку
@@ -697,7 +697,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             <select
                                 value={form.maxTiers}
                                 onChange={(e) => setForm((current) => ({ ...current, maxTiers: e.target.value }))}
-                                className="px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                             >
                                 <option value="2">2 яруса</option>
                                 <option value="3">3 яруса</option>
@@ -716,7 +716,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                     temperatureMin: e.target.checked ? current.temperatureMin : '',
                                     temperatureMax: e.target.checked ? current.temperatureMax : '',
                                 }))}
-                                className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                className="w-4 h-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
                             />
                             <Thermometer className="w-4 h-4 text-blue-500" />
                             Требуется температурный контроль
@@ -828,7 +828,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                     type="checkbox"
                                     checked={form.hydraulicLiftRequired}
                                     onChange={(e) => setForm((current) => ({ ...current, hydraulicLiftRequired: e.target.checked }))}
-                                    className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                    className="w-4 h-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
                                 />
                                 Нужен гидроборт
                             </label>
@@ -840,7 +840,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         <textarea
                             value={form.vehicleRequirements}
                             onChange={(e) => setForm((current) => ({ ...current, vehicleRequirements: e.target.value }))}
-                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                             rows={2}
                             placeholder="Например: рефрижератор, гидроборт, грузоподъемность..."
                         />
@@ -873,7 +873,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 value={form.customerPrice}
                                 onChange={(e) => setForm((current) => ({ ...current, customerPrice: e.target.value }))}
                                 placeholder="например, 35000"
-                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                             />
                             <p className="text-[11px] text-neutral-500 mt-1">
                                 Сумма, которую вы выставите заказчику. Видна бухгалтеру/руководителю.
@@ -884,7 +884,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 type="checkbox"
                                 checked={form.customerPriceIncludesVat}
                                 onChange={(e) => setForm((current) => ({ ...current, customerPriceIncludesVat: e.target.checked }))}
-                                className="w-4 h-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                                className="w-4 h-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
                             />
                             Цена включает НДС
                         </label>
@@ -895,7 +895,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         <textarea
                             value={form.notes}
                             onChange={(e) => setForm((current) => ({ ...current, notes: e.target.value }))}
-                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                            className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                             rows={3}
                             placeholder="Дополнительная информация..."
                         />

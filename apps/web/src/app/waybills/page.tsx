@@ -241,9 +241,9 @@ function transportTone(status: string) {
 
 function toneClass(tone: 'info' | 'warning' | 'critical', variant: 'bg' | 'text' = 'bg') {
     if (variant === 'text') {
-        return tone === 'critical' ? 'text-rose-700' : tone === 'warning' ? 'text-amber-700' : 'text-indigo-700';
+        return tone === 'critical' ? 'text-rose-700' : tone === 'warning' ? 'text-amber-700' : 'text-brand-700';
     }
-    return tone === 'critical' ? 'bg-rose-100 text-rose-700' : tone === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700';
+    return tone === 'critical' ? 'bg-rose-100 text-rose-700' : tone === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-brand-100 text-brand-700';
 }
 
 function titleTone(status: string) {
@@ -346,10 +346,10 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
     };
 
     return (
-        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 space-y-4">
+        <div className="rounded-2xl border border-brand-100 bg-brand-50/70 p-4 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Транспортные документы</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-500">Транспортные документы</p>
                     <p className="text-sm font-semibold text-neutral-900">
                         {label(DOC_PHASE_LABELS, transportDocuments?.lifecycle?.documentPhase || 'planning')} · {etrnTitleStatusLabel(etrn?.status || 'draft')}
                     </p>
@@ -505,12 +505,12 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                             {doc.providerDocumentId && (
-                                <span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
+                                <span className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700">
                                     doc {doc.providerDocumentId}
                                 </span>
                             )}
                             {doc.providerMessageId && (
-                                <span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
+                                <span className="inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700">
                                     msg {doc.providerMessageId}
                                 </span>
                             )}
@@ -794,7 +794,7 @@ function DetailModal({
                                     {waybill.vehicle?.make || vehicleInfo?.make} {waybill.vehicle?.model || vehicleInfo?.model}
                                 </p>
                                 {resolvedVehicleProfile && (
-                                    <div className="mt-1 inline-flex rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
+                                    <div className="mt-1 inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700">
                                         ПЛ: {resolvedVehicleProfile.displayLabel}
                                     </div>
                                 )}
@@ -913,13 +913,13 @@ function DetailModal({
                     )}
 
                     {dossier && (
-                        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 space-y-3">
+                        <div className="rounded-2xl border border-brand-100 bg-brand-50/70 p-4 space-y-3">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Сводка по compliance</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-500">Сводка по compliance</p>
                                     <p className="text-sm font-semibold text-neutral-900">Досье рейса</p>
                                 </div>
-                                <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700">
+                                <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-700">
                                     {dossier.summary?.hasWaybill ? 'ПЛ есть' : 'ПЛ нет'}
                                 </span>
                             </div>
@@ -1372,7 +1372,7 @@ export default function WaybillsPage() {
                         <span className="font-medium text-neutral-700">
                             {vehicleMap[r.vehicleId]?.plateNumber || r.vehicleId.substring(0, 8)}
                         </span>
-                        <span className="inline-flex w-fit rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                        <span className="inline-flex w-fit rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
                             {rowCue.profileLabel}
                         </span>
                         <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
@@ -1464,7 +1464,7 @@ export default function WaybillsPage() {
             <header className="bg-white border-b border-neutral-200 px-6 py-4 -m-6 mb-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-brand-600 flex items-center justify-center">
                             <FileText className="w-6 h-6 text-white" />
                         </div>
                         <div>

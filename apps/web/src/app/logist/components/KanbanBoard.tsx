@@ -114,7 +114,7 @@ export function KanbanBoard({ orders, columns, onStatusChange, onTransitionRejec
                         className={`flex-shrink-0 min-w-[280px] w-72 rounded-xl transition-all duration-200 ${isRejecting
                             ? 'bg-red-50 ring-2 ring-red-300 ring-offset-2 animate-shake'
                             : isDragOver
-                                ? 'bg-indigo-50 ring-2 ring-indigo-300 ring-offset-2'
+                                ? 'bg-brand-50 ring-2 ring-brand-300 ring-offset-2'
                                 : highlight === 'valid'
                                     ? 'bg-emerald-50/50 border border-dashed border-emerald-300'
                                     : highlight === 'invalid'

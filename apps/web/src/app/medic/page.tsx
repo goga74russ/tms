@@ -1032,7 +1032,7 @@ export default function MedicPage() {
                 {activeTab === 'stats' && (
                     <div>
                         <h2 className="text-lg font-bold text-neutral-800 mb-4 flex items-center gap-2">
-                            <BarChart3 className="w-5 h-5 text-indigo-500" />
+                            <BarChart3 className="w-5 h-5 text-brand-500" />
                             Статистика недопусков (30 дней)
                         </h2>
 

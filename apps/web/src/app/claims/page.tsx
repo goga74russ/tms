@@ -259,7 +259,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
             <form onSubmit={handleSubmit} className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs text-gray-500 block mb-1">Тип</label>
+                            <label className="text-xs text-neutral-500 block mb-1">Тип</label>
                             <select
                                 className="w-full border rounded px-2 py-1.5 text-sm"
                                 value={form.type}
@@ -272,7 +272,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                             </select>
                         </div>
                         <div>
-                            <label className="text-xs text-gray-500 block mb-1">Сумма претензии, ₽</label>
+                            <label className="text-xs text-neutral-500 block mb-1">Сумма претензии, ₽</label>
                             <Input
                                 type="number"
                                 min="0"
@@ -285,7 +285,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs text-gray-500 block mb-1">Резерв, ₽</label>
+                            <label className="text-xs text-neutral-500 block mb-1">Резерв, ₽</label>
                             <Input
                                 type="number"
                                 min="0"
@@ -296,7 +296,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                             />
                         </div>
                         <div>
-                            <label className="text-xs text-gray-500 block mb-1">Оценка, ₽</label>
+                            <label className="text-xs text-neutral-500 block mb-1">Оценка, ₽</label>
                             <Input
                                 type="number"
                                 min="0"
@@ -308,7 +308,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                         </div>
                     </div>
                     <div>
-                        <label className="text-xs text-gray-500 block mb-1">ID рейса (необяз.)</label>
+                        <label className="text-xs text-neutral-500 block mb-1">ID рейса (необяз.)</label>
                         <Input
                             placeholder="UUID рейса"
                             value={form.tripId}
@@ -316,7 +316,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                         />
                     </div>
                     <div>
-                        <label className="text-xs text-gray-500 block mb-1">ID заказа (необяз.)</label>
+                        <label className="text-xs text-neutral-500 block mb-1">ID заказа (необяз.)</label>
                         <Input
                             placeholder="UUID заказа"
                             value={form.orderId}
@@ -324,7 +324,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                         />
                     </div>
                     <div>
-                        <label className="text-xs text-gray-500 block mb-1">ID контрагента (необяз.)</label>
+                        <label className="text-xs text-neutral-500 block mb-1">ID контрагента (необяз.)</label>
                         <Input
                             placeholder="UUID контрагента"
                             value={form.contractorId}
@@ -332,7 +332,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                         />
                     </div>
                     <div>
-                        <label className="text-xs text-gray-500 block mb-1">Описание *</label>
+                        <label className="text-xs text-neutral-500 block mb-1">Описание *</label>
                         <textarea
                             className="w-full border rounded px-2 py-1.5 text-sm min-h-[80px]"
                             placeholder="Опишите суть претензии..."
@@ -342,7 +342,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                         />
                     </div>
                     <div>
-                        <label className="text-xs text-gray-500 block mb-1">Заметка по урегулированию</label>
+                        <label className="text-xs text-neutral-500 block mb-1">Заметка по урегулированию</label>
                         <textarea
                             className="w-full border rounded px-2 py-1.5 text-sm min-h-[60px]"
                             placeholder="Обоснование резерва, ссылки на доказательства, контекст переговоров..."
@@ -413,7 +413,7 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
             <form onSubmit={handleSubmit} className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-xs text-gray-500 block mb-1">Решение</label>
+                            <label className="text-xs text-neutral-500 block mb-1">Решение</label>
                             <select
                                 className="w-full border rounded px-2 py-1.5 text-sm"
                                 value={form.status}
@@ -424,7 +424,7 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
                             </select>
                         </div>
                         <div>
-                            <label className="text-xs text-gray-500 block mb-1">Выплата, ₽</label>
+                            <label className="text-xs text-neutral-500 block mb-1">Выплата, ₽</label>
                             <Input
                                 type="number"
                                 min="0"
@@ -436,7 +436,7 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
                         </div>
                     </div>
                     <div>
-                        <label className="text-xs text-gray-500 block mb-1">Резолюция *</label>
+                        <label className="text-xs text-neutral-500 block mb-1">Резолюция *</label>
                         <textarea
                             className="w-full border rounded px-2 py-1.5 text-sm min-h-[80px]"
                             placeholder="Итог рассмотрения претензии..."
@@ -446,7 +446,7 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
                         />
                     </div>
                     <div>
-                        <label className="text-xs text-gray-500 block mb-1">Заметка по урегулированию</label>
+                        <label className="text-xs text-neutral-500 block mb-1">Заметка по урегулированию</label>
                         <textarea
                             className="w-full border rounded px-2 py-1.5 text-sm min-h-[60px]"
                             placeholder="Урегулирование, удержания, возврат..."
@@ -648,7 +648,7 @@ export default function ClaimsPage() {
                         </span>
                     )}
                     {claimSettlementNote(r) && (
-                        <span className="block truncate text-xs text-indigo-600 mt-0.5" title={claimSettlementNote(r) ?? undefined}>
+                        <span className="block truncate text-xs text-brand-600 mt-0.5" title={claimSettlementNote(r) ?? undefined}>
                             Урегулир.: {claimSettlementNote(r)}
                         </span>
                     )}
