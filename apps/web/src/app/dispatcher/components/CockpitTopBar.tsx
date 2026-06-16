@@ -51,19 +51,19 @@ export function CockpitTopBar({
 
     const pillBase = 'inline-flex items-center gap-1.5 px-2.5 h-7 rounded-full text-xs font-medium border tabular-nums transition-colors';
     const pillBlocking = activeFilter === 'blocking'
-        ? 'bg-red-600 text-white border-red-600'
-        : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100';
+        ? 'bg-danger-600 text-white border-danger-600'
+        : 'bg-danger-50 text-danger-700 border-danger-200 hover:bg-danger-100';
     const pillWarning = activeFilter === 'warning'
-        ? 'bg-amber-500 text-white border-amber-500'
-        : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100';
+        ? 'bg-warning-500 text-white border-warning-500'
+        : 'bg-warning-50 text-warning-700 border-warning-200 hover:bg-warning-100';
     const pillOk = activeFilter === 'ok'
-        ? 'bg-emerald-600 text-white border-emerald-600'
-        : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
+        ? 'bg-success-600 text-white border-success-600'
+        : 'bg-success-50 text-success-700 border-success-200 hover:bg-success-100';
 
     return (
         <div className="h-12 px-3 flex items-center gap-3 border-b border-neutral-200 bg-white">
             <div className="flex items-center gap-2 shrink-0">
-                <div className="w-7 h-7 rounded-md bg-gradient-to-br from-emerald-500 to-accent-600 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-md bg-gradient-to-br from-success-500 to-accent-600 flex items-center justify-center">
                     <MapIcon className="w-4 h-4 text-white" />
                 </div>
                 <h1 className="text-base font-semibold text-neutral-900 leading-none">Диспетчерская</h1>
@@ -111,7 +111,7 @@ export function CockpitTopBar({
                     value={search}
                     onChange={e => onSearchChange(e.target.value)}
                     placeholder="Поиск рейса, ТС, водителя..."
-                    className="w-full h-8 pl-8 pr-10 text-xs border border-neutral-200 rounded-md bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:bg-white"
+                    className="w-full h-8 pl-8 pr-10 text-xs border border-neutral-200 rounded-md bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-success-300 focus:bg-white"
                 />
                 <kbd className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-mono text-neutral-400 border border-neutral-200 rounded px-1 leading-4 bg-white">
                     /
@@ -122,7 +122,7 @@ export function CockpitTopBar({
             <div
                 className={`inline-flex items-center gap-1.5 px-2 h-7 rounded-full text-[11px] font-medium border ${
                     wsConnected
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        ? 'bg-success-50 text-success-700 border-success-200'
                         : 'bg-neutral-50 text-neutral-500 border-neutral-200'
                 }`}
                 aria-live="polite"

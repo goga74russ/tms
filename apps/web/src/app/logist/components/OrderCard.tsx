@@ -58,7 +58,7 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
                 <div className="flex items-center gap-1.5">
                     {order.adrClass && (
                         <span
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold border border-red-200"
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-danger-100 text-danger-700 text-[10px] font-bold border border-danger-200"
                             title={`ADR класс ${order.adrClass}${order.adrUnNumber ? ` · ${order.adrUnNumber}` : ''}`}
                         >
                             <AlertTriangle className="w-2.5 h-2.5" />
@@ -92,11 +92,11 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
             {/* Route */}
             <div className="space-y-1">
                 <div className="flex items-start gap-1.5 text-xs text-neutral-500">
-                    <MapPin className="w-3.5 h-3.5 text-green-500 flex-shrink-0 mt-0.5" />
+                    <MapPin className="w-3.5 h-3.5 text-success-500 flex-shrink-0 mt-0.5" />
                     <span className="truncate">{order.loadingAddress}</span>
                 </div>
                 <div className="flex items-start gap-1.5 text-xs text-neutral-500">
-                    <MapPin className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <MapPin className="w-3.5 h-3.5 text-danger-500 flex-shrink-0 mt-0.5" />
                     <span className="truncate">{order.unloadingAddress}</span>
                 </div>
             </div>
@@ -121,7 +121,7 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
                 <button
                     onMouseDown={e => e.stopPropagation()}
                     onClick={e => { e.stopPropagation(); downloadContract(order.id, order.number); }}
-                    className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-blue-600 px-1.5 py-0.5 rounded hover:bg-blue-50 transition-colors mr-1"
+                    className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-info-600 px-1.5 py-0.5 rounded hover:bg-info-50 transition-colors mr-1"
                     title="Скачать договор-заявку (PDF)"
                 >
                     <FileText className="w-3 h-3" />
@@ -130,7 +130,7 @@ export function OrderCard({ order, onDragStart, onDragEnd }: OrderCardProps) {
                 <button
                     onMouseDown={e => e.stopPropagation()}
                     onClick={e => { e.stopPropagation(); downloadTtn(order.id, order.number); }}
-                    className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 transition-colors"
+                    className="flex items-center gap-1 text-[10px] text-neutral-400 hover:text-danger-600 px-1.5 py-0.5 rounded hover:bg-danger-50 transition-colors"
                     title="Скачать ТТН (PDF)"
                 >
                     <FileText className="w-3 h-3" />

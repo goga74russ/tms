@@ -147,7 +147,7 @@ export function StepTeam({ onComplete, onBack }: Props) {
                                         ? 'Нужна хотя бы одна строка — добавьте ещё, чтобы удалить эту'
                                         : 'Удалить строку'
                                 }
-                                className="sm:col-span-1 inline-flex items-center justify-center h-10 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400 disabled:cursor-not-allowed"
+                                className="sm:col-span-1 inline-flex items-center justify-center h-10 rounded-lg text-neutral-400 hover:text-danger-600 hover:bg-danger-50 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-neutral-400 disabled:cursor-not-allowed"
                             >
                                 <Trash2 className="w-4 h-4" />
                             </button>

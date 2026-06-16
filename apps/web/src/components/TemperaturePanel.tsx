@@ -193,10 +193,10 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
 
     return (
         <div className="rounded-2xl border border-neutral-200 bg-white">
-            <div className="border-b border-neutral-100 bg-gradient-to-r from-cyan-50 to-blue-50 px-4 py-3 flex items-start justify-between gap-3 flex-wrap">
+            <div className="border-b border-neutral-100 bg-gradient-to-r from-cyan-50 to-info-50 px-4 py-3 flex items-start justify-between gap-3 flex-wrap">
                 <div>
                     <div className="flex items-center gap-2 text-neutral-900 font-semibold">
-                        <Thermometer className="w-4 h-4 text-blue-600" />
+                        <Thermometer className="w-4 h-4 text-info-600" />
                         Температурный режим
                         {tripNumber && (
                             <span className="text-xs font-normal text-neutral-500">
@@ -244,7 +244,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
 
             <div className="p-4 space-y-4">
                 {error && (
-                    <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                    <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
                         {error}
                     </div>
                 )}
@@ -289,20 +289,20 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                     <div
                         className={`rounded-xl border p-3 ${
                             hasBreaches
-                                ? 'border-rose-300 bg-rose-50'
+                                ? 'border-danger-300 bg-danger-50'
                                 : 'border-neutral-200'
                         }`}
                     >
                         <p
                             className={`text-[11px] uppercase tracking-wide ${
-                                hasBreaches ? 'text-rose-700' : 'text-neutral-500'
+                                hasBreaches ? 'text-danger-700' : 'text-neutral-500'
                             }`}
                         >
                             Нарушений
                         </p>
                         <p
                             className={`text-sm font-semibold mt-1 ${
-                                hasBreaches ? 'text-rose-700' : 'text-neutral-900'
+                                hasBreaches ? 'text-danger-700' : 'text-neutral-900'
                             }`}
                         >
                             {breachCount} <span className="text-xs">из {summary?.count ?? 0}</span>
@@ -401,7 +401,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                     <div className="bg-neutral-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500 border-b border-neutral-100 flex items-center justify-between">
                         <span>Последние замеры ({recentReadings.length})</span>
                         {hasBreaches && (
-                            <span className="inline-flex items-center gap-1 text-rose-700">
+                            <span className="inline-flex items-center gap-1 text-danger-700">
                                 <AlertTriangle className="w-3.5 h-3.5" />
                                 {breachCount} нарушений SLA
                             </span>
@@ -427,7 +427,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                                     {recentReadings.map((r) => (
                                         <tr
                                             key={r.id}
-                                            className={r.breach ? 'bg-rose-50/60' : ''}
+                                            className={r.breach ? 'bg-danger-50/60' : ''}
                                         >
                                             <td className="px-3 py-1.5 text-neutral-700">
                                                 {formatTime(r.recordedAt)}
@@ -435,7 +435,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                                             <td
                                                 className={`px-3 py-1.5 font-semibold ${
                                                     r.breach
-                                                        ? 'text-rose-700'
+                                                        ? 'text-danger-700'
                                                         : 'text-neutral-900'
                                                 }`}
                                             >
@@ -449,12 +449,12 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                                             </td>
                                             <td className="px-3 py-1.5">
                                                 {r.breach ? (
-                                                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700 border border-rose-200">
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-danger-100 px-2 py-0.5 text-[11px] font-semibold text-danger-700 border border-danger-200">
                                                         <AlertTriangle className="w-3 h-3" />
                                                         Нарушение
                                                     </span>
                                                 ) : (
-                                                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
+                                                    <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-[11px] font-semibold text-success-700 border border-success-200">
                                                         OK
                                                     </span>
                                                 )}
@@ -479,7 +479,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                 <div className="space-y-4">
                     <div>
                         <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
-                            Температура (°C) <span className="text-red-500">*</span>
+                            Температура (°C) <span className="text-danger-500">*</span>
                         </label>
                         <input
                             type="number"
@@ -487,7 +487,7 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                             value={addTemp}
                             onChange={(e) => setAddTemp(e.target.value)}
                             placeholder="например, 4.2"
-                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-info-300"
                         />
                     </div>
                     <div>
@@ -499,11 +499,11 @@ export function TemperaturePanel({ tripId, tripNumber }: Props) {
                             value={addSensorId}
                             onChange={(e) => setAddSensorId(e.target.value)}
                             placeholder="ID сенсора"
-                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-info-300"
                         />
                     </div>
                     {addError && (
-                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                        <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
                             {addError}
                         </div>
                     )}

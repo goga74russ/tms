@@ -43,8 +43,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         }
 
         return (
-            <div className="flex flex-col items-center justify-center text-center p-8 rounded-xl border border-red-200 bg-red-50/40 min-h-[280px]">
-                <div className="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-3">
+            <div className="flex flex-col items-center justify-center text-center p-8 rounded-xl border border-danger-200 bg-danger-50/40 min-h-[280px]">
+                <div className="w-14 h-14 rounded-2xl bg-danger-100 text-danger-600 flex items-center justify-center mb-3">
                     <AlertTriangle className="w-7 h-7" />
                 </div>
                 <h3 className="text-base font-semibold text-neutral-800">Что-то пошло не так</h3>

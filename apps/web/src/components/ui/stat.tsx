@@ -24,10 +24,10 @@ export interface StatProps {
 const toneClasses: Record<NonNullable<StatProps['tone']>, { iconBg: string; iconFg: string; ring: string }> = {
     neutral: { iconBg: 'bg-neutral-100', iconFg: 'text-neutral-500', ring: '' },
     brand: { iconBg: 'bg-brand-50', iconFg: 'text-brand-600', ring: '' },
-    success: { iconBg: 'bg-emerald-50', iconFg: 'text-emerald-600', ring: '' },
-    warning: { iconBg: 'bg-amber-50', iconFg: 'text-amber-600', ring: '' },
-    danger: { iconBg: 'bg-red-50', iconFg: 'text-red-600', ring: '' },
-    info: { iconBg: 'bg-blue-50', iconFg: 'text-blue-600', ring: '' },
+    success: { iconBg: 'bg-success-50', iconFg: 'text-success-600', ring: '' },
+    warning: { iconBg: 'bg-warning-50', iconFg: 'text-warning-600', ring: '' },
+    danger: { iconBg: 'bg-danger-50', iconFg: 'text-danger-600', ring: '' },
+    info: { iconBg: 'bg-info-50', iconFg: 'text-info-600', ring: '' },
 };
 
 export function Stat({
@@ -46,10 +46,10 @@ export function Stat({
     let TrendIcon: typeof ArrowUpRight = Minus;
     if (trendType === 'up') {
         TrendIcon = ArrowUpRight;
-        trendColor = trendIsGood ? 'text-emerald-600' : 'text-red-600';
+        trendColor = trendIsGood ? 'text-success-600' : 'text-danger-600';
     } else if (trendType === 'down') {
         TrendIcon = ArrowDownRight;
-        trendColor = trendIsGood ? 'text-red-600' : 'text-emerald-600';
+        trendColor = trendIsGood ? 'text-danger-600' : 'text-success-600';
     }
 
     return (

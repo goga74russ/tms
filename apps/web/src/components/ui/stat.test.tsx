@@ -16,7 +16,7 @@ describe('Stat', () => {
         );
         const trendSpan = screen.getByText('+12%');
         expect(trendSpan).toBeInTheDocument();
-        expect(trendSpan.className).toContain('text-emerald-600');
+        expect(trendSpan.className).toContain('text-success-600');
         // ArrowUpRight from lucide renders an svg
         const svg = container.querySelector('svg');
         expect(svg).not.toBeNull();
@@ -25,7 +25,7 @@ describe('Stat', () => {
     it('shows red color when trendType="up" but trendIsGood=false', () => {
         render(<Stat label="Просрочка" value="3 шт." trend="+2" trendType="up" trendIsGood={false} />);
         const trendSpan = screen.getByText('+2');
-        expect(trendSpan.className).toContain('text-red-600');
+        expect(trendSpan.className).toContain('text-danger-600');
     });
 
     it('renders icon tile when icon prop is provided', () => {

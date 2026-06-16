@@ -45,19 +45,19 @@ const ENTITIES: Record<EntityType, { label: string; description: string; icon: R
         label: 'Контрагенты',
         description: 'Клиенты, грузоотправители, грузополучатели',
         icon: Building2,
-        color: 'text-blue-600 bg-blue-50 border-blue-200',
+        color: 'text-info-600 bg-info-50 border-info-200',
     },
     vehicles: {
         label: 'Транспорт',
         description: 'Тягачи, фургоны, рефрижераторы, самосвалы',
         icon: Truck,
-        color: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+        color: 'text-success-600 bg-success-50 border-success-200',
     },
     drivers: {
         label: 'Водители',
         description: 'С автосозданием учётной записи',
         icon: Users,
-        color: 'text-amber-600 bg-amber-50 border-amber-200',
+        color: 'text-warning-600 bg-warning-50 border-warning-200',
     },
     orders: {
         label: 'Заявки',
@@ -293,7 +293,7 @@ function ImportPanel({
                 )}
 
                 {error && (
-                    <div className="flex items-start gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    <div className="flex items-start gap-2 px-4 py-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
                         <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />{error}
                     </div>
                 )}
@@ -303,8 +303,8 @@ function ImportPanel({
                     <>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <Stat label="Всего строк" value={preview.total} />
-                            <Stat label="Валидных" value={preview.validCount} valueClass="text-emerald-700" />
-                            <Stat label="С ошибками" value={preview.errorCount} valueClass={preview.errorCount > 0 ? 'text-rose-700' : ''} />
+                            <Stat label="Валидных" value={preview.validCount} valueClass="text-success-700" />
+                            <Stat label="С ошибками" value={preview.errorCount} valueClass={preview.errorCount > 0 ? 'text-danger-700' : ''} />
                         </div>
 
                         <div className="overflow-x-auto rounded-xl border border-neutral-200 max-h-96">
@@ -320,7 +320,7 @@ function ImportPanel({
                                     {preview.rows.slice(0, 100).map((row) => (
                                         <tr
                                             key={row.index}
-                                            className={`border-b border-neutral-100 ${row.valid ? '' : 'bg-rose-50/30'}`}
+                                            className={`border-b border-neutral-100 ${row.valid ? '' : 'bg-danger-50/30'}`}
                                         >
                                             <td className="px-3 py-2 text-neutral-400 font-mono">{row.index + 1}</td>
                                             <td className="px-3 py-2 text-neutral-700">
@@ -334,12 +334,12 @@ function ImportPanel({
                                             </td>
                                             <td className="px-3 py-2">
                                                 {row.errors.length > 0 ? (
-                                                    <ul className="text-rose-700 space-y-0.5">
+                                                    <ul className="text-danger-700 space-y-0.5">
                                                         {/* errors are plain strings; index is the only stable identity within this row */}
                                                         {row.errors.map((e, i) => <li key={`${i}:${e}`}>• {e}</li>)}
                                                     </ul>
                                                 ) : (
-                                                    <span className="text-emerald-600">OK</span>
+                                                    <span className="text-success-600">OK</span>
                                                 )}
                                             </td>
                                         </tr>
@@ -375,13 +375,13 @@ function ImportPanel({
                 {/* Result */}
                 {result && (
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700">
+                        <div className="flex items-center gap-2 px-4 py-3 bg-success-50 border border-success-200 rounded-lg text-sm text-success-700">
                             <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                             Создано: <strong>{result.created}</strong>
                             {result.usersCreated ? <span className="ml-2">· аккаунтов: <strong>{result.usersCreated}</strong></span> : null}
                         </div>
                         {result.errors?.length > 0 && (
-                            <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                            <div className="px-4 py-3 bg-warning-50 border border-warning-200 rounded-lg text-sm text-warning-800">
                                 <p className="font-medium mb-1">Ошибки ({result.errors.length}):</p>
                                 <ul className="list-disc pl-5 space-y-0.5">
                                     {result.errors.slice(0, 10).map((e) => (

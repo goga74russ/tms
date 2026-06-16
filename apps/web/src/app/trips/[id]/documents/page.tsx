@@ -20,10 +20,10 @@ const DOCUMENT_TYPES: Array<{ value: string; label: string }> = [
 ];
 
 const STATUSES: Array<{ value: 'pending' | 'received' | 'lost' | 'overdue'; label: string; tone: string }> = [
-    { value: 'pending', label: 'Ожидается', tone: 'bg-amber-100 text-amber-700 border-amber-200' },
-    { value: 'received', label: 'Получено', tone: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-    { value: 'lost', label: 'Утерян', tone: 'bg-rose-100 text-rose-700 border-rose-200' },
-    { value: 'overdue', label: 'Просрочен', tone: 'bg-orange-100 text-orange-700 border-orange-200' },
+    { value: 'pending', label: 'Ожидается', tone: 'bg-warning-100 text-warning-700 border-warning-200' },
+    { value: 'received', label: 'Получено', tone: 'bg-success-100 text-success-700 border-success-200' },
+    { value: 'lost', label: 'Утерян', tone: 'bg-danger-100 text-danger-700 border-danger-200' },
+    { value: 'overdue', label: 'Просрочен', tone: 'bg-warning-100 text-warning-700 border-warning-200' },
 ];
 
 interface DocumentReturnRow {
@@ -210,7 +210,7 @@ export default function TripDocumentReturnsPage() {
                         <ArrowLeft className="w-4 h-4" />
                         К рейсам
                     </button>
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-blue-600 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-info-600 flex items-center justify-center">
                         <FileText className="w-5 h-5 text-white" />
                     </div>
                     <div>
@@ -234,13 +234,13 @@ export default function TripDocumentReturnsPage() {
 
             {/* Toast */}
             {toast && (
-                <div className={`fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                <div className={`fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${toast.type === 'success' ? 'bg-success-600' : 'bg-danger-600'}`}>
                     {toast.message}
                 </div>
             )}
 
             {error && (
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
                     {error}
                 </div>
             )}
@@ -293,7 +293,7 @@ export default function TripDocumentReturnsPage() {
                                                         size="sm"
                                                         onClick={() => openUpdate(row, 'received')}
                                                         disabled={isClosed}
-                                                        className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                                        className="border-success-200 text-success-700 hover:bg-success-50"
                                                     >
                                                         Получено
                                                     </Button>
@@ -302,7 +302,7 @@ export default function TripDocumentReturnsPage() {
                                                         size="sm"
                                                         onClick={() => openUpdate(row, 'lost')}
                                                         disabled={isClosed}
-                                                        className="border-rose-200 text-rose-700 hover:bg-rose-50"
+                                                        className="border-danger-200 text-danger-700 hover:bg-danger-50"
                                                     >
                                                         Утерян
                                                     </Button>
@@ -322,7 +322,7 @@ export default function TripDocumentReturnsPage() {
                 <div className="space-y-4">
                     <div>
                         <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
-                            Тип документа <span className="text-red-500">*</span>
+                            Тип документа <span className="text-danger-500">*</span>
                         </label>
                         <select
                             value={createDocType}
@@ -354,7 +354,7 @@ export default function TripDocumentReturnsPage() {
                         />
                     </div>
                     {createError && (
-                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                        <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
                             {createError}
                         </div>
                     )}
@@ -389,7 +389,7 @@ export default function TripDocumentReturnsPage() {
                                 type="date"
                                 value={updateReceivedDate}
                                 onChange={(e) => setUpdateReceivedDate(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                                className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-success-300"
                             />
                         </div>
                     )}
@@ -404,7 +404,7 @@ export default function TripDocumentReturnsPage() {
                         />
                     </div>
                     {updateError && (
-                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                        <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
                             {updateError}
                         </div>
                     )}

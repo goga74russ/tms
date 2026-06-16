@@ -31,10 +31,10 @@ interface CockpitRightPanelProps {
 }
 
 const STATUS_DOT: Record<string, string> = {
-    available: 'bg-emerald-500',
-    assigned: 'bg-amber-500',
-    in_trip: 'bg-blue-500',
-    broken: 'bg-red-500',
+    available: 'bg-success-500',
+    assigned: 'bg-warning-500',
+    in_trip: 'bg-info-500',
+    broken: 'bg-danger-500',
     maintenance: 'bg-neutral-400',
 };
 
@@ -81,7 +81,7 @@ export function CockpitRightPanel({
             <div className="flex-1 overflow-y-auto">
                 {/* Назначение */}
                 <div>
-                    {sectionHeader(assignOpen, () => setAssignOpen(o => !o), 'Назначение', orders.length, Truck, 'text-emerald-600')}
+                    {sectionHeader(assignOpen, () => setAssignOpen(o => !o), 'Назначение', orders.length, Truck, 'text-success-600')}
                     {assignOpen && (
                         <div className="p-2" data-tour="dispatcher-orders" data-tour-secondary="dispatcher-new-order" id="dispatcher-orders-anchor">
                             <AssignmentPanel
@@ -95,7 +95,7 @@ export function CockpitRightPanel({
 
                 {/* Транспорт */}
                 <div>
-                    {sectionHeader(vehiclesOpen, () => setVehiclesOpen(o => !o), 'Транспорт', vehiclesOnMap.length, Truck, 'text-blue-600')}
+                    {sectionHeader(vehiclesOpen, () => setVehiclesOpen(o => !o), 'Транспорт', vehiclesOnMap.length, Truck, 'text-info-600')}
                     {vehiclesOpen && (
                         <div className="px-2 py-2">
                             <div className="flex gap-1.5 mb-2">
@@ -106,13 +106,13 @@ export function CockpitRightPanel({
                                         value={vehicleSearch}
                                         onChange={e => onVehicleSearchChange(e.target.value)}
                                         placeholder="Номер, водитель..."
-                                        className="w-full pl-6 pr-2 py-1 text-[11px] border border-neutral-200 rounded-md bg-neutral-50 focus:outline-none focus:ring-1 focus:ring-emerald-300"
+                                        className="w-full pl-6 pr-2 py-1 text-[11px] border border-neutral-200 rounded-md bg-neutral-50 focus:outline-none focus:ring-1 focus:ring-success-300"
                                     />
                                 </div>
                                 <select
                                     value={vehicleStatusFilter}
                                     onChange={e => onVehicleStatusFilterChange(e.target.value)}
-                                    className="text-[11px] border border-neutral-200 rounded-md px-1.5 py-1 bg-neutral-50 focus:outline-none focus:ring-1 focus:ring-emerald-300"
+                                    className="text-[11px] border border-neutral-200 rounded-md px-1.5 py-1 bg-neutral-50 focus:outline-none focus:ring-1 focus:ring-success-300"
                                 >
                                     <option value="">Все</option>
                                     <option value="available">Своб.</option>
@@ -134,7 +134,7 @@ export function CockpitRightPanel({
                                             onClick={() => onSelectVehicle(v.id)}
                                             className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left transition-colors text-xs ${
                                                 selectedVehicle === v.id
-                                                    ? 'bg-emerald-50 border border-emerald-200'
+                                                    ? 'bg-success-50 border border-success-200'
                                                     : 'hover:bg-neutral-50 border border-transparent'
                                             }`}
                                         >
@@ -157,7 +157,7 @@ export function CockpitRightPanel({
                 {/* Cold chain */}
                 {coldChainBreaches.length > 0 && (
                     <div>
-                        {sectionHeader(coldOpen, () => setColdOpen(o => !o), 'Холодовая цепь', coldChainBreaches.length, Thermometer, 'text-rose-600')}
+                        {sectionHeader(coldOpen, () => setColdOpen(o => !o), 'Холодовая цепь', coldChainBreaches.length, Thermometer, 'text-danger-600')}
                         {coldOpen && (
                             <div className="px-2 py-2 space-y-1">
                                 {coldChainBreaches.map(item => (
@@ -168,16 +168,16 @@ export function CockpitRightPanel({
                                             e.preventDefault();
                                             router.push(`/trips?focus=${item.tripId}`);
                                         }}
-                                        className="block rounded-md border border-rose-200 bg-rose-50/60 px-2 py-1.5 hover:bg-rose-100 transition-colors"
+                                        className="block rounded-md border border-danger-200 bg-danger-50/60 px-2 py-1.5 hover:bg-danger-100 transition-colors"
                                     >
                                         <div className="flex items-center justify-between gap-2">
-                                            <span className="text-xs font-semibold text-rose-800 font-mono">#{item.tripNumber}</span>
-                                            <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-800">
+                                            <span className="text-xs font-semibold text-danger-800 font-mono">#{item.tripNumber}</span>
+                                            <span className="inline-flex items-center gap-0.5 rounded-full bg-danger-200 px-1.5 py-0.5 text-[10px] font-semibold text-danger-800">
                                                 <AlertTriangle className="w-2.5 h-2.5" />
                                                 {item.breachCount}
                                             </span>
                                         </div>
-                                        <div className="text-[10px] text-rose-700 mt-0.5">
+                                        <div className="text-[10px] text-danger-700 mt-0.5">
                                             мин {item.minC !== null ? `${item.minC.toFixed(1)}°` : '—'} / макс {item.maxC !== null ? `${item.maxC.toFixed(1)}°` : '—'}
                                         </div>
                                     </a>
@@ -188,7 +188,7 @@ export function CockpitRightPanel({
                 )}
 
                 {coldChainBreaches.length === 0 && (
-                    <div className="px-3 py-2 flex items-center gap-2 text-[11px] text-emerald-700 bg-emerald-50/40 border-b border-neutral-100">
+                    <div className="px-3 py-2 flex items-center gap-2 text-[11px] text-success-700 bg-success-50/40 border-b border-neutral-100">
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         Холодовая цепь — норма
                     </div>

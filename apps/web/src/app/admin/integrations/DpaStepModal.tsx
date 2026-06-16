@@ -103,7 +103,7 @@ export function DpaStepModal({ providerId, onAccepted, onClose }: Props) {
                     <Loader2 className="w-5 h-5 animate-spin text-neutral-400" />
                 </div>
             ) : error || !dpa ? (
-                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-2">
+                <div className="rounded-lg border border-danger-200 bg-danger-50 p-4 text-sm text-danger-700 flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                     <div>
                         <div className="font-semibold mb-1">Не удалось загрузить согласие</div>

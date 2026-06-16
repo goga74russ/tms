@@ -3,9 +3,9 @@ import * as React from "react";
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
 
 const variantStyles: Record<BadgeVariant, string> = {
-    default: "bg-blue-600 text-white border-transparent",
+    default: "bg-info-600 text-white border-transparent",
     secondary: "bg-neutral-100 text-neutral-900 border-transparent",
-    destructive: "bg-red-600 text-white border-transparent",
+    destructive: "bg-danger-600 text-white border-transparent",
     outline: "bg-transparent border-neutral-200 text-neutral-700",
 };
 

@@ -100,13 +100,13 @@ function OsagoTab() {
         <Card className="p-5 space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-2 text-sm">
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-success-300 bg-success-50 px-3 py-1 text-xs font-semibold text-success-800">
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        Действителен: <span className="text-emerald-900">{validCount}</span>
+                        Действителен: <span className="text-success-900">{validCount}</span>
                     </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300 bg-red-50 px-3 py-1 text-xs font-semibold text-red-800">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-danger-300 bg-danger-50 px-3 py-1 text-xs font-semibold text-danger-800">
                         <AlertTriangle className="w-3.5 h-3.5" />
-                        Истёк: <span className="text-red-900">{expiredCount}</span>
+                        Истёк: <span className="text-danger-900">{expiredCount}</span>
                     </span>
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700">
                         Не проверено: <span className="text-neutral-900">{unknownCount}</span>
@@ -164,9 +164,9 @@ function OsagoTab() {
 
 function OsagoBandPill({ band }: { band: 'green' | 'yellow' | 'red' | 'unknown' }) {
     const map = {
-        green: { label: 'OK', cls: 'bg-green-100 text-green-700' },
-        yellow: { label: '<30 дней', cls: 'bg-amber-100 text-amber-700' },
-        red: { label: 'Просрочен', cls: 'bg-red-100 text-red-700' },
+        green: { label: 'OK', cls: 'bg-success-100 text-success-700' },
+        yellow: { label: '<30 дней', cls: 'bg-warning-100 text-warning-700' },
+        red: { label: 'Просрочен', cls: 'bg-danger-100 text-danger-700' },
         unknown: { label: 'Не проверен', cls: 'bg-neutral-100 text-neutral-600' },
     } as const;
     const m = map[band];
@@ -258,7 +258,7 @@ function TachographTab() {
                     </Button>
                 </div>
             </div>
-            {info && <div className="bg-green-50 text-green-700 p-2 rounded text-sm border border-green-100">{info}</div>}
+            {info && <div className="bg-success-50 text-success-700 p-2 rounded text-sm border border-success-100">{info}</div>}
             {error && <ErrorBox message={error} />}
 
             {loading ? <Loading /> : (
@@ -286,7 +286,7 @@ function TachographTab() {
                             {rows.map(r => (
                                 <tr key={r.id} className="border-b border-neutral-100">
                                     <td className="py-2 px-2 text-neutral-500">{formatDateTime(r.uploadedAt)}</td>
-                                    <td className="py-2 px-2">{r.driverFullName ?? <span className="text-amber-600">не привязан</span>}</td>
+                                    <td className="py-2 px-2">{r.driverFullName ?? <span className="text-warning-600">не привязан</span>}</td>
                                     <td className="py-2 px-2 font-mono text-xs">{r.driverCardNumber ?? '—'}</td>
                                     <td className="py-2 px-2 font-mono text-xs">{r.vehicleVin ?? '—'}</td>
                                     <td className="py-2 px-2 text-xs">{formatDate(r.periodFrom)} — {formatDate(r.periodTo)}</td>
@@ -336,7 +336,7 @@ function MarkingTab() {
         <Card className="p-5 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <StatCard label="Проверено всего" value={totalVerified.toString()} icon={<BarChart3 className="w-5 h-5" />} />
-                <StatCard label="Валидных" value={totalValid.toString()} icon={<CheckCircle2 className="w-5 h-5 text-green-600" />} />
+                <StatCard label="Валидных" value={totalValid.toString()} icon={<CheckCircle2 className="w-5 h-5 text-success-600" />} />
                 <StatCard label="Успех" value={`${successRate}%`} icon={<ShieldCheck className="w-5 h-5 text-brand-600" />} />
             </div>
 
@@ -362,8 +362,8 @@ function MarkingTab() {
                                     <tr key={c.category} className="border-b border-neutral-100">
                                         <td className="py-2 px-2 font-medium">{c.category}</td>
                                         <td className="py-2 px-2">{c.total}</td>
-                                        <td className="py-2 px-2 text-green-700">{c.valid}</td>
-                                        <td className="py-2 px-2 text-red-700">{c.invalid}</td>
+                                        <td className="py-2 px-2 text-success-700">{c.valid}</td>
+                                        <td className="py-2 px-2 text-danger-700">{c.invalid}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -402,8 +402,8 @@ function MarkingTab() {
                                         <td className="py-2 px-2">{r.productName ?? '—'}</td>
                                         <td className="py-2 px-2">
                                             {r.valid
-                                                ? <span className="text-green-700 text-xs">валиден</span>
-                                                : <span className="text-red-700 text-xs">невалиден</span>}
+                                                ? <span className="text-success-700 text-xs">валиден</span>
+                                                : <span className="text-danger-700 text-xs">невалиден</span>}
                                         </td>
                                     </tr>
                                 ))}
@@ -471,7 +471,7 @@ function AdrTab() {
                             Когда режим включён, ошибки ADR-валидации (просроченное свидетельство водителя, ТС не оборудовано) <b>блокируют</b> назначение рейса вместо предупреждения. Используется компаниями, регулярно перевозящими опасные грузы.
                         </div>
                         {!enabled && (
-                            <div className="mt-2 text-xs text-amber-700 inline-flex items-center gap-1">
+                            <div className="mt-2 text-xs text-warning-700 inline-flex items-center gap-1">
                                 <AlertTriangle className="w-3.5 h-3.5" />
                                 Сейчас ошибки ADR только показываются как предупреждения.
                             </div>
@@ -502,7 +502,7 @@ function StatCard({ label, value, icon }: { label: string; value: string; icon: 
 
 function ErrorBox({ message }: { message: string }) {
     return (
-        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100 inline-flex items-center gap-2">
+        <div className="bg-danger-50 text-danger-600 p-3 rounded-lg text-sm border border-danger-100 inline-flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" />
             {message}
         </div>

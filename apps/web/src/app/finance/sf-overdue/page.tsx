@@ -103,7 +103,7 @@ export default function SfOverduePage() {
                                             <TableCell className="text-neutral-500">{fmtDate(r.deadlineDate)}</TableCell>
                                             <TableCell className="text-neutral-500">{fmtDate(r.issuedAt)}</TableCell>
                                             <TableCell>
-                                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                                <Badge variant="outline" className="bg-danger-50 text-danger-700 border-danger-200">
                                                     +{r.daysLate} дн.
                                                 </Badge>
                                             </TableCell>

@@ -682,8 +682,8 @@ export default function DispatcherPage() {
                 (T-28/T-31 backlog). Баннер чтобы пилотные пользователи не путали
                 эмуляцию с боевыми треками. */}
             {liveWialonMarkers && Object.keys(liveWialonMarkers).length > 0 && (
-                <div className="flex items-center gap-2 px-4 py-1.5 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-900">
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 font-semibold uppercase tracking-wider text-[10px]">
+                <div className="flex items-center gap-2 px-4 py-1.5 bg-warning-50 border-b border-warning-200 text-[11px] text-warning-900">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-warning-200 text-warning-900 font-semibold uppercase tracking-wider text-[10px]">
                         Demo data
                     </span>
                     <span>
@@ -779,7 +779,7 @@ export default function DispatcherPage() {
                             />
                         </div>
                         {tripRoutePoints.length > 0 && (
-                            <div className="bg-blue-50/95 border border-blue-200 rounded-md px-2.5 h-9 flex items-center gap-1.5 text-xs text-blue-700 shadow-sm">
+                            <div className="bg-info-50/95 border border-info-200 rounded-md px-2.5 h-9 flex items-center gap-1.5 text-xs text-info-700 shadow-sm">
                                 <Wifi className="w-3.5 h-3.5" />
                                 <span>Маршрут: {tripRoutePoints.length} точек</span>
                             </div>
@@ -817,7 +817,7 @@ export default function DispatcherPage() {
                             <Card className="shadow-xl pointer-events-auto">
                                 <CardContent className="p-3">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <Info className="w-4 h-4 text-blue-500" />
+                                        <Info className="w-4 h-4 text-info-500" />
                                         <h3 className="text-sm font-semibold text-neutral-900">Детали рейса</h3>
                                         <button
                                             type="button"
@@ -836,7 +836,7 @@ export default function DispatcherPage() {
                                         <div>
                                             <p className="text-xs uppercase tracking-wide text-neutral-500 mb-0.5">Статус</p>
                                             <div className="flex items-center gap-1.5">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                                                <div className="w-1.5 h-1.5 rounded-full bg-info-500 animate-pulse" />
                                                 <p className="text-xs font-medium text-neutral-700">{activeTripDetails.status === 'in_transit' ? 'В пути' : activeTripDetails.status}</p>
                                             </div>
                                         </div>
@@ -845,7 +845,7 @@ export default function DispatcherPage() {
                                             <div className="flex items-center gap-2">
                                                 <div className="flex-1 bg-neutral-100 rounded-full h-1.5">
                                                     <div
-                                                        className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                                                        className="bg-success-500 h-1.5 rounded-full transition-all"
                                                         style={{
                                                             width: activeTripDetails.totalPoints > 0
                                                                 ? `${(activeTripDetails.completedPoints / activeTripDetails.totalPoints) * 100}%`
@@ -879,14 +879,14 @@ export default function DispatcherPage() {
                                         <div className="mt-2 pt-2 border-t border-neutral-100 space-y-1 max-h-32 overflow-y-auto">
                                             {activeTripDetails.routePoints.map((rp) => (
                                                 <div key={`${rp.sequenceNumber}:${rp.type}`} className="flex items-center gap-2 text-[11px]">
-                                                    <MapPin className={`w-3 h-3 flex-shrink-0 ${rp.status === 'completed' ? 'text-emerald-500'
-                                                        : rp.status === 'arrived' ? 'text-blue-500'
+                                                    <MapPin className={`w-3 h-3 flex-shrink-0 ${rp.status === 'completed' ? 'text-success-500'
+                                                        : rp.status === 'arrived' ? 'text-info-500'
                                                             : 'text-neutral-300'
                                                         }`} />
                                                     <span className={`truncate ${rp.status === 'completed' ? 'text-neutral-400 line-through' : 'text-neutral-600'}`} title={rp.address || undefined}>
                                                         {rp.address || `Точка ${rp.sequenceNumber}`}
                                                     </span>
-                                                    <span className={`ml-auto text-[10px] font-medium ${rp.type === 'loading' ? 'text-green-600' : 'text-orange-600'
+                                                    <span className={`ml-auto text-[10px] font-medium ${rp.type === 'loading' ? 'text-success-600' : 'text-brand-600'
                                                         }`}>
                                                         {rp.type === 'loading' ? 'Погрузка' : 'Выгрузка'}
                                                     </span>
@@ -897,16 +897,16 @@ export default function DispatcherPage() {
 
                                     {activeTripDetails.deliveryConfirmation && (
                                         <div className="mt-2 pt-2 border-t border-neutral-100">
-                                            <div className="flex items-start gap-2 bg-emerald-50 border border-emerald-200 rounded-md p-2">
-                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                                            <div className="flex items-start gap-2 bg-success-50 border border-success-200 rounded-md p-2">
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-success-600 mt-0.5 flex-shrink-0" />
                                                 <div className="text-[11px] space-y-0.5">
-                                                    <p className="font-semibold text-emerald-800">
+                                                    <p className="font-semibold text-success-800">
                                                         Доставка подтверждена
                                                         {activeTripDetails.deliveryConfirmation.forcedByDispatcher && (
-                                                            <span className="ml-1.5 text-amber-700 font-normal">(принудительно)</span>
+                                                            <span className="ml-1.5 text-warning-700 font-normal">(принудительно)</span>
                                                         )}
                                                     </p>
-                                                    <p className="text-emerald-700">Получатель: {activeTripDetails.deliveryConfirmation.recipientName}</p>
+                                                    <p className="text-success-700">Получатель: {activeTripDetails.deliveryConfirmation.recipientName}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -931,7 +931,7 @@ export default function DispatcherPage() {
                                         {activeTripDetails.status === 'in_transit' && !activeTripDetails.deliveryConfirmation && (
                                             <button
                                                 onClick={() => setForceCloseOpen(true)}
-                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md border border-red-200 bg-red-50 text-red-700 text-[11px] font-semibold hover:bg-red-100 transition-colors"
+                                                className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md border border-danger-200 bg-danger-50 text-danger-700 text-[11px] font-semibold hover:bg-danger-100 transition-colors"
                                             >
                                                 <AlertTriangle className="w-3 h-3" />
                                                 Завершить
@@ -994,7 +994,7 @@ export default function DispatcherPage() {
                         <select
                             value={forceReason}
                             onChange={e => setForceReason(e.target.value)}
-                            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm mb-3 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-red-300"
+                            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm mb-3 bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-danger-300"
                         >
                             <option value="no_mobile">Нет мобильного устройства</option>
                             <option value="no_internet">Нет интернета</option>
@@ -1003,14 +1003,14 @@ export default function DispatcherPage() {
                         </select>
 
                         <label className="block text-xs font-semibold text-neutral-600 mb-1.5">
-                            Комментарий {forceReason === 'other' && <span className="text-red-500">*</span>}
+                            Комментарий {forceReason === 'other' && <span className="text-danger-500">*</span>}
                         </label>
                         <textarea
                             value={forceNote}
                             onChange={e => setForceNote(e.target.value)}
                             rows={3}
                             placeholder="Подробности..."
-                            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm mb-4 bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-red-300"
+                            className="w-full border border-neutral-200 rounded-lg px-3 py-2 text-sm mb-4 bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-danger-300"
                         />
 
                         <div className="flex gap-3">
@@ -1024,7 +1024,7 @@ export default function DispatcherPage() {
                             <button
                                 onClick={handleForceClose}
                                 disabled={forceLoading || (forceReason === 'other' && !forceNote.trim())}
-                                className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="flex-1 py-2 rounded-lg bg-danger-600 text-white text-sm font-semibold hover:bg-danger-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                             >
                                 {forceLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                                 Завершить рейс

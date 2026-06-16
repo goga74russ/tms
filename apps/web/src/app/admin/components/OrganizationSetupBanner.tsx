@@ -117,7 +117,7 @@ export function OrganizationSetupBanner() {
                             Тенант-данные не удаляются.
                         </p>
                         {error && (
-                            <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-2.5 py-2 mb-3">
+                            <div className="text-sm text-danger-700 bg-danger-50 border border-danger-200 rounded-md px-2.5 py-2 mb-3">
                                 {error}
                             </div>
                         )}
@@ -141,14 +141,14 @@ export function OrganizationSetupBanner() {
     // ---- Вариант A: нет org — показываем форму создания (как было) ----
 
     return (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+        <div className="rounded-xl border border-warning-300 bg-warning-50 p-4">
             <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-amber-900 mb-1">
+                    <div className="font-semibold text-warning-900 mb-1">
                         У вас не указана организация
                     </div>
-                    <p className="text-sm text-amber-800 mb-3">
+                    <p className="text-sm text-warning-800 mb-3">
                         Вы вошли как super-admin без привязки к тенанту. Все данные системы
                         (рейсы, ТС, водители, демо) хранятся в разрезе организации — без неё
                         большинство функций недоступно. Создайте свою организацию ниже.
@@ -165,20 +165,20 @@ export function OrganizationSetupBanner() {
                     ) : (
                         <div className="space-y-3 max-w-md">
                             <label className="block">
-                                <span className="text-xs font-medium text-amber-900">
-                                    Название организации<span className="text-rose-600"> *</span>
+                                <span className="text-xs font-medium text-warning-900">
+                                    Название организации<span className="text-brand-600"> *</span>
                                 </span>
                                 <input
                                     type="text"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     placeholder="ООО «Моя Логистика» или ИП Иванов И.И."
-                                    className="mt-1 w-full rounded-md border border-amber-300 bg-white px-2.5 py-1.5 text-sm focus:border-amber-500 focus:outline-none"
+                                    className="mt-1 w-full rounded-md border border-warning-300 bg-white px-2.5 py-1.5 text-sm focus:border-warning-500 focus:outline-none"
                                     disabled={submitting}
                                 />
                             </label>
                             <label className="block">
-                                <span className="text-xs font-medium text-amber-900">
+                                <span className="text-xs font-medium text-warning-900">
                                     ИНН (опционально — 10 или 12 цифр)
                                 </span>
                                 <input
@@ -188,24 +188,24 @@ export function OrganizationSetupBanner() {
                                     onChange={(e) => setInn(e.target.value.replace(/\D/g, '').slice(0, 12))}
                                     placeholder="7701234567"
                                     className={`mt-1 w-full rounded-md border bg-white px-2.5 py-1.5 text-sm focus:outline-none ${innValid
-                                        ? 'border-amber-300 focus:border-amber-500'
-                                        : 'border-rose-400 focus:border-rose-500'
+                                        ? 'border-warning-300 focus:border-warning-500'
+                                        : 'border-danger-400 focus:border-danger-500'
                                         }`}
                                     disabled={submitting}
                                 />
                                 {!innValid && (
-                                    <span className="text-xs text-rose-600 mt-1 block">
+                                    <span className="text-xs text-danger-600 mt-1 block">
                                         ИНН должен содержать 10 (юр.лицо) или 12 (ИП) цифр
                                     </span>
                                 )}
-                                <span className="text-xs text-amber-800 mt-1 block">
+                                <span className="text-xs text-warning-800 mt-1 block">
                                     Если ИНН уже зарегистрирован, форма вернёт ошибку — для
                                     присоединения к существующей организации попросите её admin’а
                                     отправить вам приглашение.
                                 </span>
                             </label>
                             {error && (
-                                <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md px-2.5 py-2">
+                                <div className="text-sm text-danger-700 bg-danger-50 border border-danger-200 rounded-md px-2.5 py-2">
                                     {error}
                                 </div>
                             )}
@@ -228,7 +228,7 @@ export function OrganizationSetupBanner() {
                                     Отмена
                                 </Button>
                             </div>
-                            <p className="text-xs text-amber-800">
+                            <p className="text-xs text-warning-800">
                                 После создания вы потеряете super-admin привилегии (доступ к
                                 кросс-тенант видам) и станете admin своей организации.
                             </p>

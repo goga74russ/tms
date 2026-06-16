@@ -155,7 +155,7 @@ export function Sidebar() {
                 <div className="p-3 border-t border-neutral-200">
                     {user ? (
                         <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-neutral-50">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-success-500 to-emerald-700 flex items-center justify-center text-white text-sm font-bold shadow-soft shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-success-500 to-success-700 flex items-center justify-center text-white text-sm font-bold shadow-soft shrink-0">
                                 {user.fullName.charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -165,7 +165,7 @@ export function Sidebar() {
                             <button
                                 type="button"
                                 onClick={logout}
-                                className="p-1.5 rounded-lg hover:bg-red-50 text-neutral-400 hover:text-red-600 transition shrink-0"
+                                className="p-1.5 rounded-lg hover:bg-danger-50 text-neutral-400 hover:text-danger-600 transition shrink-0"
                                 title="Выйти"
                                 aria-label="Выйти"
                             >
@@ -187,13 +187,13 @@ export function Sidebar() {
             {/* Collapsed user avatar */}
             {collapsed && user && (
                 <div className="p-2 border-t border-neutral-200 flex flex-col items-center gap-2">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-success-500 to-emerald-700 flex items-center justify-center text-white text-sm font-bold shadow-soft" title={user.fullName}>
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-success-500 to-success-700 flex items-center justify-center text-white text-sm font-bold shadow-soft" title={user.fullName}>
                         {user.fullName.charAt(0).toUpperCase()}
                     </div>
                     <button
                         type="button"
                         onClick={logout}
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-neutral-400 hover:text-red-600"
+                        className="p-1.5 rounded-lg hover:bg-danger-50 text-neutral-400 hover:text-danger-600"
                         title="Выйти"
                         aria-label="Выйти"
                     >

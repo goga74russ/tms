@@ -185,9 +185,9 @@ export default function AdminCarriersPage() {
             />
 
             {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex justify-between items-center">
+                <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg flex justify-between items-center">
                     <span>{error}</span>
-                    <button onClick={() => setError(null)} className="text-red-400 hover:text-red-700">&times;</button>
+                    <button onClick={() => setError(null)} className="text-danger-400 hover:text-danger-700">&times;</button>
                 </div>
             )}
 
@@ -236,11 +236,11 @@ export default function AdminCarriersPage() {
                                         <TableCell className="text-neutral-500">{c.inn}</TableCell>
                                         <TableCell>
                                             {c.activeContract ? (
-                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                                <Badge variant="outline" className="bg-success-50 text-success-700 border-success-200">
                                                     № {c.activeContract.number}
                                                 </Badge>
                                             ) : (
-                                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                                <Badge variant="outline" className="bg-warning-50 text-warning-700 border-warning-200">
                                                     нет
                                                 </Badge>
                                             )}

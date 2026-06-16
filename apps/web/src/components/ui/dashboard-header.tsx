@@ -15,10 +15,10 @@ export type DashboardIconTone = 'brand' | 'success' | 'warning' | 'danger' | 'in
 
 const iconToneClasses: Record<DashboardIconTone, string> = {
     brand: 'bg-brand-50 text-brand-600',
-    success: 'bg-emerald-50 text-emerald-600',
-    warning: 'bg-amber-50 text-amber-600',
-    danger: 'bg-red-50 text-red-600',
-    info: 'bg-blue-50 text-blue-600',
+    success: 'bg-success-50 text-success-600',
+    warning: 'bg-warning-50 text-warning-600',
+    danger: 'bg-danger-50 text-danger-600',
+    info: 'bg-info-50 text-info-600',
     neutral: 'bg-neutral-100 text-neutral-600',
 };
 

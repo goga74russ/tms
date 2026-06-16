@@ -107,7 +107,7 @@ export default function AdminDemoPage() {
                 <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
                 <div>
                     <p className="font-medium mb-1">Безопасно для пробы.</p>
-                    <p>Все объекты создаются с пометкой <code className="px-1 py-0.5 rounded bg-blue-100 text-xs font-mono">[ДЕМО]</code> — их можно удалить одной кнопкой. Реальные данные не затрагиваются.</p>
+                    <p>Все объекты создаются с пометкой <code className="px-1 py-0.5 rounded bg-info-100 text-xs font-mono">[ДЕМО]</code> — их можно удалить одной кнопкой. Реальные данные не затрагиваются.</p>
                 </div>
             </div>
 
@@ -152,7 +152,7 @@ export default function AdminDemoPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-base">
-                            <Trash2 className="w-5 h-5 text-rose-600" />
+                            <Trash2 className="w-5 h-5 text-danger-600" />
                             Очистить демо
                         </CardTitle>
                     </CardHeader>
@@ -175,7 +175,7 @@ export default function AdminDemoPage() {
             </div>
 
             {error && (
-                <div className="flex items-start gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <div className="flex items-start gap-2 px-4 py-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
                     <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />{error}
                 </div>
             )}
@@ -183,7 +183,7 @@ export default function AdminDemoPage() {
             {generated && (
                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base text-emerald-700">
+                        <CardTitle className="flex items-center gap-2 text-base text-success-700">
                             <CheckCircle2 className="w-5 h-5" />
                             {generated.alreadyExisted ? 'Демо-данные уже существуют' : 'Демо-данные созданы'}
                         </CardTitle>
@@ -210,7 +210,7 @@ export default function AdminDemoPage() {
             {cleanup && (
                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base text-emerald-700">
+                        <CardTitle className="flex items-center gap-2 text-base text-success-700">
                             <CheckCircle2 className="w-5 h-5" />
                             Удалено
                         </CardTitle>

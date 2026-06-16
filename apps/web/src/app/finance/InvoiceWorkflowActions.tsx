@@ -267,7 +267,7 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
         <div className="space-y-2">
             <p className="text-xs font-medium text-neutral-600">Заявки и распределение суммы</p>
             {ordersTotal > orders.length && (
-                <p className="text-xs text-amber-600">
+                <p className="text-xs text-warning-600">
                     Показано {orders.length} из {ordersTotal} заявок — уточните поиск, остальные не загружены.
                 </p>
             )}
@@ -290,7 +290,7 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
                         value={a.allocatedAmount}
                         onChange={(e) => setAllocs((prev) => prev.map((x, j) => j === i ? { ...x, allocatedAmount: e.target.value } : x))}
                     />
-                    <button type="button" className="p-1 text-neutral-400 hover:text-red-500"
+                    <button type="button" className="p-1 text-neutral-400 hover:text-danger-500"
                         onClick={() => setAllocs((prev) => prev.length > 1 ? prev.filter((_, j) => j !== i) : prev)}>
                         <Trash2 className="w-4 h-4" />
                     </button>
@@ -310,7 +310,7 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
                 {canIssue && <Button size="sm" leftIcon={<FileCheck2 className="w-4 h-4" />} onClick={() => openModal("issue")}>Выпустить</Button>}
                 {canPay && <Button size="sm" variant="outline" leftIcon={<Banknote className="w-4 h-4" />} onClick={() => openModal("payment")}>Оплата</Button>}
                 {canCorrect && <Button size="sm" variant="outline" leftIcon={<FileWarning className="w-4 h-4" />} onClick={() => openModal("correction")}>Корректировка</Button>}
-                {canCancel && <Button size="sm" variant="outline" className="text-red-600 border-red-200" leftIcon={<XCircle className="w-4 h-4" />} onClick={() => openModal("cancel")}>Отменить</Button>}
+                {canCancel && <Button size="sm" variant="outline" className="text-danger-600 border-danger-200" leftIcon={<XCircle className="w-4 h-4" />} onClick={() => openModal("cancel")}>Отменить</Button>}
                 {!canIssue && !canPay && !canCorrect && !canCancel && (
                     <span className="text-xs text-neutral-400">Действия недоступны для статуса «{label(INVOICE_STATUS, st)}»</span>
                 )}
@@ -330,15 +330,15 @@ export function InvoiceWorkflowActions({ invoice, onDone }: { invoice: Invoice; 
                     )}
                     {allocator}
                     {overdueInfo && (
-                        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 space-y-2">
-                            <p className="text-sm text-red-700">Просрочка выпуска: <b>{overdueInfo.daysLate} дн.</b> сверх 5-дневного срока (ст. 168 НК). Укажите причину для подтверждения.</p>
+                        <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 space-y-2">
+                            <p className="text-sm text-danger-700">Просрочка выпуска: <b>{overdueInfo.daysLate} дн.</b> сверх 5-дневного срока (ст. 168 НК). Укажите причину для подтверждения.</p>
                             <Input placeholder="Причина просрочки" value={overdueReason} onChange={(e) => setOverdueReason(e.target.value)} />
                         </div>
                     )}
                     {/* F-09: persistent чек-лист «осталось заполнить» — видно всё разом
                         до нажатия, а не по одной ошибке после. */}
                     {issueProblems().length > 0 && (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        <div className="rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-800">
                             <span className="font-semibold">Осталось заполнить:</span>
                             <ul className="list-disc pl-4 mt-0.5">
                                 {issueProblems().map((p, i) => <li key={i}>{p}</li>)}

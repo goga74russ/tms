@@ -68,7 +68,7 @@ describe('Dialog', () => {
             />,
         );
         const confirmBtn = screen.getByRole('button', { name: 'Удалить' });
-        expect(confirmBtn.className).toContain('bg-red-600');
+        expect(confirmBtn.className).toContain('bg-danger-600');
     });
 
     it('ConfirmDialog onConfirm fires when confirm button clicked', async () => {

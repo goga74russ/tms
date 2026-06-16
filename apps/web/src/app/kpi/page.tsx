@@ -49,9 +49,9 @@ const TrafficLight = ({ label, status, amount }: {
     amount: string;
 }) => {
     const colors = {
-        green: { bg: "bg-emerald-50", border: "border-emerald-200", dot: "bg-emerald-500", text: "text-emerald-700" },
-        yellow: { bg: "bg-amber-50", border: "border-amber-200", dot: "bg-amber-500", text: "text-amber-700" },
-        red: { bg: "bg-red-50", border: "border-red-200", dot: "bg-red-500", text: "text-red-700" },
+        green: { bg: "bg-success-50", border: "border-success-200", dot: "bg-success-500", text: "text-success-700" },
+        yellow: { bg: "bg-warning-50", border: "border-warning-200", dot: "bg-warning-500", text: "text-warning-700" },
+        red: { bg: "bg-danger-50", border: "border-danger-200", dot: "bg-danger-500", text: "text-danger-700" },
     };
     const c = colors[status];
 
@@ -192,8 +192,8 @@ function DriverScoreboardSection() {
     const renderRow = (entry: DriverScoreEntry, idx: number, tone: "green" | "red") => {
         const name = entry.name || entry.fullName || (entry.driverId || entry.id || "—").slice(0, 8);
         const scoreNum = typeof entry.score === "string" ? parseFloat(entry.score) : entry.score;
-        const accent = tone === "green" ? "text-emerald-600" : "text-red-600";
-        const bg = tone === "green" ? "bg-emerald-100" : "bg-red-100";
+        const accent = tone === "green" ? "text-success-600" : "text-danger-600";
+        const bg = tone === "green" ? "bg-success-100" : "bg-danger-100";
         return (
             <button
                 key={`${entry.id || entry.driverId || idx}`}
@@ -226,10 +226,10 @@ function DriverScoreboardSection() {
                 </div>
             </CardHeader>
             <CardContent>
-                {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+                {error && <p className="mb-3 text-sm text-danger-600">{error}</p>}
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div>
-                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-600">Топ 5</p>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-success-600">Топ 5</p>
                         {top.length === 0 ? (
                             <p className="py-4 text-center text-sm text-neutral-400">Нет данных</p>
                         ) : (
@@ -237,7 +237,7 @@ function DriverScoreboardSection() {
                         )}
                     </div>
                     <div>
-                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-red-600">Худшие 5</p>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-danger-600">Худшие 5</p>
                         {bottom.length === 0 ? (
                             <p className="py-4 text-center text-sm text-neutral-400">Нет данных</p>
                         ) : (
@@ -278,9 +278,9 @@ function DriverScoreboardSection() {
                             <p className="text-xs text-neutral-500">Штрафы</p>
                             <p className="text-lg font-bold text-neutral-900">{detail.fines}</p>
                         </div>
-                        <div className="rounded-lg bg-emerald-50 px-3 py-2">
-                            <p className="text-xs text-emerald-600">Оценка</p>
-                            <p className="text-lg font-bold text-emerald-700">{detail.score}</p>
+                        <div className="rounded-lg bg-success-50 px-3 py-2">
+                            <p className="text-xs text-success-600">Оценка</p>
+                            <p className="text-lg font-bold text-success-700">{detail.score}</p>
                         </div>
                     </div>
                 )}
@@ -382,7 +382,7 @@ export default function KPIDashboard() {
             />
 
             {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+                <div className="rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-danger-700">
                     {error}
                 </div>
             )}
@@ -524,14 +524,14 @@ export default function KPIDashboard() {
                                         <tr key={`${driver.name}-${index}`} className="transition-colors hover:bg-neutral-50">
                                             <td className="px-4 py-4 font-medium text-neutral-900">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600">
+                                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-info-100 text-xs font-bold text-info-600">
                                                         {index + 1}
                                                     </div>
                                                     {driver.name}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-4 text-neutral-500">{driver.trips}</td>
-                                            <td className="px-4 py-4 text-emerald-600">{driver.eco}</td>
+                                            <td className="px-4 py-4 text-success-600">{driver.eco}</td>
                                             <td className="px-4 py-4 text-right font-medium text-yellow-600">{driver.score}</td>
                                         </tr>
                                     ))}

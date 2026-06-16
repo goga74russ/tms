@@ -188,7 +188,7 @@ function RowActionsMenu<T>({ row, actions }: { row: T; actions: RowAction<T>[] }
                                     'w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-colors',
                                     'disabled:opacity-50 disabled:cursor-not-allowed',
                                     a.tone === 'danger'
-                                        ? 'text-red-600 hover:bg-red-50'
+                                        ? 'text-danger-600 hover:bg-danger-50'
                                         : 'text-neutral-700 hover:bg-neutral-100',
                                 )}
                             >
@@ -757,9 +757,9 @@ export type PillTone = 'neutral' | 'brand' | 'success' | 'warning' | 'danger' | 
 const pillToneClass: Record<PillTone, string> = {
     neutral: 'bg-neutral-100 text-neutral-700',
     brand: 'bg-brand-50 text-brand-700',
-    success: 'bg-emerald-50 text-emerald-700',
-    warning: 'bg-amber-50 text-amber-700',
-    danger: 'bg-red-50 text-red-700',
+    success: 'bg-success-50 text-success-700',
+    warning: 'bg-warning-50 text-warning-700',
+    danger: 'bg-danger-50 text-danger-700',
     info: 'bg-sky-50 text-sky-700',
 };
 

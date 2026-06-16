@@ -26,9 +26,9 @@ interface PageHeaderProps {
 const TONE_CLASS: Record<NonNullable<PageHeaderProps['iconTone']>, string> = {
     brand: 'bg-brand-50 text-brand-600',
     indigo: 'bg-brand-50 text-brand-600',
-    emerald: 'bg-emerald-50 text-emerald-600',
-    amber: 'bg-amber-50 text-amber-600',
-    red: 'bg-red-50 text-red-600',
+    emerald: 'bg-success-50 text-success-600',
+    amber: 'bg-warning-50 text-warning-600',
+    red: 'bg-danger-50 text-danger-600',
     sky: 'bg-sky-50 text-sky-600',
 };
 

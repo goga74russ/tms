@@ -291,7 +291,7 @@ function CreateMchdModal({ open, onClose, onSuccess }: CreateModalProps) {
                     </div>
                     <div className="space-y-1">
                         <label className="block text-sm font-medium text-neutral-700">
-                            Объём полномочий <span className="text-red-600">*</span>
+                            Объём полномочий <span className="text-danger-600">*</span>
                         </label>
                         <textarea
                             rows={3}
@@ -306,7 +306,7 @@ function CreateMchdModal({ open, onClose, onSuccess }: CreateModalProps) {
                 {/* XML */}
                 <div className="space-y-1">
                     <label className="block text-sm font-medium text-neutral-700">
-                        XML МЧД (от ФНС) <span className="text-red-600">*</span>
+                        XML МЧД (от ФНС) <span className="text-danger-600">*</span>
                     </label>
                     <textarea
                         rows={6}
@@ -330,7 +330,7 @@ function CreateMchdModal({ open, onClose, onSuccess }: CreateModalProps) {
                     />
                 </div>
 
-                {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
+                {error && <p className="text-sm text-danger-600 bg-danger-50 p-3 rounded-lg">{error}</p>}
 
                 <div className="flex gap-3 pt-2">
                     <Button variant="outline" className="flex-1" onClick={onClose}>Отмена</Button>
@@ -552,7 +552,7 @@ function RevokeMchdModal({ mchd, onClose, onSuccess }: RevokeModalProps) {
             size="md"
         >
             <div className="space-y-4">
-                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <div className="flex items-start gap-3 rounded-lg border border-warning-200 bg-warning-50 p-3 text-sm text-warning-800">
                     <Ban className="w-4 h-4 mt-0.5 shrink-0" />
                     <span>
                         Отзыв необратим. После отзыва МЧД не будет использоваться при
@@ -562,7 +562,7 @@ function RevokeMchdModal({ mchd, onClose, onSuccess }: RevokeModalProps) {
 
                 <div className="space-y-1">
                     <label className="block text-sm font-medium text-neutral-700">
-                        Причина отзыва <span className="text-red-600">*</span>
+                        Причина отзыва <span className="text-danger-600">*</span>
                     </label>
                     <textarea
                         rows={4}
@@ -573,7 +573,7 @@ function RevokeMchdModal({ mchd, onClose, onSuccess }: RevokeModalProps) {
                     />
                 </div>
 
-                {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
+                {error && <p className="text-sm text-danger-600 bg-danger-50 p-3 rounded-lg">{error}</p>}
 
                 <div className="flex gap-3 pt-2">
                     <Button variant="outline" className="flex-1" onClick={onClose}>Отмена</Button>

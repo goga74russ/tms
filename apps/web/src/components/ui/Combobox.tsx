@@ -211,7 +211,7 @@ export function Combobox<T>({
                     className={`w-full pl-10 pr-9 py-2.5 rounded-xl border text-sm transition-all
                         focus:outline-none focus:ring-2 focus:ring-brand-400 focus:ring-offset-2 focus:border-brand-400
                         ${selected
-                            ? 'border-emerald-300 bg-emerald-50/50'
+                            ? 'border-success-300 bg-success-50/50'
                             : 'border-neutral-200 bg-white'
                         }`}
                 />
@@ -234,7 +234,7 @@ export function Combobox<T>({
                     className="z-modal-dropdown bg-white border border-neutral-200 rounded-xl shadow-xl max-h-60 overflow-y-auto"
                 >
                     {searchError ? (
-                        <div className="px-4 py-3 text-sm text-rose-600 text-center">
+                        <div className="px-4 py-3 text-sm text-danger-600 text-center">
                             Ошибка загрузки. Повторите ввод.
                         </div>
                     ) : options.length === 0 ? (
@@ -262,7 +262,7 @@ export function Combobox<T>({
                                         : 'hover:bg-neutral-50 text-neutral-700'
                                     }
                                     ${selected && getKey(item) === getKey(selected)
-                                        ? 'bg-emerald-50'
+                                        ? 'bg-success-50'
                                         : ''
                                     }`}
                             >

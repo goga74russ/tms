@@ -151,7 +151,7 @@ export function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClo
                         </div>
                     )}
                     {error && (
-                        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
                             {error}
                         </div>
                     )}
@@ -284,7 +284,7 @@ export function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClo
                                                     </div>
                                                 </div>
                                                 <div className="shrink-0 text-right">
-                                                    <div className="text-sm font-semibold text-emerald-700">
+                                                    <div className="text-sm font-semibold text-success-700">
                                                         {new Intl.NumberFormat('ru-RU', {
                                                             style: 'currency',
                                                             currency: 'RUB',
@@ -310,18 +310,18 @@ export function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClo
                                 role>=manager (видит цену) при null покажем «не задана»;
                                 для логиста/диспетчера секция вообще не показывается. */}
                             {order.customerPrice != null && (
-                                <section className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-3">
-                                    <h3 className="text-xs uppercase tracking-wider text-emerald-800 mb-2 font-semibold">
+                                <section className="rounded-lg border border-success-200 bg-success-50/60 px-4 py-3">
+                                    <h3 className="text-xs uppercase tracking-wider text-success-800 mb-2 font-semibold">
                                         Стоимость от заказчика
                                     </h3>
-                                    <div className="text-2xl font-bold text-emerald-900">
+                                    <div className="text-2xl font-bold text-success-900">
                                         {new Intl.NumberFormat('ru-RU', {
                                             style: 'currency',
                                             currency: order.customerPriceCurrency || 'RUB',
                                             maximumFractionDigits: 2,
                                         }).format(order.customerPrice)}
                                     </div>
-                                    <div className="text-xs text-emerald-700 mt-0.5">
+                                    <div className="text-xs text-success-700 mt-0.5">
                                         {order.customerPriceIncludesVat ? 'цена с НДС' : 'цена без НДС'}
                                     </div>
                                 </section>

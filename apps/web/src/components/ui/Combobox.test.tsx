@@ -41,7 +41,7 @@ describe('Combobox', () => {
         const input = screen.getByPlaceholderText('Поиск города') as HTMLInputElement;
         // The component does not auto-fill query from `selected`; check that the
         // emerald selection style is applied (visual confirmation of selection).
-        expect(input.className).toContain('border-emerald-300');
+        expect(input.className).toContain('border-success-300');
     });
 
     it('typing filters and displays matching options', async () => {

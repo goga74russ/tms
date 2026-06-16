@@ -48,12 +48,12 @@ const STATUS_LABEL_RU: Record<string, string> = {
 };
 
 const STATUS_DOT: Record<string, string> = {
-    in_transit: 'bg-blue-500',
-    loading: 'bg-amber-500',
+    in_transit: 'bg-info-500',
+    loading: 'bg-warning-500',
     waybill_issued: 'bg-violet-500',
-    completed: 'bg-emerald-500',
+    completed: 'bg-success-500',
     planned: 'bg-neutral-400',
-    cancelled: 'bg-red-500',
+    cancelled: 'bg-danger-500',
 };
 
 const STATUS_PRIORITY: Record<string, number> = {
@@ -101,10 +101,10 @@ export function CockpitLeftRail({
         const icon = item.severity === 'blocking' ? AlertTriangle : item.severity === 'warning' ? AlertCircle : CheckCircle2;
         const Icon = icon;
         const tone = item.severity === 'blocking'
-            ? 'text-red-600'
+            ? 'text-danger-600'
             : item.severity === 'warning'
-                ? 'text-amber-600'
-                : 'text-blue-500';
+                ? 'text-warning-600'
+                : 'text-info-500';
         return (
             <button
                 key={item.id}
@@ -156,7 +156,7 @@ export function CockpitLeftRail({
                 {/* Блокеры */}
                 {showBlocking && (
                     <div>
-                        {sectionHeader(blockingOpen, () => setBlockingOpen(o => !o), 'Блокеры', blockers.length, AlertTriangle, 'text-red-600')}
+                        {sectionHeader(blockingOpen, () => setBlockingOpen(o => !o), 'Блокеры', blockers.length, AlertTriangle, 'text-danger-600')}
                         {blockingOpen && (
                             blockers.length === 0 ? (
                                 <div className="px-3 py-2 text-[11px] text-neutral-400 italic border-b border-neutral-100">Нет блокеров</div>
@@ -170,7 +170,7 @@ export function CockpitLeftRail({
                 {/* Риски */}
                 {showWarning && (
                     <div>
-                        {sectionHeader(warningOpen, () => setWarningOpen(o => !o), 'Риски', warnings.length, AlertCircle, 'text-amber-600')}
+                        {sectionHeader(warningOpen, () => setWarningOpen(o => !o), 'Риски', warnings.length, AlertCircle, 'text-warning-600')}
                         {warningOpen && (
                             warnings.length === 0 ? (
                                 <div className="px-3 py-2 text-[11px] text-neutral-400 italic border-b border-neutral-100">Нет рисков</div>
@@ -184,7 +184,7 @@ export function CockpitLeftRail({
                 {/* OK / info */}
                 {showOk && (
                     <div>
-                        {sectionHeader(okOpen, () => setOkOpen(o => !o), 'OK / инфо', infos.length, CheckCircle2, 'text-emerald-600')}
+                        {sectionHeader(okOpen, () => setOkOpen(o => !o), 'OK / инфо', infos.length, CheckCircle2, 'text-success-600')}
                         {okOpen && (
                             infos.length === 0 ? (
                                 <div className="px-3 py-2 text-[11px] text-neutral-400 italic border-b border-neutral-100">Нет событий</div>
@@ -203,7 +203,7 @@ export function CockpitLeftRail({
                         className="w-full flex items-center gap-2 px-3 py-2 hover:bg-neutral-50 border-b border-neutral-100 bg-neutral-50/60"
                     >
                         {tripsOpen ? <ChevronDown className="w-3 h-3 text-neutral-400" /> : <ChevronRight className="w-3 h-3 text-neutral-400" />}
-                        <Package className="w-3.5 h-3.5 text-emerald-600" />
+                        <Package className="w-3.5 h-3.5 text-success-600" />
                         <span className="text-xs font-semibold uppercase tracking-wide text-neutral-600 flex-1 text-left">Live рейсы</span>
                         <span className="tabular-nums text-[11px] font-medium text-neutral-500">{sortedTrips.length}</span>
                     </button>
@@ -216,7 +216,7 @@ export function CockpitLeftRail({
                                     key={trip.id}
                                     type="button"
                                     onClick={() => onSelectTrip?.(trip)}
-                                    className="w-full text-left px-3 py-1.5 hover:bg-emerald-50 border-b border-neutral-100 transition-colors group"
+                                    className="w-full text-left px-3 py-1.5 hover:bg-success-50 border-b border-neutral-100 transition-colors group"
                                 >
                                     <div className="flex items-center gap-2 mb-0.5">
                                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[trip.status] || 'bg-neutral-400'}`} />

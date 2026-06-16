@@ -340,7 +340,7 @@ export default function OrdersPage() {
                     }).format(r.customerPrice);
                     return (
                         <div className="text-right">
-                            <div className="text-sm font-medium text-emerald-700">{formatted}</div>
+                            <div className="text-sm font-medium text-success-700">{formatted}</div>
                             <div className="text-[10px] text-neutral-500">
                                 {r.customerPriceIncludesVat ? 'с НДС' : 'без НДС'}
                             </div>
@@ -443,11 +443,11 @@ export default function OrdersPage() {
             </header>
 
             {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div className="rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-danger-600 shrink-0 mt-0.5" />
                     <div>
-                        <div className="font-medium text-red-800">Не удалось загрузить заявки</div>
-                        <div className="text-sm text-red-700">{error}</div>
+                        <div className="font-medium text-danger-800">Не удалось загрузить заявки</div>
+                        <div className="text-sm text-danger-700">{error}</div>
                     </div>
                 </div>
             )}

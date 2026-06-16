@@ -26,20 +26,20 @@ export function TaxRegimeBanner() {
     if (!user.roles.includes('admin')) return null;
 
     return (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="rounded-xl border border-warning-300 bg-warning-50 px-4 py-3 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-warning-600 shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-amber-900">
+                <div className="text-sm font-semibold text-warning-900">
                     Заполните налоговый режим организации
                 </div>
-                <div className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                <div className="text-xs text-warning-800 mt-0.5 leading-relaxed">
                     Выпуск счетов и счетов-фактур заблокирован до явного выбора режима
                     (ОСНО / УСН / АУСН / Патент / НПД). От этого зависит логика НДС.
                 </div>
             </div>
             <Link
                 href="/admin/settings#tax-regime"
-                className="inline-flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                className="inline-flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-warning-600 text-white hover:bg-warning-700 transition-colors"
             >
                 Выбрать режим
                 <ArrowRight className="w-3.5 h-3.5" />

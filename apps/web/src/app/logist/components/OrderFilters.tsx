@@ -70,7 +70,7 @@ export function OrderFilters({ filters, onFiltersChange, contractors }: OrderFil
                 {hasActiveFilters && (
                     <button
                         onClick={() => onFiltersChange({})}
-                        className="px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 flex items-center gap-1 transition-colors"
+                        className="px-3 py-2 rounded-lg text-sm text-danger-600 hover:bg-danger-50 flex items-center gap-1 transition-colors"
                     >
                         <X className="w-4 h-4" />
                         Сбросить

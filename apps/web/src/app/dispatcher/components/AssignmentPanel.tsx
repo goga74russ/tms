@@ -226,7 +226,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
         <div className="bg-white rounded-xl border border-neutral-200 shadow-sm flex flex-col" style={{ minHeight: '500px' }}>
             {/* Toast */}
             {toast && (
-                <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${toast.type === 'success' ? 'bg-success-600' : 'bg-danger-600'}`}>
                     {toast.message}
                 </div>
             )}
@@ -234,15 +234,15 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
             {/* Header */}
             <div className="px-4 py-3 border-b border-neutral-100">
                 <h3 className="text-sm font-bold text-neutral-800 flex items-center gap-2">
-                    <ArrowRight className="w-4 h-4 text-emerald-500" />
+                    <ArrowRight className="w-4 h-4 text-success-500" />
                     Назначение
                 </h3>
             </div>
 
             {assignSuccess && (
-                <div className="mx-3 mt-3 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600" />
-                    <span className="text-xs text-emerald-700 font-medium">{assignSuccess}</span>
+                <div className="mx-3 mt-3 px-3 py-2 rounded-lg bg-success-50 border border-success-200 flex items-center gap-2">
+                    <Check className="w-4 h-4 text-success-600" />
+                    <span className="text-xs text-success-700 font-medium">{assignSuccess}</span>
                 </div>
             )}
 
@@ -263,9 +263,9 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                     if (overflow) tone = 'red';
                     else if (pct >= 90) tone = 'yellow';
                     const toneClass = {
-                        green: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-                        yellow: 'border-amber-200 bg-amber-50 text-amber-800',
-                        red: 'border-red-200 bg-red-50 text-red-800',
+                        green: 'border-success-200 bg-success-50 text-success-800',
+                        yellow: 'border-warning-200 bg-warning-50 text-warning-800',
+                        red: 'border-danger-200 bg-danger-50 text-danger-800',
                     }[tone];
                     return (
                         <div className={`rounded-xl border px-3 py-2 ${toneClass}`}>
@@ -289,18 +289,18 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
 
                 {/* ============= ADR validation warnings ============= */}
                 {adrWarnings.length > 0 && (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                    <div className="rounded-xl border border-warning-200 bg-warning-50 px-3 py-2.5">
                         <div className="flex items-start gap-2">
-                            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-warning-600" />
                             <div className="min-w-0 flex-1">
-                                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">ADR — внимание</p>
-                                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-amber-800">
+                                <p className="text-[11px] font-bold uppercase tracking-wide text-warning-700">ADR — внимание</p>
+                                <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-warning-800">
                                     {adrWarnings.map((err, i) => (
                                         // adrWarnings is a list of plain strings; combine index + content for stability
                                         <li key={`${i}:${err}`}>{err}</li>
                                     ))}
                                 </ul>
-                                <p className="mt-1.5 text-[10px] text-amber-600">Назначение не блокируется — проверьте перед подтверждением.</p>
+                                <p className="mt-1.5 text-[10px] text-warning-600">Назначение не блокируется — проверьте перед подтверждением.</p>
                             </div>
                         </div>
                     </div>
@@ -325,7 +325,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                             <div>
                                 <div className="flex justify-between items-center mb-0.5">
                                     <span className="font-bold text-neutral-800">{v.plateNumber}</span>
-                                    <span className="text-xs font-medium text-emerald-600">
+                                    <span className="text-xs font-medium text-success-600">
                                         {(v.payloadCapacityKg / 1000).toFixed(0)}т
                                     </span>
                                 </div>
@@ -341,12 +341,12 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
 
                     {/* Selected vehicle card */}
                     {selectedVehicle && (
-                        <div className="mt-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                        <div className="mt-2 p-3 rounded-xl bg-success-50 border border-success-200">
                             <div className="flex items-center justify-between mb-1.5">
                                 <span className="text-sm font-bold text-neutral-800">{selectedVehicle.plateNumber}</span>
                                 <div className="flex items-center gap-1">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                    <span className="text-xs text-emerald-600 font-medium">Свободен</span>
+                                    <div className="w-2 h-2 rounded-full bg-success-500" />
+                                    <span className="text-xs text-success-600 font-medium">Свободен</span>
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-neutral-600">
@@ -395,7 +395,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                         )}
                     />
                     {selectedDriver && (
-                        <div className="mt-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                        <div className="mt-2 p-3 rounded-xl bg-success-50 border border-success-200">
                             <div className="flex items-center justify-between">
                                 <span className="text-sm font-bold text-neutral-800 flex items-center gap-1.5">
                                     <User className="w-3.5 h-3.5 text-neutral-400" />
@@ -433,12 +433,12 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                     />
                     {cityFilter && (
                         <div className="mt-1.5 flex items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-700 font-medium">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-info-50 border border-info-200 text-xs text-info-700 font-medium">
                                 <MapPin className="w-3 h-3" />
                                 {cityFilter}
                                 <button
                                     onClick={() => setCityFilter(null)}
-                                    className="ml-0.5 p-0.5 rounded hover:bg-blue-100"
+                                    className="ml-0.5 p-0.5 rounded hover:bg-info-100"
                                 >
                                     <X className="w-3 h-3" />
                                 </button>
@@ -460,7 +460,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                                 type="datetime-local"
                                 value={loadingFrom}
                                 onChange={e => setLoadingFrom(e.target.value)}
-                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-success-300"
                             />
                         </div>
                         <div>
@@ -469,7 +469,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                                 type="datetime-local"
                                 value={loadingTo}
                                 onChange={e => setLoadingTo(e.target.value)}
-                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-success-300"
                             />
                         </div>
                         <div>
@@ -478,7 +478,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                                 type="datetime-local"
                                 value={unloadingFrom}
                                 onChange={e => setUnloadingFrom(e.target.value)}
-                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-success-300"
                             />
                         </div>
                         <div>
@@ -487,7 +487,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                                 type="datetime-local"
                                 value={unloadingTo}
                                 onChange={e => setUnloadingTo(e.target.value)}
-                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                                className="w-full px-2 py-1.5 text-xs border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-success-300"
                             />
                         </div>
                     </div>
@@ -528,7 +528,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                                             {order.number}
                                             {order.adrClass && (
                                                 <span
-                                                    className="inline-flex items-center gap-0.5 rounded border border-red-200 bg-red-100 px-1 py-0 text-[9px] font-bold text-red-700"
+                                                    className="inline-flex items-center gap-0.5 rounded border border-danger-200 bg-danger-100 px-1 py-0 text-[9px] font-bold text-danger-700"
                                                     title={`ADR класс ${order.adrClass}${order.adrUnNumber ? ` · ${order.adrUnNumber}` : ''}`}
                                                 >
                                                     <AlertTriangle className="w-2 h-2" />
@@ -568,7 +568,7 @@ export function AssignmentPanel({ orders, vehicles, onAssign }: AssignmentPanelP
                         return missing.length ? `Выберите ${missing.join(', ')}, чтобы назначить` : undefined;
                     })()}
                     className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${selectedOrder && selectedVehicle && selectedDriver
-                        ? 'bg-gradient-to-r from-emerald-500 to-accent-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl'
+                        ? 'bg-gradient-to-r from-success-500 to-accent-600 text-white shadow-lg shadow-success-500/25 hover:shadow-xl'
                         : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
                         }`}
                 >

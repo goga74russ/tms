@@ -55,20 +55,20 @@ const variantStyles: Record<ToastVariant, { container: string; icon: React.React
         icon: <Info className="w-5 h-5 text-neutral-500" />,
     },
     success: {
-        container: 'bg-white border-emerald-200 text-neutral-900',
-        icon: <CheckCircle2 className="w-5 h-5 text-emerald-600" />,
+        container: 'bg-white border-success-200 text-neutral-900',
+        icon: <CheckCircle2 className="w-5 h-5 text-success-600" />,
     },
     error: {
-        container: 'bg-white border-red-200 text-neutral-900',
-        icon: <XCircle className="w-5 h-5 text-red-600" />,
+        container: 'bg-white border-danger-200 text-neutral-900',
+        icon: <XCircle className="w-5 h-5 text-danger-600" />,
     },
     warning: {
-        container: 'bg-white border-amber-200 text-neutral-900',
-        icon: <AlertTriangle className="w-5 h-5 text-amber-600" />,
+        container: 'bg-white border-warning-200 text-neutral-900',
+        icon: <AlertTriangle className="w-5 h-5 text-warning-600" />,
     },
     info: {
-        container: 'bg-white border-blue-200 text-neutral-900',
-        icon: <Info className="w-5 h-5 text-blue-600" />,
+        container: 'bg-white border-info-200 text-neutral-900',
+        icon: <Info className="w-5 h-5 text-info-600" />,
     },
 };
 

@@ -87,9 +87,9 @@ export function Hero() {
                         <div className="relative rounded-2xl bg-white/95 shadow-2xl border border-white/40 overflow-hidden backdrop-blur-sm">
                             {/* fake browser chrome */}
                             <div className="flex items-center gap-1.5 px-4 h-9 bg-neutral-100 border-b border-neutral-200">
-                                <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-danger-400" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-warning-400" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-success-400" />
                                 <div className="ml-3 px-3 h-5 flex items-center bg-white rounded text-[10px] text-neutral-500 border border-neutral-200">
                                     transpult.ru/dispatcher
                                 </div>
@@ -99,8 +99,8 @@ export function Hero() {
                                 <div className="grid grid-cols-3 gap-2 mb-4">
                                     {[
                                         { l: 'В пути', v: '24', tone: 'text-brand-600' },
-                                        { l: 'SLA OK', v: '92%', tone: 'text-emerald-600' },
-                                        { l: 'Алерты', v: '3', tone: 'text-amber-600' },
+                                        { l: 'SLA OK', v: '92%', tone: 'text-success-600' },
+                                        { l: 'Алерты', v: '3', tone: 'text-warning-600' },
                                     ].map((s) => (
                                         <div key={s.l} className="bg-white rounded-lg border border-neutral-200 p-2.5">
                                             <div className={`text-lg font-bold ${s.tone}`}>{s.v}</div>
@@ -111,9 +111,9 @@ export function Hero() {
                                 {/* fake trips list */}
                                 <div className="bg-white rounded-lg border border-neutral-200 divide-y divide-neutral-100">
                                     {[
-                                        { id: 'R-1042', route: 'СПб → Москва', state: 'в пути', color: 'bg-emerald-100 text-emerald-700' },
-                                        { id: 'R-1043', route: 'Москва → Казань', state: 'погрузка', color: 'bg-blue-100 text-blue-700' },
-                                        { id: 'R-1044', route: 'Тверь → Сочи', state: 'задержка', color: 'bg-amber-100 text-amber-700' },
+                                        { id: 'R-1042', route: 'СПб → Москва', state: 'в пути', color: 'bg-success-100 text-success-700' },
+                                        { id: 'R-1043', route: 'Москва → Казань', state: 'погрузка', color: 'bg-info-100 text-info-700' },
+                                        { id: 'R-1044', route: 'Тверь → Сочи', state: 'задержка', color: 'bg-warning-100 text-warning-700' },
                                     ].map((r) => (
                                         <div key={r.id} className="flex items-center gap-2 px-3 py-2.5">
                                             <div className="w-7 h-7 rounded-md bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">

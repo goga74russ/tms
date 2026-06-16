@@ -344,8 +344,8 @@ export default function OnboardingPage() {
                     {currentHelp ? (
                         <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm p-5 sticky top-6 space-y-4">
                             <div className="flex items-center gap-2">
-                                <span className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                                    <Lightbulb className="w-4 h-4 text-amber-600" />
+                                <span className="w-8 h-8 rounded-lg bg-warning-50 flex items-center justify-center shrink-0">
+                                    <Lightbulb className="w-4 h-4 text-warning-600" />
                                 </span>
                                 <h2 className="text-sm font-bold text-neutral-900">{currentHelp.title}</h2>
                             </div>

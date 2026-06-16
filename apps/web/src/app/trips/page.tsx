@@ -188,15 +188,15 @@ type OperationalAction = 'downtime' | 'readdress' | 'cancel' | 'breakdown' | 're
 
 const STATUS_COLORS: Record<string, string> = {
     planning: 'bg-neutral-100 text-neutral-700',
-    assigned: 'bg-blue-100 text-blue-700',
+    assigned: 'bg-info-100 text-info-700',
     waybill_draft: 'bg-brand-100 text-brand-700',
     inspection: 'bg-cyan-100 text-cyan-700',
     waybill_issued: 'bg-violet-100 text-violet-700',
-    loading: 'bg-orange-100 text-orange-700',
-    in_transit: 'bg-amber-100 text-amber-800',
-    completed: 'bg-emerald-100 text-emerald-700',
-    billed: 'bg-green-100 text-green-800',
-    cancelled: 'bg-red-100 text-red-700',
+    loading: 'bg-warning-100 text-warning-700',
+    in_transit: 'bg-warning-100 text-warning-800',
+    completed: 'bg-success-100 text-success-700',
+    billed: 'bg-success-100 text-success-800',
+    cancelled: 'bg-danger-100 text-danger-700',
 };
 
 function formatEtaBadge(etaIso?: string | null, reason?: string): string {
@@ -372,9 +372,9 @@ function transportTone(status: string) {
 
 function toneClass(tone: 'info' | 'warning' | 'critical', variant: 'bg' | 'text' = 'bg') {
     if (variant === 'text') {
-        return tone === 'critical' ? 'text-rose-700' : tone === 'warning' ? 'text-amber-700' : 'text-brand-700';
+        return tone === 'critical' ? 'text-danger-700' : tone === 'warning' ? 'text-warning-700' : 'text-brand-700';
     }
-    return tone === 'critical' ? 'bg-rose-100 text-rose-700' : tone === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-brand-100 text-brand-700';
+    return tone === 'critical' ? 'bg-danger-100 text-danger-700' : tone === 'warning' ? 'bg-warning-100 text-warning-700' : 'bg-brand-100 text-brand-700';
 }
 
 function documentStatusTone(status: string) {
@@ -397,7 +397,7 @@ function docEventIcon(isProblem: boolean, severity: string) {
 
 function RetryHint({ label = 'Требует проверки' }: { label?: string }) {
     return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+        <span className="inline-flex items-center gap-1 rounded-full bg-danger-50 px-2 py-0.5 text-[11px] font-semibold text-danger-700">
             <RefreshCcw className="w-3 h-3" />
             {label}
         </span>
@@ -522,9 +522,9 @@ function CloseGateBlock({
     const hasItems = allItems.length > 0;
     const canClose = closeGate.canClose && blockingItems.length === 0;
     const bucketClass: Record<string, string> = {
-        missing: 'bg-rose-100 text-rose-700',
-        overdue: 'bg-red-100 text-red-700',
-        exceptioned: 'bg-amber-100 text-amber-700',
+        missing: 'bg-danger-100 text-danger-700',
+        overdue: 'bg-danger-100 text-danger-700',
+        exceptioned: 'bg-warning-100 text-warning-700',
     };
     const roleLabel: Record<string, string> = {
         dispatcher: 'диспетчер',
@@ -540,7 +540,7 @@ function CloseGateBlock({
                     <p className="mt-1 text-xs leading-5 text-neutral-600">{item.reason || item.blockedReason || 'Требуется проверка документа'}</p>
                 </div>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                    item.severity === 'blocking' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                    item.severity === 'blocking' ? 'bg-danger-100 text-danger-700' : 'bg-warning-100 text-warning-700'
                 }`}>
                     {item.severity === 'blocking' ? 'блокер' : 'риск'}
                 </span>
@@ -566,7 +566,7 @@ function CloseGateBlock({
                     type="button"
                     onClick={() => onPaperException({ id: item.id, documentType: item.documentType })}
                     disabled={exceptioningItemId === item.id}
-                    className="mt-2 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-2 inline-flex items-center gap-1 rounded-md border border-warning-300 bg-warning-50 px-2 py-1 text-[11px] font-semibold text-warning-800 hover:bg-warning-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     {exceptioningItemId === item.id
                         ? <Loader2 className="h-3 w-3 animate-spin" />
@@ -579,11 +579,11 @@ function CloseGateBlock({
 
     return (
         <div className={`rounded-2xl border p-4 ${
-            canClose ? 'border-emerald-200 bg-emerald-50/70' : 'border-rose-200 bg-rose-50/70'
+            canClose ? 'border-success-200 bg-success-50/70' : 'border-danger-200 bg-danger-50/70'
         }`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <p className={`text-xs font-semibold uppercase tracking-wide ${canClose ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    <p className={`text-xs font-semibold uppercase tracking-wide ${canClose ? 'text-success-600' : 'text-danger-600'}`}>
                         Закрытие рейса
                     </p>
                     <p className="mt-1 text-base font-semibold text-neutral-900">
@@ -595,14 +595,14 @@ function CloseGateBlock({
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                        canClose ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                        canClose ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700'
                     }`}>
                         {canClose ? 'Можно закрыть' : 'Закрытие заблокировано'}
                     </span>
-                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-sm">
+                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-danger-700 shadow-sm">
                         Блокеров: {blockingItems.length}
                     </span>
-                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 shadow-sm">
+                    <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-warning-700 shadow-sm">
                         Рисков: {warningItems.length}
                     </span>
                 </div>
@@ -630,7 +630,7 @@ function CloseGateBlock({
                         {warningItems.map(renderItem)}
                     </div>
                 ) : (
-                    <div className="rounded-xl border border-white bg-white px-3 py-2 text-sm text-emerald-700 shadow-sm">
+                    <div className="rounded-xl border border-white bg-white px-3 py-2 text-sm text-success-700 shadow-sm">
                         Блокирующих и предупреждающих пунктов нет.
                     </div>
                 )}
@@ -710,7 +710,7 @@ function DossierNextActions({
                     <p className="mt-1 text-sm font-semibold text-neutral-900">Ремонт, возврат, закрытие — быстрые ссылки</p>
                 </div>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                    closeGate?.canClose ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                    closeGate?.canClose ? 'bg-success-100 text-success-700' : 'bg-danger-100 text-danger-700'
                 }`}>
                     {closeGate?.canClose ? 'Готов к закрытию' : 'Закрытие заблокировано'}
                 </span>
@@ -849,7 +849,7 @@ function OperationalStructureBlock({
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiOrder ? 'bg-brand-100 text-brand-700' : 'bg-neutral-100 text-neutral-600'}`}>
                         {orderCount} заявок
                     </span>
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${assignments.length > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-600'}`}>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${assignments.length > 0 ? 'bg-success-100 text-success-700' : 'bg-neutral-100 text-neutral-600'}`}>
                         {assignments.length} партий
                     </span>
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${hasMultiStop ? 'bg-sky-100 text-sky-700' : 'bg-neutral-100 text-neutral-600'}`}>
@@ -869,7 +869,7 @@ function OperationalStructureBlock({
                     <p className="mt-1 text-sm font-semibold text-neutral-900">
                         {formatWeightKg(summary?.totalAssignedWeightKg)} / {formatWeightKg(summary?.payloadCapacityKg)}
                     </p>
-                    <p className={`mt-1 text-xs ${summary?.overweight || summary?.overVolume ? 'text-rose-600' : 'text-neutral-500'}`}>
+                    <p className={`mt-1 text-xs ${summary?.overweight || summary?.overVolume ? 'text-danger-600' : 'text-neutral-500'}`}>
                         {summary?.overweight ? 'Перегруз по массе' : summary?.overVolume ? 'Перегруз по объёму' : 'Сводка вместимости из плана загрузки.'}
                     </p>
                 </div>
@@ -947,9 +947,9 @@ function OperationalStructureBlock({
                             return (
                                 <div
                                     key={point.id}
-                                    className={`flex gap-3 px-3 py-3 ${overdue ? 'bg-rose-50' : ''}`}
+                                    className={`flex gap-3 px-3 py-3 ${overdue ? 'bg-danger-50' : ''}`}
                                 >
-                                    <span className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${overdue ? 'bg-rose-200 text-rose-800' : 'bg-brand-100 text-brand-700'}`}>
+                                    <span className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${overdue ? 'bg-danger-200 text-danger-800' : 'bg-brand-100 text-brand-700'}`}>
                                         {routePointOrder(point, index)}
                                     </span>
                                     <div className="min-w-0 flex-1">
@@ -959,7 +959,7 @@ function OperationalStructureBlock({
                                             {point.status || 'planned'} | план {formatTimelineDate(point.plannedArrivalAt)} | факт {formatTimelineDate(point.actualArrivalAt)}
                                         </p>
                                         {window && (
-                                            <p className={`mt-1 text-[11px] font-medium ${overdue ? 'text-rose-700' : 'text-neutral-500'}`}>
+                                            <p className={`mt-1 text-[11px] font-medium ${overdue ? 'text-danger-700' : 'text-neutral-500'}`}>
                                                 Окно: {window}
                                                 {overdue && <span className="ml-1 font-semibold">· просрочено</span>}
                                             </p>
@@ -972,7 +972,7 @@ function OperationalStructureBlock({
                                                 type="button"
                                                 onClick={() => onCompletePoint!(point.id)}
                                                 disabled={completingPointId === point.id}
-                                                className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-success-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-success-700 disabled:cursor-not-allowed disabled:opacity-50"
                                             >
                                                 {completingPointId === point.id
                                                     ? <Loader2 className="h-3 w-3 animate-spin" />
@@ -981,7 +981,7 @@ function OperationalStructureBlock({
                                             </button>
                                         )}
                                         {canCompletePoints && point.status === 'completed' && (
-                                            <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                                            <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-success-700">
                                                 <CheckCircle2 className="h-3 w-3" />
                                                 Пройдена
                                             </p>
@@ -1012,7 +1012,7 @@ function OperationalStructureBlock({
                                                 <p className="text-sm font-semibold text-neutral-900">{order.number || order.id}</p>
                                                 {order.adrClass && (
                                                     <span
-                                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-bold border border-red-200"
+                                                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-danger-100 text-danger-700 text-[10px] font-bold border border-danger-200"
                                                         title={`ADR класс ${order.adrClass}${order.adrUnNumber ? ` · ${order.adrUnNumber}` : ''}`}
                                                     >
                                                         <AlertTriangle className="w-2.5 h-2.5" />
@@ -1267,8 +1267,8 @@ function OperationalActionsBlock({
             {result && (
                 <div className={`mt-4 rounded-xl border px-3 py-2 text-sm ${
                     result.tone === 'success'
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-rose-200 bg-rose-50 text-rose-700'
+                        ? 'border-success-200 bg-success-50 text-success-700'
+                        : 'border-danger-200 bg-danger-50 text-danger-700'
                 }`}>
                     {result.message}
                 </div>
@@ -1724,10 +1724,10 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {transportDocuments?.lifecycle?.hasBlockingProblems && (
-                        <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-700">блокировка</span>
+                        <span className="inline-flex rounded-full bg-danger-100 px-2.5 py-1 text-[11px] font-semibold text-danger-700">блокировка</span>
                     )}
                     {transportDocuments?.lifecycle?.hasWarnings && (
-                        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">проверить</span>
+                        <span className="inline-flex rounded-full bg-warning-100 px-2.5 py-1 text-[11px] font-semibold text-warning-700">проверить</span>
                     )}
                     <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-600 shadow-sm">
                         Замечаний: {transportDocuments?.summary?.problemCount ?? 0}
@@ -1736,7 +1736,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
             </div>
 
             {documentActionResult && (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                <div className="rounded-xl border border-success-200 bg-success-50 px-3 py-2 text-sm text-success-700">
                     {documentActionResult}
                 </div>
             )}
@@ -1788,7 +1788,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Не хватает документов</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(transportDocuments?.lifecycle?.missingDocumentTypes || []).map((type: string) => (
-                                <span key={type} className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">
+                                <span key={type} className="inline-flex rounded-full bg-danger-50 px-2.5 py-1 text-[11px] font-semibold text-danger-700">
                                     {transportDocumentLabel(type)}
                                 </span>
                             ))}
@@ -1801,7 +1801,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Блокировки ЭТРН</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(etrn?.summary?.blockingTitleTypes || []).map((type: string) => (
-                                <span key={type} className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                                <span key={type} className="inline-flex rounded-full bg-warning-50 px-2.5 py-1 text-[11px] font-semibold text-warning-700">
                                     {type}
                                 </span>
                             ))}
@@ -1814,10 +1814,10 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
             )}
 
             {docProblems.length > 0 && (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4">
+                <div className="rounded-2xl border border-danger-200 bg-danger-50/70 p-4">
                     <div className="flex items-start justify-between gap-3">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Ошибки и подсказки retry</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-danger-500">Ошибки и подсказки retry</p>
                             <p className="text-sm font-semibold text-neutral-900">Persisted document issues</p>
                         </div>
                         <RetryHint label="Исправить и повторить" />
@@ -1827,7 +1827,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                             <div key={`${problem.code}-${problem.documentId || problem.at || problem.message}`} className="rounded-xl border border-white bg-white px-3 py-2">
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
-                                        <p className="text-xs font-semibold text-rose-700">{problem.code}</p>
+                                        <p className="text-xs font-semibold text-danger-700">{problem.code}</p>
                                         <p className="text-sm text-neutral-900">{problem.message}</p>
                                     </div>
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(problem.severity, 'bg')}`}>
@@ -1905,7 +1905,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                 type="button"
                                 disabled={!tripId || documentActionLoading === `sign-${doc.id}`}
                                 onClick={() => recordDocumentSignature(doc)}
-                                className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                                className="rounded-lg border border-success-200 bg-success-50 px-2 py-1.5 text-[11px] font-semibold text-success-700 hover:bg-success-100 disabled:opacity-50"
                             >
                                 {documentActionLoading === `sign-${doc.id}` ? 'Запись...' : 'Подписать'}
                             </button>
@@ -1913,13 +1913,13 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                 type="button"
                                 disabled={!tripId || documentActionLoading === `refuse-${doc.id}`}
                                 onClick={() => recordDocumentRefusal(doc)}
-                                className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                                className="rounded-lg border border-danger-200 bg-danger-50 px-2 py-1.5 text-[11px] font-semibold text-danger-700 hover:bg-danger-100 disabled:opacity-50"
                             >
                                 {documentActionLoading === `refuse-${doc.id}` ? 'Запись...' : 'Отказать'}
                             </button>
                         </div>
                         {(doc.error || doc.status === 'error' || doc.status === 'rejected') && (
-                            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                            <div className="mt-3 rounded-xl border border-danger-200 bg-danger-50 px-3 py-2 text-xs text-danger-700">
                                 {doc.error || 'Документ требует повторной проверки перед retry'}
                             </div>
                         )}
@@ -1952,8 +1952,8 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
 
                             const titles: TitleType[] = ['T01', 'T02', 'T05', 'T06'];
                             return (
-                                <div className="mt-3 space-y-2 rounded-xl border border-emerald-100 bg-emerald-50/40 px-3 py-2">
-                                    <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                                <div className="mt-3 space-y-2 rounded-xl border border-success-100 bg-success-50/40 px-3 py-2">
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-success-700">
                                         ЭТрН титулы
                                     </p>
                                     <div className="grid grid-cols-2 gap-1.5">
@@ -1984,13 +1984,13 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                 switch (ediStatus) {
                                     case 'sent':
                                     case 'edi_sent':
-                                        return { label: '📤 Отправлено', cls: 'border-blue-200 bg-blue-50 text-blue-700' };
+                                        return { label: '📤 Отправлено', cls: 'border-info-200 bg-info-50 text-info-700' };
                                     case 'signed_by_carrier':
-                                        return { label: '✓ Подписано перевозчиком', cls: 'border-emerald-200 bg-emerald-50 text-emerald-700' };
+                                        return { label: '✓ Подписано перевозчиком', cls: 'border-success-200 bg-success-50 text-success-700' };
                                     case 'signed_by_client':
-                                        return { label: '✓✓ Подписано клиентом', cls: 'border-emerald-200 bg-emerald-100 text-emerald-800' };
+                                        return { label: '✓✓ Подписано клиентом', cls: 'border-success-200 bg-success-100 text-success-800' };
                                     case 'rejected':
-                                        return { label: '✕ Отклонено', cls: 'border-rose-200 bg-rose-50 text-rose-700' };
+                                        return { label: '✕ Отклонено', cls: 'border-danger-200 bg-danger-50 text-danger-700' };
                                     default:
                                         return ediStatus
                                             ? { label: ediStatus, cls: 'border-neutral-200 bg-neutral-50 text-neutral-600' }
@@ -2113,7 +2113,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                         {title.error && <RetryHint label="повторить после исправления" />}
                                     </div>
                                     {title.error && (
-                                        <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
+                                        <div className="mt-2 rounded-lg border border-danger-200 bg-danger-50 px-2 py-1 text-[11px] text-danger-700">
                                             {title.error}
                                         </div>
                                     )}
@@ -2122,10 +2122,10 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                         </div>
                     </div>
                     {etrnProblems.length > 0 && (
-                        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                        <div className="rounded-2xl border border-warning-200 bg-warning-50/70 p-4">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">ETRN issues</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-warning-600">ETRN issues</p>
                                     <p className="text-sm font-semibold text-neutral-900">Что мешает пройти по контуру</p>
                                 </div>
                                 <RetryHint label="Check blockers" />
@@ -2736,8 +2736,8 @@ export default function TripsPage() {
                                 title={hasBreach ? `Нарушений SLA: ${cc.breachCount}` : 'Холодовая цепь'}
                                 className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold border transition-colors ${
                                     hasBreach
-                                        ? 'bg-rose-100 text-rose-700 border-rose-200 hover:bg-rose-200'
-                                        : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                        ? 'bg-danger-100 text-danger-700 border-danger-200 hover:bg-danger-200'
+                                        : 'bg-info-50 text-info-700 border-info-200 hover:bg-info-100'
                                 }`}
                             >
                                 <Thermometer className="w-3 h-3" />
@@ -2790,14 +2790,14 @@ export default function TripsPage() {
                         </span>
                     )}
                     {vehicleMap[t.vehicleId]?.bodyType && (
-                        <span className="inline-flex w-fit rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                        <span className="inline-flex w-fit rounded-full bg-success-50 px-2 py-0.5 text-[11px] font-semibold text-success-700">
                             {getVehicleWaybillCue(vehicleMap[t.vehicleId].bodyType, undefined, {
                                 trailerPlate: trailerMap[t.vehicleId]?.plateNumber || null,
                             }).tone === 'ready' ? 'ПЛ ✓' : 'ПЛ ⚠'}
                         </span>
                     )}
                     {!vehicleMap[t.vehicleId]?.bodyType && (
-                        <span className="inline-flex w-fit rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                        <span className="inline-flex w-fit rounded-full bg-warning-50 px-2 py-0.5 text-[11px] font-semibold text-warning-700">
                             Тип ТС для ПЛ не задан
                         </span>
                     )}
@@ -2837,7 +2837,7 @@ export default function TripsPage() {
                 <span className="text-neutral-600 text-sm">
                     {t.plannedDistanceKm ? `${t.plannedDistanceKm} км` : '—'}
                     {t.actualDistanceKm ? (
-                        <span className="text-emerald-600 ml-1">
+                        <span className="text-success-600 ml-1">
                             <ArrowRight className="w-3 h-3 inline" />
                             {t.actualDistanceKm} км
                         </span>
@@ -2916,10 +2916,10 @@ export default function TripsPage() {
                     role="status"
                     className={`fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-soft-lg text-white font-medium text-sm animate-fade-in ${
                         tripsToast.tone === 'success'
-                            ? 'bg-emerald-600'
+                            ? 'bg-success-600'
                             : tripsToast.tone === 'warning'
-                                ? 'bg-amber-500'
-                                : 'bg-red-600'
+                                ? 'bg-warning-500'
+                                : 'bg-danger-600'
                     }`}
                 >
                     {tripsToast.message}
@@ -3086,7 +3086,7 @@ export default function TripsPage() {
             />
             {/* Wave 1: Toast */}
             {lifecycleToast && (
-                <div className={`fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${lifecycleToast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                <div className={`fixed top-4 right-4 z-[60] px-5 py-3 rounded-xl shadow-lg text-white font-medium text-sm ${lifecycleToast.type === 'success' ? 'bg-success-600' : 'bg-danger-600'}`}>
                     {lifecycleToast.message}
                 </div>
             )}
@@ -3103,7 +3103,7 @@ export default function TripsPage() {
                     </p>
                     <div>
                         <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
-                            Одометр (км) <span className="text-red-500">*</span>
+                            Одометр (км) <span className="text-danger-500">*</span>
                         </label>
                         <input
                             type="number"
@@ -3113,11 +3113,11 @@ export default function TripsPage() {
                             value={lifecycleOdometer}
                             onChange={(e) => setLifecycleOdometer(e.target.value)}
                             placeholder="например 145320"
-                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-success-300"
                         />
                     </div>
                     {lifecycleError && (
-                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                        <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
                             {lifecycleError}
                         </div>
                     )}
@@ -3158,18 +3158,18 @@ export default function TripsPage() {
                         const queue = (gate.documentQueue ?? []).map(d => `${d.reason || d.documentType}${d.action ? ` — ${d.action}` : ''}`);
                         const warnings = (gate.warningItems ?? []).map(i => i.reason || i.documentType);
                         return (
-                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                            <div className="rounded-lg border border-warning-200 bg-warning-50 px-3 py-2.5 text-xs text-warning-800">
                                 <p className="font-bold mb-1">Чек-лист закрытия не завершён:</p>
                                 <ul className="list-disc space-y-0.5 pl-4">
                                     {blockers.map((b, i) => <li key={`b${i}`} className="font-medium">{b}</li>)}
                                     {queue.map((q, i) => <li key={`q${i}`}>{q}</li>)}
                                 </ul>
                                 {warnings.length > 0 && (
-                                    <p className="mt-1.5 text-[11px] text-amber-600">
+                                    <p className="mt-1.5 text-[11px] text-warning-600">
                                         Риски: {warnings.join('; ')}
                                     </p>
                                 )}
-                                <p className="mt-1.5 text-[11px] text-amber-600">
+                                <p className="mt-1.5 text-[11px] text-warning-600">
                                     Это не блокирует завершение, но рекомендуется снять пункты в блоке
                                     «Закрытие рейса» досье (для ЭТрН — «Бумажное исключение») до закрытия.
                                 </p>
@@ -3178,7 +3178,7 @@ export default function TripsPage() {
                     })()}
                     <div>
                         <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
-                            Одометр (км) <span className="text-red-500">*</span>
+                            Одометр (км) <span className="text-danger-500">*</span>
                         </label>
                         <input
                             type="number"
@@ -3188,7 +3188,7 @@ export default function TripsPage() {
                             value={lifecycleOdometer}
                             onChange={(e) => setLifecycleOdometer(e.target.value)}
                             placeholder="например 145890"
-                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-info-300"
                         />
                     </div>
                     <div>
@@ -3200,11 +3200,11 @@ export default function TripsPage() {
                             onChange={(e) => setLifecycleNotes(e.target.value)}
                             rows={3}
                             placeholder="Опционально"
-                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg bg-neutral-50 resize-none focus:outline-none focus:ring-2 focus:ring-info-300"
                         />
                     </div>
                     {lifecycleError && (
-                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                        <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
                             {lifecycleError}
                         </div>
                     )}
@@ -3239,7 +3239,7 @@ export default function TripsPage() {
                                     <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
                                 </div>
                             ) : dossierError ? (
-                                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                                <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
                                     {dossierError}
                                 </div>
                             ) : dossier ? (
@@ -3250,7 +3250,7 @@ export default function TripsPage() {
                                             <div className="mt-2 text-lg font-bold text-neutral-900">{dossier.trip?.number}</div>
                                             <div className="mt-1 text-sm text-neutral-500">{dossier.trip?.status}</div>
                                             {dossier?.trip?.status === 'in_transit' && (
-                                                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
+                                                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-warning-50 px-2 py-0.5 text-[11px] font-semibold text-warning-700 border border-warning-200">
                                                     <Clock3 className="w-3 h-3" />
                                                     {formatEtaBadge(tripEta?.etaIso, tripEta?.reason)}
                                                 </div>
@@ -3310,7 +3310,7 @@ export default function TripsPage() {
                                                     ].filter(Boolean);
                                                     return (
                                                         <div className="mt-3 space-y-2">
-                                                            <p className="text-[11px] leading-4 text-amber-700">
+                                                            <p className="text-[11px] leading-4 text-warning-700">
                                                                 ПЛ не выпущен — {missing.length
                                                                     ? `нужен сегодняшний ${missing.join(' и ')}`
                                                                     : 'допуски есть, нажмите пересинк'}.
@@ -3376,10 +3376,10 @@ export default function TripsPage() {
                                             </div>
                                             <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                                                 dossierReadiness.tone === 'warning'
-                                                    ? 'bg-rose-100 text-rose-700'
+                                                    ? 'bg-danger-100 text-danger-700'
                                                     : dossierReadiness.tone === 'attention'
-                                                        ? 'bg-amber-100 text-amber-700'
-                                                        : 'bg-emerald-100 text-emerald-700'
+                                                        ? 'bg-warning-100 text-warning-700'
+                                                        : 'bg-success-100 text-success-700'
                                             }`}>
                                                 {dossierReadiness.tone === 'ready' ? 'Готов' : dossierReadiness.tone === 'attention' ? 'Проверить' : 'Заблок.'}
                                             </span>
@@ -3391,9 +3391,9 @@ export default function TripsPage() {
                                                         <span className="text-xs font-medium text-neutral-700">{item.label}</span>
                                                         <span className={`text-[11px] font-semibold ${
                                                             item.state === 'done'
-                                                                ? 'text-emerald-700'
+                                                                ? 'text-success-700'
                                                                 : item.state === 'warn'
-                                                                    ? 'text-amber-700'
+                                                                    ? 'text-warning-700'
                                                                     : 'text-neutral-500'
                                                         }`}>
                                                             {item.state === 'done' ? 'OK' : item.state === 'warn' ? 'Проверить' : 'Опц.'}
@@ -3473,7 +3473,7 @@ export default function TripsPage() {
                                                     </Button>
                                                 </div>
                                                 {carrierOptions.filter(c => c.activeContract).length === 0 && (
-                                                    <p className="mt-2 text-xs text-amber-600">Нет перевозчиков с активным договором</p>
+                                                    <p className="mt-2 text-xs text-warning-600">Нет перевозчиков с активным договором</p>
                                                 )}
                                             </div>
                                         );
@@ -3508,7 +3508,7 @@ export default function TripsPage() {
                                                                     <div className="text-sm font-semibold text-neutral-900">{order.number}</div>
                                                                     {order.adrClass && (
                                                                         <span
-                                                                            className="inline-flex items-center gap-0.5 rounded border border-red-200 bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700"
+                                                                            className="inline-flex items-center gap-0.5 rounded border border-danger-200 bg-danger-100 px-1.5 py-0.5 text-[10px] font-bold text-danger-700"
                                                                             title={`ADR класс ${order.adrClass}${order.adrUnNumber ? ` · ${order.adrUnNumber}` : ''}`}
                                                                         >
                                                                             <AlertTriangle className="w-2.5 h-2.5" />

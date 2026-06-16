@@ -16,7 +16,7 @@ const TONE_STYLES: Record<Tone, { circle: string; icon: string; text: string }> 
     success: { circle: 'bg-success-50', icon: 'text-success-600', text: 'text-success-700' },
     info: { circle: 'bg-info-50', icon: 'text-info-600', text: 'text-info-700' },
     warning: { circle: 'bg-warning-50', icon: 'text-warning-600', text: 'text-warning-700' },
-    danger: { circle: 'bg-blue-50', icon: 'text-blue-600', text: 'text-blue-700' },
+    danger: { circle: 'bg-info-50', icon: 'text-info-600', text: 'text-info-700' },
     neutral: { circle: 'bg-neutral-100', icon: 'text-neutral-700', text: 'text-neutral-700' },
 };
 

@@ -392,7 +392,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
     const fieldClass = (field?: string) =>
         `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-colors ${
             field && errors[field]
-                ? 'border-red-300 focus:ring-red-500'
+                ? 'border-danger-300 focus:ring-danger-500'
                 : 'border-neutral-200 focus:ring-brand-500'
         }`;
 
@@ -408,7 +408,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
     const TabBadge = ({ count }: { count: number }) =>
         count > 0 ? (
             <span
-                className="ml-1.5 inline-flex h-1.5 w-1.5 rounded-full bg-red-500"
+                className="ml-1.5 inline-flex h-1.5 w-1.5 rounded-full bg-danger-500"
                 aria-label={`${count} ошибок на вкладке`}
             />
         ) : null;
@@ -425,7 +425,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
             <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="px-5 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-brand-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl transition-all disabled:opacity-50 flex items-center gap-2"
+                className="px-5 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-info-500 to-brand-600 text-white shadow-lg shadow-info-500/25 hover:shadow-xl transition-all disabled:opacity-50 flex items-center gap-2"
             >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {submitting ? 'Создание...' : 'Создать заявку'}
@@ -460,7 +460,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                 )}
                 {draftSavedFlash && (
                     <div
-                        className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 animate-in fade-in duration-200"
+                        className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-success-50 px-2.5 py-1 text-xs font-medium text-success-700 animate-in fade-in duration-200"
                         aria-live="polite"
                     >
                         <Check className="h-3 w-3" />
@@ -516,7 +516,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 </option>
                             ))}
                         </select>
-                        {errors.contractorId && <p className="text-xs text-red-500 mt-1">{errors.contractorId}</p>}
+                        {errors.contractorId && <p className="text-xs text-danger-500 mt-1">{errors.contractorId}</p>}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -532,7 +532,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 className={fieldClass('cargoDescription')}
                                 placeholder="Описание груза"
                             />
-                            {errors.cargoDescription && <p className="text-xs text-red-500 mt-1">{errors.cargoDescription}</p>}
+                            {errors.cargoDescription && <p className="text-xs text-danger-500 mt-1">{errors.cargoDescription}</p>}
                         </div>
                         <div>
                             <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Вес (кг)</label>
@@ -544,7 +544,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 placeholder="0"
                                 min="0"
                             />
-                            {errors.cargoWeightKg && <p className="text-xs text-red-500 mt-1">{errors.cargoWeightKg}</p>}
+                            {errors.cargoWeightKg && <p className="text-xs text-danger-500 mt-1">{errors.cargoWeightKg}</p>}
                         </div>
                     </div>
 
@@ -576,7 +576,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
 
                     <div>
                         <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
-                            <MapPin className="w-4 h-4 text-green-500" />
+                            <MapPin className="w-4 h-4 text-success-500" />
                             Погрузка
                         </label>
                         <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3">
@@ -612,7 +612,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             className={fieldClass('loadingAddress')}
                             placeholder="Адрес погрузки"
                         />
-                        {errors.loadingAddress && <p className="text-xs text-red-500 mt-1">{errors.loadingAddress}</p>}
+                        {errors.loadingAddress && <p className="text-xs text-danger-500 mt-1">{errors.loadingAddress}</p>}
                         <div className="mt-2">
                             <label className="text-xs text-neutral-500 mb-1 block">
                                 <Clock className="w-3 h-3 inline mr-1" />
@@ -629,7 +629,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
 
                     <div>
                         <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700 mb-1.5">
-                            <MapPin className="w-4 h-4 text-red-500" />
+                            <MapPin className="w-4 h-4 text-danger-500" />
                             Выгрузка
                         </label>
                         <div className="mb-3 rounded-xl border border-neutral-100 bg-neutral-50/70 p-3">
@@ -665,7 +665,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             className={fieldClass('unloadingAddress')}
                             placeholder="Адрес выгрузки"
                         />
-                        {errors.unloadingAddress && <p className="text-xs text-red-500 mt-1">{errors.unloadingAddress}</p>}
+                        {errors.unloadingAddress && <p className="text-xs text-danger-500 mt-1">{errors.unloadingAddress}</p>}
                         <div className="mt-2">
                             <label className="text-xs text-neutral-500 mb-1 block">
                                 <Clock className="w-3 h-3 inline mr-1" />
@@ -718,14 +718,14 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                 }))}
                                 className="w-4 h-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500"
                             />
-                            <Thermometer className="w-4 h-4 text-blue-500" />
+                            <Thermometer className="w-4 h-4 text-info-500" />
                             Требуется температурный контроль
                         </label>
                         {form.coldChainRequired && (
                             <div className="mt-3">
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="text-xs text-neutral-500 mb-1 block">Мин. °C <span className="text-red-500">*</span></label>
+                                        <label className="text-xs text-neutral-500 mb-1 block">Мин. °C <span className="text-danger-500">*</span></label>
                                         <input
                                             type="number"
                                             min={-50}
@@ -736,10 +736,10 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                             className={fieldClass('temperatureMin')}
                                             placeholder="например, 2"
                                         />
-                                        {errors.temperatureMin && <p className="text-xs text-red-500 mt-1">{errors.temperatureMin}</p>}
+                                        {errors.temperatureMin && <p className="text-xs text-danger-500 mt-1">{errors.temperatureMin}</p>}
                                     </div>
                                     <div>
-                                        <label className="text-xs text-neutral-500 mb-1 block">Макс. °C <span className="text-red-500">*</span></label>
+                                        <label className="text-xs text-neutral-500 mb-1 block">Макс. °C <span className="text-danger-500">*</span></label>
                                         <input
                                             type="number"
                                             min={-50}
@@ -750,7 +750,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                             className={fieldClass('temperatureMax')}
                                             placeholder="например, 8"
                                         />
-                                        {errors.temperatureMax && <p className="text-xs text-red-500 mt-1">{errors.temperatureMax}</p>}
+                                        {errors.temperatureMax && <p className="text-xs text-danger-500 mt-1">{errors.temperatureMax}</p>}
                                     </div>
                                 </div>
                             </div>
@@ -768,15 +768,15 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                     adrClass: e.target.checked ? current.adrClass : '',
                                     adrUnNumber: e.target.checked ? current.adrUnNumber : '',
                                 }))}
-                                className="w-4 h-4 rounded border-neutral-300 text-red-600 focus:ring-red-500"
+                                className="w-4 h-4 rounded border-neutral-300 text-danger-600 focus:ring-danger-500"
                             />
-                            <AlertTriangle className="w-4 h-4 text-red-500" />
+                            <AlertTriangle className="w-4 h-4 text-danger-500" />
                             Опасный груз (ADR)
                         </label>
                         {form.adrEnabled && (
                             <div className="mt-3 grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="text-xs text-neutral-500 mb-1 block">Класс ADR <span className="text-red-500">*</span></label>
+                                    <label className="text-xs text-neutral-500 mb-1 block">Класс ADR <span className="text-danger-500">*</span></label>
                                     <select
                                         value={form.adrClass}
                                         onChange={(e) => setForm((current) => ({ ...current, adrClass: e.target.value }))}
@@ -787,10 +787,10 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                             <option key={cls} value={cls}>Класс {cls}</option>
                                         ))}
                                     </select>
-                                    {errors.adrClass && <p className="text-xs text-red-500 mt-1">{errors.adrClass}</p>}
+                                    {errors.adrClass && <p className="text-xs text-danger-500 mt-1">{errors.adrClass}</p>}
                                 </div>
                                 <div>
-                                    <label className="text-xs text-neutral-500 mb-1 block">UN-номер <span className="text-red-500">*</span></label>
+                                    <label className="text-xs text-neutral-500 mb-1 block">UN-номер <span className="text-danger-500">*</span></label>
                                     <input
                                         type="text"
                                         value={form.adrUnNumber}
@@ -799,7 +799,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                                         placeholder="UN1234"
                                         maxLength={6}
                                     />
-                                    {errors.adrUnNumber && <p className="text-xs text-red-500 mt-1">{errors.adrUnNumber}</p>}
+                                    {errors.adrUnNumber && <p className="text-xs text-danger-500 mt-1">{errors.adrUnNumber}</p>}
                                 </div>
                             </div>
                         )}
@@ -904,7 +904,7 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                 </Tabs>
 
                 {errors._general && (
-                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    <div className="mt-4 p-3 bg-danger-50 border border-danger-200 rounded-lg text-sm text-danger-700">
                         {errors._general}
                     </div>
                 )}

@@ -8,13 +8,13 @@ describe('Badge', () => {
         const badge = screen.getByText('Новый');
         expect(badge).toBeInTheDocument();
         // default variant uses blue background
-        expect(badge.className).toContain('bg-blue-600');
+        expect(badge.className).toContain('bg-info-600');
     });
 
     it('variant="destructive" applies red palette', () => {
         render(<Badge variant="destructive">Отменён</Badge>);
         const badge = screen.getByText('Отменён');
-        expect(badge.className).toContain('bg-red-600');
+        expect(badge.className).toContain('bg-danger-600');
         expect(badge.className).toContain('text-white');
     });
 

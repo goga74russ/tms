@@ -222,8 +222,8 @@ export function RepairCatalogManager({
 
             <div className="flex flex-wrap gap-2 text-xs">
               <span className="rounded-full bg-neutral-100 px-2 py-1 text-neutral-600">Всего: {items.length}</span>
-              <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Активные: {activeCount}</span>
-              <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700">Архив: {archivedCount}</span>
+              <span className="rounded-full bg-success-50 px-2 py-1 text-success-700">Активные: {activeCount}</span>
+              <span className="rounded-full bg-warning-50 px-2 py-1 text-warning-700">Архив: {archivedCount}</span>
             </div>
 
             <div className="max-h-[560px] space-y-2 overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-2">
@@ -258,7 +258,7 @@ export function RepairCatalogManager({
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-neutral-900">{formatMoney(item.suggestedUnitCost)} ₽</p>
-                        <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${item.isArchived ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                        <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${item.isArchived ? 'bg-warning-100 text-warning-700' : 'bg-success-100 text-success-700'}`}>
                           {item.isArchived ? 'Архив' : 'Активно'}
                         </span>
                       </div>
@@ -341,7 +341,7 @@ export function RepairCatalogManager({
                 <span>{selectedItem?.isArchived ? 'Архивная позиция' : 'Активная позиция'}</span>
               </div>
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && <p className="text-sm text-danger-600">{error}</p>}
 
               <div className="flex justify-end gap-3 border-t border-neutral-100 pt-3">
                 <Button type="button" variant="outline" onClick={onClose} disabled={saving}>

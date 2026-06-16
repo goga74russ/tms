@@ -270,9 +270,9 @@ export default function AdminBillingPage() {
                                 </td>
                                 <td className="px-4 py-2.5">
                                     <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                        r.status === 'active' ? 'bg-emerald-50 text-emerald-700' :
-                                        r.status === 'trial' ? 'bg-amber-50 text-amber-700' :
-                                        r.status === 'past_due' || r.status === 'suspended' ? 'bg-rose-50 text-rose-700' :
+                                        r.status === 'active' ? 'bg-success-50 text-success-700' :
+                                        r.status === 'trial' ? 'bg-warning-50 text-warning-700' :
+                                        r.status === 'past_due' || r.status === 'suspended' ? 'bg-danger-50 text-danger-700' :
                                         'bg-neutral-100 text-neutral-600'
                                     }`}>
                                         {STATUS_LABEL[r.status]}

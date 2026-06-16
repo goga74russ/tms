@@ -202,8 +202,8 @@ export default function BillingPage() {
                     : 'neutral';
     const periodEndStyles: Record<typeof periodEndTone, string> = {
         neutral: 'bg-neutral-50 border-neutral-200 text-neutral-700',
-        amber: 'bg-amber-50 border-amber-200 text-amber-800',
-        red: 'bg-rose-50 border-rose-200 text-rose-800',
+        amber: 'bg-warning-50 border-warning-200 text-warning-800',
+        red: 'bg-danger-50 border-danger-200 text-danger-800',
     };
 
     // Round 5 audit v3: «manage payment / update card flow» is now a Dialog
@@ -231,7 +231,7 @@ export default function BillingPage() {
             </header>
 
             {error && (
-                <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg flex items-center justify-between gap-3 flex-wrap">
+                <div className="bg-warning-50 border border-warning-200 text-warning-800 px-4 py-3 rounded-lg flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-2 min-w-0">
                         <AlertCircle className="w-4 h-4 shrink-0" />
                         <span className="text-sm">Подписка временно недоступна. Попробуйте обновить страницу.</span>
@@ -239,7 +239,7 @@ export default function BillingPage() {
                     <button
                         type="button"
                         onClick={() => { setError(null); setLoading(true); void reload(); }}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-900 hover:text-amber-950 underline-offset-2 hover:underline"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-warning-900 hover:text-warning-950 underline-offset-2 hover:underline"
                     >
                         <RefreshCw className="w-3.5 h-3.5" />
                         Повторить
@@ -260,12 +260,12 @@ export default function BillingPage() {
                                 </span>
                             )}
                             {trialDays !== null && trialDays > 0 && (
-                                <span className="text-xs text-amber-700">
+                                <span className="text-xs text-warning-700">
                                     Триал — осталось {trialDays} дн.
                                 </span>
                             )}
                             {sub.subscription?.cancelAtPeriodEnd && (
-                                <span className="text-xs text-rose-700">Не будет продлён</span>
+                                <span className="text-xs text-danger-700">Не будет продлён</span>
                             )}
                         </div>
                     </div>
@@ -286,7 +286,7 @@ export default function BillingPage() {
                                 </button>
                             )}
                             {sub.subscription && !sub.subscription.cancelAtPeriodEnd && sub.subscription.status === 'active' && (
-                                <button onClick={cancel} className="text-xs text-neutral-500 hover:text-rose-600 underline-offset-2 hover:underline">
+                                <button onClick={cancel} className="text-xs text-neutral-500 hover:text-danger-600 underline-offset-2 hover:underline">
                                     Отменить продление
                                 </button>
                             )}
@@ -392,7 +392,7 @@ export default function BillingPage() {
                                         {FEATURE_ORDER.map((f) => (
                                             <li key={f.key} className="flex items-center gap-1.5">
                                                 {p.features[f.key as keyof typeof p.features]
-                                                    ? <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                                    ? <Check className="w-3.5 h-3.5 text-success-600" />
                                                     : <X className="w-3.5 h-3.5 text-neutral-300" />}
                                                 <span className={p.features[f.key as keyof typeof p.features] ? 'text-neutral-700' : 'text-neutral-400 line-through'}>
                                                     {f.label}
@@ -461,9 +461,9 @@ export default function BillingPage() {
                                             </td>
                                             <td className="px-4 py-2.5">
                                                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                                    p.status === 'succeeded' ? 'bg-emerald-50 text-emerald-700' :
-                                                    p.status === 'failed' ? 'bg-rose-50 text-rose-700' :
-                                                    p.status === 'refunded' ? 'bg-amber-50 text-amber-700' :
+                                                    p.status === 'succeeded' ? 'bg-success-50 text-success-700' :
+                                                    p.status === 'failed' ? 'bg-danger-50 text-danger-700' :
+                                                    p.status === 'refunded' ? 'bg-warning-50 text-warning-700' :
                                                     'bg-neutral-100 text-neutral-600'
                                                 }`}>
                                                     {label(STATUS_LABEL, p.status)}
@@ -521,9 +521,9 @@ export default function BillingPage() {
                     <button
                         type="button"
                         onClick={() => setShowManagePayment(false)}
-                        className="w-full text-left rounded-xl border border-neutral-200 hover:border-emerald-300 hover:bg-emerald-50/40 transition-colors p-4 flex items-start gap-3"
+                        className="w-full text-left rounded-xl border border-neutral-200 hover:border-success-300 hover:bg-success-50/40 transition-colors p-4 flex items-start gap-3"
                     >
-                        <div className="shrink-0 w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <div className="shrink-0 w-9 h-9 rounded-lg bg-success-50 text-success-600 flex items-center justify-center">
                             <CreditCard className="w-4.5 h-4.5" />
                         </div>
                         <div className="min-w-0">
@@ -548,14 +548,14 @@ function UsageBar({ label, current, limit }: { label: string; current: number; l
             <div className="flex items-baseline justify-between mb-2">
                 <span className="text-sm text-neutral-700">{label}</span>
                 <span className="text-xs text-neutral-500">
-                    <strong className={danger ? 'text-rose-600' : 'text-neutral-900'}>{current}</strong>
+                    <strong className={danger ? 'text-danger-600' : 'text-neutral-900'}>{current}</strong>
                     {' '} / {' '}
                     {limit === null ? '∞' : limit}
                 </span>
             </div>
             <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
                 <div
-                    className={`h-full ${danger ? 'bg-rose-500' : limit === null ? 'bg-emerald-400' : 'bg-brand-500'}`}
+                    className={`h-full ${danger ? 'bg-danger-500' : limit === null ? 'bg-success-400' : 'bg-brand-500'}`}
                     style={{ width: limit === null ? '100%' : `${pct}%` }}
                 />
             </div>

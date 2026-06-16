@@ -131,19 +131,19 @@ function StatusBadge({ status }: { status: string }) {
             icon: <Clock className="w-3.5 h-3.5" />,
         },
         medical_check: {
-            color: 'bg-amber-100 text-amber-700 border-amber-200',
+            color: 'bg-warning-100 text-warning-700 border-warning-200',
             icon: <Clock className="w-3.5 h-3.5" />,
         },
         technical_check: {
-            color: 'bg-orange-100 text-orange-700 border-orange-200',
+            color: 'bg-warning-100 text-warning-700 border-warning-200',
             icon: <Clock className="w-3.5 h-3.5" />,
         },
         issued: {
-            color: 'bg-blue-100 text-blue-700 border-blue-200',
+            color: 'bg-info-100 text-info-700 border-info-200',
             icon: <FileText className="w-3.5 h-3.5" />,
         },
         closed: {
-            color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+            color: 'bg-success-100 text-success-700 border-success-200',
             icon: <CheckCircle2 className="w-3.5 h-3.5" />,
         },
     };
@@ -241,9 +241,9 @@ function transportTone(status: string) {
 
 function toneClass(tone: 'info' | 'warning' | 'critical', variant: 'bg' | 'text' = 'bg') {
     if (variant === 'text') {
-        return tone === 'critical' ? 'text-rose-700' : tone === 'warning' ? 'text-amber-700' : 'text-brand-700';
+        return tone === 'critical' ? 'text-danger-700' : tone === 'warning' ? 'text-warning-700' : 'text-brand-700';
     }
-    return tone === 'critical' ? 'bg-rose-100 text-rose-700' : tone === 'warning' ? 'bg-amber-100 text-amber-700' : 'bg-brand-100 text-brand-700';
+    return tone === 'critical' ? 'bg-danger-100 text-danger-700' : tone === 'warning' ? 'bg-warning-100 text-warning-700' : 'bg-brand-100 text-brand-700';
 }
 
 function titleTone(status: string) {
@@ -254,7 +254,7 @@ function titleTone(status: string) {
 
 function RetryHint({ label = 'Требует проверки' }: { label?: string }) {
     return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+        <span className="inline-flex items-center gap-1 rounded-full bg-danger-50 px-2 py-0.5 text-[11px] font-semibold text-danger-700">
             <RefreshCcw className="w-3 h-3" />
             {label}
         </span>
@@ -359,10 +359,10 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {transportDocuments?.lifecycle?.hasBlockingProblems && (
-                        <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[11px] font-semibold text-rose-700">блокировка</span>
+                        <span className="inline-flex rounded-full bg-danger-100 px-2.5 py-1 text-[11px] font-semibold text-danger-700">блокировка</span>
                     )}
                     {transportDocuments?.lifecycle?.hasWarnings && (
-                        <span className="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-700">проверить</span>
+                        <span className="inline-flex rounded-full bg-warning-100 px-2.5 py-1 text-[11px] font-semibold text-warning-700">проверить</span>
                     )}
                     <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-neutral-600 shadow-sm">
                         Замечаний: {transportDocuments?.summary?.problemCount ?? 0}
@@ -417,7 +417,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Не хватает документов</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(transportDocuments?.lifecycle?.missingDocumentTypes || []).map((type: string) => (
-                                <span key={type} className="inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">
+                                <span key={type} className="inline-flex rounded-full bg-danger-50 px-2.5 py-1 text-[11px] font-semibold text-danger-700">
                                     {transportDocLabel(type)}
                                 </span>
                             ))}
@@ -430,7 +430,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Блокировки ЭТРН</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                             {(etrn?.summary?.blockingTitleTypes || []).map((type: string) => (
-                                <span key={type} className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                                <span key={type} className="inline-flex rounded-full bg-warning-50 px-2.5 py-1 text-[11px] font-semibold text-warning-700">
                                     {type}
                                 </span>
                             ))}
@@ -443,10 +443,10 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
             )}
 
             {docProblems.length > 0 && (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-4">
+                <div className="rounded-2xl border border-danger-200 bg-danger-50/70 p-4">
                     <div className="flex items-start justify-between gap-3">
                         <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-rose-500">Ошибки и подсказки к повтору</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-danger-500">Ошибки и подсказки к повтору</p>
                             <p className="text-sm font-semibold text-neutral-900">Проблемы по сохранённым документам</p>
                         </div>
                         <RetryHint label="Исправить и повторить" />
@@ -456,7 +456,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                             <div key={`${problem.code}-${problem.documentId || problem.at || problem.message}`} className="rounded-xl border border-white bg-white px-3 py-2">
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
-                                        <p className="text-xs font-semibold text-rose-700">{problem.code}</p>
+                                        <p className="text-xs font-semibold text-danger-700">{problem.code}</p>
                                         <p className="text-sm text-neutral-900">{problem.message}</p>
                                     </div>
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${toneClass(problem.severity, 'bg')}`}>
@@ -530,7 +530,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                         : 'Ручное действие: наблюдение'}
                         </div>
                         {(doc.error || doc.status === 'error' || doc.status === 'rejected') && (
-                            <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                            <div className="mt-3 rounded-xl border border-danger-200 bg-danger-50 px-3 py-2 text-xs text-danger-700">
                                 {doc.error || 'Документ требует повторной проверки перед повтором отправки'}
                             </div>
                         )}
@@ -581,7 +581,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                                         {title.error && <RetryHint label="повторить после исправления" />}
                                     </div>
                                     {title.error && (
-                                        <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
+                                        <div className="mt-2 rounded-lg border border-danger-200 bg-danger-50 px-2 py-1 text-[11px] text-danger-700">
                                             {title.error}
                                         </div>
                                     )}
@@ -590,10 +590,10 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                         </div>
                     </div>
                     {(etrnProblems.length > 0 || etrn?.summary?.blockingTitleTypes?.length > 0) && (
-                        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                        <div className="rounded-2xl border border-warning-200 bg-warning-50/70 p-4">
                             <div className="flex items-start justify-between gap-3">
                                 <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Проблемы ЭТРН</p>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-warning-600">Проблемы ЭТРН</p>
                                     <p className="text-sm font-semibold text-neutral-900">Что мешает пройти по контуру</p>
                                 </div>
                                 <RetryHint label="Проверить блокеры" />
@@ -689,7 +689,7 @@ function CloseWaybillModal({
                             placeholder="Пробег при возврате"
                             value={odometerIn}
                             onChange={e => setOdometerIn(e.target.value)}
-                            className="w-full px-4 py-3 text-base border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                            className="w-full px-4 py-3 text-base border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-success-300 focus:border-success-400"
                             min={waybill.odometerOut}
                         />
                     </div>
@@ -704,12 +704,12 @@ function CloseWaybillModal({
                             placeholder="Необязательное поле"
                             value={fuelIn}
                             onChange={e => setFuelIn(e.target.value)}
-                            className="w-full px-4 py-3 text-base border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400"
+                            className="w-full px-4 py-3 text-base border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-success-300 focus:border-success-400"
                         />
                     </div>
 
                     {error && (
-                        <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>
+                        <p className="text-sm text-danger-600 bg-danger-50 p-3 rounded-lg">{error}</p>
                     )}
 
                     <div className="flex gap-3 pt-2">
@@ -717,7 +717,7 @@ function CloseWaybillModal({
                             Отмена
                         </Button>
                         <Button
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            className="flex-1 bg-success-600 hover:bg-success-700 text-white"
                             onClick={handleSubmit}
                             disabled={submitting}
                         >
@@ -799,7 +799,7 @@ function DetailModal({
                                     </div>
                                 )}
                                 <div className="mt-2 flex flex-wrap gap-2">
-                                    <span className="inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                                    <span className="inline-flex rounded-full bg-success-50 px-2.5 py-1 text-[11px] font-semibold text-success-700">
                                         {waybillCue.modeLabel}
                                     </span>
                                     <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-600 shadow-sm">
@@ -807,7 +807,7 @@ function DetailModal({
                                     </span>
                                 </div>
                                 {vehicleInfo && !vehicleInfo.bodyType && (
-                                    <div className="mt-2 inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                                    <div className="mt-2 inline-flex rounded-full bg-warning-50 px-2.5 py-1 text-[11px] font-semibold text-warning-700">
                                         Тип ТС для ПЛ не задан
                                     </div>
                                 )}
@@ -823,20 +823,20 @@ function DetailModal({
                     <div
                         className={`rounded-2xl border px-4 py-3 ${
                             waybillCue.tone === 'warning'
-                                ? 'border-rose-200 bg-rose-50/80'
+                                ? 'border-danger-200 bg-danger-50/80'
                                 : waybillCue.tone === 'attention'
-                                    ? 'border-amber-200 bg-amber-50/80'
-                                    : 'border-emerald-100 bg-emerald-50/80'
+                                    ? 'border-warning-200 bg-warning-50/80'
+                                    : 'border-success-100 bg-success-50/80'
                         }`}
                     >
                         <div className="flex items-start justify-between gap-3">
                             <div>
                                 <p className={`text-xs font-semibold uppercase tracking-wide ${
                                     waybillCue.tone === 'warning'
-                                        ? 'text-rose-600'
+                                        ? 'text-danger-600'
                                         : waybillCue.tone === 'attention'
-                                            ? 'text-amber-600'
-                                            : 'text-emerald-600'
+                                            ? 'text-warning-600'
+                                            : 'text-success-600'
                                 }`}>
                                     Профиль ПЛ
                                 </p>
@@ -875,13 +875,13 @@ function DetailModal({
                             </div>
                         </div>
                         {waybillCue.warnings.length > 0 && (
-                            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                            <div className="mt-3 rounded-xl border border-warning-200 bg-warning-50 px-3 py-2 text-xs text-warning-700">
                                 <p className="font-semibold">Профильные предупреждения</p>
                                 <div className="mt-1 flex flex-wrap gap-2">
                                     {waybillCue.warnings.map((warning) => (
                                         <span
                                             key={warning}
-                                            className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 shadow-sm"
+                                            className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-warning-700 shadow-sm"
                                         >
                                             {warning}
                                         </span>
@@ -945,10 +945,10 @@ function DetailModal({
                             </div>
                             <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                                 readiness.tone === 'warning'
-                                    ? 'bg-rose-100 text-rose-700'
+                                    ? 'bg-danger-100 text-danger-700'
                                     : readiness.tone === 'attention'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-emerald-100 text-emerald-700'
+                                        ? 'bg-warning-100 text-warning-700'
+                                        : 'bg-success-100 text-success-700'
                             }`}>
                                 {readiness.tone === 'ready' ? 'Готов' : readiness.tone === 'attention' ? 'Проверить' : 'Заблок.'}
                             </span>
@@ -960,9 +960,9 @@ function DetailModal({
                                         <span className="text-xs font-medium text-neutral-700">{item.label}</span>
                                         <span className={`text-[11px] font-semibold ${
                                             item.state === 'done'
-                                                ? 'text-emerald-700'
+                                                ? 'text-success-700'
                                                 : item.state === 'warn'
-                                                    ? 'text-amber-700'
+                                                    ? 'text-warning-700'
                                                     : 'text-neutral-500'
                                         }`}>
                                             {item.state === 'done' ? 'OK' : item.state === 'warn' ? 'Проверить' : 'Опц.'}
@@ -978,13 +978,13 @@ function DetailModal({
 
                     {/* Data grid */}
                     <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 bg-blue-50 rounded-xl">
-                            <p className="text-xs text-blue-500 mb-1">Одометр выезда</p>
-                            <p className="text-lg font-bold text-blue-700">{waybill.odometerOut.toLocaleString()} км</p>
+                        <div className="p-3 bg-info-50 rounded-xl">
+                            <p className="text-xs text-info-500 mb-1">Одометр выезда</p>
+                            <p className="text-lg font-bold text-info-700">{waybill.odometerOut.toLocaleString()} км</p>
                         </div>
-                        <div className="p-3 bg-emerald-50 rounded-xl">
-                            <p className="text-xs text-emerald-500 mb-1">Одометр возврата</p>
-                            <p className="text-lg font-bold text-emerald-700">
+                        <div className="p-3 bg-success-50 rounded-xl">
+                            <p className="text-xs text-success-500 mb-1">Одометр возврата</p>
+                            <p className="text-lg font-bold text-success-700">
                                 {waybill.odometerIn ? `${waybill.odometerIn.toLocaleString()} км` : '—'}
                             </p>
                         </div>
@@ -1003,23 +1003,23 @@ function DetailModal({
                     </div>
 
                     {waybill.fuelIn !== null && waybill.fuelIn !== undefined && (
-                        <div className="p-3 bg-amber-50 rounded-xl">
-                            <p className="text-xs text-amber-500 mb-1">Остаток топлива</p>
-                            <p className="text-lg font-bold text-amber-700">{waybill.fuelIn} л</p>
+                        <div className="p-3 bg-warning-50 rounded-xl">
+                            <p className="text-xs text-warning-500 mb-1">Остаток топлива</p>
+                            <p className="text-lg font-bold text-warning-700">{waybill.fuelIn} л</p>
                         </div>
                     )}
 
                     {/* Signatures */}
                     <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 bg-orange-50 rounded-xl">
-                            <p className="text-xs text-orange-500 mb-1">Подпись механика</p>
-                            <p className="text-sm font-medium text-orange-700">
+                        <div className="p-3 bg-brand-50 rounded-xl">
+                            <p className="text-xs text-brand-500 mb-1">Подпись механика</p>
+                            <p className="text-sm font-medium text-brand-700">
                                 {waybill.mechanicSignature ? '✓ ПЭП' : '—'}
                             </p>
                         </div>
-                        <div className="p-3 bg-rose-50 rounded-xl">
-                            <p className="text-xs text-rose-500 mb-1">Подпись медика</p>
-                            <p className="text-sm font-medium text-rose-700">
+                        <div className="p-3 bg-brand-50 rounded-xl">
+                            <p className="text-xs text-brand-500 mb-1">Подпись медика</p>
+                            <p className="text-sm font-medium text-brand-700">
                                 {waybill.medicSignature ? '✓ ПЭП' : '—'}
                             </p>
                         </div>
@@ -1036,7 +1036,7 @@ function DetailModal({
                                             <p className="text-xs text-neutral-500">ВУ: {link.licenseNumber}</p>
                                         </div>
                                         <div className="text-right text-xs text-neutral-500">
-                                            {link.isPrimary && <p className="text-emerald-600 font-semibold">Основной</p>}
+                                            {link.isPrimary && <p className="text-success-600 font-semibold">Основной</p>}
                                             {(link.shiftStart || link.shiftEnd) && (
                                                 <p>
                                                     {link.shiftStart ? new Date(link.shiftStart).toLocaleString('ru-RU') : '—'}
@@ -1103,17 +1103,17 @@ function DetailModal({
                                         <div className="flex items-center gap-1">
                                             <button
                                                 onClick={() => onDownloadAttachment(attachment)}
-                                                className="p-2 rounded-lg hover:bg-emerald-100 transition-colors"
+                                                className="p-2 rounded-lg hover:bg-success-100 transition-colors"
                                                 title="Скачать"
                                             >
-                                                <Download className="w-4 h-4 text-emerald-600" />
+                                                <Download className="w-4 h-4 text-success-600" />
                                             </button>
                                             <button
                                                 onClick={() => onDeleteAttachment(attachment.id)}
-                                                className="p-2 rounded-lg hover:bg-red-100 transition-colors"
+                                                className="p-2 rounded-lg hover:bg-danger-100 transition-colors"
                                                 title="Удалить"
                                             >
-                                                <Trash2 className="w-4 h-4 text-red-500" />
+                                                <Trash2 className="w-4 h-4 text-danger-500" />
                                             </button>
                                         </div>
                                     </div>
@@ -1146,7 +1146,7 @@ function DetailModal({
                     {/* Close button if not yet closed */}
                     {waybill.status === 'issued' && (
                         <Button
-                            className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            className="w-full mt-2 bg-success-600 hover:bg-success-700 text-white"
                             size="lg"
                             onClick={onCloseWaybill}
                         >
@@ -1377,10 +1377,10 @@ export default function WaybillsPage() {
                         </span>
                         <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                             rowCue.tone === 'warning'
-                                ? 'bg-rose-100 text-rose-700'
+                                ? 'bg-danger-100 text-danger-700'
                                 : rowCue.tone === 'attention'
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-emerald-100 text-emerald-700'
+                                    ? 'bg-warning-100 text-warning-700'
+                                    : 'bg-success-100 text-success-700'
                         }`}>
                             {rowCue.tone === 'ready' ? 'ПЛ готов' : rowCue.tone === 'attention' ? 'Проверь ПЛ' : 'ПЛ заблокирован'}
                         </span>
@@ -1393,10 +1393,10 @@ export default function WaybillsPage() {
                         {rowReadiness && (
                             <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                                 rowReadiness.tone === 'warning'
-                                    ? 'bg-rose-100 text-rose-700'
+                                    ? 'bg-danger-100 text-danger-700'
                                     : rowReadiness.tone === 'attention'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-emerald-100 text-emerald-700'
+                                        ? 'bg-warning-100 text-warning-700'
+                                        : 'bg-success-100 text-success-700'
                             }`}>
                                 {rowReadiness.tone === 'ready' ? 'Готов' : rowReadiness.tone === 'attention' ? 'Проверить' : 'Заблок.'}
                             </span>
@@ -1464,7 +1464,7 @@ export default function WaybillsPage() {
             <header className="bg-white border-b border-neutral-200 px-6 py-4 -m-6 mb-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-brand-600 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-info-500 to-brand-600 flex items-center justify-center">
                             <FileText className="w-6 h-6 text-white" />
                         </div>
                         <div>

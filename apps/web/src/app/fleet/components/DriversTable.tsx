@@ -49,10 +49,10 @@ function formatDate(d?: string) {
 function expiryColor(d?: string) {
     if (!d) return '';
     const diff = (new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-    if (diff < 0) return 'text-red-700 font-bold';
-    if (diff < 7) return 'text-red-600';
-    if (diff <= 30) return 'text-amber-600';
-    return 'text-emerald-600';
+    if (diff < 0) return 'text-danger-700 font-bold';
+    if (diff < 7) return 'text-danger-600';
+    if (diff <= 30) return 'text-warning-600';
+    return 'text-success-600';
 }
 
 function DriverFormModal({

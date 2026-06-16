@@ -63,9 +63,9 @@ interface TrailerLink {
 
 const priorityBadge: Record<string, string> = {
     low: 'bg-neutral-100 text-neutral-600',
-    medium: 'bg-blue-100 text-blue-700',
-    high: 'bg-amber-100 text-amber-700',
-    critical: 'bg-red-100 text-red-700',
+    medium: 'bg-info-100 text-info-700',
+    high: 'bg-warning-100 text-warning-700',
+    critical: 'bg-danger-100 text-danger-700',
 };
 
 function formatDate(d?: string) {
@@ -76,10 +76,10 @@ function formatDate(d?: string) {
 function DeadlineBadge({ color, label }: { color: string | null; label: string }) {
     if (!color) return <span className="text-neutral-400 text-xs">нет данных</span>;
     const styles: Record<string, string> = {
-        green: 'bg-emerald-100 text-emerald-700',
-        yellow: 'bg-amber-100 text-amber-700',
-        red: 'bg-red-100 text-red-700',
-        blocked: 'bg-red-200 text-red-800 font-bold',
+        green: 'bg-success-100 text-success-700',
+        yellow: 'bg-warning-100 text-warning-700',
+        red: 'bg-danger-100 text-danger-700',
+        blocked: 'bg-danger-200 text-danger-800 font-bold',
     };
     const labels: Record<string, string> = {
         green: '>30 дней',
@@ -193,7 +193,7 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                     <p className="text-sm text-neutral-500">{vehicle.make} {vehicle.model} ({vehicle.year})</p>
                 </div>
                 {vehicle.isBlocked && (
-                    <span className="ml-auto px-3 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full animate-pulse">
+                    <span className="ml-auto px-3 py-1 bg-danger-100 text-danger-700 text-xs font-bold rounded-full animate-pulse">
                         ⚠ ЗАБЛОКИРОВАН
                     </span>
                 )}
@@ -253,20 +253,20 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                         <div
                             className={`rounded-xl border px-4 py-3 ${
                                 waybillCue.tone === 'warning'
-                                    ? 'border-rose-200 bg-rose-50/80'
+                                    ? 'border-danger-200 bg-danger-50/80'
                                     : waybillCue.tone === 'attention'
-                                        ? 'border-amber-200 bg-amber-50/80'
-                                        : 'border-emerald-100 bg-emerald-50/80'
+                                        ? 'border-warning-200 bg-warning-50/80'
+                                        : 'border-success-100 bg-success-50/80'
                             }`}
                         >
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <p className={`text-xs font-semibold uppercase tracking-wide ${
                                         waybillCue.tone === 'warning'
-                                            ? 'text-rose-600'
+                                            ? 'text-danger-600'
                                             : waybillCue.tone === 'attention'
-                                                ? 'text-amber-600'
-                                                : 'text-emerald-600'
+                                                ? 'text-warning-600'
+                                                : 'text-success-600'
                                     }`}>
                                         Готовность к ПЛ
                                     </p>
@@ -275,10 +275,10 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                             <span
                                 className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                                         waybillCue.tone === 'warning'
-                                            ? 'bg-white text-rose-700'
+                                            ? 'bg-white text-danger-700'
                                             : waybillCue.tone === 'attention'
-                                                ? 'bg-white text-amber-700'
-                                                : 'bg-white text-emerald-700'
+                                                ? 'bg-white text-warning-700'
+                                                : 'bg-white text-success-700'
                                 }`}
                             >
                                 {waybillCue.tone === 'ready' ? 'готов' : waybillCue.tone === 'attention' ? 'проверить' : 'блок'}
@@ -315,10 +315,10 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                                 </div>
                                 <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                                     readiness.tone === 'warning'
-                                        ? 'bg-rose-100 text-rose-700'
+                                        ? 'bg-danger-100 text-danger-700'
                                         : readiness.tone === 'attention'
-                                            ? 'bg-amber-100 text-amber-700'
-                                            : 'bg-emerald-100 text-emerald-700'
+                                            ? 'bg-warning-100 text-warning-700'
+                                            : 'bg-success-100 text-success-700'
                                 }`}>
                                     {readiness.tone === 'ready' ? 'готов' : readiness.tone === 'attention' ? 'проверить' : 'блок'}
                                 </span>
@@ -330,9 +330,9 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                                             <span className="text-xs font-medium text-neutral-700">{item.label}</span>
                                             <span className={`text-[11px] font-semibold ${
                                                 item.state === 'done'
-                                                    ? 'text-emerald-700'
+                                                    ? 'text-success-700'
                                                     : item.state === 'warn'
-                                                        ? 'text-amber-700'
+                                                        ? 'text-warning-700'
                                                         : 'text-neutral-500'
                                             }`}>
                                                 {item.state === 'done' ? 'готово' : item.state === 'warn' ? 'проверить' : 'опционально'}
@@ -426,7 +426,7 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                                 </div>
                                 <div className="text-right text-xs">
                                     <p className="text-neutral-500">{formatDate(p.validFrom)} — {formatDate(p.validUntil)}</p>
-                                    <span className={`inline-flex px-2 py-0.5 rounded-full mt-1 ${p.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-neutral-100 text-neutral-500'}`}>
+                                    <span className={`inline-flex px-2 py-0.5 rounded-full mt-1 ${p.isActive ? 'bg-success-100 text-success-700' : 'bg-neutral-100 text-neutral-500'}`}>
                                         {p.isActive ? 'Действует' : 'Неактивен'}
                                     </span>
                                 </div>
@@ -448,9 +448,9 @@ export function VehicleCard({ vehicleId, onBack }: { vehicleId: string; onBack: 
                                 <div className="text-right">
                                     <p className="text-sm font-semibold text-neutral-900">{f.amount.toLocaleString()} ₽</p>
                                     <span className={`inline-flex px-2 py-0.5 rounded-full text-xs mt-1
-                                        ${f.status === 'paid' ? 'bg-emerald-100 text-emerald-700' :
-                                            f.status === 'new' ? 'bg-amber-100 text-amber-700' :
-                                                f.status === 'appealed' ? 'bg-blue-100 text-blue-700' :
+                                        ${f.status === 'paid' ? 'bg-success-100 text-success-700' :
+                                            f.status === 'new' ? 'bg-warning-100 text-warning-700' :
+                                                f.status === 'appealed' ? 'bg-info-100 text-info-700' :
                                                     'bg-neutral-100 text-neutral-600'}`}>
                                         {label(FINE_STATUS, f.status)}
                                     </span>

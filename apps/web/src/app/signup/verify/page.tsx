@@ -33,7 +33,7 @@ function VerifyIllustration() {
             </div>
             <div className="flex items-center justify-center gap-6 text-xs text-neutral-600 pt-2">
                 <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="w-2 h-2 rounded-full bg-success-500" />
                     Отправлено
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -221,7 +221,7 @@ function VerifyEmailContent() {
         return (
             <div className="min-h-screen bg-neutral-50 flex flex-col justify-center items-center p-4">
                 <div className="bg-white rounded-2xl shadow-xl p-8 text-center max-w-md w-full">
-                    <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+                    <AlertCircle className="w-12 h-12 text-warning-500 mx-auto mb-4" />
                     <h1 className="text-xl font-bold text-neutral-900">Не удалось продолжить</h1>
                     <p className="text-sm text-neutral-600 mt-2">Email-адрес не передан. Зарегистрируйтесь заново.</p>
                     <Link
@@ -265,10 +265,10 @@ function VerifyEmailContent() {
                 {/* F-01: dev/демо-баннер с кодом (только когда бэкенд его вернул —
                     нет SMTP). В проде devCode пуст → баннер не рендерится. */}
                 {devCode && (
-                    <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    <div className="rounded-lg border border-warning-300 bg-warning-50 px-3 py-2 text-sm text-warning-900">
                         <span className="font-semibold">Демо-режим:</span> код подтверждения —{' '}
                         <span className="font-mono font-bold tracking-widest">{devCode}</span>
-                        <span className="block text-[11px] text-amber-700 mt-0.5">
+                        <span className="block text-[11px] text-warning-700 mt-0.5">
                             Показан, потому что почта не настроена (код ушёл только в логи). В проде с SMTP не отображается.
                         </span>
                     </div>
@@ -290,7 +290,7 @@ function VerifyEmailContent() {
                             disabled={loading}
                             aria-label={`Цифра ${idx + 1}`}
                             className={`w-11 h-12 sm:w-12 sm:h-14 text-center text-2xl font-bold rounded-xl border bg-white text-neutral-900 transition-all focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 disabled:opacity-60 ${
-                                error ? 'border-red-300' : 'border-neutral-300'
+                                error ? 'border-danger-300' : 'border-neutral-300'
                             }`}
                         />
                     ))}
@@ -309,7 +309,7 @@ function VerifyEmailContent() {
                 </div>
 
                 {error && (
-                    <div className="flex items-center gap-2 text-sm text-red-600 justify-center" role="alert">
+                    <div className="flex items-center gap-2 text-sm text-danger-600 justify-center" role="alert">
                         <AlertCircle className="w-4 h-4" /> {error}
                     </div>
                 )}

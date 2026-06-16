@@ -56,21 +56,21 @@ function formatMoney(value: number | string) {
 
 const ORDER_STATUS_LABELS: Record<string, { label: string; color: string; icon: any }> = {
     draft: { label: 'Черновик', color: 'bg-neutral-100 text-neutral-600', icon: Clock },
-    confirmed: { label: 'В работе', color: 'bg-blue-100 text-blue-700', icon: CheckCircle2 },
+    confirmed: { label: 'В работе', color: 'bg-info-100 text-info-700', icon: CheckCircle2 },
     assigned: { label: 'Назначена', color: 'bg-brand-100 text-brand-700', icon: Truck },
-    in_transit: { label: 'В пути', color: 'bg-amber-100 text-amber-700', icon: MapPin },
-    delivered: { label: 'Доставлена', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
-    completed: { label: 'Завершена', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
-    cancelled: { label: 'Отменена', color: 'bg-red-100 text-red-700', icon: AlertCircle },
+    in_transit: { label: 'В пути', color: 'bg-warning-100 text-warning-700', icon: MapPin },
+    delivered: { label: 'Доставлена', color: 'bg-success-100 text-success-700', icon: CheckCircle2 },
+    completed: { label: 'Завершена', color: 'bg-success-100 text-success-700', icon: CheckCircle2 },
+    cancelled: { label: 'Отменена', color: 'bg-danger-100 text-danger-700', icon: AlertCircle },
 };
 
 // C2: актуальный invoice-FSM (раньше — устаревшие sent/paid/overdue, которых
 // сервер больше не присылает → бейдж рендерил сырой 'issued').
 const INVOICE_STATUS_LABELS: Record<string, { label: string; color: string }> = {
     draft: { label: 'Черновик', color: 'bg-neutral-100 text-neutral-600' },
-    issued: { label: 'Выставлен', color: 'bg-blue-100 text-blue-700' },
-    paid_partial: { label: 'Частично оплачен', color: 'bg-amber-100 text-amber-700' },
-    paid_full: { label: 'Оплачен', color: 'bg-green-100 text-green-700' },
+    issued: { label: 'Выставлен', color: 'bg-info-100 text-info-700' },
+    paid_partial: { label: 'Частично оплачен', color: 'bg-warning-100 text-warning-700' },
+    paid_full: { label: 'Оплачен', color: 'bg-success-100 text-success-700' },
     corrected: { label: 'Скорректирован', color: 'bg-neutral-100 text-neutral-600' },
     cancelled: { label: 'Отменён', color: 'bg-neutral-100 text-neutral-500' },
 };
@@ -225,11 +225,11 @@ export default function ClientPortalPage() {
             {/* Предупреждение об усечении: агрегаты и счётчики выше посчитаны по
                 загруженной выборке (лимит {PAGE_LIMIT}), а данных на сервере больше. */}
             {!loading && anyTruncated && (
-                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <div className="flex items-start gap-2 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-800">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                     <div>
                         <p className="font-medium">Показаны не все данные</p>
-                        <p className="mt-0.5 text-amber-700">
+                        <p className="mt-0.5 text-warning-700">
                             {ordersTruncated && (
                                 <span>
                                     Заявки: показано {orders.length}
@@ -331,11 +331,11 @@ export default function ClientPortalPage() {
                                     ) : filteredOrders.map(order => {
                                         const st = ORDER_STATUS_LABELS[order.status] || { label: order.status, color: 'bg-neutral-100 text-neutral-600' };
                                         return (
-                                            <tr key={order.id} className="hover:bg-blue-50/50 transition-colors">
+                                            <tr key={order.id} className="hover:bg-info-50/50 transition-colors">
                                                 <td className="px-4 py-3">
                                                     <Link
                                                         href={`/client/orders/${order.id}`}
-                                                        className="font-mono font-semibold text-blue-700 hover:underline focus:underline focus:outline-none"
+                                                        className="font-mono font-semibold text-info-700 hover:underline focus:underline focus:outline-none"
                                                     >
                                                         {order.number}
                                                     </Link>
@@ -374,10 +374,10 @@ export default function ClientPortalPage() {
                                     <Link
                                         key={order.id}
                                         href={`/client/orders/${order.id}`}
-                                        className="block rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition-colors hover:border-blue-200 hover:bg-blue-50/30 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                                        className="block rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition-colors hover:border-info-200 hover:bg-info-50/30 focus:outline-none focus:ring-2 focus:ring-info-500/40"
                                     >
                                         <div className="flex items-start justify-between gap-2">
-                                            <span className="font-mono text-sm font-semibold text-blue-700">{order.number}</span>
+                                            <span className="font-mono text-sm font-semibold text-info-700">{order.number}</span>
                                             <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${st.color}`}>
                                                 {st.label}
                                             </span>
@@ -434,7 +434,7 @@ export default function ClientPortalPage() {
                                     ) : filteredInvoices.map(inv => {
                                         const st = INVOICE_STATUS_LABELS[inv.status] || { label: inv.status, color: 'bg-neutral-100 text-neutral-600' };
                                         return (
-                                            <tr key={inv.id} className="hover:bg-blue-50/50 transition-colors">
+                                            <tr key={inv.id} className="hover:bg-info-50/50 transition-colors">
                                                 <td className="px-4 py-3">
                                                     <span className="font-mono font-semibold text-neutral-700">{inv.number}</span>
                                                 </td>

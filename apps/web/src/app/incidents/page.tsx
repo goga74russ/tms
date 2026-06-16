@@ -117,7 +117,7 @@ function CreateIncidentModal({ onClose, onCreated }: { onClose: () => void; onCr
                     </label>
                     <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Описание инцидента" className="col-span-2 min-h-32 px-4 py-3 rounded-xl border border-neutral-200 text-sm resize-none" />
             </div>
-            {error && <p className="pt-3 text-sm text-red-600">{error}</p>}
+            {error && <p className="pt-3 text-sm text-danger-600">{error}</p>}
             <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-neutral-100">
                 <Button variant="outline" onClick={onClose}>Отмена</Button>
                 <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>

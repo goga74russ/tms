@@ -20,21 +20,21 @@ describe('Pill', () => {
     it('applies success palette classes for tone="success"', () => {
         render(<Pill tone="success">Доставлен</Pill>);
         const el = screen.getByText('Доставлен');
-        expect(el.className).toContain('bg-emerald-50');
-        expect(el.className).toContain('text-emerald-700');
+        expect(el.className).toContain('bg-success-50');
+        expect(el.className).toContain('text-success-700');
     });
 
     it('applies warning palette classes for tone="warning"', () => {
         render(<Pill tone="warning">В пути</Pill>);
         const el = screen.getByText('В пути');
-        expect(el.className).toContain('bg-amber-50');
-        expect(el.className).toContain('text-amber-700');
+        expect(el.className).toContain('bg-warning-50');
+        expect(el.className).toContain('text-warning-700');
     });
 
     it('applies danger palette classes for tone="danger"', () => {
         render(<Pill tone="danger">Отменён</Pill>);
         const el = screen.getByText('Отменён');
-        expect(el.className).toContain('bg-red-50');
-        expect(el.className).toContain('text-red-700');
+        expect(el.className).toContain('bg-danger-50');
+        expect(el.className).toContain('text-danger-700');
     });
 });

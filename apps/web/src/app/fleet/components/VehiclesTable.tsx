@@ -84,10 +84,10 @@ function DeadlineDot({ color, label }: { color: DeadlineColor; label: string }) 
         );
     }
     const colors: Record<string, string> = {
-        green: 'bg-emerald-500',
-        yellow: 'bg-amber-400',
-        red: 'bg-red-500 animate-pulse',
-        blocked: 'bg-red-700 animate-pulse',
+        green: 'bg-success-500',
+        yellow: 'bg-warning-400',
+        red: 'bg-danger-500 animate-pulse',
+        blocked: 'bg-danger-700 animate-pulse',
     };
     const titles: Record<string, string> = {
         green: `${label}: >30 дней`,
@@ -328,10 +328,10 @@ export function VehiclesTable() {
                         <span
                             className={`mt-1 inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                                 waybillCue.tone === 'warning'
-                                    ? 'bg-rose-100 text-rose-700'
+                                    ? 'bg-danger-100 text-danger-700'
                                     : waybillCue.tone === 'attention'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-emerald-100 text-emerald-700'
+                                        ? 'bg-warning-100 text-warning-700'
+                                        : 'bg-success-100 text-success-700'
                             }`}
                         >
                             {waybillCue.tone === 'ready' ? 'ПЛ готов' : waybillCue.tone === 'attention' ? 'ПЛ: нужна проверка' : 'ПЛ: блок'}
@@ -407,10 +407,10 @@ export function VehiclesTable() {
                 {/* Legend */}
                 <div className="px-4 py-2 bg-neutral-50 border-b border-neutral-200 flex items-center gap-4 text-xs text-neutral-500">
                     <span>Светофор сроков:</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> &gt;30д</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> 7–30д</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" /> &lt;7д</span>
-                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-700" /> просрочен</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-success-500" /> &gt;30д</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-warning-400" /> 7–30д</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-danger-500" /> &lt;7д</span>
+                    <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-danger-700" /> просрочен</span>
                 </div>
 
                 <DataTable<Vehicle>
@@ -454,7 +454,7 @@ export function VehiclesTable() {
                         </div>
                     }
                     onRowClick={(row) => setSelectedId(row.id)}
-                    rowClassName={(row) => row.isBlocked ? 'bg-red-50/40' : ''}
+                    rowClassName={(row) => row.isBlocked ? 'bg-danger-50/40' : ''}
                     bulkActions={(rows) => (
                         <Button
                             size="sm"

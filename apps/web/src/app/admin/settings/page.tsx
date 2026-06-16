@@ -169,7 +169,7 @@ export default function AdminSettingsPage() {
                     </SectionCard>
 
                     {error && (
-                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+                        <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">{error}</div>
                     )}
 
                     <div className="flex justify-end pt-2">
@@ -298,11 +298,11 @@ function TaxRegimeCard() {
     };
 
     return (
-        <Card className={isUnspecified ? 'border-amber-300 bg-amber-50/40' : undefined}>
+        <Card className={isUnspecified ? 'border-warning-300 bg-warning-50/40' : undefined}>
             <CardContent className="p-5 space-y-4">
                 <div className="flex items-start gap-3">
                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                        isUnspecified ? 'bg-amber-100 text-amber-700' : 'bg-neutral-100 text-neutral-600'
+                        isUnspecified ? 'bg-warning-100 text-warning-700' : 'bg-neutral-100 text-neutral-600'
                     }`}>
                         <Scale className="w-4 h-4" />
                     </div>
@@ -316,7 +316,7 @@ function TaxRegimeCard() {
                 </div>
 
                 {isUnspecified && (
-                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-100/60 px-3 py-2 text-xs text-amber-900">
+                    <div className="flex items-start gap-2 rounded-lg border border-warning-200 bg-warning-100/60 px-3 py-2 text-xs text-warning-900">
                         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                         <div>
                             <strong>Не выбран.</strong> Выпуск счетов и СФ заблокирован до явного выбора режима.
@@ -354,7 +354,7 @@ function TaxRegimeCard() {
                                 <option value="7">7%</option>
                                 <option value="20">20% (общая)</option>
                             </select>
-                            <p className="text-[11px] text-amber-700">
+                            <p className="text-[11px] text-warning-700">
                                 Выбор ставки фиксируется в учётной политике. Менять можно только с нового налогового периода (1 января).
                             </p>
                         </>
@@ -371,7 +371,7 @@ function TaxRegimeCard() {
                             Сохранить режим
                         </Button>
                         {!isUnspecified && value === currentRegime && !usnRateChanged && (
-                            <span className="text-xs text-emerald-600">
+                            <span className="text-xs text-success-600">
                                 Текущий режим: {TAX_REGIME_LABELS[currentRegime] ?? currentRegime}
                                 {currentUsnRate != null && ` · НДС ${currentUsnRate}%`}
                             </span>
@@ -387,9 +387,9 @@ function SourceBadge({ source, updatedAt }: { source: string; updatedAt: string 
     const isEnv = source.toLowerCase().includes('env');
     return (
         <div className="flex items-center gap-2 text-[11px] text-neutral-500">
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${isEnv ? 'bg-neutral-100 text-neutral-600' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${isEnv ? 'bg-neutral-100 text-neutral-600' : 'bg-success-50 text-success-700 border border-success-200'
                 }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isEnv ? 'bg-neutral-400' : 'bg-emerald-500'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${isEnv ? 'bg-neutral-400' : 'bg-success-500'}`} />
                 {isEnv ? 'fallback из .env' : 'настроено в БД'}
             </span>
             {updatedAt && (

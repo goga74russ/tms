@@ -22,9 +22,9 @@ function ProductShowcase() {
             {/* Fake browser chrome card */}
             <div className="rounded-2xl border border-white/60 bg-white shadow-soft-lg overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 bg-neutral-50 border-b border-neutral-200">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-danger-400" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-warning-400" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-success-400" />
                     <span className="ml-3 text-[11px] text-neutral-500 font-mono">transpult.ru/dispatcher</span>
                 </div>
                 <div className="p-5 space-y-4">
@@ -34,12 +34,12 @@ function ProductShowcase() {
                             <div className="text-[10px] uppercase tracking-wider text-brand-700 font-semibold">Активные</div>
                             <div className="text-xl font-bold text-neutral-900 tabular-nums">24</div>
                         </div>
-                        <div className="rounded-xl bg-emerald-50 px-3 py-2.5 border border-emerald-100">
-                            <div className="text-[10px] uppercase tracking-wider text-emerald-700 font-semibold">SLA</div>
+                        <div className="rounded-xl bg-success-50 px-3 py-2.5 border border-success-100">
+                            <div className="text-[10px] uppercase tracking-wider text-success-700 font-semibold">SLA</div>
                             <div className="text-xl font-bold text-neutral-900 tabular-nums">92%</div>
                         </div>
-                        <div className="rounded-xl bg-amber-50 px-3 py-2.5 border border-amber-100">
-                            <div className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold">Алёрты</div>
+                        <div className="rounded-xl bg-warning-50 px-3 py-2.5 border border-warning-100">
+                            <div className="text-[10px] uppercase tracking-wider text-warning-700 font-semibold">Алёрты</div>
                             <div className="text-xl font-bold text-neutral-900 tabular-nums">3</div>
                         </div>
                     </div>
@@ -49,14 +49,14 @@ function ProductShowcase() {
                         { id: 'TR-2842', route: 'СПб → Великий Новгород', status: 'Погрузка', tone: 'amber' as const },
                     ].map((t) => (
                         <div key={t.id} className="flex items-center gap-3 rounded-xl border border-neutral-100 bg-white px-3 py-2.5">
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${t.tone === 'brand' ? 'bg-brand-50 text-brand-600' : 'bg-amber-50 text-amber-600'}`}>
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${t.tone === 'brand' ? 'bg-brand-50 text-brand-600' : 'bg-warning-50 text-warning-600'}`}>
                                 <MapPin className="w-4 h-4" />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="text-xs text-neutral-500 font-mono">{t.id}</div>
                                 <div className="text-sm font-semibold text-neutral-900 truncate">{t.route}</div>
                             </div>
-                            <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full ${t.tone === 'brand' ? 'bg-brand-100 text-brand-700' : 'bg-amber-100 text-amber-700'}`}>
+                            <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full ${t.tone === 'brand' ? 'bg-brand-100 text-brand-700' : 'bg-warning-100 text-warning-700'}`}>
                                 {t.status}
                             </span>
                         </div>
@@ -166,9 +166,9 @@ export default function LoginPage() {
             {formError && (
                 <div
                     role="alert"
-                    className="mb-5 bg-red-50 text-red-700 p-3 rounded-lg text-sm font-medium border border-red-200 flex items-start gap-2"
+                    className="mb-5 bg-danger-50 text-danger-700 p-3 rounded-lg text-sm font-medium border border-danger-200 flex items-start gap-2"
                 >
-                    <span className="w-5 h-5 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">!</span>
+                    <span className="w-5 h-5 rounded-full bg-danger-100 text-danger-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">!</span>
                     <span>{formError}</span>
                 </div>
             )}

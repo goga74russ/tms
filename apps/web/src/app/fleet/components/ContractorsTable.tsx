@@ -156,7 +156,7 @@ function CreateContractorModal({
                         className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                         placeholder="Иванов И.И." />
                 </div>
-                {error && <p className="text-sm text-red-600">{error}</p>}
+                {error && <p className="text-sm text-danger-600">{error}</p>}
                 <div className="flex gap-3 justify-end pt-2">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
                     <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
@@ -373,7 +373,7 @@ function ContractorAddressesModal({
                                             ? 'Сохранить адрес'
                                             : 'Добавить адрес'}
                                 </button>
-                                {error && <p className="text-sm text-red-600">{error}</p>}
+                                {error && <p className="text-sm text-danger-600">{error}</p>}
                             </div>
                         </div>
 
@@ -421,7 +421,7 @@ function ContractorAddressesModal({
                                                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                                                         address.type === 'loading'
                                                             ? 'bg-sky-50 text-sky-700'
-                                                            : 'bg-emerald-50 text-emerald-700'
+                                                            : 'bg-success-50 text-success-700'
                                                     }`}>
                                                         {addressTypeLabels[address.type]}
                                                     </span>
@@ -443,7 +443,7 @@ function ContractorAddressesModal({
                                                 <button
                                                     type="button"
                                                     onClick={() => removeAddress(address)}
-                                                    className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-3 py-2 text-xs font-medium text-rose-600 hover:border-rose-300 hover:bg-rose-50"
+                                                    className="inline-flex items-center gap-1 rounded-lg border border-danger-200 px-3 py-2 text-xs font-medium text-danger-600 hover:border-danger-300 hover:bg-danger-50"
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                     Удалить

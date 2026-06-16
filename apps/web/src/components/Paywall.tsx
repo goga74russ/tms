@@ -69,8 +69,8 @@ export function Paywall({
                 </button>
 
                 <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center">
-                        <Lock className="w-5 h-5 text-amber-600" />
+                    <div className="w-10 h-10 rounded-full bg-warning-50 flex items-center justify-center">
+                        <Lock className="w-5 h-5 text-warning-600" />
                     </div>
                     <div>
                         <h2 id="paywall-title" className="font-semibold text-neutral-900">Требуется тариф {label(PLAN_LABELS, requiredPlan)}</h2>

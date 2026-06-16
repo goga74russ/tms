@@ -117,7 +117,7 @@ export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehic
     const TabBadge = ({ count }: { count: number }) =>
         count > 0 ? (
             <span
-                className="ml-1.5 inline-flex h-1.5 w-1.5 rounded-full bg-red-500"
+                className="ml-1.5 inline-flex h-1.5 w-1.5 rounded-full bg-danger-500"
                 aria-label={`${count} ошибок на вкладке`}
             />
         ) : null;
@@ -125,7 +125,7 @@ export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehic
     const inputClass = (field?: string) =>
         `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-colors ${
             field && fieldErrors[field]
-                ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
+                ? 'border-danger-300 focus:ring-danger-500/20 focus:border-danger-500'
                 : 'border-neutral-200 focus:ring-brand-500/20 focus:border-brand-500'
         }`;
 
@@ -133,7 +133,7 @@ export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehic
         <Dialog open={true} onClose={onClose} title={isEdit ? 'Редактировать ТС' : 'Добавить ТС'} size="md">
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
-                    <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">
+                    <div className="p-3 bg-danger-50 text-danger-700 text-sm rounded-lg border border-danger-200">
                         {error}
                     </div>
                 )}
@@ -189,7 +189,7 @@ export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehic
                                     onChange={e => updateField('make', e.target.value)}
                                     className={inputClass('make')}
                                 />
-                                {fieldErrors.make && <p className="text-xs text-red-500 mt-1">{fieldErrors.make}</p>}
+                                {fieldErrors.make && <p className="text-xs text-danger-500 mt-1">{fieldErrors.make}</p>}
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-neutral-600 mb-1">Модель *</label>
@@ -200,7 +200,7 @@ export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehic
                                     onChange={e => updateField('model', e.target.value)}
                                     className={inputClass('model')}
                                 />
-                                {fieldErrors.model && <p className="text-xs text-red-500 mt-1">{fieldErrors.model}</p>}
+                                {fieldErrors.model && <p className="text-xs text-danger-500 mt-1">{fieldErrors.model}</p>}
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-neutral-600 mb-1">Год</label>
@@ -234,19 +234,19 @@ export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehic
                             </div>
                             <div className={`mt-3 rounded-xl border px-3 py-3 ${
                                 waybillCue.tone === 'warning'
-                                    ? 'border-rose-200 bg-rose-50/80'
+                                    ? 'border-danger-200 bg-danger-50/80'
                                     : waybillCue.tone === 'attention'
-                                        ? 'border-amber-200 bg-amber-50/80'
-                                        : 'border-emerald-100 bg-emerald-50/80'
+                                        ? 'border-warning-200 bg-warning-50/80'
+                                        : 'border-success-100 bg-success-50/80'
                             }`}>
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
                                         <p className={`text-xs font-semibold uppercase tracking-wide ${
                                             waybillCue.tone === 'warning'
-                                                ? 'text-rose-600'
+                                                ? 'text-danger-600'
                                                 : waybillCue.tone === 'attention'
-                                                    ? 'text-amber-600'
-                                                    : 'text-emerald-600'
+                                                    ? 'text-warning-600'
+                                                    : 'text-success-600'
                                         }`}>
                                             Готовность ПЛ
                                         </p>
@@ -336,7 +336,7 @@ export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehic
                                     type="checkbox"
                                     checked={form.adrEquipped}
                                     onChange={e => updateField('adrEquipped', e.target.checked)}
-                                    className="w-4 h-4 rounded border-neutral-300 text-red-600 focus:ring-red-500"
+                                    className="w-4 h-4 rounded border-neutral-300 text-danger-600 focus:ring-danger-500"
                                 />
                                 Оборудовано для ADR
                             </label>

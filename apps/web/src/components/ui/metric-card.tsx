@@ -41,10 +41,10 @@ export interface MetricCardProps {
 const toneClasses: Record<MetricTone, { iconBg: string; iconFg: string }> = {
     neutral: { iconBg: 'bg-neutral-100', iconFg: 'text-neutral-600' },
     brand: { iconBg: 'bg-brand-50', iconFg: 'text-brand-600' },
-    success: { iconBg: 'bg-emerald-50', iconFg: 'text-emerald-600' },
-    warning: { iconBg: 'bg-amber-50', iconFg: 'text-amber-600' },
-    danger: { iconBg: 'bg-red-50', iconFg: 'text-red-600' },
-    info: { iconBg: 'bg-blue-50', iconFg: 'text-blue-600' },
+    success: { iconBg: 'bg-success-50', iconFg: 'text-success-600' },
+    warning: { iconBg: 'bg-warning-50', iconFg: 'text-warning-600' },
+    danger: { iconBg: 'bg-danger-50', iconFg: 'text-danger-600' },
+    info: { iconBg: 'bg-info-50', iconFg: 'text-info-600' },
 };
 
 export function MetricCard({
@@ -69,10 +69,10 @@ export function MetricCard({
     if (change) {
         if (change.direction === 'up') {
             ChangeIcon = ArrowUp;
-            changeColor = changeGood ? 'text-emerald-600' : 'text-red-600';
+            changeColor = changeGood ? 'text-success-600' : 'text-danger-600';
         } else if (change.direction === 'down') {
             ChangeIcon = ArrowDown;
-            changeColor = changeGood ? 'text-red-600' : 'text-emerald-600';
+            changeColor = changeGood ? 'text-danger-600' : 'text-success-600';
         }
     }
 

@@ -138,9 +138,9 @@ export default function StatusPage() {
                     <div
                         className={`rounded-2xl border p-6 mb-8 ${
                             overall === 'up'
-                                ? 'border-emerald-200 bg-emerald-50'
+                                ? 'border-success-200 bg-success-50'
                                 : overall === 'down'
-                                    ? 'border-red-200 bg-red-50'
+                                    ? 'border-danger-200 bg-danger-50'
                                     : 'border-neutral-200 bg-neutral-50'
                         }`}
                     >
@@ -148,9 +148,9 @@ export default function StatusPage() {
                             <div
                                 className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${
                                     overall === 'up'
-                                        ? 'bg-emerald-500 text-white'
+                                        ? 'bg-success-500 text-white'
                                         : overall === 'down'
-                                            ? 'bg-red-500 text-white'
+                                            ? 'bg-danger-500 text-white'
                                             : 'bg-neutral-300 text-white'
                                 }`}
                             >
@@ -205,9 +205,9 @@ export default function StatusPage() {
                                 <div
                                     className={`w-3 h-3 rounded-full mt-1.5 shrink-0 ${
                                         c.state === 'up'
-                                            ? 'bg-emerald-500'
+                                            ? 'bg-success-500'
                                             : c.state === 'down'
-                                                ? 'bg-red-500'
+                                                ? 'bg-danger-500'
                                                 : 'bg-neutral-300 animate-pulse'
                                     }`}
                                 />
@@ -217,9 +217,9 @@ export default function StatusPage() {
                                         <span
                                             className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                                                 c.state === 'up'
-                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                    ? 'bg-success-100 text-success-700'
                                                     : c.state === 'down'
-                                                        ? 'bg-red-100 text-red-700'
+                                                        ? 'bg-danger-100 text-danger-700'
                                                         : 'bg-neutral-100 text-neutral-600'
                                             }`}
                                         >

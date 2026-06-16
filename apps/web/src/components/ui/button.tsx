@@ -28,7 +28,7 @@ const variantStyles: Record<string, string> = {
     brand: 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm focus-visible:ring-brand-400',
     outline: 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 focus-visible:ring-brand-400',
     ghost: 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:ring-brand-400',
-    destructive: 'bg-red-600 text-white hover:bg-red-700 shadow-sm focus-visible:ring-brand-400',
+    destructive: 'bg-danger-600 text-white hover:bg-danger-700 shadow-sm focus-visible:ring-brand-400',
     secondary: 'bg-neutral-100 text-neutral-900 hover:bg-neutral-200 focus-visible:ring-brand-400',
     link: 'text-brand-600 underline-offset-4 hover:underline focus-visible:ring-brand-400',
 };

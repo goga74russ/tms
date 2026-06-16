@@ -45,7 +45,7 @@ export interface BulkActionsBarProps {
 const variantClass: Record<NonNullable<BulkAction["variant"]>, string> = {
     primary: "bg-brand-600 hover:bg-brand-500 text-white",
     default: "bg-white/10 hover:bg-white/20 text-white",
-    danger: "bg-red-600 hover:bg-red-500 text-white",
+    danger: "bg-danger-600 hover:bg-danger-500 text-white",
 };
 
 /**

@@ -201,7 +201,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                             {/* Vehicle selection */}
                             <div>
                                 <label className="text-sm font-semibold text-neutral-700 flex items-center gap-2 mb-2">
-                                    <Truck className="w-4 h-4 text-emerald-500" />
+                                    <Truck className="w-4 h-4 text-success-500" />
                                     Транспортное средство
                                 </label>
                                 <select
@@ -217,14 +217,14 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                     ))}
                                 </select>
                                 {vehicles.length === 0 && (
-                                    <p className="text-xs text-amber-600 mt-1">Нет свободных ТС</p>
+                                    <p className="text-xs text-warning-600 mt-1">Нет свободных ТС</p>
                                 )}
                             </div>
 
                             {/* Driver selection */}
                             <div>
                                 <label className="text-sm font-semibold text-neutral-700 flex items-center gap-2 mb-2">
-                                    <User className="w-4 h-4 text-blue-500" />
+                                    <User className="w-4 h-4 text-info-500" />
                                     Водитель
                                 </label>
                                 <select
@@ -240,7 +240,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                     ))}
                                 </select>
                                 {drivers.length === 0 && (
-                                    <p className="text-xs text-amber-600 mt-1">Нет активных водителей</p>
+                                    <p className="text-xs text-warning-600 mt-1">Нет активных водителей</p>
                                 )}
                             </div>
 
@@ -336,9 +336,9 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                 </label>
 
                                 {isOverweight && (
-                                    <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200">
-                                        <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
-                                        <span className="text-xs text-red-700">
+                                    <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-danger-50 border border-danger-200">
+                                        <AlertTriangle className="w-4 h-4 text-danger-500 flex-shrink-0" />
+                                        <span className="text-xs text-danger-700">
                                             Перевес! Груз {(totalWeight / 1000).toFixed(1)}т {'>'} Грузоподъёмность {(selectedVehicleData!.payloadCapacityKg / 1000).toFixed(0)}т
                                         </span>
                                     </div>
@@ -378,8 +378,8 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                                 </p>
                                                 {selectedVehicleData && (
                                                     <div className={`mt-2 rounded-md px-2 py-1 text-[11px] ${needsSplit
-                                                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                        ? 'bg-warning-50 text-warning-700 border border-warning-200'
+                                                        : 'bg-success-50 text-success-700 border border-success-200'
                                                         }`}>
                                                         {needsSplit
                                                             ? `Нужно рейсов/партий: ${tripsNeeded}. Выбранное ТС не заберет всю заявку.`
@@ -395,7 +395,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                                             event.stopPropagation();
                                                             void splitOrderBySelectedVehicle(order);
                                                         }}
-                                                        className="mt-2 rounded-md border border-amber-300 bg-white px-2 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                                                        className="mt-2 rounded-md border border-warning-300 bg-white px-2 py-1 text-[11px] font-semibold text-warning-700 hover:bg-warning-50 disabled:opacity-50"
                                                     >
                                                         {splittingOrderId === order.id ? 'Разбиваем...' : 'Разбить на партии'}
                                                     </button>
@@ -414,18 +414,18 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
 
                             {/* Warnings */}
                             {warnings.length > 0 && (
-                                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-1">
-                                    <p className="text-xs font-semibold text-amber-700">⚠️ Рейс создан с предупреждениями:</p>
+                                <div className="rounded-lg bg-warning-50 border border-warning-200 p-3 space-y-1">
+                                    <p className="text-xs font-semibold text-warning-700">⚠️ Рейс создан с предупреждениями:</p>
                                     {warnings.map((w) => (
-                                        <p key={w} className="text-xs text-amber-600">• {w}</p>
+                                        <p key={w} className="text-xs text-warning-600">• {w}</p>
                                     ))}
                                 </div>
                             )}
 
                             {/* Error */}
                             {error && (
-                                <div className="rounded-lg bg-red-50 border border-red-200 p-3">
-                                    <p className="text-xs text-red-700">{error}</p>
+                                <div className="rounded-lg bg-danger-50 border border-danger-200 p-3">
+                                    <p className="text-xs text-danger-700">{error}</p>
                                 </div>
                             )}
                         </>
@@ -452,7 +452,7 @@ export function CreateTripModal({ onClose, onCreated }: CreateTripModalProps) {
                                         ? 'Добавьте хотя бы один заказ в рейс'
                                         : undefined
                         }
-                        className="bg-gradient-to-r from-emerald-500 to-accent-600 hover:from-emerald-600 hover:to-accent-700 shadow-lg shadow-emerald-500/25 gap-2"
+                        className="bg-gradient-to-r from-success-500 to-accent-600 hover:from-success-600 hover:to-accent-700 shadow-lg shadow-success-500/25 gap-2"
                     >
                         {submitting ? (
                             <Loader2 className="w-4 h-4 animate-spin" />

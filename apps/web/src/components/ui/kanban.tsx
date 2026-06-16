@@ -40,9 +40,9 @@ const toneStrip: Record<KanbanTone, string> = {
     neutral: 'bg-neutral-400',
     brand: 'bg-brand-500',
     info: 'bg-sky-500',
-    success: 'bg-emerald-500',
-    warning: 'bg-amber-500',
-    danger: 'bg-red-500',
+    success: 'bg-success-500',
+    warning: 'bg-warning-500',
+    danger: 'bg-danger-500',
 };
 
 // Tinted column background (very subtle)
@@ -50,9 +50,9 @@ const toneColumnBg: Record<KanbanTone, string> = {
     neutral: 'bg-neutral-50',
     brand: 'bg-brand-50/60',
     info: 'bg-sky-50/60',
-    success: 'bg-emerald-50/60',
-    warning: 'bg-amber-50/60',
-    danger: 'bg-red-50/60',
+    success: 'bg-success-50/60',
+    warning: 'bg-warning-50/60',
+    danger: 'bg-danger-50/60',
 };
 
 // Count badge tints
@@ -60,9 +60,9 @@ const toneBadge: Record<KanbanTone, string> = {
     neutral: 'bg-neutral-100 text-neutral-700',
     brand: 'bg-brand-100 text-brand-700',
     info: 'bg-sky-100 text-sky-700',
-    success: 'bg-emerald-100 text-emerald-700',
-    warning: 'bg-amber-100 text-amber-700',
-    danger: 'bg-red-100 text-red-700',
+    success: 'bg-success-100 text-success-700',
+    warning: 'bg-warning-100 text-warning-700',
+    danger: 'bg-danger-100 text-danger-700',
 };
 
 // Header text (slightly tone-tinted for hierarchy)
@@ -70,9 +70,9 @@ const toneHeaderText: Record<KanbanTone, string> = {
     neutral: 'text-neutral-800',
     brand: 'text-brand-800',
     info: 'text-sky-800',
-    success: 'text-emerald-800',
-    warning: 'text-amber-800',
-    danger: 'text-red-800',
+    success: 'text-success-800',
+    warning: 'text-warning-800',
+    danger: 'text-danger-800',
 };
 
 // ===================== KanbanBoard =====================
@@ -192,7 +192,7 @@ export function KanbanColumn({
                 'flex-shrink-0 w-[280px] xl:w-[320px] rounded-xl overflow-hidden border border-neutral-200/70 transition-all duration-200',
                 toneColumnBg[tone],
                 isOver && 'ring-2 ring-offset-1 ring-brand-300',
-                rejecting && 'ring-2 ring-offset-1 ring-red-400 animate-pulse',
+                rejecting && 'ring-2 ring-offset-1 ring-danger-400 animate-pulse',
                 draggedItem && !isSelf && isValidTarget === false && 'opacity-60',
                 className,
             )}

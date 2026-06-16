@@ -221,7 +221,7 @@ function TariffModal({
                     />
                     <div>
                         <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                            Тип <span className="text-red-500 ml-0.5">*</span>
+                            Тип <span className="text-danger-500 ml-0.5">*</span>
                         </label>
                         <Select
                             value={form.type}
@@ -312,7 +312,7 @@ function TariffModal({
                         </label>
                     </div>
                 </div>
-                {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</p>}
+                {error && <p className="rounded-lg bg-danger-50 p-3 text-sm text-danger-600">{error}</p>}
                 <div className="flex gap-3 pt-2">
                     <Button variant="outline" className="flex-1" onClick={onClose}>
                         Отмена
@@ -452,7 +452,7 @@ export default function AdminTariffsPage() {
                                     setSearch('');
                                     setTypeFilter('');
                                 }}
-                                className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-500 hover:border-rose-200 hover:text-rose-600"
+                                className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-500 hover:border-brand-200 hover:text-brand-600"
                             >
                                 Сбросить
                             </button>
@@ -549,7 +549,7 @@ export default function AdminTariffsPage() {
                                                     className={[
                                                         'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
                                                         tariff.vatIncluded
-                                                            ? 'bg-emerald-100 text-emerald-700'
+                                                            ? 'bg-success-100 text-success-700'
                                                             : 'bg-neutral-100 text-neutral-600',
                                                     ].join(' ')}
                                                 >

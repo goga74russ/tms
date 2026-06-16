@@ -73,16 +73,16 @@ export default function ForgotPasswordPage() {
                 <div className="space-y-5">
                     <div
                         role="status"
-                        className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 flex items-start gap-3"
+                        className="rounded-xl border border-success-200 bg-success-50 p-4 text-sm text-success-900 flex items-start gap-3"
                     >
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-5 h-5 text-success-600 flex-shrink-0 mt-0.5" />
                         <div>
                             <p className="font-semibold mb-1">Проверьте почту</p>
                             <p className="leading-relaxed">
                                 Если адрес <span className="font-mono">{email.trim()}</span> зарегистрирован в системе,
                                 на него отправлено письмо со ссылкой для сброса пароля.
                             </p>
-                            <p className="leading-relaxed mt-2 text-emerald-800">
+                            <p className="leading-relaxed mt-2 text-success-800">
                                 Не пришло за пару минут? Проверьте папку «Спам».
                             </p>
                         </div>

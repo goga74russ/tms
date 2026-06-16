@@ -350,7 +350,7 @@ function CreateClaimModal({ onClose, onCreated }: CreateModalProps) {
                             onChange={e => setForm(f => ({ ...f, settlementNote: e.target.value }))}
                         />
                     </div>
-                    {error && <p className="text-red-600 text-sm">{error}</p>}
+                    {error && <p className="text-danger-600 text-sm">{error}</p>}
                     <div className="flex justify-end gap-2 pt-2">
                         <Button type="button" variant="outline" onClick={onClose}>Отмена</Button>
                         <Button type="submit" variant="brand" isLoading={saving}>
@@ -454,7 +454,7 @@ function ResolveClaimModal({ claim, onClose, onResolved }: ResolveModalProps) {
                             onChange={e => setForm(f => ({ ...f, settlementNote: e.target.value }))}
                         />
                     </div>
-                    {error && <p className="text-red-600 text-sm">{error}</p>}
+                    {error && <p className="text-danger-600 text-sm">{error}</p>}
                     <div className="flex justify-end gap-2 pt-2">
                         <Button type="button" variant="outline" onClick={onClose}>Отмена</Button>
                         <Button type="submit" variant="brand" isLoading={saving}>
@@ -697,7 +697,7 @@ export default function ClaimsPage() {
                     <div className="font-medium text-sm text-neutral-900">{money(claimAmount(r, 'amount'))}</div>
                     <div className="text-neutral-500">Резерв: {money(claimAmount(r, 'reserveAmount'))}</div>
                     <div className="text-neutral-500">Оценка: {money(claimAmount(r, 'estimatedAmount'))}</div>
-                    <div className="text-orange-700">
+                    <div className="text-warning-700">
                         Эффект.: {money(claimAmount(r, 'effectiveExposureAmount'))}
                         {claimExposureBasis(r) !== 'none' && (
                             <span className="ml-1 text-neutral-400">({EXPOSURE_BASIS_LABELS[claimExposureBasis(r)] ?? claimExposureBasis(r)})</span>

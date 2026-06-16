@@ -62,10 +62,10 @@ const STATUS_LABEL: Record<CredentialRow['status'], string> = {
 };
 
 const STATUS_TONE: Record<CredentialRow['status'], string> = {
-    active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    active: 'bg-success-50 text-success-700 border-success-200',
     sandbox: 'bg-sky-50 text-sky-700 border-sky-200',
     mock: 'bg-neutral-100 text-neutral-700 border-neutral-200',
-    error: 'bg-red-50 text-red-700 border-red-200',
+    error: 'bg-danger-50 text-danger-700 border-danger-200',
     disabled: 'bg-neutral-100 text-neutral-500 border-neutral-200',
 };
 
@@ -311,7 +311,7 @@ export default function AdminIntegrationsPage() {
                 </div>
             )}
             {error && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
+                <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700 flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                     <span>{error}</span>
                 </div>
@@ -432,7 +432,7 @@ export default function AdminIntegrationsPage() {
                     {deprecatedRows.length > 0 && (
                         <section>
                             <div className="flex items-baseline gap-2 mb-2">
-                                <h2 className="text-sm font-semibold uppercase tracking-wide text-red-700">Устаревшие интеграции</h2>
+                                <h2 className="text-sm font-semibold uppercase tracking-wide text-danger-700">Устаревшие интеграции</h2>
                                 <span className="text-[11px] text-neutral-400">·</span>
                                 <span className="text-xs text-neutral-500">Эти провайдеры больше не предлагаются. Существующие подключения остаются — мигрируйте на актуальный аналог.</span>
                             </div>
@@ -493,9 +493,9 @@ export default function AdminIntegrationsPage() {
 
 function CountChip({ tone, icon: Icon, label, value }: { tone: 'emerald' | 'sky' | 'red' | 'neutral'; icon: typeof CheckCircle2; label: string; value: number }) {
     const cls: Record<typeof tone, string> = {
-        emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        emerald: 'bg-success-50 text-success-700 border-success-200',
         sky: 'bg-sky-50 text-sky-700 border-sky-200',
-        red: 'bg-red-50 text-red-700 border-red-200',
+        red: 'bg-danger-50 text-danger-700 border-danger-200',
         neutral: 'bg-neutral-50 text-neutral-700 border-neutral-200',
     };
     return (
@@ -555,7 +555,7 @@ function ProviderCard({
                         )}
                     </div>
                     {row?.lastError && (
-                        <div className="mt-1.5 text-[10px] text-red-600 line-clamp-2" title={row.lastError}>
+                        <div className="mt-1.5 text-[10px] text-danger-600 line-clamp-2" title={row.lastError}>
                             {row.lastError}
                         </div>
                     )}
@@ -598,19 +598,19 @@ function DeprecatedProviderCard({
     migrateTo?: string;
 }) {
     return (
-        <div className="rounded-xl border border-red-300 bg-red-50/40 p-4">
+        <div className="rounded-xl border border-danger-300 bg-danger-50/40 p-4">
             <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-red-100 border border-red-200 flex items-center justify-center shrink-0">
-                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                <div className="w-10 h-10 rounded-lg bg-danger-100 border border-danger-200 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="w-4 h-4 text-danger-600" />
                 </div>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-neutral-900 truncate leading-tight">{providerLabel(row.providerName)}</span>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-danger-300 bg-danger-100 px-2 py-0.5 text-[10px] font-bold text-danger-700">
                             Устарел
                         </span>
                     </div>
-                    <div className="mt-1 text-[11px] text-red-700">{reason}</div>
+                    <div className="mt-1 text-[11px] text-danger-700">{reason}</div>
                     {migrateTo && (
                         <div className="mt-1.5 text-[11px] text-neutral-700">
                             Рекомендуется перейти на: <strong>{migrateTo}</strong>
@@ -624,10 +624,10 @@ function DeprecatedProviderCard({
 
 function StatusDot({ status }: { status: CredentialRow['status'] }) {
     const cls: Record<CredentialRow['status'], string> = {
-        active: 'bg-emerald-500',
+        active: 'bg-success-500',
         sandbox: 'bg-sky-500',
         mock: 'bg-neutral-400',
-        error: 'bg-red-500',
+        error: 'bg-danger-500',
         disabled: 'bg-neutral-300',
     };
     return <span className={`w-1.5 h-1.5 rounded-full ${cls[status]}`} />;
@@ -692,8 +692,8 @@ function CredentialModal({
                     может не покрывать треккинг, и доказательство маршрута придётся
                     собирать другим источником. */}
                 {name === 'wialon' && (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-start gap-2">
-                        <span aria-hidden className="text-amber-600">⚠</span>
+                    <div className="rounded-lg border border-warning-200 bg-warning-50 p-3 text-xs text-warning-800 flex items-start gap-2">
+                        <span aria-hidden className="text-warning-600">⚠</span>
                         <span>
                             <strong>Юрисдикция: РФ.</strong> Wialon оптимизирован под российскую территорию.
                             Для зарубежных рейсов (Беларусь, Казахстан, Армения, прочие) уточните покрытие
@@ -711,7 +711,7 @@ function CredentialModal({
                 ) : (
                     <Field label="API ключ"><Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="API key / token" /></Field>
                 )}
-                {error && <div className="bg-red-50 text-red-600 p-2 rounded text-sm border border-red-100">{error}</div>}
+                {error && <div className="bg-danger-50 text-danger-600 p-2 rounded text-sm border border-danger-100">{error}</div>}
                 <div className="flex justify-end gap-2 pt-2">
                     <Button variant="outline" onClick={onClose}>Отмена</Button>
                     <Button onClick={submit} disabled={saving}>{saving ? 'Сохраняем...' : 'Сохранить'}</Button>

@@ -76,9 +76,9 @@ type DateFilter = 'all' | 'today' | 'week';
 // ================================================================
 function ExpiryBadge({ status, label, date }: { status: string; label: string; date: string | null }) {
     const colors: Record<string, string> = {
-        green: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-        yellow: 'bg-amber-100 text-amber-700 border-amber-200',
-        red: 'bg-red-100 text-red-700 border-red-200',
+        green: 'bg-success-100 text-success-700 border-success-200',
+        yellow: 'bg-warning-100 text-warning-700 border-warning-200',
+        red: 'bg-danger-100 text-danger-700 border-danger-200',
         unknown: 'bg-neutral-100 text-neutral-500 border-neutral-200',
     };
 
@@ -115,9 +115,9 @@ function VehicleStatusPill({ item }: { item: VehicleQueueItem }) {
     ];
     const worst = docs.includes('red') ? 'red' : docs.includes('yellow') ? 'yellow' : docs.includes('unknown') ? 'unknown' : 'green';
     const cfg: Record<string, { color: string; label: string }> = {
-        green: { color: 'bg-emerald-100 text-emerald-700', label: 'Документы OK' },
-        yellow: { color: 'bg-amber-100 text-amber-700', label: 'Истекают' },
-        red: { color: 'bg-red-100 text-red-700', label: 'Просрочены' },
+        green: { color: 'bg-success-100 text-success-700', label: 'Документы OK' },
+        yellow: { color: 'bg-warning-100 text-warning-700', label: 'Истекают' },
+        red: { color: 'bg-danger-100 text-danger-700', label: 'Просрочены' },
         unknown: { color: 'bg-neutral-100 text-neutral-500', label: 'Нет данных' },
     };
     const c = cfg[worst];
@@ -476,9 +476,9 @@ export default function MechanicPage() {
                             <div
                                 key={idx}
                                 className={`flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 px-2.5 py-2 rounded-lg border transition ${item.result === 'ok'
-                                    ? 'border-emerald-200 bg-emerald-50'
+                                    ? 'border-success-200 bg-success-50'
                                     : item.result === 'fault'
-                                        ? 'border-red-200 bg-red-50'
+                                        ? 'border-danger-200 bg-danger-50'
                                         : 'border-neutral-200 bg-white'
                                     }`}
                             >
@@ -490,8 +490,8 @@ export default function MechanicPage() {
                                     <button
                                         onClick={() => updateItem(idx, 'result', 'ok')}
                                         className={`flex-1 sm:flex-none px-2.5 py-1 rounded-md text-xs font-semibold transition ${item.result === 'ok'
-                                            ? 'bg-emerald-600 text-white shadow-sm'
-                                            : 'bg-neutral-100 text-neutral-500 hover:bg-emerald-100 hover:text-emerald-700'
+                                            ? 'bg-success-600 text-white shadow-sm'
+                                            : 'bg-neutral-100 text-neutral-500 hover:bg-success-100 hover:text-success-700'
                                             }`}
                                     >
                                         ОК
@@ -499,8 +499,8 @@ export default function MechanicPage() {
                                     <button
                                         onClick={() => updateItem(idx, 'result', 'fault')}
                                         className={`flex-1 sm:flex-none px-2.5 py-1 rounded-md text-xs font-semibold transition ${item.result === 'fault'
-                                            ? 'bg-red-600 text-white shadow-sm'
-                                            : 'bg-neutral-100 text-neutral-500 hover:bg-red-100 hover:text-red-700'
+                                            ? 'bg-danger-600 text-white shadow-sm'
+                                            : 'bg-neutral-100 text-neutral-500 hover:bg-danger-100 hover:text-danger-700'
                                             }`}
                                     >
                                         Неиспр.
@@ -513,7 +513,7 @@ export default function MechanicPage() {
                                         placeholder="Комментарий..."
                                         value={item.comment}
                                         onChange={e => updateItem(idx, 'comment', e.target.value)}
-                                        className="w-full sm:mt-1 px-2.5 py-1.5 text-xs border border-red-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-red-300"
+                                        className="w-full sm:mt-1 px-2.5 py-1.5 text-xs border border-danger-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-danger-300"
                                     />
                                 )}
                             </div>
@@ -531,7 +531,7 @@ export default function MechanicPage() {
                             placeholder="Пароль для электронной подписи"
                             value={signature}
                             onChange={e => setSignature(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-400"
+                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
                         />
                     </div>
 
@@ -540,7 +540,7 @@ export default function MechanicPage() {
                         <button
                             onClick={() => submitInspection('approved')}
                             disabled={submitting}
-                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-200 hover:shadow-emerald-300 hover:from-emerald-700 hover:to-emerald-600 transition disabled:opacity-50"
+                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-success-600 to-success-500 text-white rounded-xl text-sm font-bold shadow-md shadow-success-200 hover:shadow-success-300 hover:from-success-700 hover:to-success-600 transition disabled:opacity-50"
                         >
                             <CheckCircle2 className="w-5 h-5" />
                             Допустить
@@ -548,7 +548,7 @@ export default function MechanicPage() {
                         <button
                             onClick={() => submitInspection('rejected')}
                             disabled={submitting}
-                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-xl text-sm font-bold shadow-md shadow-red-200 hover:shadow-red-300 hover:from-red-700 hover:to-red-600 transition disabled:opacity-50"
+                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-danger-600 to-danger-500 text-white rounded-xl text-sm font-bold shadow-md shadow-danger-200 hover:shadow-danger-300 hover:from-danger-700 hover:to-danger-600 transition disabled:opacity-50"
                         >
                             <XCircle className="w-5 h-5" />
                             Не допустить
@@ -565,7 +565,7 @@ export default function MechanicPage() {
             <header className="bg-white border-b border-neutral-200 px-6 py-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-warning-600 flex items-center justify-center">
                             <Wrench className="w-6 h-6 text-white" />
                         </div>
                         <div>
@@ -642,7 +642,7 @@ export default function MechanicPage() {
                                             key={f}
                                             onClick={() => setDateFilter(f)}
                                             className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${dateFilter === f
-                                                ? 'bg-orange-100 text-orange-700'
+                                                ? 'bg-brand-100 text-brand-700'
                                                 : 'text-neutral-500 hover:text-neutral-700'
                                                 }`}
                                         >
@@ -655,7 +655,7 @@ export default function MechanicPage() {
                                     placeholder="Поиск по ТС / рейсу..."
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
-                                    className="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-300"
+                                    className="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
                                 />
                                 <span className="text-[11px] text-neutral-400 ml-auto">
                                     {filteredQueue.length} из {queue.length}
@@ -682,7 +682,7 @@ export default function MechanicPage() {
                                                 key={item.vehicle.id}
                                                 onClick={() => selectVehicle(item)}
                                                 className={`group flex items-center gap-3 px-4 py-3 cursor-pointer transition relative ${isSelected
-                                                    ? 'bg-orange-50 ring-1 ring-inset ring-orange-200'
+                                                    ? 'bg-brand-50 ring-1 ring-inset ring-brand-200'
                                                     : 'hover:bg-neutral-50'
                                                     }`}
                                             >
@@ -703,7 +703,7 @@ export default function MechanicPage() {
                                                 <div className="hidden group-hover:flex items-center gap-1 shrink-0">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); selectVehicle(item); }}
-                                                        className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
+                                                        className="px-2.5 py-1 rounded-md bg-success-600 hover:bg-success-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
                                                         title="Открыть осмотр для допуска"
                                                     >
                                                         <CheckCircle2 className="w-3.5 h-3.5" />
@@ -711,7 +711,7 @@ export default function MechanicPage() {
                                                     </button>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); selectVehicle(item); }}
-                                                        className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
+                                                        className="px-2.5 py-1 rounded-md bg-danger-600 hover:bg-danger-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
                                                         title="Открыть осмотр для отказа"
                                                     >
                                                         <XCircle className="w-3.5 h-3.5" />
@@ -751,7 +751,7 @@ export default function MechanicPage() {
                 {activeTab === 'journal' && (
                     <div>
                         <h2 className="text-lg font-bold text-neutral-800 mb-4 flex items-center gap-2">
-                            <FileCheck className="w-5 h-5 text-blue-500" />
+                            <FileCheck className="w-5 h-5 text-info-500" />
                             Журнал техосмотров
                         </h2>
 
@@ -820,8 +820,8 @@ export default function MechanicPage() {
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${record.decision === 'approved'
-                                                        ? 'bg-emerald-100 text-emerald-700'
-                                                        : 'bg-red-100 text-red-700'
+                                                        ? 'bg-success-100 text-success-700'
+                                                        : 'bg-danger-100 text-danger-700'
                                                         }`}>
                                                         {record.decision === 'approved' ? (
                                                             <><CheckCircle2 className="w-3 h-3" /> Допущен</>
@@ -852,7 +852,7 @@ export default function MechanicPage() {
                                                         {record.decision !== 'approved' && (
                                                             <button
                                                                 onClick={() => overrideDecision(record, 'approved')}
-                                                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-success-200 bg-success-50 px-2 py-1 text-xs font-medium text-success-700 hover:bg-success-100 transition"
                                                                 title="Допустить"
                                                             >
                                                                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -862,7 +862,7 @@ export default function MechanicPage() {
                                                         {record.decision !== 'rejected' && (
                                                             <button
                                                                 onClick={() => overrideDecision(record, 'rejected')}
-                                                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 transition"
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-danger-200 bg-danger-50 px-2 py-1 text-xs font-medium text-danger-700 hover:bg-danger-100 transition"
                                                                 title="Не допускать"
                                                             >
                                                                 <XCircle className="w-3.5 h-3.5" />

@@ -58,7 +58,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                         )}
                     >
                         {label}
-                        {required && <span className="text-red-500 ml-0.5">*</span>}
+                        {required && <span className="text-danger-500 ml-0.5">*</span>}
                     </label>
                 )}
                 <div className="relative">
@@ -84,7 +84,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                             Boolean(leftAddon) && 'pl-10',
                             Boolean(rightAddon) && 'pr-10',
                             hasError
-                                ? 'border-red-300 focus-visible:ring-red-400 focus-visible:border-red-400'
+                                ? 'border-danger-300 focus-visible:ring-danger-400 focus-visible:border-danger-400'
                                 : 'border-neutral-200 focus-visible:ring-brand-400 focus-visible:border-brand-400',
                             className,
                         )}
@@ -97,7 +97,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                     )}
                 </div>
                 {hasError ? (
-                    <p id={errorId} role="alert" className="mt-1.5 text-xs font-medium text-red-600">
+                    <p id={errorId} role="alert" className="mt-1.5 text-xs font-medium text-danger-600">
                         {error}
                     </p>
                 ) : helperText ? (

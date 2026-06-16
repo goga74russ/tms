@@ -126,7 +126,7 @@ function ChecklistFormModal({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                            Тип <span className="text-red-500 ml-0.5">*</span>
+                            Тип <span className="text-danger-500 ml-0.5">*</span>
                         </label>
                         <Select
                             value={form.type}
@@ -211,7 +211,7 @@ function ChecklistFormModal({
                                 <button
                                     type="button"
                                     onClick={() => removeItem(idx)}
-                                    className="p-1 rounded hover:bg-red-50 text-neutral-300 hover:text-red-500 mt-1"
+                                    className="p-1 rounded hover:bg-danger-50 text-neutral-300 hover:text-danger-500 mt-1"
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
@@ -220,7 +220,7 @@ function ChecklistFormModal({
                     </div>
                 </div>
 
-                {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
+                {error && <p className="text-sm text-danger-600 bg-danger-50 p-3 rounded-lg">{error}</p>}
 
                 <div className="flex gap-3 pt-2">
                     <Button variant="outline" className="flex-1" onClick={onClose}>Отмена</Button>

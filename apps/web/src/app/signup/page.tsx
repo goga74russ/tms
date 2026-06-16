@@ -42,10 +42,10 @@ function scorePassword(pw: string): { score: 0 | 1 | 2 | 3 | 4; label: string; c
     const safe = Math.min(4, score) as 0 | 1 | 2 | 3 | 4;
     const map: Record<0 | 1 | 2 | 3 | 4, { label: string; color: string }> = {
         0: { label: '—', color: 'bg-neutral-200' },
-        1: { label: 'Слабый', color: 'bg-red-500' },
-        2: { label: 'Средний', color: 'bg-amber-500' },
-        3: { label: 'Хороший', color: 'bg-emerald-500' },
-        4: { label: 'Отличный', color: 'bg-emerald-600' },
+        1: { label: 'Слабый', color: 'bg-danger-500' },
+        2: { label: 'Средний', color: 'bg-warning-500' },
+        3: { label: 'Хороший', color: 'bg-success-500' },
+        4: { label: 'Отличный', color: 'bg-success-600' },
     };
     return { score: safe, ...map[safe] };
 }
@@ -73,9 +73,9 @@ function ShowcaseFrame({ kind }: { kind: 'cockpit' | 'mobile' | 'pricing' }) {
         return (
             <div className="rounded-2xl border border-white/60 bg-white shadow-soft-lg overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 bg-neutral-50 border-b border-neutral-200">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-danger-400" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-warning-400" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-success-400" />
                     <span className="ml-3 text-[11px] text-neutral-500 font-mono">transpult.ru/dispatcher</span>
                 </div>
                 <div className="p-5 space-y-3">
@@ -84,12 +84,12 @@ function ShowcaseFrame({ kind }: { kind: 'cockpit' | 'mobile' | 'pricing' }) {
                             <div className="text-[9px] uppercase font-semibold text-brand-700">Активные</div>
                             <div className="text-lg font-bold tabular-nums text-neutral-900">24</div>
                         </div>
-                        <div className="rounded-lg bg-emerald-50 px-2.5 py-2 border border-emerald-100">
-                            <div className="text-[9px] uppercase font-semibold text-emerald-700">SLA</div>
+                        <div className="rounded-lg bg-success-50 px-2.5 py-2 border border-success-100">
+                            <div className="text-[9px] uppercase font-semibold text-success-700">SLA</div>
                             <div className="text-lg font-bold tabular-nums text-neutral-900">92%</div>
                         </div>
-                        <div className="rounded-lg bg-amber-50 px-2.5 py-2 border border-amber-100">
-                            <div className="text-[9px] uppercase font-semibold text-amber-700">Алёрты</div>
+                        <div className="rounded-lg bg-warning-50 px-2.5 py-2 border border-warning-100">
+                            <div className="text-[9px] uppercase font-semibold text-warning-700">Алёрты</div>
                             <div className="text-lg font-bold tabular-nums text-neutral-900">3</div>
                         </div>
                     </div>
@@ -123,7 +123,7 @@ function ShowcaseFrame({ kind }: { kind: 'cockpit' | 'mobile' | 'pricing' }) {
                         </div>
                         {[
                             { id: 'TR-2841', route: 'Москва → Казань', status: 'В пути', tone: 'bg-brand-50 text-brand-700' },
-                            { id: 'TR-2842', route: 'СПб → Новгород', status: 'Погрузка', tone: 'bg-amber-50 text-amber-700' },
+                            { id: 'TR-2842', route: 'СПб → Новгород', status: 'Погрузка', tone: 'bg-warning-50 text-warning-700' },
                             { id: 'TR-2843', route: 'Сочи → Краснодар', status: 'Планируется', tone: 'bg-neutral-100 text-neutral-600' },
                         ].map((t) => (
                             <div key={t.id} className="rounded-xl border border-neutral-100 bg-white p-2.5">
@@ -152,7 +152,7 @@ function ShowcaseFrame({ kind }: { kind: 'cockpit' | 'mobile' | 'pricing' }) {
             <ul className="space-y-2 text-sm text-neutral-700">
                 {['До 5 машин', 'Безлимит рейсов', 'AI-помощник', 'Интеграция ЭДО'].map((f) => (
                     <li key={f} className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-emerald-500" />
+                        <Check className="w-4 h-4 text-success-500" />
                         {f}
                     </li>
                 ))}
@@ -363,7 +363,7 @@ export default function SignupPage() {
                             consent
                                 ? 'bg-brand-600 border-brand-600 text-white'
                                 : errors.consent
-                                  ? 'border-red-300 bg-white'
+                                  ? 'border-danger-300 bg-white'
                                   : 'border-neutral-300 bg-white group-hover:border-brand-400'
                         }`}
                     >
@@ -399,7 +399,7 @@ export default function SignupPage() {
                     </span>
                 </label>
                 {errors.consent && (
-                    <div className="flex items-center gap-1 text-xs text-red-600">
+                    <div className="flex items-center gap-1 text-xs text-danger-600">
                         <X className="w-3 h-3" /> {errors.consent}
                     </div>
                 )}

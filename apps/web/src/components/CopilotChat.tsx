@@ -315,7 +315,7 @@ export function CopilotChat() {
                                                 <Wrench className="w-3 h-3 text-neutral-500" />
                                                 <span className="truncate flex-1 text-left">{tc.name}</span>
                                                 {tc.output ? (
-                                                    <span className="text-emerald-600">●</span>
+                                                    <span className="text-success-600">●</span>
                                                 ) : (
                                                     <Loader2 className="w-3 h-3 animate-spin text-neutral-400" />
                                                 )}
@@ -343,13 +343,13 @@ export function CopilotChat() {
                                 <p className="whitespace-pre-wrap leading-relaxed">{turn.text}</p>
                             )}
                             {turn.proposed.map((p) => (
-                                <div key={p.actionId} className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-amber-900">
+                                <div key={p.actionId} className="mt-2 rounded-md border border-warning-300 bg-warning-50 p-2 text-warning-900">
                                     <p className="text-[11px] font-bold">{p.title}</p>
                                     <p className="text-[10px] mt-0.5">{p.summary}</p>
                                     <button
                                         type="button"
                                         onClick={() => confirmAction(p)}
-                                        className="mt-1.5 px-2 py-1 rounded bg-amber-600 text-white text-[10px] font-semibold hover:bg-amber-700"
+                                        className="mt-1.5 px-2 py-1 rounded bg-warning-600 text-white text-[10px] font-semibold hover:bg-warning-700"
                                     >
                                         Подтвердить
                                     </button>
@@ -367,7 +367,7 @@ export function CopilotChat() {
             </div>
 
             {error && (
-                <div className="px-3 py-2 border-t border-rose-100 bg-rose-50 flex items-start gap-2 text-[11px] text-rose-700">
+                <div className="px-3 py-2 border-t border-danger-100 bg-danger-50 flex items-start gap-2 text-[11px] text-danger-700">
                     <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                     <span>{error}</span>
                 </div>

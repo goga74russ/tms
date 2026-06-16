@@ -60,7 +60,7 @@ export function AddMaintenanceModal({ open, onClose, onCreated }: AddMaintenance
     return (
         <Dialog open={open} onClose={onClose} title="Запланировать ТО">
             <form onSubmit={handleSubmit} className="space-y-4">
-                {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+                {error ? <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</div> : null}
                 <div className="grid gap-4 md:grid-cols-2">
                     <label className="space-y-1 text-sm md:col-span-2">
                         <span className="text-neutral-600">Транспорт</span>

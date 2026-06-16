@@ -109,7 +109,7 @@ function ConfirmDialog({
         <Dialog open={open} onClose={onClose} title={title} size="sm">
             <div className="space-y-4">
                 {destructive && (
-                    <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    <div className="flex items-start gap-3 rounded-lg border border-danger-200 bg-danger-50 p-3 text-sm text-danger-800">
                         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                         <span>Действие необратимо.</span>
                     </div>

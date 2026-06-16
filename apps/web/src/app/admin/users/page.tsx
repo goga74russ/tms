@@ -194,7 +194,7 @@ function UserFormModal({
                     </label>
                 )}
 
-                {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
+                {error && <p className="text-sm text-danger-600 bg-danger-50 p-3 rounded-lg">{error}</p>}
 
                 <div className="flex gap-3 pt-2">
                     <Button variant="outline" className="flex-1" onClick={onClose}>Отмена</Button>

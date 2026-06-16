@@ -295,7 +295,7 @@ export function SignTitleButton({
                     setState({ kind: 'idle' });
                     setOpen(true);
                 }}
-                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                className="border-success-200 text-success-700 hover:bg-success-50 disabled:opacity-60"
                 title={alreadySigned ? 'Титул уже подписан' : undefined}
             >
                 <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
@@ -324,7 +324,7 @@ export function SignTitleButton({
                                         value={signerInn}
                                         onChange={(e) => setSignerInn(e.target.value.replace(/\D/g, '').slice(0, 12))}
                                         placeholder="500100732259"
-                                        className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm focus:border-emerald-500 focus:outline-none"
+                                        className="mt-1 w-full rounded-md border border-neutral-300 px-2 py-1.5 text-sm focus:border-success-500 focus:outline-none"
                                     />
                                 </label>
                                 {mchdLookupState.kind === 'searching' && (
@@ -334,7 +334,7 @@ export function SignTitleButton({
                                     </div>
                                 )}
                                 {mchdLookupState.kind === 'none' && (
-                                    <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 flex items-start gap-1.5">
+                                    <div className="rounded-md border border-warning-200 bg-warning-50 px-2.5 py-2 text-xs text-warning-800 flex items-start gap-1.5">
                                         <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                                         <div>
                                             Для этого ИНН нет действующей МЧД в реестре. Подпись без МЧД не имеет юр-силы — попросите admin загрузить доверенность через <code>/admin/mchd</code>.
@@ -342,7 +342,7 @@ export function SignTitleButton({
                                     </div>
                                 )}
                                 {mchdLookupState.kind === 'error' && (
-                                    <div className="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-xs text-rose-700">
+                                    <div className="rounded-md border border-danger-200 bg-danger-50 px-2.5 py-2 text-xs text-danger-700">
                                         {mchdLookupState.message}
                                     </div>
                                 )}
@@ -359,7 +359,7 @@ export function SignTitleButton({
                                                 className={`flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs ${isExpired
                                                     ? 'border-neutral-200 bg-neutral-50 opacity-60 cursor-not-allowed'
                                                     : mchdLookupState.selectedId === c.id
-                                                        ? 'border-emerald-300 bg-emerald-50/60 cursor-pointer'
+                                                        ? 'border-success-300 bg-success-50/60 cursor-pointer'
                                                         : 'border-neutral-200 hover:bg-neutral-50 cursor-pointer'
                                                     }`}
                                             >
@@ -372,13 +372,13 @@ export function SignTitleButton({
                                                         ...mchdLookupState,
                                                         selectedId: c.id,
                                                     })}
-                                                    className="mt-0.5 h-3.5 w-3.5 accent-emerald-600"
+                                                    className="mt-0.5 h-3.5 w-3.5 accent-success-600"
                                                 />
                                                 <div className="min-w-0 flex-1">
                                                     <div className="font-semibold text-neutral-900">
                                                         МЧД №{c.mchdNumber}
                                                         {isExpired && (
-                                                            <span className="ml-1.5 rounded bg-rose-100 px-1 py-0.5 text-[10px] font-medium text-rose-700">
+                                                            <span className="ml-1.5 rounded bg-danger-100 px-1 py-0.5 text-[10px] font-medium text-danger-700">
                                                                 истекла
                                                             </span>
                                                         )}
@@ -389,7 +389,7 @@ export function SignTitleButton({
                                                     <div className="text-neutral-500">
                                                         Доверитель: {c.granterName} (ИНН {c.granterInn})
                                                     </div>
-                                                    <div className={isExpired ? 'text-rose-600' : 'text-neutral-500'}>
+                                                    <div className={isExpired ? 'text-danger-600' : 'text-neutral-500'}>
                                                         Действует до {new Date(c.expiresAt).toLocaleDateString('ru-RU')}
                                                     </div>
                                                 </div>
@@ -408,7 +408,7 @@ export function SignTitleButton({
                                     <label
                                         key={p.id}
                                         className={`flex items-start gap-3 rounded-lg border px-3 py-2 cursor-pointer transition ${provider === p.id
-                                            ? 'border-emerald-300 bg-emerald-50/60'
+                                            ? 'border-success-300 bg-success-50/60'
                                             : 'border-neutral-200 hover:bg-neutral-50'
                                             }`}
                                     >
@@ -418,7 +418,7 @@ export function SignTitleButton({
                                             value={p.id}
                                             checked={provider === p.id}
                                             onChange={() => setProvider(p.id)}
-                                            className="mt-0.5 h-4 w-4 accent-emerald-600"
+                                            className="mt-0.5 h-4 w-4 accent-success-600"
                                         />
                                         <div className="min-w-0">
                                             <div className="text-sm font-semibold text-neutral-900">{p.label}</div>
@@ -429,7 +429,7 @@ export function SignTitleButton({
                             </fieldset>
 
                             {state.kind === 'error' && (
-                                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                                <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">
                                     {state.message}
                                 </div>
                             )}
@@ -500,10 +500,10 @@ export function SignTitleButton({
                                     )}
                                 </div>
                             ) : (
-                                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                <div className="rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-800">
                                     Подписание запущено. Статус: ожидает подтверждения.
                                     {state.externalId && (
-                                        <div className="mt-1 text-[11px] text-amber-700">
+                                        <div className="mt-1 text-[11px] text-warning-700">
                                             ID запроса: <code>{state.externalId}</code>
                                         </div>
                                     )}
@@ -524,14 +524,14 @@ export function SignTitleButton({
                     )}
 
                     {state.kind === 'success' && (
-                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
+                        <div className="rounded-lg border border-success-200 bg-success-50 px-3 py-3 text-sm text-success-800">
                             Титул {titleType} подписан.
                         </div>
                     )}
 
                     {state.kind === 'timeout' && (
                         <div className="space-y-3">
-                            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
+                            <div className="rounded-lg border border-warning-200 bg-warning-50 px-3 py-3 text-sm text-warning-800">
                                 Подписание не завершено за 5 минут. Проверьте позже или повторите попытку.
                             </div>
                             <div className="flex justify-end gap-2">

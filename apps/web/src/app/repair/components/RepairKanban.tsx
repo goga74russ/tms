@@ -569,7 +569,7 @@ function PlanPartsDialog({
         </div>
 
         
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-800">
+        <div className="rounded-lg border border-info-200 bg-info-50 px-3 py-2 text-xs font-medium text-info-800">
           {transitionHint('plan')}
         </div>
 
@@ -633,10 +633,10 @@ function PlanPartsDialog({
           ) : null}
 
           {sourceTemplates.length ? (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+            <div className="rounded-lg border border-success-200 bg-success-50 p-3">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Шаблоны для этого ремонта</p>
-                <p className="text-xs text-emerald-500">{sourceTemplates.length} наборов</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-success-700">Шаблоны для этого ремонта</p>
+                <p className="text-xs text-success-500">{sourceTemplates.length} наборов</p>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {sourceTemplates.map((template) => (
@@ -644,18 +644,18 @@ function PlanPartsDialog({
                     key={template.id}
                     type="button"
                     onClick={() => appendCatalogBundle(template)}
-                    className="rounded-lg border border-emerald-200 bg-white p-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50"
+                    className="rounded-lg border border-success-200 bg-white p-3 text-left transition hover:border-success-300 hover:bg-success-50"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <p className="text-sm font-semibold text-neutral-900">{template.name}</p>
                         <p className="text-xs text-neutral-500">{template.description}</p>
                       </div>
-                      <span className="text-[11px] font-medium text-emerald-700">{formatMoney(template.totalSuggestedCost)} ₽</span>
+                      <span className="text-[11px] font-medium text-success-700">{formatMoney(template.totalSuggestedCost)} ₽</span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {template.items.slice(0, 4).map((item) => (
-                        <span key={`${template.id}-${item.id}`} className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+                        <span key={`${template.id}-${item.id}`} className="inline-flex items-center rounded-full bg-success-50 px-2 py-0.5 text-[11px] text-success-700">
                           {item.name} ×{item.quantity}
                         </span>
                       ))}
@@ -721,8 +721,8 @@ function PlanPartsDialog({
                     onClick={() => setActiveCategory(group.category)}
                     className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                       activeCategory === group.category
-                        ? 'bg-emerald-600 text-white'
-                        : 'border border-neutral-200 bg-white text-neutral-600 hover:border-emerald-300 hover:text-emerald-700'
+                        ? 'bg-success-600 text-white'
+                        : 'border border-neutral-200 bg-white text-neutral-600 hover:border-success-300 hover:text-success-700'
                     }`}
                   >
                     {group.category}
@@ -741,7 +741,7 @@ function PlanPartsDialog({
                         key={item.id}
                         type="button"
                         onClick={() => appendCatalogItem(item)}
-                        className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-left text-xs font-medium text-neutral-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                        className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-left text-xs font-medium text-neutral-700 transition hover:border-success-300 hover:bg-success-50 hover:text-success-700"
                       >
                         <span>{item.name}</span>
                         <span className="text-[11px] text-neutral-400">{formatMoney(item.suggestedUnitCost)} ₽</span>
@@ -771,7 +771,7 @@ function PlanPartsDialog({
                   placeholder="Название запчасти вручную"
                 />
                 {(part.catalogName || part.catalogCategory) && (
-                  <p className="text-xs text-emerald-700">
+                  <p className="text-xs text-success-700">
                     Из каталога: {part.catalogName}
                     {part.catalogCategory ? ` · ${part.catalogCategory}` : ''}
                     {part.unit ? ` · ${part.unit}` : ''}
@@ -800,18 +800,18 @@ function PlanPartsDialog({
           ))}
         </div>
 
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+        <div className="rounded-lg border border-info-200 bg-info-50 p-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-blue-700">План закупки</p>
-              <p className="mt-1 text-lg font-bold text-blue-900">{formatMoney(partsSummary.plannedCost)} ₽</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-info-700">План закупки</p>
+              <p className="mt-1 text-lg font-bold text-info-900">{formatMoney(partsSummary.plannedCost)} ₽</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-blue-700">Позиции: {partsSummary.partCount}</p>
-              <p className="text-xs text-blue-700">Кол-во: {partsSummary.plannedQuantity}</p>
+              <p className="text-xs text-info-700">Позиции: {partsSummary.partCount}</p>
+              <p className="text-xs text-info-700">Кол-во: {partsSummary.plannedQuantity}</p>
             </div>
           </div>
-          <p className="mt-2 text-xs text-blue-700">Ориентир на этапе заявки. После подтверждения поступления и закрытия ремонта появится фактическая стоимость.</p>
+          <p className="mt-2 text-xs text-info-700">Ориентир на этапе заявки. После подтверждения поступления и закрытия ремонта появится фактическая стоимость.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-lg border border-neutral-200 bg-white p-3">
@@ -831,7 +831,7 @@ function PlanPartsDialog({
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-danger-600">{error}</p>}
 
         <div className="flex justify-end gap-3 border-t border-neutral-100 pt-4">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
@@ -891,7 +891,7 @@ function ReceivePartsDialog({
         </div>
 
         
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800">
+        <div className="rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-xs font-medium text-success-800">
           {transitionHint('receive')}
         </div>
 
@@ -943,7 +943,7 @@ function ReceivePartsDialog({
           ))}
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-danger-600">{error}</p>}
 
         <div className="flex justify-end gap-3 border-t border-neutral-100 pt-4">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
@@ -1087,7 +1087,7 @@ function CompleteRepairDialog({
           </div>
           <div>
             <p className="text-[11px] uppercase tracking-wide text-neutral-500">Отклонение</p>
-            <p className={`mt-1 text-sm font-semibold ${repairSummary.variance >= 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+            <p className={`mt-1 text-sm font-semibold ${repairSummary.variance >= 0 ? 'text-warning-700' : 'text-success-700'}`}>
               {repairSummary.variance >= 0 ? '+' : ''}
               {formatMoney(Math.abs(repairSummary.variance))} ₽
             </p>
@@ -1106,14 +1106,14 @@ function CompleteRepairDialog({
               placeholder="Если пусто, возьмем сумму по использованным запчастям"
             />
           </div>
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-emerald-700">Попадает в финансы</p>
-            <p className="mt-1 text-lg font-bold text-emerald-900">{formatMoney(totalCost.trim() === '' ? calculatedActualTotal : Number(totalCost || 0))} ₽</p>
-            <p className="mt-1 text-xs text-emerald-700">Эта сумма станет фактической стоимостью ремонта.</p>
+          <div className="rounded-lg border border-success-200 bg-success-50 p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-success-700">Попадает в финансы</p>
+            <p className="mt-1 text-lg font-bold text-success-900">{formatMoney(totalCost.trim() === '' ? calculatedActualTotal : Number(totalCost || 0))} ₽</p>
+            <p className="mt-1 text-xs text-success-700">Эта сумма станет фактической стоимостью ремонта.</p>
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-danger-600">{error}</p>}
 
         <div className="flex justify-end gap-3 border-t border-neutral-100 pt-4">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
@@ -1300,7 +1300,7 @@ export function RepairKanban({
   return (
     <>
       {toast && (
-        <div className={`fixed right-4 top-4 z-50 rounded-xl px-5 py-3 text-sm font-medium text-white shadow-lg ${toast.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+        <div className={`fixed right-4 top-4 z-50 rounded-xl px-5 py-3 text-sm font-medium text-white shadow-lg ${toast.type === 'success' ? 'bg-success-600' : 'bg-danger-600'}`}>
           {toast.message}
         </div>
       )}
@@ -1370,10 +1370,10 @@ export function RepairKanban({
                   <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600">
                     План {formatMoney(colSummary.plannedCost)} ₽
                   </span>
-                  <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
+                  <span className="rounded-full bg-success-50 px-1.5 py-0.5 text-[10px] font-medium text-success-700">
                     Факт {formatMoney(colSummary.factCost)} ₽
                   </span>
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${colSummary.variance >= 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${colSummary.variance >= 0 ? 'bg-warning-50 text-warning-700' : 'bg-success-50 text-success-700'}`}>
                     Δ {colSummary.variance >= 0 ? '+' : ''}{formatMoney(Math.abs(colSummary.variance))} ₽
                   </span>
                 </div>

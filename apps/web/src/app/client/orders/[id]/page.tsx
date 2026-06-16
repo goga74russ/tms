@@ -587,7 +587,7 @@ function RoutePoint({
     date?: string | null;
     window?: string | null;
 }) {
-    const tone = kind === 'loading' ? 'bg-sky-50 text-sky-600' : 'bg-emerald-50 text-emerald-600';
+    const tone = kind === 'loading' ? 'bg-sky-50 text-sky-600' : 'bg-success-50 text-success-600';
     const label = kind === 'loading' ? 'Погрузка' : 'Выгрузка';
     return (
         <div className="flex gap-3">
@@ -621,7 +621,7 @@ function Timeline({ items }: { items: TimelineItem[] }) {
             {items.map((item, i) => (
                 <li key={`${item.label}-${i}`} className="flex items-start gap-3">
                     <div className="shrink-0 mt-0.5">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" aria-hidden />
+                        <CheckCircle2 className="h-4 w-4 text-success-500" aria-hidden />
                     </div>
                     <div className="min-w-0">
                         <p className="text-sm text-neutral-900">{item.label}</p>

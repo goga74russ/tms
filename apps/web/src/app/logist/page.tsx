@@ -258,7 +258,7 @@ export default function LogistPage() {
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-brand-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-info-500 to-brand-600 flex items-center justify-center shadow-lg shadow-info-500/25">
                         <ClipboardList className="w-5 h-5 text-white" />
                     </div>
                     <div>
@@ -399,9 +399,9 @@ export default function LogistPage() {
                                                     </div>
                                                     {sla && (
                                                         <span className={
-                                                            sla.tone === 'danger' ? 'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700'
-                                                                : sla.tone === 'warning' ? 'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700'
-                                                                : 'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700'
+                                                            sla.tone === 'danger' ? 'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-danger-100 text-danger-700'
+                                                                : sla.tone === 'warning' ? 'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-warning-100 text-warning-700'
+                                                                : 'shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-success-100 text-success-700'
                                                         }>
                                                             {sla.label}
                                                         </span>

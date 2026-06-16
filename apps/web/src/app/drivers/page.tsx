@@ -93,10 +93,10 @@ function exportDriversCSV(rows: Driver[]) {
 function expiryColor(d?: string) {
     if (!d) return '';
     const diff = (new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-    if (diff < 0) return 'text-red-700 font-bold';
-    if (diff < 7) return 'text-red-600';
-    if (diff <= 30) return 'text-amber-600';
-    return 'text-emerald-600';
+    if (diff < 0) return 'text-danger-700 font-bold';
+    if (diff < 7) return 'text-danger-600';
+    if (diff <= 30) return 'text-warning-600';
+    return 'text-success-600';
 }
 
 function HosBadge({ status, loading }: { status: HosStatus | null; loading: boolean }) {
@@ -111,12 +111,12 @@ function HosBadge({ status, loading }: { status: HosStatus | null; loading: bool
     return (
         <div className="relative inline-block" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
             {breach ? (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-xs font-semibold">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-danger-100 text-danger-700 text-xs font-semibold">
                     <AlertTriangle className="w-3 h-3" />
                     <span>⚠</span>
                 </span>
             ) : (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-xs font-medium">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-success-50 text-success-700 text-xs font-medium">
                     <Timer className="w-3 h-3" />
                     {status.dayHours.toFixed(1)}ч
                 </span>
@@ -125,7 +125,7 @@ function HosBadge({ status, loading }: { status: HosStatus | null; loading: bool
                 <div className="absolute z-10 left-0 top-full mt-1 w-56 px-3 py-2 rounded-lg bg-neutral-900 text-white text-xs shadow-lg pointer-events-none">
                     <div>Сегодня: {status.dayHours.toFixed(1)} / {status.dayLimit} ч</div>
                     <div>Неделя: {status.weekHours.toFixed(1)} / {status.weekLimit} ч</div>
-                    {breach && <div className="text-red-300 mt-0.5 font-semibold">Нарушение режима</div>}
+                    {breach && <div className="text-danger-300 mt-0.5 font-semibold">Нарушение режима</div>}
                 </div>
             )}
         </div>
@@ -181,13 +181,13 @@ function HoursChartDialog({ driver, onClose }: { driver: Driver; onClose: () => 
                     </div>
                 )}
                 {summary?.breaches && summary.breaches.length > 0 && (
-                    <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs space-y-1">
-                        <div className="font-semibold text-rose-700 flex items-center gap-1">
+                    <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 text-xs space-y-1">
+                        <div className="font-semibold text-danger-700 flex items-center gap-1">
                             <AlertTriangle className="w-3.5 h-3.5" />
                             Нарушения ({summary.breaches.length})
                         </div>
                         {summary.breaches.slice(0, 5).map((b) => (
-                            <div key={`${b.date}:${b.reason}`} className="text-rose-700">
+                            <div key={`${b.date}:${b.reason}`} className="text-danger-700">
                                 {format(new Date(b.date), 'dd.MM')}: {b.reason}
                             </div>
                         ))}

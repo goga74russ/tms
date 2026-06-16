@@ -88,7 +88,7 @@ export function AddTariffModal({ open, onClose, onCreated }: AddTariffModalProps
     return (
         <Dialog open={open} onClose={onClose} title="Новый тариф">
             <form onSubmit={handleSubmit} className="space-y-4">
-                {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
+                {error ? <div className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</div> : null}
                 <label className="space-y-1 text-sm block">
                     <span className="text-neutral-600">Договор</span>
                     <select value={form.contractId} onChange={(e) => setForm((p) => ({ ...p, contractId: e.target.value }))} className={inputCls}>

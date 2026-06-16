@@ -34,8 +34,8 @@ describe('PageHeader', () => {
             />,
         );
         // The icon tile is the first sibling of the title block with the tone classes.
-        const tile = container.querySelector('.bg-emerald-50');
+        const tile = container.querySelector('.bg-success-50');
         expect(tile).not.toBeNull();
-        expect(tile?.className).toContain('text-emerald-600');
+        expect(tile?.className).toContain('text-success-600');
     });
 });

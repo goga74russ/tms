@@ -153,7 +153,7 @@ function CreateRepairModal({
     const inputClass = (field: string) =>
         `w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 transition-colors ${
             touched[field] && errors[field]
-                ? 'border-red-300 focus:ring-red-500/20 focus:border-red-500'
+                ? 'border-danger-300 focus:ring-danger-500/20 focus:border-danger-500'
                 : 'border-neutral-200 focus:ring-brand-500/20 focus:border-brand-500'
         }`;
 
@@ -175,7 +175,7 @@ function CreateRepairModal({
                             ))}
                         </select>
                         {touched.vehicleId && errors.vehicleId && (
-                            <p className="text-xs text-red-500 mt-1">{errors.vehicleId}</p>
+                            <p className="text-xs text-danger-500 mt-1">{errors.vehicleId}</p>
                         )}
                     </div>
                     <div>
@@ -190,7 +190,7 @@ function CreateRepairModal({
                             aria-invalid={touched.description && !!errors.description}
                         />
                         {touched.description && errors.description && (
-                            <p className="text-xs text-red-500 mt-1">{errors.description}</p>
+                            <p className="text-xs text-danger-500 mt-1">{errors.description}</p>
                         )}
                     </div>
                     <div>
@@ -208,7 +208,7 @@ function CreateRepairModal({
                             <option value="critical">Критический</option>
                         </select>
                         {touched.priority && errors.priority && (
-                            <p className="text-xs text-red-500 mt-1">{errors.priority}</p>
+                            <p className="text-xs text-danger-500 mt-1">{errors.priority}</p>
                         )}
                     </div>
                     <div>
@@ -241,7 +241,7 @@ function CreateRepairModal({
                             <p className="text-xs text-neutral-400 mt-1">В организации пока нет пользователей с ролью «mechanic» или «repair_service».</p>
                         )}
                     </div>
-                    {error && <p className="text-sm text-red-600">{error}</p>}
+                    {error && <p className="text-sm text-danger-600">{error}</p>}
                 <div className="pt-2 border-t border-neutral-100 flex gap-3 justify-end">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
                     <Button variant="brand" isLoading={submitting} disabled={!isValid || submitting} onClick={handleSubmit}>
@@ -309,10 +309,10 @@ export default function RepairPage() {
 
     // Цвет-индикатор статуса (UI-тон, не enum-перевод). Текст берём из канона REPAIR_STATUS.
     const statusColors: Record<string, string> = {
-        created: 'bg-amber-500',
-        waiting_parts: 'bg-blue-500',
+        created: 'bg-warning-500',
+        waiting_parts: 'bg-info-500',
         in_progress: 'bg-brand-500',
-        done: 'bg-emerald-500',
+        done: 'bg-success-500',
     };
 
     useEffect(() => {
@@ -489,7 +489,7 @@ export default function RepairPage() {
             {(view === 'table' || view === 'list') && (
                 <div className="space-y-2">
                     {!tableLoading && tableTotal > repairsForTable.length && (
-                        <p className="text-xs text-amber-600">
+                        <p className="text-xs text-warning-600">
                             Показано {repairsForTable.length} из {tableTotal} заявок. Уточните поиск или фильтры, чтобы увидеть остальные.
                         </p>
                     )}

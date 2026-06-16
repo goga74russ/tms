@@ -192,7 +192,7 @@ function TrailerFormModal({
                         </select>
                     </div>
             </div>
-            {error && <p className="pt-3 text-sm text-red-600">{error}</p>}
+            {error && <p className="pt-3 text-sm text-danger-600">{error}</p>}
             <div className="flex justify-end gap-3 pt-4 mt-4 border-t border-neutral-100">
                 <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
                 <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>

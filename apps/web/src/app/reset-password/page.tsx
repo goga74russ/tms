@@ -103,9 +103,9 @@ function ResetPasswordContent() {
                 <div className="space-y-5">
                     <div
                         role="alert"
-                        className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 flex items-start gap-3"
+                        className="rounded-xl border border-warning-200 bg-warning-50 p-4 text-sm text-warning-900 flex items-start gap-3"
                     >
-                        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
                         <div>
                             <p className="font-semibold mb-1">Ссылка недействительна</p>
                             <p className="leading-relaxed">
@@ -127,9 +127,9 @@ function ResetPasswordContent() {
                     {formError && (
                         <div
                             role="alert"
-                            className="mb-5 bg-red-50 text-red-700 p-3 rounded-lg text-sm font-medium border border-red-200 flex items-start gap-2"
+                            className="mb-5 bg-danger-50 text-danger-700 p-3 rounded-lg text-sm font-medium border border-danger-200 flex items-start gap-2"
                         >
-                            <span className="w-5 h-5 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">!</span>
+                            <span className="w-5 h-5 rounded-full bg-danger-100 text-danger-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">!</span>
                             <span>{formError}</span>
                         </div>
                     )}

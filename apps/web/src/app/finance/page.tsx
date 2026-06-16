@@ -68,12 +68,12 @@ const STATUS_OPTIONS = [
 
 const getStatusColor = (status: string) => {
     switch (status) {
-        case 'paid_full': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        case 'paid_full': return 'bg-success-50 text-success-700 border-success-200';
         case 'paid_partial': return 'bg-brand-50 text-brand-700 border-brand-200';
-        case 'issued': return 'bg-blue-50 text-blue-700 border-blue-200';
+        case 'issued': return 'bg-info-50 text-info-700 border-info-200';
         case 'corrected': return 'bg-purple-50 text-purple-700 border-purple-200';
         case 'cancelled': return 'bg-neutral-100 text-neutral-500 border-neutral-200';
-        default: return 'bg-amber-50 text-amber-700 border-amber-200'; // draft
+        default: return 'bg-warning-50 text-warning-700 border-warning-200'; // draft
     }
 };
 
@@ -743,7 +743,7 @@ export default function FinanceDashboard() {
                                                     className="h-4 w-4 rounded border-neutral-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
                                                 />
                                             </TableCell>
-                                            <TableCell className="font-medium text-blue-600" title={inv.number}>{shortInvoiceNo(inv.number)}</TableCell>
+                                            <TableCell className="font-medium text-info-600" title={inv.number}>{shortInvoiceNo(inv.number)}</TableCell>
                                             <TableCell className="text-neutral-500">{label(INVOICE_TYPE, inv.type)}</TableCell>
                                             <TableCell className="text-neutral-500">
                                                 {inv.periodStart && format(new Date(inv.periodStart), 'dd.MM', { locale: ru })}
@@ -762,9 +762,9 @@ export default function FinanceDashboard() {
                                                 <div className="flex items-center justify-end gap-1">
                                                     <button
                                                         onClick={e => { e.stopPropagation(); void downloadFromApi(`/api/finance/invoices/${inv.id}/pdf`, `${inv.type}_${inv.number}.pdf`); }}
-                                                        className="p-1 rounded hover:bg-red-100 transition-colors" title="Скачать PDF"
+                                                        className="p-1 rounded hover:bg-danger-100 transition-colors" title="Скачать PDF"
                                                     >
-                                                        <FileDown className="w-4 h-4 text-red-500" />
+                                                        <FileDown className="w-4 h-4 text-danger-500" />
                                                     </button>
                                                     <button
                                                         onClick={e => {
@@ -841,7 +841,7 @@ export default function FinanceDashboard() {
                                                 </div>
                                             </div>
                                             <div className="shrink-0 text-right">
-                                                <div className="text-sm font-semibold text-emerald-700">
+                                                <div className="text-sm font-semibold text-success-700">
                                                     {new Intl.NumberFormat('ru-RU', {
                                                         style: 'currency',
                                                         currency: 'RUB',
@@ -863,7 +863,7 @@ export default function FinanceDashboard() {
                         )}
 
                         {financeActionResult && (
-                            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                            <div className="rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-sm text-success-700">
                                 {financeActionResult}
                             </div>
                         )}
@@ -882,9 +882,9 @@ export default function FinanceDashboard() {
                                             const anyOverdue = rows.some(r => r.status === 'overdue');
                                             const label = dt === 'ttn' ? 'ТТН' : dt === 'upd' ? 'УПД' : 'Акт';
                                             const color = allReceived
-                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                ? 'bg-success-50 text-success-700 border-success-200'
                                                 : anyOverdue
-                                                    ? 'bg-red-50 text-red-700 border-red-200'
+                                                    ? 'bg-danger-50 text-danger-700 border-danger-200'
                                                     : 'bg-neutral-100 text-neutral-500 border-neutral-200';
                                             return (
                                                 <div key={dt} className="flex items-center gap-2">
@@ -893,7 +893,7 @@ export default function FinanceDashboard() {
                                                     </Badge>
                                                     {!allReceived && (
                                                         <button
-                                                            className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                                                            className="text-xs text-info-600 hover:underline disabled:opacity-50"
                                                             disabled={markingReceived === dt}
                                                             onClick={() => handleMarkDocReceived(dt)}
                                                         >
@@ -1001,7 +1001,7 @@ export default function FinanceDashboard() {
                     </div>
 
                     {bulkResult && (
-                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                        <div className="rounded-lg border border-success-200 bg-success-50 px-3 py-2 text-sm text-success-700">
                             {bulkResult}
                         </div>
                     )}

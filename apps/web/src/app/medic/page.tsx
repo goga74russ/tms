@@ -90,9 +90,9 @@ type DateFilter = 'all' | 'today' | 'week';
 // ================================================================
 function CertBadge({ status, expiry }: { status: string; expiry: string | null }) {
     const config: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
-        green: { color: 'bg-emerald-100 text-emerald-700', label: 'Актуальна', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
-        yellow: { color: 'bg-amber-100 text-amber-700', label: 'Истекает скоро', icon: <AlertTriangle className="w-3.5 h-3.5" /> },
-        red: { color: 'bg-red-100 text-red-700', label: 'Просрочена', icon: <XCircle className="w-3.5 h-3.5" /> },
+        green: { color: 'bg-success-100 text-success-700', label: 'Актуальна', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+        yellow: { color: 'bg-warning-100 text-warning-700', label: 'Истекает скоро', icon: <AlertTriangle className="w-3.5 h-3.5" /> },
+        red: { color: 'bg-danger-100 text-danger-700', label: 'Просрочена', icon: <XCircle className="w-3.5 h-3.5" /> },
         unknown: { color: 'bg-neutral-100 text-neutral-500', label: 'Нет данных', icon: <Clock className="w-3.5 h-3.5" /> },
     };
 
@@ -114,9 +114,9 @@ function CertBadge({ status, expiry }: { status: string; expiry: string | null }
 // Compact status pill — just status, no expiry, for list rows
 function CertStatusPill({ status }: { status: string }) {
     const cfg: Record<string, { color: string; label: string }> = {
-        green: { color: 'bg-emerald-100 text-emerald-700', label: 'Справка OK' },
-        yellow: { color: 'bg-amber-100 text-amber-700', label: 'Истекает' },
-        red: { color: 'bg-red-100 text-red-700', label: 'Просрочена' },
+        green: { color: 'bg-success-100 text-success-700', label: 'Справка OK' },
+        yellow: { color: 'bg-warning-100 text-warning-700', label: 'Истекает' },
+        red: { color: 'bg-danger-100 text-danger-700', label: 'Просрочена' },
         unknown: { color: 'bg-neutral-100 text-neutral-500', label: 'Нет данных' },
     };
     const c = cfg[status] || cfg.unknown;
@@ -136,7 +136,7 @@ function WarningBadge({ warning }: { warning: WarningResult | null }) {
     const isCritical = warning.level === 'critical';
     return (
         <div
-            className={`text-[11px] flex items-start gap-1 ${isCritical ? 'text-red-700' : 'text-amber-700'}`}
+            className={`text-[11px] flex items-start gap-1 ${isCritical ? 'text-danger-700' : 'text-warning-700'}`}
             role={isCritical ? 'alert' : 'status'}
         >
             <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
@@ -448,7 +448,7 @@ export default function MedicPage() {
             <div className="bg-white">
                 {/* Driver header */}
                 {!compact && (
-                    <div className="bg-gradient-to-r from-rose-700 to-pink-600 px-5 py-4 text-white rounded-t-2xl">
+                    <div className="bg-gradient-to-r from-brand-700 to-accent-600 px-5 py-4 text-white rounded-t-2xl">
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
                                 <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-base font-bold shrink-0">
@@ -456,7 +456,7 @@ export default function MedicPage() {
                                 </div>
                                 <div className="min-w-0">
                                     <h2 className="text-base font-bold truncate">{selectedDriver.driver.fullName}</h2>
-                                    <p className="text-rose-200 text-xs truncate">
+                                    <p className="text-brand-200 text-xs truncate">
                                         ВУ: {selectedDriver.driver.licenseNumber}
                                         · Кат.: {selectedDriver.driver.licenseCategories?.join(', ') || '—'}
                                         · {tripReferences[selectedDriver.trip.id]?.waybillNumber
@@ -522,7 +522,7 @@ export default function MedicPage() {
                                     placeholder="Сист."
                                     value={formData.systolicBp}
                                     onChange={e => updateForm('systolicBp', e.target.value)}
-                                    className="flex-1 px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                                    className="flex-1 px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
                                     min={60}
                                     max={250}
                                 />
@@ -532,7 +532,7 @@ export default function MedicPage() {
                                     placeholder="Диаст."
                                     value={formData.diastolicBp}
                                     onChange={e => updateForm('diastolicBp', e.target.value)}
-                                    className="flex-1 px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                                    className="flex-1 px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
                                     min={40}
                                     max={150}
                                 />
@@ -561,7 +561,7 @@ export default function MedicPage() {
                                 placeholder="60-100"
                                 value={formData.heartRate}
                                 onChange={e => updateForm('heartRate', e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
                                 min={30}
                                 max={200}
                             />
@@ -580,7 +580,7 @@ export default function MedicPage() {
                                 placeholder="36.6"
                                 value={formData.temperature}
                                 onChange={e => updateForm('temperature', e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
                                 min={34}
                                 max={42}
                             />
@@ -595,7 +595,7 @@ export default function MedicPage() {
                             <select
                                 value={formData.condition}
                                 onChange={e => updateForm('condition', e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400 bg-white"
+                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 bg-white"
                             >
                                 <option value="удовлетворительное">Удовлетворительное</option>
                                 <option value="неудовлетворительное">Неудовлетворительное</option>
@@ -613,13 +613,13 @@ export default function MedicPage() {
                                 + подсветка «не выбрано» для обязательного поля без дефолта
                                 (дефолт «Отрицательный» сознательно не ставим — это запись
                                 непроведённого теста под ПЭП-подписью медика). */}
-                            <div className={`flex gap-2 rounded-lg ${formData.alcoholTest === '' ? 'ring-1 ring-amber-300' : ''}`}>
+                            <div className={`flex gap-2 rounded-lg ${formData.alcoholTest === '' ? 'ring-1 ring-warning-300' : ''}`}>
                                 <button
                                     type="button"
                                     onClick={() => updateForm('alcoholTest', 'negative')}
                                     className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition ${formData.alcoholTest === 'negative'
-                                        ? 'bg-emerald-600 text-white shadow-sm'
-                                        : 'bg-neutral-100 text-neutral-500 hover:bg-emerald-100 hover:text-emerald-700'
+                                        ? 'bg-success-600 text-white shadow-sm'
+                                        : 'bg-neutral-100 text-neutral-500 hover:bg-success-100 hover:text-success-700'
                                         }`}
                                 >
                                     Отрицательный
@@ -628,15 +628,15 @@ export default function MedicPage() {
                                     type="button"
                                     onClick={() => updateForm('alcoholTest', 'positive')}
                                     className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition ${formData.alcoholTest === 'positive'
-                                        ? 'bg-red-600 text-white shadow-sm'
-                                        : 'bg-neutral-100 text-neutral-500 hover:bg-red-100 hover:text-red-700'
+                                        ? 'bg-danger-600 text-white shadow-sm'
+                                        : 'bg-neutral-100 text-neutral-500 hover:bg-danger-100 hover:text-danger-700'
                                         }`}
                                 >
                                     Положительный
                                 </button>
                             </div>
                             {formData.alcoholTest === '' && (
-                                <p className="text-[11px] text-amber-600">Не выбрано — обязательное поле</p>
+                                <p className="text-[11px] text-warning-600">Не выбрано — обязательное поле</p>
                             )}
                         </div>
 
@@ -650,7 +650,7 @@ export default function MedicPage() {
                                 placeholder="Нет жалоб"
                                 value={formData.complaints}
                                 onChange={e => updateForm('complaints', e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
                             />
                         </div>
                     </div>
@@ -666,7 +666,7 @@ export default function MedicPage() {
                             placeholder="Пароль для электронной подписи"
                             value={signature}
                             onChange={e => setSignature(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-400"
+                            className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400"
                         />
                     </div>
 
@@ -675,7 +675,7 @@ export default function MedicPage() {
                         <button
                             onClick={() => submitInspection('approved')}
                             disabled={submitting}
-                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-200 hover:shadow-emerald-300 hover:from-emerald-700 hover:to-emerald-600 transition disabled:opacity-50"
+                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-success-600 to-success-500 text-white rounded-xl text-sm font-bold shadow-md shadow-success-200 hover:shadow-success-300 hover:from-success-700 hover:to-success-600 transition disabled:opacity-50"
                         >
                             <CheckCircle2 className="w-5 h-5" />
                             Допустить
@@ -683,7 +683,7 @@ export default function MedicPage() {
                         <button
                             onClick={() => submitInspection('rejected')}
                             disabled={submitting}
-                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-xl text-sm font-bold shadow-md shadow-red-200 hover:shadow-red-300 hover:from-red-700 hover:to-red-600 transition disabled:opacity-50"
+                            className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 bg-gradient-to-r from-danger-600 to-danger-500 text-white rounded-xl text-sm font-bold shadow-md shadow-danger-200 hover:shadow-danger-300 hover:from-danger-700 hover:to-danger-600 transition disabled:opacity-50"
                         >
                             <XCircle className="w-5 h-5" />
                             Не допустить
@@ -700,7 +700,7 @@ export default function MedicPage() {
             <header className="bg-white border-b border-neutral-200 px-6 py-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-accent-600 flex items-center justify-center">
                             <HeartPulse className="w-6 h-6 text-white" />
                         </div>
                         <div>
@@ -760,16 +760,16 @@ export default function MedicPage() {
 
                 {/* Expiring certificates warning */}
                 {expiringCerts.length > 0 && activeTab === 'queue' && !selectedDriver && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <div className="p-4 bg-warning-50 border border-warning-200 rounded-xl">
                         <div className="flex items-center gap-2 mb-2">
-                            <AlertTriangle className="w-5 h-5 text-amber-600" />
-                            <span className="font-semibold text-amber-800 text-sm">
+                            <AlertTriangle className="w-5 h-5 text-warning-600" />
+                            <span className="font-semibold text-warning-800 text-sm">
                                 Медсправки истекают в ближайшие 30 дней
                             </span>
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {expiringCerts.map((cert) => (
-                                <span key={cert.id} className="text-xs bg-amber-100 text-amber-700 px-2.5 py-1 rounded-lg">
+                                <span key={cert.id} className="text-xs bg-warning-100 text-warning-700 px-2.5 py-1 rounded-lg">
                                     {cert.fullName} — до {new Date(cert.medCertificateExpiry).toLocaleDateString('ru-RU')}
                                 </span>
                             ))}
@@ -789,7 +789,7 @@ export default function MedicPage() {
                                             key={f}
                                             onClick={() => setDateFilter(f)}
                                             className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${dateFilter === f
-                                                ? 'bg-rose-100 text-rose-700'
+                                                ? 'bg-brand-100 text-brand-700'
                                                 : 'text-neutral-500 hover:text-neutral-700'
                                                 }`}
                                         >
@@ -802,7 +802,7 @@ export default function MedicPage() {
                                     placeholder="Поиск по водителю / рейсу..."
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
-                                    className="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-rose-300"
+                                    className="flex-1 min-w-[160px] max-w-xs px-3 py-1.5 text-xs border border-neutral-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
                                 />
                                 <span className="text-[11px] text-neutral-400 ml-auto">
                                     {filteredQueue.length} из {queue.length}
@@ -830,13 +830,13 @@ export default function MedicPage() {
                                                 key={item.driver.id}
                                                 onClick={() => selectDriver(item)}
                                                 className={`group flex items-center gap-3 px-4 py-3 cursor-pointer transition relative ${isSelected
-                                                    ? 'bg-rose-50 ring-1 ring-inset ring-rose-200'
+                                                    ? 'bg-brand-50 ring-1 ring-inset ring-brand-200'
                                                     : noConsent
-                                                        ? 'bg-red-50/40 hover:bg-red-50'
+                                                        ? 'bg-danger-50/40 hover:bg-danger-50'
                                                         : 'hover:bg-neutral-50'
                                                     }`}
                                             >
-                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-100 to-pink-100 flex items-center justify-center text-rose-700 font-bold text-xs shrink-0">
+                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-100 to-accent-100 flex items-center justify-center text-brand-700 font-bold text-xs shrink-0">
                                                     {item.driver.fullName.charAt(0)}
                                                 </div>
                                                 <div className="min-w-0 flex-1">
@@ -846,7 +846,7 @@ export default function MedicPage() {
                                                         </span>
                                                         <CertStatusPill status={item.driver.medCertStatus} />
                                                         {noConsent && (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700">
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-danger-100 text-danger-700">
                                                                 <XCircle className="w-3 h-3" />
                                                                 Нет согласия ПД
                                                             </span>
@@ -861,7 +861,7 @@ export default function MedicPage() {
                                                 <div className="hidden group-hover:flex items-center gap-1 shrink-0">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); selectDriver(item); }}
-                                                        className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
+                                                        className="px-2.5 py-1 rounded-md bg-success-600 hover:bg-success-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
                                                         title="Открыть осмотр для допуска"
                                                     >
                                                         <CheckCircle2 className="w-3.5 h-3.5" />
@@ -869,7 +869,7 @@ export default function MedicPage() {
                                                     </button>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); selectDriver(item); }}
-                                                        className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
+                                                        className="px-2.5 py-1 rounded-md bg-danger-600 hover:bg-danger-700 text-white text-[11px] font-semibold inline-flex items-center gap-1"
                                                         title="Открыть осмотр для отказа"
                                                     >
                                                         <XCircle className="w-3.5 h-3.5" />
@@ -909,7 +909,7 @@ export default function MedicPage() {
                 {activeTab === 'journal' && (
                     <div>
                         <h2 className="text-lg font-bold text-neutral-800 mb-4 flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-blue-500" />
+                            <FileText className="w-5 h-5 text-info-500" />
                             Журнал медосмотров
                         </h2>
 
@@ -974,8 +974,8 @@ export default function MedicPage() {
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${record.decision === 'approved'
-                                                        ? 'bg-emerald-100 text-emerald-700'
-                                                        : 'bg-red-100 text-red-700'
+                                                        ? 'bg-success-100 text-success-700'
+                                                        : 'bg-danger-100 text-danger-700'
                                                         }`}>
                                                         {record.decision === 'approved' ? (
                                                             <><CheckCircle2 className="w-3 h-3" /> Допущен</>
@@ -990,7 +990,7 @@ export default function MedicPage() {
                                                             href={`/api/inspections/med/${record.id}/pdf`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 transition"
+                                                            className="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700 hover:bg-brand-100 transition"
                                                             title="Скачать акт PDF"
                                                         >
                                                             <FileText className="w-3.5 h-3.5" />
@@ -1000,7 +1000,7 @@ export default function MedicPage() {
                                                         {record.decision !== 'approved' && (
                                                             <button
                                                                 onClick={() => overrideDecision(record, 'approved')}
-                                                                className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition"
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-success-200 bg-success-50 px-2 py-1 text-xs font-medium text-success-700 hover:bg-success-100 transition"
                                                                 title="Допустить"
                                                             >
                                                                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -1010,7 +1010,7 @@ export default function MedicPage() {
                                                         {record.decision !== 'rejected' && (
                                                             <button
                                                                 onClick={() => overrideDecision(record, 'rejected')}
-                                                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 transition"
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-danger-200 bg-danger-50 px-2 py-1 text-xs font-medium text-danger-700 hover:bg-danger-100 transition"
                                                                 title="Не допускать"
                                                             >
                                                                 <XCircle className="w-3.5 h-3.5" />
@@ -1044,22 +1044,22 @@ export default function MedicPage() {
                                         <p className="text-2xl sm:text-3xl font-bold text-neutral-900">{stats.total}</p>
                                     </CardContent>
                                 </Card>
-                                <Card className="border-emerald-200">
+                                <Card className="border-success-200">
                                     <CardContent className="p-5">
-                                        <p className="text-sm text-emerald-600 mb-1">Допущены</p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-emerald-700">{stats.approved}</p>
+                                        <p className="text-sm text-success-600 mb-1">Допущены</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-success-700">{stats.approved}</p>
                                     </CardContent>
                                 </Card>
-                                <Card className="border-red-200">
+                                <Card className="border-danger-200">
                                     <CardContent className="p-5">
-                                        <p className="text-sm text-red-600 mb-1">Не допущены</p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-red-700">{stats.rejected}</p>
+                                        <p className="text-sm text-danger-600 mb-1">Не допущены</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-danger-700">{stats.rejected}</p>
                                     </CardContent>
                                 </Card>
-                                <Card className="border-amber-200">
+                                <Card className="border-warning-200">
                                     <CardContent className="p-5">
-                                        <p className="text-sm text-amber-600 mb-1">% недопусков</p>
-                                        <p className="text-2xl sm:text-3xl font-bold text-amber-700">{stats.rejectionRate}%</p>
+                                        <p className="text-sm text-warning-600 mb-1">% недопусков</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-warning-700">{stats.rejectionRate}%</p>
                                     </CardContent>
                                 </Card>
                             </div>
@@ -1069,7 +1069,7 @@ export default function MedicPage() {
                         {expiringCerts.length > 0 && (
                             <div className="bg-white rounded-2xl border border-neutral-200 p-5">
                                 <h3 className="font-semibold text-neutral-800 mb-3 flex items-center gap-2">
-                                    <Calendar className="w-4 h-4 text-amber-500" />
+                                    <Calendar className="w-4 h-4 text-warning-500" />
                                     Медсправки истекают ({expiringCerts.length})
                                 </h3>
                                 <div className="space-y-2">
@@ -1078,13 +1078,13 @@ export default function MedicPage() {
                                             (new Date(cert.medCertificateExpiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
                                         );
                                         return (
-                                            <div key={cert.id} className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-100">
+                                            <div key={cert.id} className="flex items-center justify-between p-3 bg-warning-50 rounded-xl border border-warning-100">
                                                 <span className="font-medium text-neutral-800 text-sm">{cert.fullName}</span>
                                                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg ${daysLeft <= 0
-                                                    ? 'bg-red-100 text-red-700'
+                                                    ? 'bg-danger-100 text-danger-700'
                                                     : daysLeft <= 7
-                                                        ? 'bg-red-100 text-red-600'
-                                                        : 'bg-amber-100 text-amber-700'
+                                                        ? 'bg-danger-100 text-danger-600'
+                                                        : 'bg-warning-100 text-warning-700'
                                                     }`}>
                                                     {daysLeft <= 0 ? 'Просрочена' : `${daysLeft} дн.`}
                                                 </span>

@@ -46,7 +46,7 @@ function renderBlock(b: Block, key: number, headingIds: boolean): React.ReactNod
         case 'ol':
             return <ol key={key} className="list-decimal list-outside pl-5 text-sm space-y-1">{b.items.map((it, k) => <li key={k}>{renderInline(it)}</li>)}</ol>;
         case 'blockquote':
-            return <blockquote key={key} className="border-l-2 border-amber-300 bg-amber-50/40 pl-3 py-2 text-sm text-amber-900 italic">{renderInline(b.text)}</blockquote>;
+            return <blockquote key={key} className="border-l-2 border-warning-300 bg-warning-50/40 pl-3 py-2 text-sm text-warning-900 italic">{renderInline(b.text)}</blockquote>;
         case 'table':
             return (
                 <div key={key} className="overflow-x-auto -mx-2 px-2">

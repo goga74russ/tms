@@ -129,8 +129,8 @@ function fmtPct(n: number) {
 }
 function severityBadge(s: 'critical' | 'warning') {
     return s === 'critical'
-        ? 'bg-red-100 text-red-700 border-red-200'
-        : 'bg-amber-100 text-amber-700 border-amber-200';
+        ? 'bg-danger-100 text-danger-700 border-danger-200'
+        : 'bg-warning-100 text-warning-700 border-warning-200';
 }
 function typeName(t: string) {
     const map: Record<string, string> = {
@@ -140,9 +140,9 @@ function typeName(t: string) {
     return map[t] || t;
 }
 function marginColor(pct: number) {
-    if (pct < 0) return 'text-red-600';
-    if (pct < 15) return 'text-amber-600';
-    return 'text-emerald-600';
+    if (pct < 0) return 'text-danger-600';
+    if (pct < 15) return 'text-warning-600';
+    return 'text-success-600';
 }
 function formatDateInput(date: Date) {
     return date.toISOString().slice(0, 10);
@@ -286,13 +286,13 @@ export default function AnalyticsPage() {
             {/* Stat Cards — operational scope */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <StatCard
-                    icon={<AlertTriangle className="w-5 h-5 text-red-500" />}
+                    icon={<AlertTriangle className="w-5 h-5 text-danger-500" />}
                     label="ТО критические"
                     value={criticalCount}
                     color="red"
                 />
                 <StatCard
-                    icon={<ShieldCheck className="w-5 h-5 text-amber-500" />}
+                    icon={<ShieldCheck className="w-5 h-5 text-warning-500" />}
                     label="ТО предупреждения"
                     value={warningCount}
                     color="amber"
@@ -305,7 +305,7 @@ export default function AnalyticsPage() {
                     color="indigo"
                 />
                 <StatCard
-                    icon={<Gauge className="w-5 h-5 text-emerald-500" />}
+                    icon={<Gauge className="w-5 h-5 text-success-500" />}
                     label="КТГ парка"
                     value={fleetHealth ? `${fleetHealth.ktgPercent.toFixed(1)}%` : '—'}
                     subtitle={fleetHealth ? `Готовы: ${fleetHealth.fleetReady} / ${fleetHealth.fleetActive}${fleetHealth.fleetUnavailable > 0 ? `, недоступны: ${fleetHealth.fleetUnavailable}` : ''}` : 'Готовность парка'}
@@ -334,13 +334,13 @@ export default function AnalyticsPage() {
                             </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                            <span className="inline-flex rounded-full bg-success-50 px-3 py-1 text-xs font-semibold text-success-700">
                                 Готовы: {fleetHealth.readiness.readyCount}
                             </span>
-                            <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                            <span className="inline-flex rounded-full bg-warning-50 px-3 py-1 text-xs font-semibold text-warning-700">
                                 Зона внимания: {fleetHealth.readiness.attentionCount}
                             </span>
-                            <span className="inline-flex rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
+                            <span className="inline-flex rounded-full bg-danger-50 px-3 py-1 text-xs font-semibold text-danger-700">
                                 Блокировки: {fleetHealth.readiness.blockedCount}
                             </span>
                         </div>
@@ -352,8 +352,8 @@ export default function AnalyticsPage() {
                                     key={issue.key}
                                     className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
                                         issue.severity === 'critical'
-                                            ? 'bg-red-50 text-red-700'
-                                            : 'bg-amber-50 text-amber-700'
+                                            ? 'bg-danger-50 text-danger-700'
+                                            : 'bg-warning-50 text-warning-700'
                                     }`}
                                 >
                                     {issue.label}: {issue.count}
@@ -394,8 +394,8 @@ export default function AnalyticsPage() {
                             </div>
                         ) : alerts.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-neutral-400">
-                                <ShieldCheck className="w-12 h-12 mb-3 text-emerald-400" />
-                                <p className="text-sm font-medium text-emerald-600">Все ТС в норме</p>
+                                <ShieldCheck className="w-12 h-12 mb-3 text-success-400" />
+                                <p className="text-sm font-medium text-success-600">Все ТС в норме</p>
                                 <p className="text-xs text-neutral-400 mt-1">Нет предупреждений о ТО</p>
                             </div>
                         ) : (
@@ -500,9 +500,9 @@ export default function AnalyticsPage() {
                                                 <td className="px-4 py-3">
                                                     <div className="w-full bg-neutral-100 rounded-full h-2">
                                                         <div
-                                                            className={`h-2 rounded-full transition-all ${t.marginPercent >= 15 ? 'bg-emerald-500'
-                                                                : t.marginPercent >= 0 ? 'bg-amber-500'
-                                                                    : 'bg-red-500'
+                                                            className={`h-2 rounded-full transition-all ${t.marginPercent >= 15 ? 'bg-success-500'
+                                                                : t.marginPercent >= 0 ? 'bg-warning-500'
+                                                                    : 'bg-danger-500'
                                                                 }`}
                                                             style={{ width: `${Math.min(Math.max(t.marginPercent, 0), 100)}%` }}
                                                         />
@@ -565,7 +565,7 @@ export default function AnalyticsPage() {
                                                 <td className="px-4 py-3 text-right text-neutral-600">
                                                     {row.norm !== null ? `${row.norm.toFixed(1)} л/100` : '—'}
                                                 </td>
-                                                <td className={`px-4 py-3 text-right font-semibold ${row.deviation && row.deviation > 0 ? 'text-red-600' : row.deviation && row.deviation < 0 ? 'text-emerald-600' : 'text-neutral-600'}`}>
+                                                <td className={`px-4 py-3 text-right font-semibold ${row.deviation && row.deviation > 0 ? 'text-danger-600' : row.deviation && row.deviation < 0 ? 'text-success-600' : 'text-neutral-600'}`}>
                                                     {row.deviation !== null ? `${row.deviation > 0 ? '+' : ''}${row.deviation.toFixed(1)} л/100` : '—'}
                                                 </td>
                                             </tr>
@@ -613,7 +613,7 @@ export default function AnalyticsPage() {
                                         {[...ktgRows].sort((a, b) => (a.ktgPercent ?? 0) - (b.ktgPercent ?? 0)).map((row) => (
                                             <tr key={row.vehicleId} className="hover:bg-neutral-50 transition-colors">
                                                 <td className="px-4 py-3 font-mono font-medium text-neutral-900">{row.plateNumber}</td>
-                                                <td className={`px-4 py-3 text-right font-semibold ${row.ktgPercent !== null && row.ktgPercent < 75 ? 'text-red-600' : row.ktgPercent !== null && row.ktgPercent < 90 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                                <td className={`px-4 py-3 text-right font-semibold ${row.ktgPercent !== null && row.ktgPercent < 75 ? 'text-danger-600' : row.ktgPercent !== null && row.ktgPercent < 90 ? 'text-warning-600' : 'text-success-600'}`}>
                                                     {row.ktgPercent !== null ? `${row.ktgPercent.toFixed(1)}%` : '—'}
                                                 </td>
                                                 <td className="px-4 py-3 text-right text-neutral-700">{row.workingHours.toFixed(1)}</td>
@@ -640,9 +640,9 @@ function StatCard({ icon, label, value, color, subtitle }: {
     icon: React.ReactNode; label: string; value: string | number; color: string; subtitle?: string;
 }) {
     const bgMap: Record<string, string> = {
-        red: 'bg-red-50 border-red-100',
-        amber: 'bg-amber-50 border-amber-100',
-        emerald: 'bg-emerald-50 border-emerald-100',
+        red: 'bg-danger-50 border-danger-100',
+        amber: 'bg-warning-50 border-warning-100',
+        emerald: 'bg-success-50 border-success-100',
         indigo: 'bg-brand-50 border-brand-100',
     };
     return (

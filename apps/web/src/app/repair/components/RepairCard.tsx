@@ -17,9 +17,9 @@ const REPAIR_CATEGORY_LABEL_LOCAL: Record<string, string> = {
 };
 
 const REPAIR_CATEGORY_PILL_LOCAL: Record<string, string> = {
-  engine: 'bg-red-50 text-red-700 border-red-100',
-  transmission: 'bg-amber-50 text-amber-700 border-amber-100',
-  brakes: 'bg-rose-50 text-rose-700 border-rose-100',
+  engine: 'bg-danger-50 text-danger-700 border-danger-100',
+  transmission: 'bg-warning-50 text-warning-700 border-warning-100',
+  brakes: 'bg-brand-50 text-brand-700 border-brand-100',
   electrical: 'bg-sky-50 text-sky-700 border-sky-100',
   body: 'bg-neutral-100 text-neutral-700 border-neutral-200',
   tires: 'bg-brand-50 text-brand-700 border-brand-100',
@@ -71,9 +71,9 @@ type RepairPartsSummary = {
 // Styling only — label text sourced from canon PRIORITY_LABELS.
 const priorityPill: Record<string, { color: string; dot: string }> = {
   low: { color: 'bg-neutral-100 text-neutral-600', dot: 'bg-neutral-400' },
-  medium: { color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
-  high: { color: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500' },
-  critical: { color: 'bg-red-100 text-red-700', dot: 'bg-red-500' },
+  medium: { color: 'bg-info-100 text-info-700', dot: 'bg-info-500' },
+  high: { color: 'bg-warning-100 text-warning-700', dot: 'bg-warning-500' },
+  critical: { color: 'bg-danger-100 text-danger-700', dot: 'bg-danger-500' },
 };
 
 function formatDate(d: string) {
@@ -196,17 +196,17 @@ export function RepairCard({ repair }: { repair: Repair }) {
               <p className="text-[10px] uppercase tracking-wide text-neutral-500">План</p>
               <p className="mt-0.5 text-[11px] font-semibold text-neutral-900">{formatMoney(summary.plannedCost)}</p>
             </div>
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1.5">
-              <p className="text-[10px] uppercase tracking-wide text-emerald-700">Факт</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-emerald-900">{formatMoney(summary.factCost)}</p>
+            <div className="rounded-lg border border-success-200 bg-success-50 px-2 py-1.5">
+              <p className="text-[10px] uppercase tracking-wide text-success-700">Факт</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-success-900">{formatMoney(summary.factCost)}</p>
             </div>
-            <div className={`rounded-lg border px-2 py-1.5 ${summary.variance >= 0 ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50'}`}>
-              <p className={`text-[10px] uppercase tracking-wide ${summary.variance >= 0 ? 'text-amber-700' : 'text-emerald-700'}`}>Δ</p>
-              <p className={`mt-0.5 text-[11px] font-semibold ${summary.variance >= 0 ? 'text-amber-900' : 'text-emerald-900'}`}>
+            <div className={`rounded-lg border px-2 py-1.5 ${summary.variance >= 0 ? 'border-warning-200 bg-warning-50' : 'border-success-200 bg-success-50'}`}>
+              <p className={`text-[10px] uppercase tracking-wide ${summary.variance >= 0 ? 'text-warning-700' : 'text-success-700'}`}>Δ</p>
+              <p className={`mt-0.5 text-[11px] font-semibold ${summary.variance >= 0 ? 'text-warning-900' : 'text-success-900'}`}>
                 {summary.variance >= 0 ? '+' : ''}
                 {formatMoney(Math.abs(summary.variance))}
               </p>
-              <p className={`text-[10px] ${summary.variance >= 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+              <p className={`text-[10px] ${summary.variance >= 0 ? 'text-warning-700' : 'text-success-700'}`}>
                 {summary.variancePercent >= 0 ? '+' : ''}{summary.variancePercent.toFixed(1)}%
               </p>
             </div>
@@ -218,7 +218,7 @@ export function RepairCard({ repair }: { repair: Repair }) {
             {parts.slice(0, 3).map((part, index) => (
               <span
                 key={`${part.catalogName || part.name || 'part'}-${index}`}
-                className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700"
+                className="inline-flex items-center rounded-full bg-success-50 px-2 py-0.5 text-[11px] font-medium text-success-700"
               >
                 {part.catalogName || part.name}
               </span>
@@ -242,7 +242,7 @@ export function RepairCard({ repair }: { repair: Repair }) {
           </div>
           <div className="flex flex-wrap gap-1.5 text-[11px] text-neutral-500">
             <span className="rounded-full bg-neutral-50 px-2 py-0.5">План: {summary.plannedQuantity}</span>
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">Получено: {summary.receivedQuantity}</span>
+            <span className="rounded-full bg-success-50 px-2 py-0.5 text-success-700">Получено: {summary.receivedQuantity}</span>
             <span className="rounded-full bg-brand-50 px-2 py-0.5 text-brand-700">Использовано: {summary.usedQuantity}</span>
             <span className="rounded-full bg-neutral-50 px-2 py-0.5">
               Выполнено: {summary.plannedQuantity > 0 ? `${(summary.usedRate * 100).toFixed(0)}%` : '0%'}
