@@ -23,18 +23,22 @@ module.exports = {
                 critical: '100',        // session expired
             },
             colors: {
+                // Design-plan Блок 2.1 — brand = navy (был indigo #6366f1, не бренд).
+                // Знак ТрансПульт: navy корпус + teal маршрут. brand-600 = #111827
+                // (primary navy: текст, шапки, кнопки). Светлые шкалы — нейтрально-
+                // холодные (slate), цветовой «пульс» даёт accent-teal (ниже).
                 brand: {
-                    50: '#eef2ff',
-                    100: '#e0e7ff',
-                    200: '#c7d2fe',
-                    300: '#a5b4fc',
-                    400: '#818cf8',
-                    500: '#6366f1',
-                    600: '#4f46e5',
-                    700: '#4338ca',
-                    800: '#3730a3',
-                    900: '#312e81',
-                    950: '#1e1b4b',
+                    50: '#f1f5f9',
+                    100: '#e2e8f0',
+                    200: '#cbd5e1',
+                    300: '#94a3b8',
+                    400: '#475569',
+                    500: '#1e293b',
+                    600: '#111827',
+                    700: '#0d1320',
+                    800: '#080c15',
+                    900: '#04060a',
+                    950: '#020305',
                 },
                 success: {
                     50: '#ecfdf5',
@@ -102,9 +106,22 @@ module.exports = {
                     DEFAULT: 'hsl(var(--muted))',
                     foreground: 'hsl(var(--muted-foreground))',
                 },
+                // Design-plan Блок 2.1 — accent = teal (бренд-пульс: CTA, активное
+                // состояние, выделение). DEFAULT/foreground (hsl-var) сохранены для
+                // shadcn-компонентов; numeric-шкала добавлена для accent-* классов.
                 accent: {
                     DEFAULT: 'hsl(var(--accent))',
                     foreground: 'hsl(var(--accent-foreground))',
+                    50: '#f0fdfa',
+                    100: '#ccfbf1',
+                    200: '#99f6e4',
+                    300: '#5eead4',
+                    400: '#2dd4bf',
+                    500: '#14b8a6',
+                    600: '#0d9488',
+                    700: '#0f766e',
+                    800: '#115e59',
+                    900: '#134e4a',
                 },
                 destructive: {
                     DEFAULT: 'hsl(var(--destructive))',
