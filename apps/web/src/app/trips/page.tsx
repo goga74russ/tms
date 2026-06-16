@@ -440,10 +440,28 @@ function humanizeNextAction(action?: string | null) {
         resolve_document_return: 'закрыть возврат оригиналов',
         close_dossier: 'закрыть досье',
         monitor: 'мониторинг',
+        retry_exchange: 'повторить обмен',
+        await_provider_receipt: 'ожидание квитанции оператора',
+        monitor_etrn: 'мониторинг ЭТрН',
+        prepare_etrn_title_01: 'подготовить титул 01',
+        prepare_etrn_title_02: 'подготовить титул 02',
+        receive_original_documents: 'получить оригиналы',
+        close_etrn: 'закрыть ЭТрН',
     };
 
     if (!action) return 'мониторинг';
     return labels[action] || action;
+}
+
+function providerLabel(name?: string | null) {
+    const labels: Record<string, string> = {
+        internal: 'внутренний',
+        diadoc: 'Диадок',
+        sbis: 'СБИС',
+        kontur: 'Контур',
+    };
+    if (!name) return 'внутренний';
+    return labels[name] || name;
 }
 
 function TimelineCard({
@@ -1716,7 +1734,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-brand-500">Транспортные документы</p>
                     <p className="text-sm font-semibold text-neutral-900">
-                        {phaseLabelMap[transportDocuments?.lifecycle?.documentPhase] || transportDocuments?.lifecycle?.documentPhase || 'сформирован'} · {workflowLabelMap[etrn?.status] || etrn?.status || 'draft'}
+                        {phaseLabelMap[transportDocuments?.lifecycle?.documentPhase] || transportDocuments?.lifecycle?.documentPhase || 'сформирован'} · {workflowLabelMap[etrn?.status] || etrn?.status || 'черновик'}
                     </p>
                     <p className="mt-1 text-xs text-neutral-600">
                         {transportDocuments?.summary?.nextAction ? `Следующее действие: ${humanizeNextAction(transportDocuments.summary.nextAction)}` : 'Поток документов доступен через dossier API'}
@@ -1818,7 +1836,7 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <p className="text-xs font-semibold uppercase tracking-wide text-danger-500">Ошибки и подсказки retry</p>
-                            <p className="text-sm font-semibold text-neutral-900">Persisted document issues</p>
+                            <p className="text-sm font-semibold text-neutral-900">Зафиксированные замечания по документам</p>
                         </div>
                         <RetryHint label="Исправить и повторить" />
                     </div>
@@ -1856,14 +1874,14 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
                                     {transportDocumentStatusLabel(doc.status)}
                                 </span>
                                 <span className="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
-                                    {doc.providerStatus || doc.providerName || 'internal'}
+                                    {doc.providerStatus || providerLabel(doc.providerName)}
                                 </span>
                             </div>
                         </div>
                         <div className="mt-3 grid gap-2 text-[11px] text-neutral-500">
                             <div>Создан: {formatTimelineDate(doc.createdAt)}</div>
                             <div>Обновлён: {formatTimelineDate(doc.updatedAt)}</div>
-                            <div>Провайдер: {doc.providerName || 'internal'}</div>
+                            <div>Провайдер: {providerLabel(doc.providerName)}</div>
                             <div>Статус провайдера: {doc.providerStatus || '—'}</div>
                             <div>Попытки: {doc.retryCount ?? 0}</div>
                             <div>Последний retry: {formatTimelineDate(doc.lastRetryAt)}</div>
@@ -2071,24 +2089,24 @@ function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: 
             <div className="grid gap-4 xl:grid-cols-2">
                 <TimelineCard
                     title="Хронология транспортных документов"
-                    subtitle={`Latest activity: ${formatTimelineDate(transportDocuments?.summary?.latestActivityAt)}`}
+                    subtitle={`Последняя активность: ${formatTimelineDate(transportDocuments?.summary?.latestActivityAt)}`}
                     events={transportDocuments?.timeline || []}
-                    emptyLabel="Пока нет событий по persisted transport documents"
+                    emptyLabel="Пока нет событий по транспортным документам"
                 />
 
                 <div className="space-y-4">
                     <TimelineCard
-                        title="ETRN workflow timeline"
-                        subtitle={`Status: ${etrn?.status || 'draft'} · ${etrn?.summary?.nextAction || 'monitor'}`}
+                        title="Хронология ЭТрН"
+                        subtitle={`Статус: ${workflowLabelMap[etrn?.status] || etrn?.status || 'черновик'} · ${humanizeNextAction(etrn?.summary?.nextAction)}`}
                         events={etrn?.timeline || []}
-                        emptyLabel="ETRN timeline пока пуст"
+                        emptyLabel="Событий по ЭТрН пока нет"
                     />
                     <div className="rounded-2xl border border-neutral-200 bg-white p-4">
                         <div className="flex items-start justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">ETRN titles</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Титулы ЭТрН</p>
                                 <p className="text-sm font-semibold text-neutral-900">
-                                    {etrn?.summary?.completedTitles ?? 0}/{etrn?.summary?.totalTitles ?? 0} completed
+                                    {etrn?.summary?.completedTitles ?? 0}/{etrn?.summary?.totalTitles ?? 0} готово
                                 </p>
                             </div>
                             <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${toneClass(titleStatusTone(etrn?.status || 'draft'), 'bg')}`}>

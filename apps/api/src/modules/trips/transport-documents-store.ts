@@ -476,7 +476,7 @@ async function syncPersistedRows(
             await appendHistoryEvent({
                 documentId: created.id,
                 eventType: 'registered',
-                title: 'Document registered',
+                title: 'Документ зарегистрирован',
                 toStatus: document.status,
                 severity: document.status === TransportDocumentStatus.ERROR ? 'critical' : 'info',
                 message: document.error ?? null,
@@ -529,7 +529,7 @@ async function syncPersistedRows(
             await appendHistoryEvent({
                 documentId: existing.id,
                 eventType: 'status_changed',
-                title: 'Document status changed',
+                title: 'Статус документа изменён',
                 fromStatus: existing.status,
                 toStatus: nextStatus,
                 severity: nextStatus === TransportDocumentStatus.ERROR ? 'critical' : 'info',
@@ -544,7 +544,7 @@ async function syncPersistedRows(
             await appendHistoryEvent({
                 documentId: existing.id,
                 eventType: 'synced',
-                title: 'Document synchronized',
+                title: 'Документ синхронизирован',
                 fromStatus: existing.sourceStatus,
                 toStatus: document.status,
                 severity: document.status === TransportDocumentStatus.ERROR ? 'warning' : 'info',
@@ -754,7 +754,7 @@ export async function sendTransportDocumentToProvider(params: {
         fromStatus: row.status,
         toStatus: documentStatus,
         severity: exchangeStatus === TransportDocumentExchangeStatus.REJECTED || exchangeStatus === TransportDocumentExchangeStatus.FAILED ? 'critical' : 'info',
-        message: params.errorMessage ?? (providerResult ? providerResult.receipt.message : `Outbound exchange ${exchange.id} created`),
+        message: params.errorMessage ?? (providerResult ? providerResult.receipt.message : `Исходящий обмен ${exchange.id} создан`),
         createdBy: params.createdBy ?? null,
         payload: {
             exchangeId: exchange.id,
@@ -798,11 +798,11 @@ export async function retryTransportDocument(tripId: string, documentId: string,
     await appendHistoryEvent({
         documentId: row.id,
         eventType: 'retry_requested',
-        title: 'Retry requested',
+        title: 'Запрошен повтор',
         fromStatus: row.status,
         toStatus: nextStatus,
         severity: 'warning',
-        message: row.error ?? 'Manual retry requested for transport document',
+        message: row.error ?? 'Запрошен ручной повтор по транспортному документу',
         createdBy: createdBy ?? null,
     });
 
@@ -973,7 +973,7 @@ export async function updatePersistedTransportDocumentStatus(params: {
     await appendHistoryEvent({
         documentId: row.id,
         eventType: 'status_updated',
-        title: 'Document status updated',
+        title: 'Статус документа обновлён',
         fromStatus: row.status,
         toStatus: params.status,
         severity: params.status === TransportDocumentStatus.ERROR || params.status === TransportDocumentStatus.REJECTED ? 'critical' : 'info',
@@ -1126,11 +1126,11 @@ export async function recordTransportDocumentSignature(params: {
         await appendHistoryEvent({
             documentId: row.id,
             eventType: 'signature_recorded',
-            title: 'Document signature recorded',
+            title: 'Подпись документа зафиксирована',
             fromStatus: row.status,
             toStatus: row.status,
             severity: 'info',
-            message: params.notes ?? `${params.signerRole} signed transport document`,
+            message: params.notes ?? `${params.signerRole} подписал транспортный документ`,
             createdBy: params.createdBy ?? null,
             payload: signature,
         }, tx);
@@ -1197,7 +1197,7 @@ export async function recordTransportDocumentSignatureRefusal(params: {
         await appendHistoryEvent({
             documentId: row.id,
             eventType: 'signature_refused',
-            title: 'Document signature refused',
+            title: 'Отказ от подписи документа',
             fromStatus: row.status,
             toStatus: TransportDocumentStatus.REJECTED,
             severity: 'critical',
@@ -1212,7 +1212,7 @@ export async function recordTransportDocumentSignatureRefusal(params: {
             tripId: params.tripId,
             receiptType: TransportDocumentReceiptType.REJECTION,
             providerStatus: `signature_refused:${params.signerRole}`,
-            title: 'Signature refusal receipt',
+            title: 'Квитанция об отказе от подписи',
             message: params.reason,
             payload: refusal,
             createdBy: params.createdBy ?? null,

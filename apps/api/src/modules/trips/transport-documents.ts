@@ -62,14 +62,14 @@ const ETRN_TITLE_ORDER: EtrnTitleType[] = [
 ];
 
 const ETRN_TITLE_LABELS: Record<EtrnTitleType, string> = {
-    [EtrnTitleType.TITLE_01]: 'ETRN Title 01 - Shipper initiation',
-    [EtrnTitleType.TITLE_02]: 'ETRN Title 02 - Carrier acceptance',
-    [EtrnTitleType.TITLE_03]: 'ETRN Title 03 - Readdressing',
-    [EtrnTitleType.TITLE_04]: 'ETRN Title 04 - Vehicle or driver replacement',
-    [EtrnTitleType.TITLE_05]: 'ETRN Title 05 - Consignee acceptance',
-    [EtrnTitleType.TITLE_06]: 'ETRN Title 06 - Carrier delivery',
-    [EtrnTitleType.TITLE_07]: 'ETRN Title 07 - Carrier PUD',
-    [EtrnTitleType.TITLE_08]: 'ETRN Title 08 - Shipper PUD confirmation',
+    [EtrnTitleType.TITLE_01]: 'Титул 01 — инициализация грузоотправителем',
+    [EtrnTitleType.TITLE_02]: 'Титул 02 — приём перевозчиком',
+    [EtrnTitleType.TITLE_03]: 'Титул 03 — переадресация',
+    [EtrnTitleType.TITLE_04]: 'Титул 04 — замена ТС или водителя',
+    [EtrnTitleType.TITLE_05]: 'Титул 05 — приём грузополучателем',
+    [EtrnTitleType.TITLE_06]: 'Титул 06 — сдача перевозчиком',
+    [EtrnTitleType.TITLE_07]: 'Титул 07 — ПУД перевозчика',
+    [EtrnTitleType.TITLE_08]: 'Титул 08 — подтверждение ПУД грузоотправителем',
 };
 
 const ETRN_TITLE_NUMBERS: Record<EtrnTitleType, string> = {
@@ -157,8 +157,8 @@ function buildWaybillDocument(dossier: TripDossier): TransportDocument {
             ? TransportDocumentStatus.ERROR
             : TransportDocumentStatus.DRAFT;
         error = tripStage >= getTripStageRank('waybill_issued')
-            ? 'Trip has progressed to the waybill stage, but no waybill exists yet'
-            : 'Waybill has not been issued yet';
+            ? 'Рейс дошёл до этапа путевого листа, но путевой лист ещё не создан'
+            : 'Путевой лист ещё не выпущен';
     } else if (waybill!.status === 'closed') {
         status = TransportDocumentStatus.COMPLETED;
     } else if (waybill!.departureAt || tripStage >= getTripStageRank('in_transit')) {
@@ -170,7 +170,7 @@ function buildWaybillDocument(dossier: TripDossier): TransportDocument {
     }
 
     if (hasWaybill && tripStage >= getTripStageRank('in_transit') && !waybill!.departureAt) {
-        error = 'Trip is already in transit, but the waybill has no departure timestamp';
+        error = 'Рейс уже в пути, но в путевом листе нет отметки о выезде';
         status = TransportDocumentStatus.ERROR;
     }
 
@@ -269,7 +269,7 @@ function buildDeliveryConfirmationDocument(dossier: TripDossier, row: typeof del
         providerDocumentId: null,
         providerMessageId: null,
         providerStatus: null,
-        error: row.forcedByDispatcher ? 'Delivery confirmation was forced by dispatcher' : null,
+        error: row.forcedByDispatcher ? 'Подтверждение доставки проведено диспетчером принудительно' : null,
         tripId: trip.id,
         waybillId: waybill?.id ?? null,
         orderIds: row.orderId ? [row.orderId] : orderIds,
@@ -342,7 +342,7 @@ function buildDocumentReturnDocument(dossier: TripDossier, row: typeof documentR
         providerDocumentId: null,
         providerMessageId: null,
         providerStatus: null,
-        error: row.status === 'overdue' ? 'Original document return is overdue' : null,
+        error: row.status === 'overdue' ? 'Возврат оригиналов просрочен' : null,
         tripId: trip.id,
         waybillId: waybill?.id ?? null,
         orderIds,
@@ -395,7 +395,7 @@ function buildDocumentTimeline(documents: TransportDocument[]) {
             documentId: document.id,
             documentType: document.type,
             status: document.status,
-            title: `${documentTypeLabel(document.type)} created`,
+            title: `${documentTypeLabel(document.type)}: создан`,
             at: document.createdAt,
             severity: document.status === TransportDocumentStatus.ERROR ? 'critical' : 'info',
             isProblem: document.status === TransportDocumentStatus.ERROR,
@@ -407,7 +407,7 @@ function buildDocumentTimeline(documents: TransportDocument[]) {
                 documentId: document.id,
                 documentType: document.type,
                 status: document.status,
-                title: `${documentTypeLabel(document.type)} issued`,
+                title: `${documentTypeLabel(document.type)}: выпущен`,
                 at: document.issuedAt,
                 severity: 'info',
                 isProblem: false,
@@ -419,7 +419,7 @@ function buildDocumentTimeline(documents: TransportDocument[]) {
                 documentId: document.id,
                 documentType: document.type,
                 status: document.status,
-                title: `${documentTypeLabel(document.type)} sent`,
+                title: `${documentTypeLabel(document.type)}: отправлен`,
                 at: document.sentAt,
                 severity: 'info',
                 isProblem: false,
@@ -431,12 +431,12 @@ function buildDocumentTimeline(documents: TransportDocument[]) {
                 documentId: document.id,
                 documentType: document.type,
                 status: document.status,
-                title: `${documentTypeLabel(document.type)} accepted`,
+                title: `${documentTypeLabel(document.type)}: принят`,
                 at: document.acceptedAt,
                 severity: document.status === TransportDocumentStatus.CORRECTED ? 'warning' : 'info',
                 isProblem: document.status === TransportDocumentStatus.CORRECTED,
                 message: document.status === TransportDocumentStatus.CORRECTED
-                    ? 'Confirmation was registered with dispatcher override'
+                    ? 'Подтверждение зафиксировано с переопределением диспетчером'
                     : undefined,
             });
         }
@@ -446,11 +446,11 @@ function buildDocumentTimeline(documents: TransportDocument[]) {
                 documentId: document.id,
                 documentType: document.type,
                 status: document.status,
-                title: `${documentTypeLabel(document.type)} rejected`,
+                title: `${documentTypeLabel(document.type)}: отклонён`,
                 at: document.rejectedAt,
                 severity: 'critical',
                 isProblem: true,
-                message: document.error ?? 'Document was rejected',
+                message: document.error ?? 'Документ отклонён',
             });
         }
 
@@ -459,7 +459,7 @@ function buildDocumentTimeline(documents: TransportDocument[]) {
                 documentId: document.id,
                 documentType: document.type,
                 status: document.status,
-                title: `${documentTypeLabel(document.type)} completed`,
+                title: `${documentTypeLabel(document.type)}: завершён`,
                 at: document.completedAt,
                 severity: 'info',
                 isProblem: false,
@@ -535,7 +535,7 @@ function buildLifecycleEvents(dossier: TripDossier, documents: TransportDocument
         documentId: `trip:${dossier.trip.id}`,
         documentType: TransportDocumentType.WAYBILL,
         status: waybill?.status ?? TransportDocumentStatus.DRAFT,
-        title: 'Trip created',
+        title: 'Рейс создан',
         at: ensureIso(dossier.trip.createdAt, new Date().toISOString()),
         severity: 'info',
         isProblem: false,
@@ -546,7 +546,7 @@ function buildLifecycleEvents(dossier: TripDossier, documents: TransportDocument
             documentId: `trip:${dossier.trip.id}`,
             documentType: TransportDocumentType.WAYBILL,
             status: waybill?.status ?? TransportDocumentStatus.DRAFT,
-            title: 'Trip assigned',
+            title: 'Рейс назначен',
             at: ensureIso(dossier.trip.updatedAt, new Date().toISOString()),
             severity: 'info',
             isProblem: false,
@@ -558,7 +558,7 @@ function buildLifecycleEvents(dossier: TripDossier, documents: TransportDocument
             documentId: waybill.id,
             documentType: waybill.type,
             status: waybill.status,
-            title: 'Waybill issued',
+            title: 'Путевой лист выпущен',
             at: waybill.issuedAt,
             severity: 'info',
             isProblem: false,
@@ -570,7 +570,7 @@ function buildLifecycleEvents(dossier: TripDossier, documents: TransportDocument
             documentId: waybill?.id ?? `trip:${dossier.trip.id}`,
             documentType: TransportDocumentType.WAYBILL,
             status: waybill?.status ?? TransportDocumentStatus.SENT,
-            title: 'Trip departed',
+            title: 'Рейс отправлен',
             at: waybill?.sentAt ?? ensureIso(dossier.trip.actualDepartureAt, new Date().toISOString()),
             severity: 'info',
             isProblem: false,
@@ -582,12 +582,12 @@ function buildLifecycleEvents(dossier: TripDossier, documents: TransportDocument
             documentId: deliveryConfirmation.id,
             documentType: deliveryConfirmation.type,
             status: deliveryConfirmation.status,
-            title: 'Delivery confirmed',
+            title: 'Доставка подтверждена',
             at: deliveryConfirmation.completedAt ?? deliveryConfirmation.updatedAt,
             severity: deliveryConfirmation.status === TransportDocumentStatus.CORRECTED ? 'warning' : 'info',
             isProblem: deliveryConfirmation.status === TransportDocumentStatus.CORRECTED,
             message: deliveryConfirmation.status === TransportDocumentStatus.CORRECTED
-                ? 'Confirmation registered with dispatcher override'
+                ? 'Подтверждение зафиксировано с переопределением диспетчером'
                 : undefined,
         });
     }
@@ -597,7 +597,7 @@ function buildLifecycleEvents(dossier: TripDossier, documents: TransportDocument
             documentId: waybill?.id ?? `trip:${dossier.trip.id}`,
             documentType: TransportDocumentType.WAYBILL,
             status: waybill?.status ?? TransportDocumentStatus.COMPLETED,
-            title: 'Trip completed',
+            title: 'Рейс завершён',
             at: waybill?.completedAt ?? ensureIso(dossier.trip.actualCompletionAt, new Date().toISOString()),
             severity: 'info',
             isProblem: false,
@@ -609,7 +609,7 @@ function buildLifecycleEvents(dossier: TripDossier, documents: TransportDocument
             documentId: `trip:${dossier.trip.id}`,
             documentType: TransportDocumentType.DOCUMENT_RETURN,
             status: TransportDocumentStatus.RECEIVED,
-            title: 'Original documents received',
+            title: 'Оригиналы получены',
             at: ensureIso(dossier.trip.actualCompletionAt ?? dossier.trip.updatedAt, new Date().toISOString()),
             severity: 'info',
             isProblem: false,
@@ -635,8 +635,8 @@ function buildProblems(dossier: TripDossier, documents: TransportDocument[]): Tr
             code: !waybill ? 'waybill_missing' : 'waybill_error',
             severity: 'critical',
             message: !waybill
-                ? 'Waybill is missing for this trip'
-                : waybill.error ?? 'Waybill is in an error state',
+                ? 'Путевой лист отсутствует для этого рейса'
+                : waybill.error ?? 'Путевой лист в ошибочном состоянии',
             documentId: waybill?.id,
             documentType: TransportDocumentType.WAYBILL,
             at: problemAt,
@@ -645,7 +645,7 @@ function buildProblems(dossier: TripDossier, documents: TransportDocument[]): Tr
         problems.push({
             code: 'waybill_not_issued',
             severity: 'critical',
-            message: 'Trip has entered the waybill stage, but waybill is still draft',
+            message: 'Рейс вошёл в этап путевого листа, но путевой лист всё ещё черновик',
             documentId: waybill.id,
             documentType: TransportDocumentType.WAYBILL,
             at: waybill.updatedAt,
@@ -657,7 +657,7 @@ function buildProblems(dossier: TripDossier, documents: TransportDocument[]): Tr
         problems.push({
             code: 'departure_not_recorded',
             severity: 'warning',
-            message: 'Trip is in transit, but the waybill departure timestamp is missing',
+            message: 'Рейс в пути, но в путевом листе нет отметки о выезде',
             documentId: waybill?.id,
             documentType: TransportDocumentType.WAYBILL,
             at: problemAt,
@@ -668,7 +668,7 @@ function buildProblems(dossier: TripDossier, documents: TransportDocument[]): Tr
         problems.push({
             code: 'delivery_confirmation_missing',
             severity: 'critical',
-            message: 'Trip is completed, but no delivery confirmation has been recorded',
+            message: 'Рейс завершён, но подтверждение доставки не зафиксировано',
             documentType: TransportDocumentType.DELIVERY_CONFIRMATION,
             at: tripCompletedAt,
         });
@@ -680,7 +680,7 @@ function buildProblems(dossier: TripDossier, documents: TransportDocument[]): Tr
             problems.push({
                 code: 'delivery_forced',
                 severity: 'warning',
-                message: 'Delivery confirmation was completed via dispatcher override',
+                message: 'Подтверждение доставки проведено через переопределение диспетчером',
                 documentId: confirmation.id,
                 documentType: TransportDocumentType.DELIVERY_CONFIRMATION,
                 at: problemAt,
@@ -705,7 +705,7 @@ function buildProblems(dossier: TripDossier, documents: TransportDocument[]): Tr
             problems.push({
                 code: 'document_return_overdue',
                 severity: 'warning',
-                message: 'Original document return is overdue',
+                message: 'Возврат оригиналов просрочен',
                 documentId: documentReturn.id,
                 documentType: TransportDocumentType.DOCUMENT_RETURN,
                 at: problemAt,
@@ -723,7 +723,7 @@ function buildProblems(dossier: TripDossier, documents: TransportDocument[]): Tr
             code: `exchange_blocking_${document.type}`,
             severity: 'critical',
             message: document.exchange.lastError
-                ?? `${documentTypeLabel(document.type)} exchange has a blocking problem`,
+                ?? `Обмен по «${documentTypeLabel(document.type)}» имеет блокирующую проблему`,
             documentId: document.id,
             documentType: document.type,
             at: problemAt ?? tripUpdatedAt,
@@ -733,7 +733,7 @@ function buildProblems(dossier: TripDossier, documents: TransportDocument[]): Tr
             problems.push({
                 code: `exchange_retry_${document.type}`,
                 severity: 'warning',
-                message: `Retry is required for ${documentTypeLabel(document.type)} exchange`,
+                message: `Требуется повтор обмена по «${documentTypeLabel(document.type)}»`,
                 documentId: document.id,
                 documentType: document.type,
                 at: problemAt ?? tripUpdatedAt,
@@ -872,7 +872,7 @@ function getEtrnTitleStatus(
                     documentId: null,
                     documentType: null,
                     error: tripStage >= getTripStageRank('waybill_issued')
-                        ? 'Waybill has not been issued yet'
+                        ? 'Путевой лист ещё не выпущен'
                         : null,
                     issuedAt: null,
                     sentAt: null,
@@ -932,7 +932,7 @@ function getEtrnTitleStatus(
                     isApplicable: true,
                     documentId: null,
                     documentType: null,
-                    error: 'Carrier acceptance cannot be formed without a waybill',
+                    error: 'Приём перевозчиком нельзя сформировать без путевого листа',
                     issuedAt: null,
                     sentAt: null,
                     acceptedAt: null,
@@ -1011,7 +1011,7 @@ function getEtrnTitleStatus(
                     isApplicable: true,
                     documentId: null,
                     documentType: null,
-                    error: blocked ? 'Delivery confirmation is missing after trip completion' : null,
+                    error: blocked ? 'Подтверждение доставки отсутствует после завершения рейса' : null,
                     issuedAt: null,
                     sentAt: null,
                     acceptedAt: null,
@@ -1039,7 +1039,7 @@ function getEtrnTitleStatus(
                 documentId: deliveryDocumentId,
                 documentType: TransportDocumentType.DELIVERY_CONFIRMATION,
                 error: deliveryRow.forcedByDispatcher
-                    ? 'Delivery confirmation was registered with dispatcher override'
+                    ? 'Подтверждение доставки зафиксировано с переопределением диспетчером'
                     : null,
                 issuedAt: null,
                 sentAt: null,
@@ -1070,7 +1070,7 @@ function getEtrnTitleStatus(
                     isApplicable: true,
                     documentId: null,
                     documentType: null,
-                    error: 'Carrier delivery cannot be formed without a waybill',
+                    error: 'Сдачу перевозчиком нельзя сформировать без путевого листа',
                     issuedAt: null,
                     sentAt: null,
                     acceptedAt: null,
@@ -1103,7 +1103,7 @@ function getEtrnTitleStatus(
                 documentId: waybillDocumentId,
                 documentType: TransportDocumentType.WAYBILL,
                 error: status === EtrnTitleStatus.DRAFT && tripStage >= getTripStageRank('in_transit')
-                    ? 'Carrier delivery is pending while the trip is already in transit'
+                    ? 'Сдача перевозчиком ожидается, хотя рейс уже в пути'
                     : null,
                 issuedAt: toIso(waybill.issuedAt),
                 sentAt,
@@ -1139,7 +1139,7 @@ function getEtrnTitleStatus(
                 documentId: returnDocumentId,
                 documentType: returnRow ? TransportDocumentType.DOCUMENT_RETURN : null,
                 error: status === EtrnTitleStatus.BLOCKED
-                    ? 'Original document return is overdue'
+                    ? 'Возврат оригиналов просрочен'
                     : null,
                 issuedAt: null,
                 sentAt: null,
@@ -1170,7 +1170,7 @@ function getEtrnTitleStatus(
                 documentId: waybillDocumentId,
                 documentType: waybill ? TransportDocumentType.WAYBILL : null,
                 error: status === EtrnTitleStatus.READY && !trip.originalDocumentsReceived
-                    ? 'Original documents receipt is pending'
+                    ? 'Ожидается получение оригиналов'
                     : null,
                 issuedAt: null,
                 sentAt: null,
@@ -1252,7 +1252,7 @@ function buildEtrnTimeline(titles: EtrnTitle[]): EtrnTimelineEvent[] {
         addEtrnTimelineEvent(events, {
             titleType: title.titleType,
             status: title.status,
-            title: `${title.titleLabel} snapshot`,
+            title: `${title.titleLabel}: снимок`,
             at: title.createdAt,
             severity: title.status === EtrnTitleStatus.BLOCKED || title.status === EtrnTitleStatus.REJECTED ? 'critical' : 'info',
             isProblem: title.status === EtrnTitleStatus.BLOCKED || title.status === EtrnTitleStatus.REJECTED,
@@ -1263,7 +1263,7 @@ function buildEtrnTimeline(titles: EtrnTitle[]): EtrnTimelineEvent[] {
             addEtrnTimelineEvent(events, {
                 titleType: title.titleType,
                 status: title.status,
-                title: `${title.titleLabel} issued`,
+                title: `${title.titleLabel}: выпущен`,
                 at: title.issuedAt,
                 severity: 'info',
                 isProblem: false,
@@ -1274,7 +1274,7 @@ function buildEtrnTimeline(titles: EtrnTitle[]): EtrnTimelineEvent[] {
             addEtrnTimelineEvent(events, {
                 titleType: title.titleType,
                 status: title.status,
-                title: `${title.titleLabel} sent`,
+                title: `${title.titleLabel}: отправлен`,
                 at: title.sentAt,
                 severity: 'info',
                 isProblem: false,
@@ -1285,12 +1285,12 @@ function buildEtrnTimeline(titles: EtrnTitle[]): EtrnTimelineEvent[] {
             addEtrnTimelineEvent(events, {
                 titleType: title.titleType,
                 status: title.status,
-                title: `${title.titleLabel} accepted`,
+                title: `${title.titleLabel}: принят`,
                 at: title.acceptedAt,
                 severity: title.status === EtrnTitleStatus.CORRECTED ? 'warning' : 'info',
                 isProblem: title.status === EtrnTitleStatus.CORRECTED,
                 message: title.status === EtrnTitleStatus.CORRECTED
-                    ? 'Snapshot reflects dispatcher override'
+                    ? 'Снимок отражает переопределение диспетчером'
                     : undefined,
             });
         }
@@ -1299,11 +1299,11 @@ function buildEtrnTimeline(titles: EtrnTitle[]): EtrnTimelineEvent[] {
             addEtrnTimelineEvent(events, {
                 titleType: title.titleType,
                 status: title.status,
-                title: `${title.titleLabel} rejected`,
+                title: `${title.titleLabel}: отклонён`,
                 at: title.rejectedAt,
                 severity: 'critical',
                 isProblem: true,
-                message: title.error ?? 'Title was rejected',
+                message: title.error ?? 'Титул отклонён',
             });
         }
 
@@ -1311,7 +1311,7 @@ function buildEtrnTimeline(titles: EtrnTitle[]): EtrnTimelineEvent[] {
             addEtrnTimelineEvent(events, {
                 titleType: title.titleType,
                 status: title.status,
-                title: `${title.titleLabel} completed`,
+                title: `${title.titleLabel}: завершён`,
                 at: title.completedAt,
                 severity: 'info',
                 isProblem: false,
@@ -1331,7 +1331,7 @@ function buildEtrnProblems(titles: EtrnTitle[], baseProblems: TransportDocumentP
             problems.push({
                 code: `etrn_${title.titleType}_missing`,
                 severity: 'critical',
-                message: title.error ?? `${title.titleLabel} is not ready`,
+                message: title.error ?? `${title.titleLabel} не готов`,
                 documentId: title.documentId ?? undefined,
                 documentType: title.documentType ?? undefined,
                 at: title.updatedAt,
@@ -1342,7 +1342,7 @@ function buildEtrnProblems(titles: EtrnTitle[], baseProblems: TransportDocumentP
             problems.push({
                 code: `etrn_${title.titleType}_corrected`,
                 severity: 'warning',
-                message: `${title.titleLabel} was registered with correction`,
+                message: `${title.titleLabel} зафиксирован с исправлением`,
                 documentId: title.documentId ?? undefined,
                 documentType: title.documentType ?? undefined,
                 at: title.updatedAt,
