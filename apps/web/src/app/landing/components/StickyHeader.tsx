@@ -50,7 +50,7 @@ export function StickyHeader() {
                             key={l.href}
                             href={l.href}
                             className={`font-medium transition-colors ${
-                                scrolled ? 'text-neutral-600 hover:text-neutral-900' : 'text-white/80 hover:text-white'
+                                scrolled ? 'text-neutral-600 hover:text-accent-600' : 'text-white/80 hover:text-accent-300'
                             }`}
                         >
                             {l.label}

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, ShieldCheck, Sparkles, Truck, MapPin, FileText, Activity } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Truck, MapPin, FileText, Activity } from 'lucide-react';
 
 const STATS = [
     { value: '0 ₽', label: 'Бесплатно до 5 машин' },
@@ -9,16 +9,12 @@ const STATS = [
 
 export function Hero() {
     return (
-        <section className="relative overflow-hidden bg-gradient-to-br from-brand-700 via-brand-600 to-brand-800 text-white pt-24 pb-20 sm:pt-32 sm:pb-28">
-            {/* radial highlights */}
-            <div
-                aria-hidden
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                    background:
-                        'radial-gradient(900px 500px at 90% -10%, rgba(45,212,191,0.22), transparent 60%), radial-gradient(700px 400px at 0% 110%, rgba(20,184,166,0.18), transparent 60%)',
-                }}
-            />
+        <section className="relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 text-white pt-24 pb-20 sm:pt-32 sm:pb-28">
+            {/* teal brand-glow — акцент, не заливка (landing-polish §4) */}
+            <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-1/4 right-0 w-[600px] h-[600px] rounded-full bg-accent-500/15 blur-[120px]" />
+                <div className="absolute -bottom-1/3 -left-1/4 w-[500px] h-[500px] rounded-full bg-accent-600/10 blur-[120px]" />
+            </div>
             {/* subtle grid */}
             <div
                 aria-hidden
@@ -33,8 +29,8 @@ export function Hero() {
             <div className="relative max-w-7xl mx-auto px-4 sm:px-6">
                 <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
                     <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-xs font-medium text-brand-50 mb-6">
-                            <Sparkles className="w-3.5 h-3.5" />
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-500/10 backdrop-blur-sm border border-accent-500/30 text-xs font-medium text-brand-50 mb-6">
+                            <span className="w-1.5 h-1.5 rounded-full bg-accent-400 animate-pulse" aria-hidden />
                             <span>Пилот-фаза · ранние пользователи</span>
                         </div>
                         <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight mb-5">
@@ -49,7 +45,7 @@ export function Hero() {
                         <div className="flex flex-wrap gap-3 mb-10">
                             <Link
                                 href="/signup"
-                                className="inline-flex items-center gap-2 bg-white text-brand-700 font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl hover:bg-brand-50 transition-all"
+                                className="inline-flex items-center gap-2 bg-accent-500 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-accent-500/25 hover:shadow-xl hover:bg-accent-600 transition-all"
                             >
                                 Начать бесплатно
                                 <ArrowRight className="w-4 h-4" />
@@ -64,15 +60,15 @@ export function Hero() {
 
                         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-brand-100/80">
                             <div className="inline-flex items-center gap-1.5">
-                                <ShieldCheck className="w-4 h-4" />
+                                <ShieldCheck className="w-4 h-4 text-accent-400" />
                                 <span>Серверы в РФ</span>
                             </div>
                             <div className="inline-flex items-center gap-1.5">
-                                <Activity className="w-4 h-4" />
+                                <Activity className="w-4 h-4 text-accent-400" />
                                 <span>Бэкапы и аудит-лог из коробки</span>
                             </div>
                             <div className="inline-flex items-center gap-1.5">
-                                <FileText className="w-4 h-4" />
+                                <FileText className="w-4 h-4 text-accent-400" />
                                 <span>Минтранс №2200</span>
                             </div>
                         </div>
@@ -82,7 +78,7 @@ export function Hero() {
                     <div id="demo" className="relative">
                         <div
                             aria-hidden
-                            className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-300/30 to-purple-400/30 blur-2xl"
+                            className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-300/30 to-accent-400/30 blur-2xl"
                         />
                         <div className="relative rounded-2xl bg-white/95 shadow-2xl border border-white/40 overflow-hidden backdrop-blur-sm">
                             {/* fake browser chrome */}
@@ -140,7 +136,7 @@ export function Hero() {
                 <div className="mt-16 sm:mt-20 grid grid-cols-1 sm:grid-cols-3 gap-6 pt-8 border-t border-white/15">
                     {STATS.map((s) => (
                         <div key={s.label}>
-                            <div className="text-3xl sm:text-4xl font-bold tracking-tight">{s.value}</div>
+                            <div className={`text-3xl sm:text-4xl font-bold tracking-tight ${s.value === '0 ₽' ? 'text-accent-300' : ''}`}>{s.value}</div>
                             <div className="text-sm text-brand-100/80 mt-1">{s.label}</div>
                         </div>
                     ))}
