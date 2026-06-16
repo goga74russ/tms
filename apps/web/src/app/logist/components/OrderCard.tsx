@@ -31,8 +31,8 @@ function getSlaIndicator(order: Order): { color: string; label: string } {
 
     if (hoursLeft < 0) return { color: '#ef4444', label: 'Просрочено' };
     if (hoursLeft < 4) return { color: '#f59e0b', label: `${Math.round(hoursLeft)}ч` };
-    if (hoursLeft < 24) return { color: '#22c55e', label: `${Math.round(hoursLeft)}ч` };
-    return { color: '#22c55e', label: `${Math.round(hoursLeft / 24)}д` };
+    if (hoursLeft < 24) return { color: '#10b981', label: `${Math.round(hoursLeft)}ч` };
+    return { color: '#10b981', label: `${Math.round(hoursLeft / 24)}д` };
 }
 
 function formatWeight(kg: number): string {

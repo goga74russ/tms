@@ -473,7 +473,7 @@ export default function KPIDashboard() {
                                     <RechartsTooltip contentStyle={{ backgroundColor: "#ffffff", borderColor: "#e2e8f0", borderRadius: "8px" }} />
                                     <Legend iconType="circle" />
                                     <Bar dataKey="revenue" name="Выручка (тыс.)" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={50} />
-                                    <Bar dataKey="cost" name="Себестоимость (тыс.)" fill="#818cf8" radius={[4, 4, 0, 0]} barSize={50} />
+                                    <Bar dataKey="cost" name="Себестоимость (тыс.)" fill="#475569" radius={[4, 4, 0, 0]} barSize={50} />
                                     <Bar dataKey="margin" name="Маржа (тыс.)" fill="#10b981" radius={[4, 4, 0, 0]} barSize={50} />
                                 </BarChart>
                             </ResponsiveContainer>

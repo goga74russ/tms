@@ -45,8 +45,8 @@ const STATUS_COLORS: Record<string, string> = {
     assigned: '#f59e0b',
     in_trip: '#3b82f6',
     broken: '#ef4444',
-    maintenance: '#6b7280',
-    blocked: '#6b7280',
+    maintenance: '#64748b',
+    blocked: '#64748b',
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -59,7 +59,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 function createVehicleIcon(status: string, isSelected: boolean) {
-    const color = STATUS_COLORS[status] || '#6b7280';
+    const color = STATUS_COLORS[status] || '#64748b';
     const size = isSelected ? 18 : 14;
     const border = isSelected ? 3 : 2;
 
