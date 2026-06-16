@@ -66,7 +66,7 @@ export function TabsTrigger({
         <button
             onClick={() => ctx.onChange(value)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 ${active
-                ? 'bg-white text-neutral-900 shadow-sm'
+                ? 'bg-white text-accent-700 shadow-sm'
                 : 'text-neutral-500 hover:text-neutral-700'
                 } ${className}`}
         >

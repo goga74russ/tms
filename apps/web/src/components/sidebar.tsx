@@ -140,9 +140,9 @@ export function Sidebar() {
                                 aria-current={isActive ? 'page' : undefined}
                             >
                                 {isActive && (
-                                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r-full bg-brand-600" aria-hidden="true" />
+                                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-r-full bg-accent-500" aria-hidden="true" />
                                 )}
-                                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-brand-600' : ''}`} />
+                                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-accent-600' : ''}`} />
                                 {!collapsed && <span className="truncate">{item.name}</span>}
                             </Link>
                         );
