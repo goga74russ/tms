@@ -131,6 +131,10 @@ services:
       # ЮKassa webhook signing secret. Defensive: keep empty if not yet
       # wired so the webhook route rejects requests that can't be verified.
       YOOKASSA_WEBHOOK_SECRET: ${YOOKASSA_WEBHOOK_SECRET:-}
+      # Платформенный ЮKassa оператора TMS (приём подписок на один счёт).
+      # Значения — в /opt/transpult/.env (не в гите). Без них биллинг = mock.
+      YOOKASSA_SHOP_ID: ${YOOKASSA_SHOP_ID:-}
+      YOOKASSA_SECRET_KEY: ${YOOKASSA_SECRET_KEY:-}
       # Госключ callback HMAC secret. В production обязателен — без него
       # эндпоинт /api/signatures/gosklyuch/callback станет открытым каналом
       # инъекции поддельных подписей (см. server.ts boot-check).
