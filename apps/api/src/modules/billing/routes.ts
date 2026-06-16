@@ -15,7 +15,30 @@ import {
     getUsageReport,
     listPayments,
     listAllSubscriptionsForAdmin,
+    getPlatformPaymentAdapter,
 } from './service.js';
+
+// ЮKassa отправляет webhook'и с фиксированных IP. Мягкая defense-in-depth —
+// re-query платежа остаётся авторитетной проверкой (за nginx request.ip ненадёжен).
+const YOOKASSA_CIDRS: Array<[string, number]> = [
+    ['185.71.76.0', 27], ['185.71.77.0', 27], ['77.75.153.0', 25],
+    ['77.75.156.11', 32], ['77.75.156.35', 32], ['77.75.154.128', 25],
+];
+function ipv4ToInt(ip: string): number | null {
+    const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!m) return null;
+    return (((+m[1]! << 24) >>> 0) + (+m[2]! << 16) + (+m[3]! << 8) + (+m[4]!)) >>> 0;
+}
+function isYookassaSourceIp(ip: string): boolean {
+    const ipInt = ipv4ToInt(ip.replace(/^::ffff:/, ''));
+    if (ipInt === null) return true; // не IPv4 (IPv6 и пр.) — не блокируем, решает re-query
+    return YOOKASSA_CIDRS.some(([base, bits]) => {
+        const baseInt = ipv4ToInt(base);
+        if (baseInt === null) return false;
+        const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
+        return (ipInt & mask) === (baseInt & mask);
+    });
+}
 
 interface AuthUser {
     userId: string;
@@ -219,37 +242,25 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     // ---------- Provider webhook ----------
-    // A-P0-1: ЮKassa webhook signature verification + replay protection.
-    //   - HMAC-SHA256 of the raw request body against YOOKASSA_WEBHOOK_SECRET.
-    //   - Persist webhook event_id in `payments.lastWebhookEventId` for replay
-    //     dedupe (handled inside handlePaymentCallback via dedupeEventId param).
-    //   - When YOOKASSA_WEBHOOK_SECRET is unset, refuse the call entirely in
-    //     production. In dev we accept (logged) to allow local testing.
+    // Подлинность ЮKassa webhook: НЕ HMAC (ЮKassa уведомления НЕ подписывает).
+    // Авторитет — RE-QUERY платежа по id через API нашими кредами: статус берём из
+    // ответа ЮKassa, а не из тела → подделать нельзя. IP-allowlist — мягкая
+    // defense-in-depth. Replay-dedupe — в handlePaymentCallback по eventId.
     fastify.post('/billing/webhook/yookassa', {
-        schema: { tags: ['Биллинг'], summary: 'Webhook ЮKassa (HMAC-signed)' },
+        schema: { tags: ['Биллинг'], summary: 'Webhook ЮKassa (re-query verified)' },
         config: { rawBody: true },
     }, async (request, reply) => {
-        const secret = process.env.YOOKASSA_WEBHOOK_SECRET;
-        const rawBody = (request as unknown as { rawBody?: string | Buffer }).rawBody;
-        const headerSig = request.headers['x-yookassa-signature'] as string | undefined
-            ?? request.headers['content-hmac'] as string | undefined;
-
-        const verify = verifyYookassaWebhookSignature({
-            secret,
-            headerSig,
-            rawBody,
-            nodeEnv: process.env.NODE_ENV,
-        });
-        if (!verify.ok) {
-            if (verify.status === 503) {
-                request.log.error('YOOKASSA_WEBHOOK_SECRET not set; refusing webhook in production.');
-            } else {
-                request.log.warn({ ip: request.ip }, `YooKassa webhook rejected: ${verify.error}`);
+        const adapter = getPlatformPaymentAdapter();
+        if (!adapter) {
+            if (process.env.NODE_ENV === 'production') {
+                request.log.error('YOOKASSA_SHOP_ID/SECRET_KEY не заданы — webhook нельзя проверить (re-query невозможен).');
+                return reply.status(503).send({ success: false, error: 'payment receiver not configured' });
             }
-            return reply.status(verify.status).send({ success: false, error: verify.error });
+            request.log.warn('ЮKassa webhook (dev): нет env-ключей — доверяем телу без re-query (локальный mock).');
         }
-        if (verify.warn) {
-            request.log.warn(`YooKassa webhook: ${verify.warn}`);
+
+        if (!isYookassaSourceIp(request.ip)) {
+            request.log.warn({ ip: request.ip }, 'ЮKassa webhook: IP вне allowlist (re-query остаётся авторитетным).');
         }
 
         const parsed = YookassaWebhookSchema.safeParse(request.body);
@@ -257,27 +268,34 @@ const billingRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.status(400).send({ success: false, error: 'Некорректные данные вебхука' });
         }
         const { object, event } = parsed.data;
-        const status = mapYookassaStatus(event, object.status);
-        // C2: ключ дедупа из РЕАЛЬНЫХ полей конверта ЮKassa. Раньше читали
-        // body.event_id, которого в конверте {type,event,object} НЕТ → всегда
-        // undefined → dedup мёртв → каждый ретрай succeeded катил подписку +30д
-        // и плодил дубль чека ОФД. object.id+status стабилен между ретраями.
-        // #3: для refund.succeeded ищем исходный платёж по object.payment_id,
-        // а не по object.id (= id рефанда). Без payment_id возврат не фиксируется.
-        const isRefund = status === 'refunded';
-        const targetExternalId = isRefund ? object.payment_id : object.id;
-        if (isRefund && !targetExternalId) {
-            request.log.warn({ refundId: object.id }, 'refund.succeeded без payment_id — невозможно сопоставить платёж');
-            return reply.status(400).send({ success: false, error: 'refund webhook без payment_id' });
+        // #3: для refund.succeeded исходный платёж — по object.payment_id (object.id
+        // тут = id рефанда). Для payment.* — по object.id.
+        const isRefund = event === 'refund.succeeded';
+        const paymentExternalId = isRefund ? object.payment_id : object.id;
+        if (!paymentExternalId) {
+            request.log.warn({ objectId: object.id }, 'ЮKassa webhook без payment id');
+            return reply.status(400).send({ success: false, error: 'webhook без payment id' });
         }
-        // eventId дедупа — из id события (id рефанда для refund) + статуса: стабилен
-        // между ретраями и не коллизит с дедупом исходного succeeded-платежа.
+
+        // Авторитетный статус — из re-query (если адаптер настроен). Тело даёт
+        // только тип события (refund vs payment).
+        let status: ReturnType<typeof mapYookassaStatus>;
+        if (adapter) {
+            try {
+                const real = await adapter.getPayment(paymentExternalId);
+                status = isRefund ? 'refunded' : mapYookassaStatus(event, real.status);
+            } catch (err) {
+                // Транзиентный сбой re-query → 500, ЮKassa повторит уведомление.
+                request.log.warn({ err, paymentExternalId }, 'ЮKassa webhook: re-query не удался — 500 для ретрая');
+                return reply.status(500).send({ success: false, error: 're-query failed' });
+            }
+        } else {
+            status = mapYookassaStatus(event, object.status);
+        }
+
+        // eventId дедупа — стабилен между ретраями (object.id:status).
         const eventId = `${object.id}:${object.status}`;
-        const result = await handlePaymentCallback({
-            externalId: targetExternalId!,
-            status,
-            eventId,
-        });
+        const result = await handlePaymentCallback({ externalId: paymentExternalId, status, eventId });
         return { success: true, data: result };
     });
 

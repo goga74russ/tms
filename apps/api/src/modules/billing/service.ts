@@ -11,6 +11,18 @@ import {
 import {
     getDefaultRegistry, selectAdapter, getOfdAdapter,
 } from '../../providers/index.js';
+import { YookassaPaymentProvider } from '../../providers/payment/yookassa.js';
+
+// Платформенный платёжный адаптер оператора TMS — ЮKassa на env-ключах
+// (YOOKASSA_SHOP_ID + YOOKASSA_SECRET_KEY). Подписки клиентов принимаются на ОДИН
+// счёт оператора. null когда ключи не заданы → биллинг работает в mock-режиме.
+// Используется и для re-query webhook'а (billing/routes.ts) как авторитетный
+// источник статуса вместо HMAC (ЮKassa webhook'и HMAC не подписывает).
+export function getPlatformPaymentAdapter(): YookassaPaymentProvider | null {
+    const shopId = process.env.YOOKASSA_SHOP_ID;
+    const secretKey = process.env.YOOKASSA_SECRET_KEY;
+    return shopId && secretKey ? new YookassaPaymentProvider({ shopId, secretKey }) : null;
+}
 import {
     TRIAL_DAYS,
     currentBillingPeriodStart,
@@ -177,9 +189,12 @@ export async function createPayment(orgId: string, planId: PlanId, returnUrl: st
         subscription = await startTrial(orgId, planId);
     }
 
-    // Pick payment adapter for this org (default mock, real one if creds present).
+    // Платформенный ЮKassa (env-ключи оператора TMS) — приоритетно: подписки ВСЕХ
+    // клиентов принимаются на ОДИН счёт оператора, а не per-org. Fallback на
+    // selectAdapter (mock в dev / pre-go-live, когда env-ключи не заданы).
+    const platform = getPlatformPaymentAdapter();
     const registry = getDefaultRegistry();
-    const adapter = await selectAdapter(registry.payment, orgId, 'payment');
+    const adapter = platform ?? await selectAdapter(registry.payment, orgId, 'payment');
 
     // P1 (код-аудит 2026-06-14, #2): запоминаем целевой план на платеже. При смене
     // тарифа клиент платит цену нового плана, но subscription.planId не менялся —
