@@ -615,6 +615,17 @@ export function registerAuthRoutes(app: FastifyInstance) {
         preHandler: [app.authenticate],
     }, async (request, reply) => {
         const actor = request.user as AuthenticatedUser;
+        // SECURITY: само-эскалация tenant-admin → платформенный super-admin
+        // запрещена по умолчанию. Раньше ЛЮБОЙ admin (в т.ч. клиентский org-admin)
+        // мог отвязать org и получить кросс-тенант видимость. Возврат в super-admin —
+        // действие платформенного оператора (через БД), а не self-service арендатора.
+        // Break-glass: при необходимости включается env ALLOW_SELF_DETACH_SUPERADMIN=true.
+        if (process.env.ALLOW_SELF_DETACH_SUPERADMIN !== 'true') {
+            return reply.status(403).send({
+                success: false,
+                error: 'Самостоятельный возврат в super-admin отключён. Обратитесь к платформенному администратору.',
+            });
+        }
         if (!actor.roles.includes('admin')) {
             return reply.status(403).send({ success: false, error: 'Только admin может становиться super-admin' });
         }

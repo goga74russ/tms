@@ -55,11 +55,12 @@ export function OrganizationSetupBanner() {
     if (loading || !me) return null;
 
     const hasOrg = Boolean(me.organizationId);
-    const isAdmin = Array.isArray(me.roles) && me.roles.includes('admin');
 
-    // Скрываем баннер для обычных tenant-пользователей (есть org И не admin —
-    // им вообще не нужно ничего менять).
-    if (hasOrg && !isAdmin) return null;
+    // Баннер показываем ТОЛЬКО super-admin'у без организации (форма создания org).
+    // Для всех, у кого организация уже есть (в т.ч. org-admin'ов), баннер скрыт:
+    // самостоятельную «отвязку в super-admin» тенант-админам не предлагаем —
+    // это платформенное действие, не self-service для арендатора.
+    if (hasOrg) return null;
 
     const innValid = inn === '' || /^\d{10}$|^\d{12}$/.test(inn);
     const canSubmit = name.trim().length > 0 && innValid && !submitting;
@@ -84,61 +85,7 @@ export function OrganizationSetupBanner() {
         }
     }
 
-    async function handleRevert() {
-        if (!confirm('Сбросить вашу привязку к организации и вернуться в super-admin?\n\nТенант-данные не удаляются — только меняется ваша роль в системе. Вы снова сможете видеть пользователей и объекты всех тенантов.')) return;
-        setSubmitting(true);
-        setError('');
-        try {
-            await api.delete('/auth/me/organization');
-            toast({ variant: 'success', title: 'Super-admin восстановлен' });
-            window.location.reload();
-        } catch (err: any) {
-            const msg = err?.message ?? 'Не удалось отвязать организацию';
-            setError(msg);
-            toast({ variant: 'error', title: 'Ошибка', description: msg });
-        } finally {
-            setSubmitting(false);
-        }
-    }
-
-    // ---- Вариант B: уже есть org и роль admin — показываем кнопку «Вернуть super-admin» ----
-    if (hasOrg && isAdmin) {
-        return (
-            <div className="rounded-xl border border-neutral-300 bg-neutral-50 p-4">
-                <div className="flex items-start gap-3">
-                    <Building2 className="w-5 h-5 text-neutral-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-neutral-900 mb-1">
-                            Вы — admin своей организации
-                        </div>
-                        <p className="text-sm text-neutral-700 mb-3">
-                            Если нужна кросс-тенант видимость (видеть пользователей и объекты всех
-                            тенантов), можно отвязать организацию и вернуться в super-admin.
-                            Тенант-данные не удаляются.
-                        </p>
-                        {error && (
-                            <div className="text-sm text-danger-700 bg-danger-50 border border-danger-200 rounded-md px-2.5 py-2 mb-3">
-                                {error}
-                            </div>
-                        )}
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleRevert}
-                            disabled={submitting}
-                            leftIcon={submitting
-                                ? <Loader2 className="w-4 h-4 animate-spin" />
-                                : <Building2 className="w-4 h-4" />}
-                        >
-                            Отвязать организацию и вернуть super-admin
-                        </Button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // ---- Вариант A: нет org — показываем форму создания (как было) ----
+    // ---- Только super-admin без org: форма создания организации ----
 
     return (
         <div className="rounded-xl border border-warning-300 bg-warning-50 p-4">
