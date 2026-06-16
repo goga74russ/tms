@@ -929,6 +929,25 @@ export const fines = pgTable('fines', {
 // ================================================================
 // Invoices (Счета / Акты)
 // ================================================================
+// ================================================================
+// Contact requests — заявки «Связаться» с публичного лендинга (лиды).
+// Без org-привязки: это входящие от потенциальных клиентов до регистрации.
+// ================================================================
+export const contactRequests = pgTable('contact_requests', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 200 }).notNull(),
+    phone: varchar('phone', { length: 50 }).notNull(),
+    email: varchar('email', { length: 255 }),
+    fleetSize: varchar('fleet_size', { length: 20 }), // '1-5' | '5-15' | '15-30' | '30+'
+    comment: text('comment'),
+    source: varchar('source', { length: 50 }).notNull().default('landing'),
+    status: varchar('status', { length: 20 }).notNull().default('new'), // new | contacted | closed
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_contact_requests_created').on(sql`${table.createdAt} DESC`),
+    index('idx_contact_requests_status').on(table.status),
+]);
+
 export const invoices = pgTable('invoices', {
     id: uuid('id').primaryKey().defaultRandom(),
     // 0039: number уникален per-org (composite index ниже), не глобально.

@@ -9,7 +9,7 @@ const COLUMNS = [
             { href: '#pricing', label: 'Тарифы' },
             { href: '#demo', label: 'Демо' },
             { href: '/signup', label: 'Начать бесплатно' },
-            { href: 'mailto:support@transpult.ru', label: 'Связаться' },
+            { href: '/contacts', label: 'Связаться' },
             { href: '/status', label: 'Статус системы' },
             { href: '#faq', label: 'FAQ' },
             { href: '/about', label: 'О нас' },

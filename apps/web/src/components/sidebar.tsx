@@ -6,7 +6,7 @@ import {
     Truck, ClipboardList, Map, Wrench, HeartPulse,
     Settings, BarChart3, FileText, DollarSign, Users,
     Home, ChevronLeft, Menu, LogOut, LogIn, Building2,
-    Activity, Upload, Siren, Clock,
+    Activity, Upload, Siren, Clock, Inbox,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useUser } from '@/lib/user-context';
@@ -43,6 +43,7 @@ const navigation = [
     { name: 'Инциденты', href: '/incidents', icon: Siren, roles: ['dispatcher', 'mechanic', 'manager', 'medic'] },
     { name: 'Претензии', href: '/claims', icon: FileText, roles: ['logist', 'dispatcher', 'accountant', 'manager', 'client'] },
     { name: 'Портал клиента', href: '/client', icon: Building2, roles: ['client'] },
+    { name: 'Заявки с сайта', href: '/admin/contacts', icon: Inbox, roles: ['admin'] },
     { name: 'Админ-панель', href: '/admin/users', icon: Settings, roles: ['admin'] },
 ];
 

@@ -373,6 +373,7 @@ await app.register(import('./modules/import/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/analytics/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/settings/routes.js'), { prefix: '/api' });
 await app.register(import('./modules/operations/routes.js'), { prefix: '/api' });
+await app.register(import('./modules/contacts/routes.js'), { prefix: '/api' });
 
 await app.register(import('./modules/documents/routes.js'), { prefix: '/api' });
 // Госключ public callback — mobile app POSTs signed XML back here.
