@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Truck, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 
 const NAV_LINKS = [
     { href: '#features', label: 'Возможности' },
@@ -32,15 +32,13 @@ export function StickyHeader() {
         >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
                 <Link href="/landing" className="flex items-center gap-2 group">
-                    <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
-                            scrolled
-                                ? 'bg-brand-600 text-white'
-                                : 'bg-white/15 backdrop-blur-sm border border-white/30 text-white'
-                        }`}
-                    >
-                        <Truck className="w-5 h-5" />
-                    </div>
+                    {/* Лого меняется по стейту скролла: navy на белой шапке,
+                        белое на прозрачной тёмной (design-plan Блок 1.1). */}
+                    <img
+                        src={scrolled ? '/logo-mark.svg' : '/logo-mark-white.svg'}
+                        alt="ТрансПульт"
+                        className="w-9 h-9 shrink-0"
+                    />
                     <span className={`font-bold tracking-tight ${scrolled ? 'text-neutral-900' : 'text-white'}`}>
                         ТрансПульт
                     </span>
