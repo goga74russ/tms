@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plug, CheckCircle2, AlertTriangle, Power, Search, Filter, Lock, Activity, X } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useUser } from '@/lib/user-context';
 import type { ProviderType, ProviderName } from '@tms/shared';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -138,6 +139,7 @@ type StatusFilter = 'all' | 'connected' | 'disconnected' | 'error';
 
 export default function AdminIntegrationsPage() {
     const { toast } = useToast();
+    const { user } = useUser();
     const [rows, setRows] = useState<CredentialRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -247,6 +249,10 @@ export default function AdminIntegrationsPage() {
     const visibleCatalog = useMemo(() => {
         const q = search.trim().toLowerCase();
         return PROVIDER_CATALOG
+            // Платежи (ЮKassa) и почтовый шлюз (SMTP) — ПЛАТФОРМЕННЫЕ интеграции
+            // (приём подписок оператором TMS + системная почта), не для арендаторов.
+            // Видит и настраивает только super-admin (admin без организации).
+            .filter((cat) => (cat.type !== 'payment' && cat.type !== 'email') || Boolean(user?.isSuperAdmin))
             // Visibility-фильтр: extended показываем только если включён toggle
             // или явно выбрана конкретная категория (activeType !== 'all').
             .filter((cat) => cat.visibility === 'mvp' || showExtended || activeType !== 'all')
@@ -269,7 +275,7 @@ export default function AdminIntegrationsPage() {
                 return { ...cat, options };
             })
             .filter((cat) => cat.options.length > 0);
-    }, [activeType, search, statusFilter, findRow, showExtended]);
+    }, [activeType, search, statusFilter, findRow, showExtended, user?.isSuperAdmin]);
 
     // C4.2: deprecated credentials — historical записи из БД для имён,
     // которые мы удалили из каталога. Показываем с red badge «deprecated».

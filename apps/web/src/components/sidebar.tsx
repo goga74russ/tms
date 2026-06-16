@@ -43,7 +43,7 @@ const navigation = [
     { name: 'Инциденты', href: '/incidents', icon: Siren, roles: ['dispatcher', 'mechanic', 'manager', 'medic'] },
     { name: 'Претензии', href: '/claims', icon: FileText, roles: ['logist', 'dispatcher', 'accountant', 'manager', 'client'] },
     { name: 'Портал клиента', href: '/client', icon: Building2, roles: ['client'] },
-    { name: 'Заявки с сайта', href: '/admin/contacts', icon: Inbox, roles: ['admin'] },
+    { name: 'Заявки с сайта', href: '/admin/contacts', icon: Inbox, roles: ['admin'], superAdminOnly: true },
     { name: 'Админ-панель', href: '/admin/users', icon: Settings, roles: ['admin'] },
 ];
 
@@ -75,6 +75,11 @@ export function Sidebar() {
 
     // Filter navigation based on user roles
     const filteredNav = navigation.filter(item => {
+        // superAdminOnly: платформенные пункты (заявки с сайта и т.п.) — только
+        // super-admin (admin без организации), НЕ обычный org-admin арендатора.
+        if ((item as { superAdminOnly?: boolean }).superAdminOnly) {
+            return Boolean(user?.isSuperAdmin);
+        }
         if (!user) return !item.roles; // no user = show only items without roles
         if (user.roles.includes('admin')) return true; // admin sees all
         if (!item.roles) return true; // no roles restriction = visible to all

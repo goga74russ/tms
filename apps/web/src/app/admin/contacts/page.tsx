@@ -33,7 +33,8 @@ export default function AdminContactsPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        if (!userLoading && (!user || !user.roles.includes('admin'))) router.push('/');
+        // Только super-admin (платформенный оператор): лиды с лендинга — не для арендаторов.
+        if (!userLoading && (!user || !user.isSuperAdmin)) router.push('/');
     }, [user, userLoading, router]);
 
     const load = useCallback(async () => {
@@ -49,7 +50,7 @@ export default function AdminContactsPage() {
     }, []);
 
     useEffect(() => {
-        if (user?.roles.includes('admin')) load();
+        if (user?.isSuperAdmin) load();
     }, [user, load]);
 
     async function setStatus(id: string, status: ContactRequest['status']) {

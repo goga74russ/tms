@@ -18,9 +18,11 @@ const ContactSchema = z.object({
     comment: z.string().trim().max(2000).optional(),
 });
 
-function isAdmin(user: unknown): boolean {
-    const roles = (user as { roles?: string[] } | null)?.roles ?? [];
-    return roles.includes('admin');
+// Super-admin = admin БЕЗ организации (платформенный оператор). Лиды с лендинга
+// видит только он, не org-admin арендатора.
+function isSuperAdmin(user: unknown): boolean {
+    const u = user as { roles?: string[]; organizationId?: string | null } | null;
+    return (u?.roles ?? []).includes('admin') && !u?.organizationId;
 }
 
 export default async function contactsRoutes(app: FastifyInstance) {
@@ -65,7 +67,7 @@ export default async function contactsRoutes(app: FastifyInstance) {
         schema: { tags: ['Контакты'], summary: 'Список заявок «Связаться» (admin)' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
-        if (!isAdmin(request.user)) {
+        if (!isSuperAdmin(request.user)) {
             return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
         }
         const rows = await db.select().from(contactRequests)
@@ -79,7 +81,7 @@ export default async function contactsRoutes(app: FastifyInstance) {
         schema: { tags: ['Контакты'], summary: 'Сменить статус заявки (admin)' },
         preHandler: [app.authenticate],
     }, async (request, reply) => {
-        if (!isAdmin(request.user)) {
+        if (!isSuperAdmin(request.user)) {
             return reply.status(403).send({ success: false, error: 'Доступ запрещён' });
         }
         const params = z.object({ id: z.string().uuid() }).safeParse(request.params);

@@ -108,6 +108,18 @@ const credentialsRoutes: FastifyPluginAsync = async (fastify) => {
 
         const { providerType, providerName, credentials, status } = parsed.data;
 
+        // Платёжный шлюз (ЮKassa — приём подписок оператором TMS) и почтовый шлюз
+        // (системная транзакционная почта) — ПЛАТФОРМЕННЫЕ, настраиваются на уровне
+        // оператора через env, а не per-org арендатором. Запрещаем их создание в
+        // per-org credentials API: иначе клиентский org-admin мог бы подменить
+        // платёжный/почтовый канал платформы.
+        if (providerType === 'payment' || providerType === 'email') {
+            return reply.status(403).send({
+                success: false,
+                error: 'Платёжный и почтовый шлюз настраиваются на уровне платформы (env), не per-org.',
+            });
+        }
+
         // P3 (код-аудит 2026-06-14, finding 664): валидируем согласованность
         // providerType ↔ providerName ДО DPA-гейта и шифрования. Иначе строка-
         // сирота с неизвестным именем сохранялась, но адаптер из неё никогда не
