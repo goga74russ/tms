@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { ArrowRight, ShieldCheck, Sparkles, Truck, MapPin, FileText, Activity } from 'lucide-react';
 
 const STATS = [
-    { value: '5 мин', label: 'От ИНН до первого рейса' },
-    { value: '4', label: 'Оператора ЭДО на выбор' },
+    { value: '0 ₽', label: 'Бесплатно до 5 машин' },
+    { value: 'ЭДО', label: 'Оператор Диадок (на подключении)' },
     { value: 'РФ', label: 'Серверы и данные в России' },
 ];
 
@@ -16,7 +16,7 @@ export function Hero() {
                 className="absolute inset-0 pointer-events-none"
                 style={{
                     background:
-                        'radial-gradient(900px 500px at 90% -10%, rgba(165,180,252,0.35), transparent 60%), radial-gradient(700px 400px at 0% 110%, rgba(99,102,241,0.35), transparent 60%)',
+                        'radial-gradient(900px 500px at 90% -10%, rgba(45,212,191,0.22), transparent 60%), radial-gradient(700px 400px at 0% 110%, rgba(20,184,166,0.18), transparent 60%)',
                 }}
             />
             {/* subtle grid */}

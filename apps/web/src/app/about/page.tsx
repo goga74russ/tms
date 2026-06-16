@@ -20,7 +20,7 @@ const VALUES = [
     {
         icon: Zap,
         title: 'Скорость и простота',
-        text: 'Заявка → рейс → путевой лист → акт за минуты, не за полдня. Тяжёлые корпоративные TMS не для перевозчиков с 5–50 машинами.',
+        text: 'Заявка → рейс → путевой лист → акт за минуты, не за полдня. Тяжёлые корпоративные TMS не для перевозчиков с 2–15 машинами.',
     },
     {
         icon: Heart,
@@ -198,7 +198,7 @@ export default function AboutPage() {
                     <div className="mt-8 grid sm:grid-cols-3 gap-4">
                         {[
                             { icon: MapPin, label: 'Сервера в РФ', sub: 'Москва, Selectel' },
-                            { icon: Users, label: 'Целевая аудитория', sub: 'Перевозчики 5–500 машин' },
+                            { icon: Users, label: 'Целевая аудитория', sub: 'Перевозчики 2–15 машин' },
                             { icon: Truck, label: 'Тип бизнеса', sub: 'SaaS, без своих машин' },
                         ].map((s) => (
                             <div key={s.label} className="bg-white rounded-xl border border-neutral-200 p-4 flex items-center gap-3">
