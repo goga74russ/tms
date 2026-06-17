@@ -12,6 +12,7 @@ import { BREACH_TYPE_LABELS, label } from '@tms/shared';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { HosStatus, HoursSummary, getMyHosStatus, getMyHoursSummary } from '../api/rto';
 import { Card, Pill } from '../components/ui';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { colors, radius, spacing, typography } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MyHours'>;
@@ -33,7 +34,33 @@ function formatDate(iso: string): string {
     return `${dd}.${mm}`;
 }
 
-export default function MyHoursScreen(_props: Props) {
+/** Конечное число или fallback (ловит NaN/null/undefined/нечисло). */
+function finiteOr(value: unknown, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+/** Строго положительное число или fallback (0 и отрицательные → fallback). */
+function positiveOr(value: unknown, fallback: number): number {
+    const n = finiteOr(value, fallback);
+    return n > 0 ? n : fallback;
+}
+
+/** Процент [0..100] без NaN: при limit<=0 возвращает 0 (а не NaN для ширины). */
+function safePct(value: number, limit: number): number {
+    if (!(limit > 0)) return 0;
+    const pct = Math.round((value / limit) * 100);
+    return Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0));
+}
+
+export default function MyHoursScreen(props: Props) {
+    return (
+        <ErrorBoundary title="Мои часы (РТО)">
+            <MyHoursScreenInner {...props} />
+        </ErrorBoundary>
+    );
+}
+
+function MyHoursScreenInner(_props: Props) {
     const [status, setStatus] = useState<HosStatus | null>(null);
     const [summary, setSummary] = useState<HoursSummary | null>(null);
     const [loading, setLoading] = useState(true);
@@ -73,17 +100,20 @@ export default function MyHoursScreen(_props: Props) {
         return <ActivityIndicator style={{ flex: 1 }} size="large" color={colors.brand[600]} />;
     }
 
-    const dayLimit = status?.dayLimit ?? DAY_LIMIT_FALLBACK;
-    const weekLimit = status?.weekLimit ?? WEEK_LIMIT_FALLBACK;
-    const dayHours = status?.dayHours ?? 0;
-    const weekHours = status?.weekHours ?? 0;
+    // Защита от деградированных данных API: `?? FALLBACK` ловит только null/undefined,
+    // но НЕ 0. При dayLimit=0 (или NaN) Math.round(0/0*100)=NaN → ширина бара "NaN%"
+    // → нативный крэш Yoga при рендере. РТО-экран водителя не должен падать.
+    const dayLimit = positiveOr(status?.dayLimit, DAY_LIMIT_FALLBACK);
+    const weekLimit = positiveOr(status?.weekLimit, WEEK_LIMIT_FALLBACK);
+    const dayHours = finiteOr(status?.dayHours, 0);
+    const weekHours = finiteOr(status?.weekHours, 0);
     const breach = Boolean(status?.breach);
 
-    const daily = summary?.dailyHours ?? [];
-    const maxBar = daily.reduce((m, d) => (d.hours > m ? d.hours : m), dayLimit || 1);
+    const daily = (summary?.dailyHours ?? []).filter((d) => d && Number.isFinite(d.hours));
+    const maxBar = daily.reduce((m, d) => (d.hours > m ? d.hours : m), dayLimit);
 
-    const dayPct = Math.min(100, Math.round((dayHours / dayLimit) * 100));
-    const weekPct = Math.min(100, Math.round((weekHours / weekLimit) * 100));
+    const dayPct = safePct(dayHours, dayLimit);
+    const weekPct = safePct(weekHours, weekLimit);
 
     return (
         <ScrollView
@@ -155,7 +185,7 @@ export default function MyHoursScreen(_props: Props) {
             ) : (
                 <Card>
                     {daily.map((d, idx) => {
-                        const widthPct = Math.min(100, Math.round((d.hours / maxBar) * 100));
+                        const widthPct = safePct(d.hours, maxBar);
                         const over = dayLimit > 0 && d.hours > dayLimit;
                         const isLast = idx === daily.length - 1;
                         return (
