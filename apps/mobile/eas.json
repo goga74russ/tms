@@ -18,6 +18,9 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://transpult.ru/api"
+      },
       "android": {
         "buildType": "apk"
       }
@@ -25,6 +28,9 @@
     "production": {
       "distribution": "store",
       "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://transpult.ru/api"
+      },
       "android": {
         "buildType": "app-bundle"
       }

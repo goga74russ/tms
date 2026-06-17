@@ -31,6 +31,19 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": []
+    "plugins": [
+      "./plugins/withAsyncStorageRepo"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c0744ee7-71bf-4636-b8f4-256d09c6c5a9"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c0744ee7-71bf-4636-b8f4-256d09c6c5a9"
+    }
   }
 }

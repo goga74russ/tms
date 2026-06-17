@@ -15,7 +15,9 @@ export const ROLE_ROUTES: Record<string, string> = {
     repair_service: '/repair',
     admin: '/admin/users',
     client: '/client',
-    driver: '/trips',
+    // Водитель работает в мобильном приложении — веб ведёт его на экран
+    // установки (/driver-app), а не в /trips (куда middleware его и не пускал).
+    driver: '/driver-app',
 };
 
 // Priority — a user with multiple roles lands on the most privileged dashboard.

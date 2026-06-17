@@ -1,0 +1,19 @@
+# EAS upload trimming — исключаем всё, что не нужно для сборки мобилки.
+# Важно: package.json / pnpm-lock.yaml / pnpm-workspace.yaml / packages/*
+# НЕ исключаем (нужны для pnpm install в облаке).
+
+# Дубликат всего проекта (git-worktrees) — главный источник раздувания и путаницы.
+.claude/
+
+# Build-артефакты и логи.
+# ВНИМАНИЕ: НЕ исключаем **/dist/ — packages/shared отдаётся из собранного
+# dist/ (main → ./dist/index.js), и без него облако не резолвит @tms/shared.
+**/.next/
+**/coverage/
+**/.turbo/
+**/*.log
+.git/
+
+# Документация и прочее, не нужное сборке
+docs/
+backups/

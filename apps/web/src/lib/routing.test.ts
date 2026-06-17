@@ -14,8 +14,8 @@ describe('pickRouteForRoles', () => {
         expect(pickRouteForRoles(['driver', 'dispatcher'])).toBe('/dispatcher');
     });
 
-    it('single driver role -> /trips', () => {
-        expect(pickRouteForRoles(['driver'])).toBe('/trips');
+    it('single driver role -> /driver-app (установка мобильного приложения)', () => {
+        expect(pickRouteForRoles(['driver'])).toBe('/driver-app');
     });
 
     it('logist -> /logist', () => {
