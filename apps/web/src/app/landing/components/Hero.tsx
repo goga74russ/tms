@@ -1,11 +1,20 @@
 import Link from 'next/link';
-import { ArrowRight, ShieldCheck, Truck, MapPin, FileText, Activity } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Truck, MapPin, Activity, Lock } from 'lucide-react';
 
 const STATS = [
     { value: '0 ₽', label: 'Бесплатно до 5 машин' },
-    { value: 'ЭДО', label: 'Оператор Диадок (на подключении)' },
+    { value: 'Android', label: 'Приложение водителя, offline' },
     { value: 'РФ', label: 'Серверы и данные в России' },
 ];
+
+// Secondary CTA на разрыв (ТЗ landing-rework §10.3, вариант B — mailto):
+// lead-capture (/demo) ещё за security-stop-gate, поэтому «Посмотреть демо»
+// ведёт на предзаполненное письмо. Заменить на /demo одной строкой, когда
+// форма будет готова.
+const DEMO_MAILTO =
+    'mailto:sales@transpult.ru' +
+    '?subject=' + encodeURIComponent('Демо ТрансПульт — заявка с лендинга') +
+    '&body=' + encodeURIComponent('Имя:\nКомпания:\nРазмер парка:\nТелефон:\nЧто важно (ЭТрН/1С/биллинг/другое):');
 
 export function Hero() {
     return (
@@ -31,51 +40,54 @@ export function Hero() {
                     <div>
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent-500/10 backdrop-blur-sm border border-accent-500/30 text-xs font-medium text-brand-50 mb-6">
                             <span className="w-1.5 h-1.5 rounded-full bg-accent-400 animate-pulse" aria-hidden />
-                            <span>Пилот-фаза · ранние пользователи</span>
+                            <span>Готовимся к ЭТрН-2026 · ранний доступ</span>
                         </div>
                         <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight mb-5">
-                            ТрансПульт, в котором<br className="hidden sm:block" /> логистика работает{' '}
+                            ЭТрН с{' '}
                             <span className="bg-gradient-to-r from-white to-brand-200 bg-clip-text text-transparent">
-                                сама
-                            </span>
+                                1 сентября 2026
+                            </span>{' '}
+                            — без бумаги, без штрафов,<br className="hidden sm:block" /> без 1С на вашей стороне.
                         </h1>
                         <p className="text-base sm:text-lg text-brand-100/90 max-w-xl mb-8 leading-relaxed">
-                            Заказы, рейсы, ЭТрН и биллинг в одном кабинете. Готов к работе с 1 сентября 2026.
+                            Электронные транспортные накладные через подключённого оператора ЭДО, путевые листы
+                            и осмотры в одном кабинете. Для парка от 2 до 30 машин. Готовимся к новому закону вместе.
                         </p>
                         <div className="flex flex-wrap gap-3 mb-10">
                             <Link
                                 href="/signup"
                                 className="inline-flex items-center gap-2 bg-accent-500 text-white font-semibold px-6 py-3 rounded-xl shadow-lg shadow-accent-500/25 hover:shadow-xl hover:bg-accent-600 transition-all"
                             >
-                                Начать бесплатно
+                                Подключиться бесплатно
                                 <ArrowRight className="w-4 h-4" />
                             </Link>
                             <a
-                                href="#demo"
+                                href={DEMO_MAILTO}
                                 className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white font-semibold px-6 py-3 rounded-xl backdrop-blur-sm hover:bg-white/20 transition-all"
                             >
-                                Посмотреть демо
+                                Посмотреть демо за 3 минуты
                             </a>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-brand-100/80">
                             <div className="inline-flex items-center gap-1.5">
                                 <ShieldCheck className="w-4 h-4 text-accent-400" />
-                                <span>Серверы в РФ</span>
+                                <span>Серверы и ПДн в РФ</span>
                             </div>
                             <div className="inline-flex items-center gap-1.5">
                                 <Activity className="w-4 h-4 text-accent-400" />
                                 <span>Бэкапы и аудит-лог из коробки</span>
                             </div>
                             <div className="inline-flex items-center gap-1.5">
-                                <FileText className="w-4 h-4 text-accent-400" />
-                                <span>Минтранс №2200</span>
+                                <Lock className="w-4 h-4 text-accent-400" />
+                                <span>152-ФЗ + DPA из коробки</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Mockup */}
-                    <div id="demo" className="relative">
+                    {/* TODO(/desing): заменить dispatcher-мокап на ЭТрН-документ или окно обмена с 1С
+                        (ТЗ landing-rework §1.7 — отдельная итерация после P0 копи). */}
+                    <div className="relative">
                         <div
                             aria-hidden
                             className="absolute -inset-4 rounded-3xl bg-gradient-to-br from-brand-300/30 to-accent-400/30 blur-2xl"
@@ -142,7 +154,7 @@ export function Hero() {
                     ))}
                 </div>
                 <p className="text-[11px] text-brand-100/60 mt-4">
-                    Пилот-фаза. Текущий статус системы — на странице{' '}
+                    Сейчас идёт ранний доступ — открываем 50 новых компаний в месяц. Статус системы — на странице{' '}
                     <Link href="/status" className="underline">статус</Link>.
                 </p>
             </div>

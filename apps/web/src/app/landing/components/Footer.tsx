@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Truck, Mail, Phone, Send } from 'lucide-react';
+import { Truck, Mail, Phone } from 'lucide-react';
 
 const COLUMNS = [
     {
@@ -7,7 +7,6 @@ const COLUMNS = [
         links: [
             { href: '#features', label: 'Возможности' },
             { href: '#pricing', label: 'Тарифы' },
-            { href: '#demo', label: 'Демо' },
             { href: '/signup', label: 'Начать бесплатно' },
             { href: '/contacts', label: 'Связаться' },
             { href: '/status', label: 'Статус системы' },
@@ -57,14 +56,6 @@ export function Footer() {
                                 className="flex items-center gap-2 text-neutral-400 hover:text-white"
                             >
                                 <Phone className="w-3.5 h-3.5" /> +7 919 324-65-82
-                            </a>
-                            <a
-                                href="https://t.me/BardinGD"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 text-neutral-400 hover:text-white"
-                            >
-                                <Send className="w-3.5 h-3.5" /> @BardinGD
                             </a>
                         </div>
                     </div>
