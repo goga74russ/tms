@@ -8,13 +8,11 @@ import {
     PauseCircle,
     ShieldCheck,
     Truck,
-    Users,
     Wrench,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ContractorsTable } from './components/ContractorsTable';
 import { DowntimeRecordsTable } from './components/DowntimeRecordsTable';
-import { DriversTable } from './components/DriversTable';
 import { FinesTable } from './components/FinesTable';
 import { FuelRecordsTable } from './components/FuelRecordsTable';
 import { MaintenanceScheduleTable } from './components/MaintenanceScheduleTable';
@@ -25,7 +23,8 @@ import { VehiclesTable } from './components/VehiclesTable';
 
 const tabs = [
     { id: 'vehicles', label: 'Транспорт', icon: Truck },
-    { id: 'drivers', label: 'Водители', icon: Users },
+    // Водители живут на отдельной странице /drivers (пункт сайдбара «Водители»).
+    // Здесь вкладку убрали, чтобы не дублировать форму/таблицу.
     { id: 'permits', label: 'Пропуска', icon: ShieldCheck },
     { id: 'fines', label: 'Штрафы', icon: AlertTriangle },
     { id: 'contractors', label: 'Контрагенты', icon: Building2 },
@@ -68,7 +67,6 @@ export default function FleetPage() {
 
                 <div className="rounded-xl border border-neutral-200 bg-white shadow-sm">
                     <TabsContent value="vehicles" className="m-0"><VehiclesTable /></TabsContent>
-                    <TabsContent value="drivers" className="m-0"><DriversTable /></TabsContent>
                     <TabsContent value="permits" className="m-0"><PermitsTable /></TabsContent>
                     <TabsContent value="fines" className="m-0"><FinesTable /></TabsContent>
                     <TabsContent value="contractors" className="m-0"><ContractorsTable /></TabsContent>
