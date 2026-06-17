@@ -46,7 +46,7 @@ describe('getDriverHoursSummary', () => {
             new Date('2026-05-07T23:59:59Z'),
         );
         expect(out.driverId).toBe('d1');
-        expect(out.dailyHours).toEqual({});
+        expect(out.dailyHours).toEqual([]);
         expect(out.weeklyHours).toBe(0);
         expect(out.breaches).toEqual([]);
         expect(out.dayLimit).toBe(9);
@@ -62,7 +62,7 @@ describe('getDriverHoursSummary', () => {
             new Date('2026-05-01T00:00:00Z'),
             new Date('2026-05-07T23:59:59Z'),
         );
-        expect(out.dailyHours['2026-05-05']).toBe(6);
+        expect(out.dailyHours.find(d => d.date === '2026-05-05')?.hours).toBe(6);
         expect(out.weeklyHours).toBe(6);
         expect(out.breaches).toEqual([]);
     });
@@ -91,7 +91,7 @@ describe('getDriverHoursSummary', () => {
             new Date('2026-05-01T00:00:00Z'),
             new Date('2026-05-07T23:59:59Z'),
         );
-        expect(out.dailyHours['2026-05-05']).toBe(7);
+        expect(out.dailyHours.find(d => d.date === '2026-05-05')?.hours).toBe(7);
         expect(out.weeklyHours).toBe(7);
     });
 
@@ -104,7 +104,7 @@ describe('getDriverHoursSummary', () => {
             new Date('2026-05-01T00:00:00Z'),
             new Date('2026-05-07T23:59:59Z'),
         );
-        expect(out.dailyHours['2026-05-05']).toBe(0);
+        expect(out.dailyHours.find(d => d.date === '2026-05-05')?.hours).toBe(0);
     });
 
     it('aggregates across multiple days into weekly sum', async () => {

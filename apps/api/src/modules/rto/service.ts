@@ -24,8 +24,9 @@ function minutesToHours(minutes: number): number {
     return Number((minutes / MIN_PER_HOUR).toFixed(2));
 }
 
-export interface DailyHoursMap {
-    [dateIso: string]: number; // часы (десятичные)
+export interface DailyHoursEntry {
+    date: string; // YYYY-MM-DD
+    hours: number; // часы (десятичные)
 }
 
 export interface RtoBreach {
@@ -34,13 +35,18 @@ export interface RtoBreach {
     limit: number;
     /** P2 — тип превышения: дневное (по умолчанию) или недельное (56 ч). */
     kind?: 'daily' | 'weekly';
+    /**
+     * Стабильный код типа нарушения для i18n на клиентах (BREACH_TYPE_LABELS).
+     * Мобилка/веб читают именно `type`; `kind` — внутренняя краткая форма.
+     */
+    type: 'daily_limit_exceeded' | 'weekly_limit_exceeded';
 }
 
 export interface DriverHoursSummary {
     driverId: string;
     from: string;
     to: string;
-    dailyHours: DailyHoursMap;
+    dailyHours: DailyHoursEntry[]; // по дням, хронологически (для графика/баров)
     weeklyHours: number; // суммарно за период (или за rolling-7d при null)
     dayLimit: number;
     weekLimit: number;
@@ -74,13 +80,13 @@ export async function getDriverHoursSummary(
         dailyMin[key] = (dailyMin[key] ?? 0) + (row.drivingMinutes ?? 0);
     }
 
-    const dailyHours: DailyHoursMap = {};
+    const dailyHours: DailyHoursEntry[] = [];
     const breaches: RtoBreach[] = [];
     let totalMin = 0;
 
     for (const [date, min] of Object.entries(dailyMin)) {
         const hours = minutesToHours(min);
-        dailyHours[date] = hours;
+        dailyHours.push({ date, hours });
         totalMin += min;
         if (min > DAY_DRIVING_LIMIT_MIN) {
             breaches.push({
@@ -88,9 +94,14 @@ export async function getDriverHoursSummary(
                 dayHours: hours,
                 limit: DAY_DRIVING_LIMIT_MIN / MIN_PER_HOUR,
                 kind: 'daily',
+                type: 'daily_limit_exceeded',
             });
         }
     }
+
+    // Хронологический порядок: клиенты (web-график, mobile-бары) рисуют массив
+    // как есть. Object.entries не гарантирует порядок дат — сортируем явно.
+    dailyHours.sort((a, b) => a.date.localeCompare(b.date));
 
     // P2 (код-аудит 2026-06-14): недельный лимit (56 ч) раньше не детектился —
     // breaches содержал только дневные. Добавляем недельное превышение.
@@ -100,6 +111,7 @@ export async function getDriverHoursSummary(
             dayHours: minutesToHours(totalMin),
             limit: WEEK_DRIVING_LIMIT_MIN / MIN_PER_HOUR,
             kind: 'weekly',
+            type: 'weekly_limit_exceeded',
         });
     }
 
