@@ -4,7 +4,7 @@
 // ============================================================
 import { db } from '../../db/connection.js';
 import {
-    vehicles, drivers, contractors, permits, fines,
+    vehicles, drivers, contractors, permits, fines, users,
     addresses, restrictionZones, repairRequests,
     fuelRecords, odometerReadings, downtimeRecords, maintenanceSchedule,
 } from '../../db/schema.js';
@@ -424,6 +424,16 @@ export async function createDriver(
 
     // Wrap in transaction for atomicity (N-2)
     return await db.transaction(async (tx: any) => {
+        // Безопасность: карточку водителя можно привязать ТОЛЬКО к юзеру своей
+        // организации (иначе driver-transplant — чужой юзер получает cross-driver
+        // видимость рейсов через RLS-резолвер). Super-admin (org=null) — без ограничения.
+        const [target] = await tx.select({ id: users.id, organizationId: users.organizationId })
+            .from(users).where(eq(users.id, data.userId)).limit(1);
+        if (!target) throw new Error('Учётная запись водителя не найдена');
+        if (user.organizationId && target.organizationId !== user.organizationId) {
+            throw new Error('Можно привязать только пользователя своей организации');
+        }
+
         const [driver] = await tx.insert(drivers).values({
             userId: data.userId,
             fullName: data.fullName,

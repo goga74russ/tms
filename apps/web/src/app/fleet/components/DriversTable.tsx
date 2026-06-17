@@ -76,13 +76,31 @@ function DriverFormModal({
     const [medCertExpiry, setMedCertExpiry] = useState(toDateInput(editingItem?.medCertificateExpiry));
     const [adrCertExpiry, setAdrCertExpiry] = useState(toDateInput(editingItem?.adrCertificateExpiry));
     const [phone, setPhone] = useState(editingItem?.phone ?? '');
+    // Привязка к существующему аккаунту + поля, обязательные ТОЛЬКО при создании.
+    const [userId, setUserId] = useState('');
+    const [birthDate, setBirthDate] = useState('');
+    const [consent, setConsent] = useState(true);
+    const [users, setUsers] = useState<{ id: string; email: string; fullName: string; roles: string[] }[]>([]);
     const [submitting, setSubmitting] = useState(false);
-    const [fieldError, setFieldError] = useState<{ fullName?: string; licenseNumber?: string }>({});
+    const [fieldError, setFieldError] = useState<{ fullName?: string; licenseNumber?: string; userId?: string; birthDate?: string }>({});
+
+    // Список юзеров орг с ролью «Водитель» — кандидаты на привязку (создание).
+    useEffect(() => {
+        if (isEdit) return;
+        (async () => {
+            try {
+                const res = await api.get<{ success: boolean; data: { id: string; email: string; fullName: string; roles: string[] }[] }>('/auth/users');
+                setUsers((res.data ?? []).filter((u) => (u.roles ?? []).includes('driver')));
+            } catch { /* пусто — покажем подсказку в форме */ }
+        })();
+    }, [isEdit]);
 
     async function handleSubmit() {
-        const errs: { fullName?: string; licenseNumber?: string } = {};
+        const errs: { fullName?: string; licenseNumber?: string; userId?: string; birthDate?: string } = {};
         if (!fullName.trim()) errs.fullName = 'Укажите ФИО';
         if (!licenseNumber.trim()) errs.licenseNumber = 'Укажите номер ВУ';
+        if (!isEdit && !userId) errs.userId = 'Выберите учётную запись водителя';
+        if (!isEdit && !birthDate) errs.birthDate = 'Укажите дату рождения';
         setFieldError(errs);
         if (Object.keys(errs).length > 0) return;
 
@@ -96,6 +114,13 @@ function DriverFormModal({
                 medCertificateExpiry: medCertExpiry || undefined,
                 adrCertificateExpiry: adrCertExpiry || undefined,
                 phone: phone || undefined,
+                // userId/birthDate/согласие — immutable, шлём ТОЛЬКО при создании:
+                ...(isEdit ? {} : {
+                    userId,
+                    birthDate,
+                    personalDataConsent: consent,
+                    personalDataConsentDate: consent ? new Date().toISOString() : undefined,
+                }),
             };
             const result = isEdit
                 ? await api.put<any>(`/fleet/drivers/${editingItem!.id}`, payload)
@@ -132,6 +157,39 @@ function DriverFormModal({
                     placeholder="Иванов Иван Иванович"
                     error={fieldError.fullName}
                 />
+                {!isEdit && (
+                    <>
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-700 mb-1">
+                                Учётная запись водителя <span className="text-danger-500">*</span>
+                            </label>
+                            <select
+                                value={userId}
+                                onChange={e => setUserId(e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+                            >
+                                <option value="">— выберите аккаунт —</option>
+                                {users.map(u => (
+                                    <option key={u.id} value={u.id}>{u.fullName ? `${u.fullName} (${u.email})` : u.email}</option>
+                                ))}
+                            </select>
+                            {fieldError.userId && <p className="text-xs text-danger-600 mt-1">{fieldError.userId}</p>}
+                            {users.length === 0 && (
+                                <p className="text-xs text-neutral-500 mt-1">
+                                    Нет пользователей с ролью «Водитель». Сначала создайте пользователя и назначьте роль «Водитель» на странице «Пользователи».
+                                </p>
+                            )}
+                        </div>
+                        <Input
+                            label="Дата рождения"
+                            type="date"
+                            required
+                            value={birthDate}
+                            onChange={e => setBirthDate(e.target.value)}
+                            error={fieldError.birthDate}
+                        />
+                    </>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                     <Input
                         label="Номер ВУ"
@@ -165,6 +223,12 @@ function DriverFormModal({
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
                 />
+                {!isEdit && (
+                    <label className="flex items-start gap-2 text-sm text-neutral-700">
+                        <input type="checkbox" className="mt-0.5" checked={consent} onChange={e => setConsent(e.target.checked)} />
+                        <span>Согласие на обработку персональных данных водителя (152-ФЗ) получено</span>
+                    </label>
+                )}
                 <div className="flex gap-3 justify-end pt-2">
                     <Button variant="outline" onClick={onClose} disabled={submitting}>Отмена</Button>
                     <Button variant="brand" isLoading={submitting} onClick={handleSubmit}>
