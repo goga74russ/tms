@@ -7,7 +7,6 @@ const COLUMNS = [
         links: [
             { href: '#features', label: 'Возможности' },
             { href: '#pricing', label: 'Тарифы' },
-            { href: '#demo', label: 'Демо' },
             { href: '/signup', label: 'Начать бесплатно' },
             { href: '/contacts', label: 'Связаться' },
             { href: '/status', label: 'Статус системы' },
