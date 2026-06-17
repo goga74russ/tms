@@ -215,7 +215,7 @@ function CreateDriverModal({ onClose, onCreated, editingItem }: { onClose: () =>
     const [consent, setConsent] = useState(true);
     const [users, setUsers] = useState<{ id: string; email: string; fullName: string; roles: string[] }[]>([]);
     const [submitting, setSubmitting] = useState(false);
-    const [fieldError, setFieldError] = useState<{ fullName?: string; licenseNumber?: string; userId?: string; birthDate?: string }>({});
+    const [fieldError, setFieldError] = useState<{ fullName?: string; licenseNumber?: string; userId?: string; birthDate?: string; licenseExpiry?: string }>({});
 
     useEffect(() => {
         if (isEdit) return;
@@ -228,9 +228,10 @@ function CreateDriverModal({ onClose, onCreated, editingItem }: { onClose: () =>
     }, [isEdit]);
 
     async function handleSubmit() {
-        const errs: { fullName?: string; licenseNumber?: string; userId?: string; birthDate?: string } = {};
+        const errs: { fullName?: string; licenseNumber?: string; userId?: string; birthDate?: string; licenseExpiry?: string } = {};
         if (!fullName.trim()) errs.fullName = 'Укажите ФИО';
         if (!licenseNumber.trim()) errs.licenseNumber = 'Укажите номер ВУ';
+        if (!licenseExpiry) errs.licenseExpiry = 'Укажите срок действия ВУ';
         if (!isEdit && !userId) errs.userId = 'Выберите учётную запись водителя';
         if (!isEdit && !birthDate) errs.birthDate = 'Укажите дату рождения';
         setFieldError(errs);
@@ -338,7 +339,7 @@ function CreateDriverModal({ onClose, onCreated, editingItem }: { onClose: () =>
                     />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                    <Input label="Срок ВУ" type="date" value={licenseExpiry} onChange={e => setLicenseExpiry(e.target.value)} />
+                    <Input label="Срок ВУ" type="date" required value={licenseExpiry} onChange={e => setLicenseExpiry(e.target.value)} error={fieldError.licenseExpiry} />
                     <Input label="Медсправка до" type="date" value={medCertExpiry} onChange={e => setMedCertExpiry(e.target.value)} />
                 </div>
                 <Input

@@ -23,18 +23,42 @@ const ERROR_CODE_MESSAGES: Record<string, string> = {
     Forbidden: 'Доступ запрещён.',
 };
 
+/**
+ * Человекочитаемые названия полей для сообщений Zod-валидации (details.fieldErrors).
+ * Ключ — имя поля в схеме, значение — то, что видит пользователь. Поля без записи
+ * показываются как есть (raw-ключ — всё равно понятнее, чем «Ошибка валидации»).
+ */
+const FIELD_LABELS: Record<string, string> = {
+    fullName: 'ФИО',
+    userId: 'учётная запись',
+    birthDate: 'дата рождения',
+    licenseNumber: 'номер ВУ',
+    licenseCategories: 'категории ВУ',
+    licenseExpiry: 'срок действия ВУ',
+    medCertificateExpiry: 'медсправка',
+    personalDataConsent: 'согласие 152-ФЗ',
+};
+
 function translateApiError(payload: Record<string, unknown> | { error?: string }, status: number): string {
     const errStr = typeof (payload as { error?: unknown }).error === 'string'
         ? (payload as { error: string }).error
         : '';
     // 1. Exact code match — covers SCREAMING_SNAKE_CASE codes from the API.
     if (errStr && ERROR_CODE_MESSAGES[errStr]) return ERROR_CODE_MESSAGES[errStr];
+    // Zod-валидация (400): сервер кладёт пофайловые ошибки в details.fieldErrors
+    // (результат error.flatten()). Без них пользователь видит только «Ошибка
+    // валидации данных» и не понимает, какое поле виновато. Дописываем список.
+    const details = (payload as { details?: { fieldErrors?: Record<string, string[]> } }).details;
+    const badFields = details?.fieldErrors ? Object.keys(details.fieldErrors) : [];
+    const fieldsSuffix = badFields.length > 0
+        ? `: ${badFields.map((f) => FIELD_LABELS[f] ?? f).join(', ')}`
+        : '';
     // 2. Already a Russian sentence (server-translated, e.g. requireAbility).
     //    Heuristic: contains Cyrillic. Pass through.
-    if (errStr && /[А-Яа-яЁё]/.test(errStr)) return errStr;
+    if (errStr && /[А-Яа-яЁё]/.test(errStr)) return errStr + fieldsSuffix;
     // 3. Otherwise wrap in a generic Russian fallback.
-    if (errStr) return `Ошибка: ${errStr}`;
-    return `Ошибка запроса (HTTP ${status})`;
+    if (errStr) return `Ошибка: ${errStr}${fieldsSuffix}`;
+    return `Ошибка запроса (HTTP ${status})${fieldsSuffix}`;
 }
 
 class ApiClient {
