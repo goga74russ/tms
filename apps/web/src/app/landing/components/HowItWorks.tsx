@@ -35,6 +35,14 @@ const STEPS: Step[] = [
     },
 ];
 
+// landing-polish §7 — градация кругляшков по шагам (старт neutral → сочный teal-финал)
+const STEP_CIRCLE: Record<number, string> = {
+    1: 'bg-neutral-600 text-white ring-white',
+    2: 'bg-accent-700 text-white ring-white',
+    3: 'bg-accent-600 text-white ring-white',
+    4: 'bg-accent-500 text-accent-900 ring-accent-500/30',
+};
+
 export function HowItWorks() {
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
@@ -52,7 +60,7 @@ export function HowItWorks() {
                 {/* Connecting line on desktop */}
                 <div
                     aria-hidden
-                    className="hidden lg:block absolute top-7 left-[12.5%] right-[12.5%] h-0.5 bg-gradient-to-r from-brand-200 via-brand-300 to-brand-200"
+                    className="hidden lg:block absolute top-7 left-[12.5%] right-[12.5%] h-0.5 bg-gradient-to-r from-neutral-600 via-accent-700 to-accent-500"
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-4 relative">
@@ -61,7 +69,7 @@ export function HowItWorks() {
                         return (
                             <div key={s.num} className="text-center lg:px-2">
                                 <div className="relative inline-flex">
-                                    <div className="w-14 h-14 rounded-full bg-brand-600 text-white font-bold text-lg flex items-center justify-center shadow-lg ring-4 ring-white">
+                                    <div className={`w-14 h-14 rounded-full font-bold text-lg flex items-center justify-center shadow-lg ring-4 ${STEP_CIRCLE[s.num] ?? 'bg-brand-600 text-white ring-white'}`}>
                                         {s.num}
                                     </div>
                                     <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white border border-neutral-200 flex items-center justify-center">

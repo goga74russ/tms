@@ -9,11 +9,11 @@ const STATS = [
 
 export function Hero() {
     return (
-        <section className="relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 text-white pt-24 pb-20 sm:pt-32 sm:pb-28">
-            {/* teal brand-glow — акцент, не заливка (landing-polish §4) */}
+        <section className="relative overflow-hidden bg-brand-800 text-white pt-24 pb-20 sm:pt-32 sm:pb-28">
+            {/* navy → teal перетекание справа за mockup + бирюзовое свечение (landing-polish §4) */}
             <div aria-hidden className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-1/4 right-0 w-[600px] h-[600px] rounded-full bg-accent-500/15 blur-[120px]" />
-                <div className="absolute -bottom-1/3 -left-1/4 w-[500px] h-[500px] rounded-full bg-accent-600/10 blur-[120px]" />
+                <div className="absolute inset-0 bg-gradient-to-l from-accent-500/30 via-accent-700/10 to-transparent" />
+                <div className="absolute -top-1/4 -right-1/4 w-[700px] h-[700px] rounded-full bg-accent-500/20 blur-[140px]" />
             </div>
             {/* subtle grid */}
             <div

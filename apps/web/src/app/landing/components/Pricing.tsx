@@ -174,8 +174,8 @@ export function Pricing() {
                                 href={`${p.href}${p.href.includes('?') ? '&' : '?'}billing=${billing}`}
                                 className={`mt-7 block w-full text-center font-semibold px-4 py-2.5 rounded-xl transition-colors ${
                                     p.accent
-                                        ? 'bg-brand-600 text-white hover:bg-brand-700 shadow-sm'
-                                        : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                                        ? 'bg-accent-500 text-white hover:bg-accent-600 shadow-lg shadow-accent-500/25'
+                                        : 'bg-transparent text-accent-700 border-[1.5px] border-accent-500 hover:bg-accent-50'
                                 }`}
                             >
                                 {p.cta}
