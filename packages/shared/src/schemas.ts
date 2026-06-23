@@ -293,12 +293,13 @@ export const OrderCreateSchema = OrderSchema.omit({
     id: true, number: true, status: true, tripId: true,
     createdAt: true, updatedAt: true,
 }).extend({
-    // ЭПД (жёстко при создании заказа): места, дата погрузки, габариты места для ЭЗЗ.
+    // ЭПД (жёстко при создании): места и дата погрузки — почти всегда известны.
     cargoPlaces: z.number().int().positive('Количество мест обязательно (для ЭПД)'),
     loadingDate: z.string().min(1, 'Дата погрузки обязательна (для ЭПД)'),
-    cargoHeightM: z.number().positive('Высота места обязательна (для ЭПД)'),
-    cargoLengthM: z.number().positive('Длина места обязательна (для ЭПД)'),
-    cargoWidthM: z.number().positive('Ширина места обязательна (для ЭПД)'),
+    // Габариты места (РазмерГрМест) — НЕ обязательны при создании заказа: их часто
+    // не знают на потоке. Обязательны при ВЫПУСКЕ ЭЗЗ (generateEZZShipper → 422),
+    // т.е. дозаполняются ровно когда нужны. cargoHeight/Length/WidthM остаются
+    // optional из OrderSchema.
 });
 
 // Update DTO — explicit allowed-fields, не .partial() от Create.

@@ -580,19 +580,22 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             />
                         </div>
                     </div>
-                    {/* ЭПД: габариты грузового места обязательны для ЭЗЗ */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <div>
-                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Высота, м <span className="text-red-500">*</span></label>
-                            <input type="number" step="0.01" min="0.01" required value={form.cargoHeightM} onChange={(e) => setForm((c) => ({ ...c, cargoHeightM: e.target.value }))} className={fieldClass()} placeholder="2.0" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Длина, м <span className="text-red-500">*</span></label>
-                            <input type="number" step="0.01" min="0.01" required value={form.cargoLengthM} onChange={(e) => setForm((c) => ({ ...c, cargoLengthM: e.target.value }))} className={fieldClass()} placeholder="1.2" />
-                        </div>
-                        <div>
-                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Ширина, м <span className="text-red-500">*</span></label>
-                            <input type="number" step="0.01" min="0.01" required value={form.cargoWidthM} onChange={(e) => setForm((c) => ({ ...c, cargoWidthM: e.target.value }))} className={fieldClass()} placeholder="0.8" />
+                    {/* Габариты грузового места — опционально; обязательны при выпуске ЭЗЗ грузоотправителя */}
+                    <div>
+                        <p className="text-xs text-neutral-500 mb-1.5">Габариты места, м — нужны для ЭЗЗ (можно дозаполнить при выпуске)</p>
+                        <div className="grid grid-cols-3 gap-3">
+                            <div>
+                                <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Высота</label>
+                                <input type="number" step="0.01" min="0.01" value={form.cargoHeightM} onChange={(e) => setForm((c) => ({ ...c, cargoHeightM: e.target.value }))} className={fieldClass()} placeholder="2.0" />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Длина</label>
+                                <input type="number" step="0.01" min="0.01" value={form.cargoLengthM} onChange={(e) => setForm((c) => ({ ...c, cargoLengthM: e.target.value }))} className={fieldClass()} placeholder="1.2" />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Ширина</label>
+                                <input type="number" step="0.01" min="0.01" value={form.cargoWidthM} onChange={(e) => setForm((c) => ({ ...c, cargoWidthM: e.target.value }))} className={fieldClass()} placeholder="0.8" />
+                            </div>
                         </div>
                     </div>
 

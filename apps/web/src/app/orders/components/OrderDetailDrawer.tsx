@@ -21,6 +21,9 @@ interface DrawerOrder {
     cargoWeightKg: number;
     cargoVolumeM3?: number | null;
     cargoPlaces?: number | null;
+    cargoHeightM?: number | null;
+    cargoLengthM?: number | null;
+    cargoWidthM?: number | null;
     cargoType?: string | null;
     coldChainRequired?: boolean;
     temperatureMinC?: number | null;
@@ -184,6 +187,12 @@ export function OrderDetailDrawer({ orderId, onClose }: { orderId: string; onClo
                                 )}
                                 {order.cargoPlaces != null && (
                                     <Row label="Мест" value={String(order.cargoPlaces)} />
+                                )}
+                                {/* ЭПД: габариты места нужны для ЭЗЗ — показываем или предупреждаем */}
+                                {order.cargoHeightM != null && order.cargoLengthM != null && order.cargoWidthM != null ? (
+                                    <Row label="Габариты места" value={`${order.cargoHeightM}×${order.cargoLengthM}×${order.cargoWidthM} м`} />
+                                ) : (
+                                    <div className="text-xs text-amber-600 mt-1">⚠ Габариты места не заполнены — потребуются для выпуска ЭЗЗ</div>
                                 )}
                                 {order.cargoType && (
                                     <Row label="Тип груза" value={order.cargoType} />
