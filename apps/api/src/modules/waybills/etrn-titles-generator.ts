@@ -249,3 +249,171 @@ export function generateETrNTitle6(input: T06Input): string {
   </Документ>
 </Файл>`;
 }
+
+// ============================================================
+// T03 — Переадресовка груза (СИТУАТИВНЫЙ титул — только если груз
+// переадресуют). XSD: ON_TRNPEREADR_1_973_03_05_01_01.xsd, КНД 1110343.
+// Ссылается на файл Титула 2 (приём перевозчиком) через его ЭП.
+// ============================================================
+
+export interface T03Input {
+    uidTrN: string;
+    issuedAt: string;
+
+    /** ИдФайл подписанного Титула 2 (ИдИнфПрвПрием). */
+    priorFileId: string;
+    priorFileFormedAt: string;
+    priorSignature: string;
+
+    carrierInn: string;
+    shipperInn: string;
+
+    /** Момент переадресовки (ISO) → ДатВрПА. */
+    redirectedAt: string;
+    /** Основание переадресовки (документ-заявка). */
+    reasonDocName: string;
+    reasonDocNumber: string;
+    reasonDocDate: string; // ISO
+    reasonIssuerInn: string; // ИНН стороны, составившей основание
+
+    /** Новый пункт выгрузки (обязателен). */
+    newUnloadingAddress: string;
+    newUnloadingAt?: string; // ISO
+
+    /** Новый грузополучатель (опц.). */
+    newConsigneeName?: string;
+    newConsigneeInn?: string;
+    newConsigneeKpp?: string;
+    newConsigneeAddress?: string;
+
+    signatoryFullName: string;
+    signatoryPosition?: string;
+}
+
+/**
+ * Generate ЭТрН Титул 3 — переадресовка груза (КНД 1110343).
+ */
+export function generateETrNTitle3(input: T03Input): string {
+    const docId = genTitleDocId('TRNPEREADR', input.carrierInn, input.shipperInn, input.issuedAt);
+
+    const newConsignee = input.newConsigneeName && input.newConsigneeInn ? `
+      <НовГрузПол>
+        <ИдСв>
+          <СвЮЛУч НаимОрг="${escapeXml(input.newConsigneeName)}" ИННЮЛ="${escapeXml(input.newConsigneeInn)}"${attr('КПП', input.newConsigneeKpp)}/>
+        </ИдСв>
+        <Адрес>
+          <АдрИнф КодСтр="643" АдрТекст="${escapeXml(input.newConsigneeAddress ?? input.newUnloadingAddress)}"/>
+        </Адрес>
+      </НовГрузПол>` : '';
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Файл ВерсФорм="5.01" ВерсПрог="TMS-1.0" ИдФайл="${escapeXml(docId)}">
+  <Документ КНД="1110343" ПоФактХЖ="Информация о переадресовке груза" ДатаИнфПА="${formatDate(input.issuedAt)}" ВрИнфПА="${formatTime(input.issuedAt)}">
+    <ИдИнфПрвПрием ИдФайлПрвПрием="${escapeXml(input.priorFileId)}" ДатФайлПрвПрием="${formatDate(input.priorFileFormedAt)}" ВрФайлПрвПрием="${formatTime(input.priorFileFormedAt)}" ЭП="${escapeXml(input.priorSignature)}"/>
+    <СодИнфПА УИД_ТрН="${escapeXml(input.uidTrN)}" СодОпер="Переадресовка груза" ДатВрПА="${formatDateTimeTZ(input.redirectedAt)}" НалКоорТочВрПА="0" ФормаПА="Электронная" ВидДост="Электронный документооборот через оператора ЭДО">
+      <ОснПА НаимДок="${escapeXml(input.reasonDocName)}" НомерДок="${escapeXml(input.reasonDocNumber)}" ДатаДок="${formatDate(input.reasonDocDate)}">
+        <ИдРекСост>
+          <ИННЮЛ>${escapeXml(input.reasonIssuerInn)}</ИННЮЛ>
+        </ИдРекСост>
+      </ОснПА>${newConsignee}
+      <НовПунктВыгр ДатВрНовВыгрПА="${formatDateTimeTZ(input.newUnloadingAt ?? input.redirectedAt)}" НалКоорТочВрВгрПА="0">
+        <АдрВыгруз>
+          <АдресИнф КодСтр="643" АдрТекст="${escapeXml(input.newUnloadingAddress)}"/>
+        </АдрВыгруз>
+      </НовПунктВыгр>
+    </СодИнфПА>
+    <Подписант СтатПодп="1"${attr('Должн', input.signatoryPosition)}>
+      ${renderFio(input.signatoryFullName)}
+    </Подписант>
+  </Документ>
+</Файл>`;
+}
+
+// ============================================================
+// T04 — Замена водителя и/или ТС (СИТУАТИВНЫЙ титул — только при замене
+// в пути). XSD: ON_TRNZAMEN_1_973_04_05_01_01.xsd, КНД 1110344.
+// Ссылается на файл предыдущего титула через его ЭП.
+// ============================================================
+
+export interface T04ReplacementDriver {
+    fullName: string;
+    licenseNumber: string;
+    licenseSeries: string;
+    licenseIssueDate: string; // ISO
+    inn: string;
+    phone: string;
+}
+export interface T04ReplacementVehicle {
+    plateNumber: string;
+    type?: string;
+    make: string;
+    capacityTons: number;
+    volumeM3: number;
+    stsNumber?: string;
+    vin?: string;
+}
+
+export interface T04Input {
+    uidTrN: string;
+    issuedAt: string;
+
+    /** ИдФайл подписанного предыдущего титула (ИдИнфПрвПрием). */
+    priorFileId: string;
+    priorFileFormedAt: string;
+    priorSignature: string;
+
+    carrierInn: string;
+    shipperInn: string;
+
+    /** Момент замены (ISO) → ДатВрЗамен. */
+    replacedAt: string;
+    /** Причина замены (текст). */
+    reason: string;
+
+    /** Новый водитель и/или новое ТС (хотя бы одно). */
+    newDriver?: T04ReplacementDriver;
+    newVehicle?: T04ReplacementVehicle;
+
+    signatoryFullName: string;
+    signatoryPosition?: string;
+}
+
+/**
+ * Generate ЭТрН Титул 4 — замена водителя/ТС (КНД 1110344).
+ */
+export function generateETrNTitle4(input: T04Input): string {
+    if (!input.newDriver && !input.newVehicle) {
+        throw new Error('Титул 4 (замена): нужно указать нового водителя и/или новое ТС.');
+    }
+    const docId = genTitleDocId('TRNZAMEN', input.carrierInn, input.shipperInn, input.issuedAt);
+
+    const d = input.newDriver;
+    const driverBlock = d ? `
+      <ЗаменВодит>
+        <НовВодит НомВУ="${escapeXml(d.licenseNumber.replace(/\s+/g, ''))}" СерВУ="${escapeXml(d.licenseSeries)}" ДатаВыдВУ="${formatDate(d.licenseIssueDate)}" ИННФЛ="${escapeXml(d.inn)}">
+          <Тлф>${escapeXml(d.phone)}</Тлф>
+          ${renderFio(d.fullName)}
+        </НовВодит>
+      </ЗаменВодит>` : '';
+
+    const v = input.newVehicle;
+    const vehicleBlock = v ? `
+      <ЗаменТС>
+        <ТС${attr('НомСТС', v.stsNumber)}${attr('НомерВИН', v.vin)} РегНомер="${escapeXml(v.plateNumber)}" ТипВлад="1">
+          <ПарТС Тип="${escapeXml(v.type ?? 'Грузовой автомобиль')}" Марка="${escapeXml(v.make)}" Грузопод="${v.capacityTons.toFixed(2)}" Вместим="${v.volumeM3.toFixed(2)}"/>
+        </ТС>
+      </ЗаменТС>` : '';
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Файл ВерсФорм="5.01" ВерсПрог="TMS-1.0" ИдФайл="${escapeXml(docId)}">
+  <Документ КНД="1110344" ПоФактХЖ="Замена водителя и (или) транспортного средства" ДатИнфЗамен="${formatDate(input.issuedAt)}" ВрИнфЗамен="${formatTime(input.issuedAt)}">
+    <ИдИнфПрвПрием ИдФайлПрвПрием="${escapeXml(input.priorFileId)}" ДатФайлПрвПрием="${formatDate(input.priorFileFormedAt)}" ВрФайлПрвПрием="${formatTime(input.priorFileFormedAt)}" ЭП="${escapeXml(input.priorSignature)}"/>
+    <СодИнфЗамен УИД_ТрН="${escapeXml(input.uidTrN)}" СодОпер="Замена водителя и (или) ТС" ДатВрЗамен="${formatDateTimeTZ(input.replacedAt)}" НалКоорТочВрЗам="0">
+      <ПричЗамТекст>${escapeXml(input.reason)}</ПричЗамТекст>${driverBlock}${vehicleBlock}
+    </СодИнфЗамен>
+    <Подписант СтатПодп="1"${attr('Должн', input.signatoryPosition)}>
+      ${renderFio(input.signatoryFullName)}
+    </Подписант>
+  </Документ>
+</Файл>`;
+}

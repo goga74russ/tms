@@ -11,6 +11,8 @@ import { generateEPL } from '../modules/waybills/epl-generator.js';
 import { generateETrN, type ETrNInput } from '../modules/waybills/etrn-generator.js';
 import {
     generateETrNTitle2,
+    generateETrNTitle3,
+    generateETrNTitle4,
     generateETrNTitle5,
     generateETrNTitle6,
     SIGNATURE_PLACEHOLDER,
@@ -98,6 +100,40 @@ const t06 = generateETrNTitle6({
     signatoryFullName: 'Сидоров Сергей Иванович',
 });
 
+const t03 = generateETrNTitle3({
+    uidTrN: 'b7e6d4c2-1111-4222-8333-444455556666',
+    issuedAt: '2026-06-23T12:00:00.000Z',
+    priorFileId: 'ON_TRNACLPPRIN_7709876543_7701234567_20260623_bbbb',
+    priorFileFormedAt: '2026-06-23T10:00:00.000Z',
+    priorSignature: SIGNATURE_PLACEHOLDER,
+    carrierInn: '7709876543',
+    shipperInn: '7701234567',
+    redirectedAt: '2026-06-23T12:00:00.000Z',
+    reasonDocName: 'Заявка на переадресовку',
+    reasonDocNumber: '45-ПА',
+    reasonDocDate: '2026-06-23T00:00:00.000Z',
+    reasonIssuerInn: '7701234567',
+    newUnloadingAddress: 'г. Москва, Шоссе Энтузиастов, д. 56',
+    newConsigneeName: 'ООО Северный Склад',
+    newConsigneeInn: '7727563778',
+    signatoryFullName: 'Иванов Пётр Сергеевич',
+});
+
+const t04 = generateETrNTitle4({
+    uidTrN: 'b7e6d4c2-1111-4222-8333-444455556666',
+    issuedAt: '2026-06-23T13:00:00.000Z',
+    priorFileId: 'ON_TRNACLPPRIN_7709876543_7701234567_20260623_bbbb',
+    priorFileFormedAt: '2026-06-23T10:00:00.000Z',
+    priorSignature: SIGNATURE_PLACEHOLDER,
+    carrierInn: '7709876543',
+    shipperInn: '7701234567',
+    replacedAt: '2026-06-23T13:00:00.000Z',
+    reason: 'Поломка тягача в пути следования',
+    newDriver: { fullName: 'Иванов Пётр Сергеевич', licenseNumber: '123456', licenseSeries: '9912', licenseIssueDate: '2021-03-15T00:00:00.000Z', inn: '771234567890', phone: '+79161234567' },
+    newVehicle: { plateNumber: 'А123ВС797', make: 'КАМАЗ 54901', capacityTons: 20, volumeM3: 0 },
+    signatoryFullName: 'Петров Алексей Николаевич',
+});
+
 describe('validateETrNXml — быстрая структурная проверка', () => {
     it('валидный T02 → valid:true', () => {
         const result = validateETrNXml(t02, 'T02');
@@ -170,6 +206,18 @@ describe('validateEtrnAgainstXsd — реальная XSD ФНС (приказ 1
 
     it('Титул 5 проходит XSD', async () => {
         const result = await validateEtrnAgainstXsd(t05, 'T05');
+        expect(result.errors).toEqual([]);
+        expect(result.valid).toBe(true);
+    });
+
+    it('Титул 3 (переадресовка) проходит XSD', async () => {
+        const result = await validateEtrnAgainstXsd(t03, 'T03');
+        expect(result.errors).toEqual([]);
+        expect(result.valid).toBe(true);
+    });
+
+    it('Титул 4 (замена водителя/ТС) проходит XSD', async () => {
+        const result = await validateEtrnAgainstXsd(t04, 'T04');
         expect(result.errors).toEqual([]);
         expect(result.valid).toBe(true);
     });

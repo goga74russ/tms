@@ -507,7 +507,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
     // ================================================================
     // ЭПД / ЭТрН вЂ” Электронная транспортная накладная (Sprint 6)
     // ================================================================
-    const { generateETrN, generateETrNTitle4, encodeWindows1251, EtrnIncompleteError } = await import('./etrn-generator.js');
+    const { generateETrN, generateETrNDeliveryNote, encodeWindows1251, EtrnIncompleteError } = await import('./etrn-generator.js');
     const { trips, orders, vehicles: vehiclesTable, contractors, organizations: organizationsTable, users: usersTable } = await import('../../db/schema.js');
 
     /**
@@ -716,7 +716,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 });
             }
 
-            const xml = generateETrNTitle4({
+            const xml = generateETrNDeliveryNote({
                 waybillNumber: waybill.number || id.slice(0, 8),
                 issuedAt: (waybill.issuedAt || new Date()).toISOString(),
                 tripNumber: trip?.number || 'вЂ”',

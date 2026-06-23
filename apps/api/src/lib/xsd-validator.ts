@@ -23,7 +23,7 @@
 // ============================================================
 import { XMLParser } from 'fast-xml-parser';
 
-export type ETrNTitleType = 'T01' | 'T02' | 'T05' | 'T06';
+export type ETrNTitleType = 'T01' | 'T02' | 'T03' | 'T04' | 'T05' | 'T06';
 
 export interface XsdValidationResult {
     valid: boolean;
@@ -141,6 +141,12 @@ export function validateETrNXml(
         case 'T02':
             validateT02(dokument, errors);
             break;
+        case 'T03':
+            validateT03(dokument, errors);
+            break;
+        case 'T04':
+            validateT04(dokument, errors);
+            break;
         case 'T05':
             validateT05(dokument, errors);
             break;
@@ -170,6 +176,8 @@ export function validateETrNXml(
 export const ETRN_TITLE_KND: Record<ETrNTitleType, string> = {
     T01: '1110339',
     T02: '1110340',
+    T03: '1110343', // переадресовка
+    T04: '1110344', // замена водителя/ТС
     T05: '1110341',
     T06: '1110342',
 };
@@ -204,6 +212,32 @@ function validateT02(dokument: ParsedNode, errors: string[]): void {
     }
     if (!hasChild(dokument, 'СодИнфПрвПрием')) {
         errors.push('T02: отсутствует <СодИнфПрвПрием> (подтверждение приёма).');
+    }
+}
+
+function validateT03(dokument: ParsedNode, errors: string[]): void {
+    checkKnd(dokument, 'T03', errors);
+    const idInf = getChild(dokument, 'ИдИнфПрвПрием');
+    if (!idInf) {
+        errors.push('T03: отсутствует <ИдИнфПрвПрием> (ссылка на файл предыдущего титула).');
+    } else if (!getAttr(idInf, 'ЭП')) {
+        errors.push('T03: в <ИдИнфПрвПрием> отсутствует ЭП предыдущего титула.');
+    }
+    if (!hasChild(dokument, 'СодИнфПА')) {
+        errors.push('T03: отсутствует <СодИнфПА> (сведения о переадресовке).');
+    }
+}
+
+function validateT04(dokument: ParsedNode, errors: string[]): void {
+    checkKnd(dokument, 'T04', errors);
+    const idInf = getChild(dokument, 'ИдИнфПрвПрием');
+    if (!idInf) {
+        errors.push('T04: отсутствует <ИдИнфПрвПрием> (ссылка на файл предыдущего титула).');
+    } else if (!getAttr(idInf, 'ЭП')) {
+        errors.push('T04: в <ИдИнфПрвПрием> отсутствует ЭП предыдущего титула.');
+    }
+    if (!hasChild(dokument, 'СодИнфЗамен')) {
+        errors.push('T04: отсутствует <СодИнфЗамен> (сведения о замене водителя/ТС).');
     }
 }
 

@@ -321,10 +321,13 @@ export function generateETrN(input: ETrNInput): string {
 }
 
 /**
- * Generate ЭТрН Титул 4 — данные о доставке (completion).
- * Формируется перевозчиком после завершения рейса.
+ * ⚠️ ЛЕГАСИ, НЕ ФНС-формат. Упрощённая «сводка о доставке» (completion).
+ * НЕ путать с настоящим Титулом 4 ЭТрН (замена водителя/ТС, КНД 1110344) —
+ * тот в etrn-titles-generator.ts → generateETrNTitle4 и проходит XSD.
+ * Реальное завершение цикла перевозки — Титул 6 (generateETrNTitle6).
+ * Оставлено для обратной совместимости эндпоинта /waybills/:id/etrn-title4.
  */
-export function generateETrNTitle4(input: ETrNInput): string {
+export function generateETrNDeliveryNote(input: ETrNInput): string {
     const docDate = formatDate(input.issuedAt);
 
     const xml = `<?xml version="1.0" encoding="windows-1251"?>

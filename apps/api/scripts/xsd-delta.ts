@@ -3,6 +3,8 @@
 import { generateETrN, type ETrNInput } from '../src/modules/waybills/etrn-generator.js';
 import {
     generateETrNTitle2,
+    generateETrNTitle3,
+    generateETrNTitle4,
     generateETrNTitle5,
     generateETrNTitle6,
     SIGNATURE_PLACEHOLDER,
@@ -80,6 +82,46 @@ const cases: Array<{ title: EtrnSchemaTitle; xml: string }> = [
             signatoryFullName: 'Сидоров Сергей Иванович',
             signatoryPosition: 'Водитель-экспедитор',
             acceptanceNote: 'Груз принят без видимых повреждений, тара целостна',
+        }),
+    },
+    {
+        title: 'T03',
+        xml: generateETrNTitle3({
+            uidTrN: 'b7e6d4c2-1111-4222-8333-444455556666',
+            issuedAt: '2026-06-23T12:00:00.000Z',
+            priorFileId: 'ON_TRNACLPPRIN_7709876543_7701234567_20260623_bbbb',
+            priorFileFormedAt: '2026-06-23T10:00:00.000Z',
+            priorSignature: SIGNATURE_PLACEHOLDER,
+            carrierInn: '7709876543',
+            shipperInn: '7701234567',
+            redirectedAt: '2026-06-23T12:00:00.000Z',
+            reasonDocName: 'Заявка на переадресовку',
+            reasonDocNumber: '45-ПА',
+            reasonDocDate: '2026-06-23T00:00:00.000Z',
+            reasonIssuerInn: '7701234567',
+            newUnloadingAddress: 'г. Москва, Шоссе Энтузиастов, д. 56',
+            newConsigneeName: 'ООО Северный Склад',
+            newConsigneeInn: '7727563778',
+            signatoryFullName: 'Иванов Пётр Сергеевич',
+            signatoryPosition: 'Логист',
+        }),
+    },
+    {
+        title: 'T04',
+        xml: generateETrNTitle4({
+            uidTrN: 'b7e6d4c2-1111-4222-8333-444455556666',
+            issuedAt: '2026-06-23T13:00:00.000Z',
+            priorFileId: 'ON_TRNACLPPRIN_7709876543_7701234567_20260623_bbbb',
+            priorFileFormedAt: '2026-06-23T10:00:00.000Z',
+            priorSignature: SIGNATURE_PLACEHOLDER,
+            carrierInn: '7709876543',
+            shipperInn: '7701234567',
+            replacedAt: '2026-06-23T13:00:00.000Z',
+            reason: 'Поломка тягача в пути следования',
+            newDriver: { fullName: 'Иванов Пётр Сергеевич', licenseNumber: '123456', licenseSeries: '9912', licenseIssueDate: '2021-03-15T00:00:00.000Z', inn: '771234567890', phone: '+79161234567' },
+            newVehicle: { plateNumber: 'А123ВС797', make: 'КАМАЗ 54901', capacityTons: 20, volumeM3: 0 },
+            signatoryFullName: 'Петров Алексей Николаевич',
+            signatoryPosition: 'Логист',
         }),
     },
     {
@@ -189,4 +231,4 @@ console.log('valid:', eplRes.valid, '| errors:', eplRes.errors.length);
 for (const e of eplRes.errors) console.log('  •', e);
 if (!eplRes.valid) allGreen = false;
 
-console.log(`\n${allGreen ? '✅ Все документы (ЭТрН ×4 + ЭЗЗ + ЭПЛ) проходят XSD ФНС' : '❌ Есть ошибки валидации'}`);
+console.log(`\n${allGreen ? '✅ Все документы (ЭТрН ×6 титулов + ЭЗЗ + ЭПЛ) проходят XSD ФНС' : '❌ Есть ошибки валидации'}`);
