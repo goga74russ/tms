@@ -106,7 +106,7 @@ export interface EZZCarrierInput {
     currencyCode?: string;         // КодОКВ (default «643» — RUB)
 
     // Подписант перевозчика
-    signatoryFullName: string;
+    signatoryFullName?: string;
     signatoryPosition?: string;
 }
 
@@ -137,7 +137,7 @@ export function generateEZZCarrier(input: EZZCarrierInput): string {
       <РазмПлатРасчет КодОКВ="${escapeXml(input.currencyCode ?? '643')}" СтТовБезНДС="${input.carrierCost.toFixed(2)}" НалСт="${escapeXml(input.vatRate)}" СтТовУчНал="${input.carrierCostWithVat.toFixed(2)}"/>
     </СодИнфПрв>
     <ПодпИнфПрв${attr('Должн', input.signatoryPosition)} СпосПодтПолном="1">
-      ${renderFio(input.signatoryFullName, 'подписант перевозчика')}
+      ${renderFio(input.signatoryFullName ?? '', 'подписант перевозчика')}
     </ПодпИнфПрв>
   </Документ>
 </Файл>`;
@@ -203,7 +203,7 @@ export interface EZZShipperInput {
     foodTransport?: string;   // ПрвзПищПрод (default «Не требуется»)
 
     // Подписант грузоотправителя
-    signatoryFullName: string;
+    signatoryFullName?: string;
     signatoryPosition?: string;
 }
 
@@ -256,7 +256,7 @@ export function generateEZZShipper(input: EZZShipperInput): string {
       <ПарТСПрвз Тип="${escapeXml(input.vehicleType ?? 'Грузовой автомобиль')}" Грузопод="${req(input.vehicleCapacityTons, 'требуемая грузоподъёмность ТС').toFixed(2)}" Вместим="${req(input.vehicleVolumeM3, 'требуемый объём ТС').toFixed(2)}"/>
     </СодИнфГО>
     <ПодпИнфГО${attr('Должн', input.signatoryPosition)} СпосПодтПолном="1">
-      ${renderFio(input.signatoryFullName, 'подписант грузоотправителя')}
+      ${renderFio(input.signatoryFullName ?? '', 'подписант грузоотправителя')}
     </ПодпИнфГО>
   </Документ>
 </Файл>`;

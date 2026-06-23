@@ -217,6 +217,11 @@ describe('validateEtrnAgainstXsd — реальная XSD ФНС (приказ 1
     it('Титул 1 без телефона грузоотправителя → EtrnIncompleteError', () => {
         expect(() => generateETrN({ ...t01Input, shipperPhone: undefined })).toThrow(/телефон/);
     });
+    // QA (функц. прогон): Подписант не должен падать в имя организации (его ФИО
+    // расщеплялось как Фамилия/Имя/Отчество). Без реального ФИО — честный 422.
+    it('Титул 1 без подписанта → EtrnIncompleteError (а не имя орга как ФИО)', () => {
+        expect(() => generateETrN({ ...t01Input, signatoryFullName: undefined })).toThrow(/подписант/);
+    });
 
     it('Титул 2 проходит XSD', async () => {
         const result = await validateEtrnAgainstXsd(t02, 'T02');

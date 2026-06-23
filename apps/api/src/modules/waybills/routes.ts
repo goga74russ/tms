@@ -542,7 +542,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             const [driverUser] = driver?.userId ? await db.select({ phone: usersTable.phone }).from(usersTable).where(eq(usersTable.id, driver.userId)).limit(1) : [null];
             // Телефон перевозчика (СвПер/Контакт/Тлф обязателен по XSD; у организаций
             // колонки нет) — берём телефон пользователя, формирующего документ.
-            const [etrnIssuer] = await db.select({ phone: usersTable.phone }).from(usersTable).where(eq(usersTable.id, (request.user as { userId: string }).userId)).limit(1);
+            const [etrnIssuer] = await db.select({ phone: usersTable.phone, fullName: usersTable.fullName }).from(usersTable).where(eq(usersTable.id, (request.user as { userId: string }).userId)).limit(1);
             const [contractor] = order?.order.contractorId ? await db.select().from(contractors).where(eq(contractors.id, order.order.contractorId)).limit(1) : [null];
 
             // P0-C3: перевозчик в ЭТрН — реквизиты ОРГАНИЗАЦИИ рейса, не глобальный
@@ -616,10 +616,12 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 // Новые обязательные по XSD ФНС (1065@) поля:
                 orderNumber: order?.order.number ?? undefined,
                 orderDate: (order?.order.loadingDate ?? order?.order.createdAt)?.toISOString(),
-                shipperPhone: contractor?.phone ?? undefined,        // СвГО (fallback на адрес)
-                consigneePhone: consigneeContractor?.phone ?? undefined, // СвГП (fallback на адрес)
+                shipperPhone: contractor?.phone ?? undefined,        // СвГО/Контакт/Тлф (обязателен)
+                consigneePhone: consigneeContractor?.phone ?? undefined, // СвГП/Контакт/Тлф (обязателен)
                 carrierPhone: etrnIssuer?.phone ?? undefined,        // СвПер/Контакт/Тлф (обязателен)
                 driverPhone: driverUser?.phone ?? undefined,         // СвВодит/Тлф (обязателен)
+                // Подписант — реальный человек (пользователь-инициатор), НЕ имя орга.
+                signatoryFullName: etrnIssuer?.fullName ?? undefined,
                 vehicleCapacityTons: vehicle?.payloadCapacityKg ? vehicle.payloadCapacityKg / 1000 : undefined,
                 vehicleVolumeM3: vehicle?.payloadVolumeM3 ?? undefined,
                 // СвПогруз: ЗаявПогр — плановое время погрузки; ФДатВрПриб/Убыт — пока
@@ -801,7 +803,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 vehiclePlateNumber: vehicle?.plateNumber || '—',
                 driverFullName: driver?.fullName || '—',
                 driverLicenseNumber: driver?.licenseNumber || undefined,
-                signatoryFullName: issuer?.fullName || driver?.fullName || carrierOrg.name,
+                signatoryFullName: issuer?.fullName || driver?.fullName || undefined, // реальный человек, не имя орга
                 signatoryPosition: 'Ответственное лицо',
             });
             const xmlBuffer = encodeWindows1251(xml);
@@ -875,7 +877,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 cargoWidthM: undefined,
                 vehicleCapacityTons: undefined,
                 vehicleVolumeM3: undefined,
-                signatoryFullName: issuer?.fullName || contractor.name,
+                signatoryFullName: issuer?.fullName || undefined, // реальный человек, не имя контрагента
             });
             const xmlBuffer = encodeWindows1251(xml);
             reply.header('Content-Type', 'application/xml; charset=windows-1251');

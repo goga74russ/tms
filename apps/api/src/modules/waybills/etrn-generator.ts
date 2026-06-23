@@ -308,7 +308,7 @@ export function generateETrN(input: ETrNInput): string {
       </СвПогруз>
     </СодИнфГО>
     <Подписант СтатПодп="1">
-      ${renderFio(input.signatoryFullName ?? input.shipperName, 'подписант грузоотправителя')}
+      ${renderFio(input.signatoryFullName ?? '', 'подписант грузоотправителя')}
     </Подписант>
   </Документ>
 </Файл>`;

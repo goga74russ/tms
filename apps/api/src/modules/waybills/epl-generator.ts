@@ -90,7 +90,7 @@ export interface EPLInput {
     ownerType?: string;     // ЛицоОфПЛ: С/А (default «С» — собственник)
 
     // Подписант
-    signatoryFullName: string;
+    signatoryFullName?: string;
     signatoryPosition?: string;
 }
 
@@ -132,7 +132,7 @@ export function generateEPL(input: EPLInput): string {
       </СвВодит>
     </СодИнфСоб>
     <ПодпИнфСоб${attr('Должн', input.signatoryPosition)} СпосПодтПолном="1">
-      ${renderFio(input.signatoryFullName, 'подписант ПЛ')}
+      ${renderFio(input.signatoryFullName ?? '', 'подписант ПЛ')}
     </ПодпИнфСоб>
   </Документ>
 </Файл>`;
