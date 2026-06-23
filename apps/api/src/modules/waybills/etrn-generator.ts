@@ -222,21 +222,17 @@ function renderUserAddress(freeform: string, field: string): string {
 }
 
 /**
- * Контактная ветка участника (УчастникТрНТип требует один из <Адрес>/<Контакт>).
- * Если есть телефон — пишем <Контакт><Тлф>; иначе fallback на <Адрес> (юр.адрес).
- * Так перевозчик-организация без телефона остаётся валидной через адрес.
+ * Контактная ветка участника. ВАЖНО: в XSD ФНС `УчастникТрНТип` элемент
+ * <Контакт> ОБЯЗАТЕЛЕН (sequence: <Адрес> minOccurs=0, затем <Контакт>).
+ * <Адрес> — лишь опциональный префикс и НЕ заменяет <Контакт> (BUG-EPD-01:
+ * прежний fallback на <Адрес> при пустом телефоне давал невалидный XML для
+ * СвПер). Поэтому телефон участника обязателен → req() → честный 422.
  */
-function renderContact(phone: string | undefined, address: string, field: string): string {
-    if (phone) {
-        return `
-          <Контакт>
-            <Тлф>${escapeXml(phone)}</Тлф>
-          </Контакт>`;
-    }
+function renderContact(phone: string | undefined, field: string): string {
     return `
-          <Адрес>
-            <АдрИнф КодСтр="643" АдрТекст="${escapeXml(req(address, field))}"/>
-          </Адрес>`;
+          <Контакт>
+            <Тлф>${escapeXml(req(phone, field))}</Тлф>
+          </Контакт>`;
 }
 
 /**
@@ -260,14 +256,14 @@ export function generateETrN(input: ETrNInput): string {
         <РекИдентГО>
           <ИдСв>
             <СвЮЛУч НаимОрг="${escapeXml(input.shipperName)}" ИННЮЛ="${escapeXml(input.shipperInn)}"${attr('КПП', input.shipperKpp)}/>
-          </ИдСв>${renderContact(input.shipperPhone, input.shipperAddress, 'грузоотправитель: адрес')}
+          </ИдСв>${renderContact(input.shipperPhone, 'грузоотправитель: телефон')}
         </РекИдентГО>
       </СвГО>
       <СвГП>
         <РекИдентГП>
           <ИдСв>
             <СвЮЛУч НаимОрг="${escapeXml(input.consigneeName)}" ИННЮЛ="${escapeXml(input.consigneeInn)}"${attr('КПП', input.consigneeKpp)}/>
-          </ИдСв>${renderContact(input.consigneePhone, input.consigneeAddress, 'грузополучатель: адрес')}
+          </ИдСв>${renderContact(input.consigneePhone, 'грузополучатель: телефон')}
         </РекИдентГП>
         <АдресДостГр>${renderUserAddress(input.unloadingAddress, 'адрес доставки')}</АдресДостГр>
       </СвГП>
@@ -287,7 +283,7 @@ export function generateETrN(input: ETrNInput): string {
       <СвПер>
         <ИдСв>
           <СвЮЛУч НаимОрг="${escapeXml(input.carrierName)}" ИННЮЛ="${escapeXml(input.carrierInn)}"${attr('КПП', input.carrierKpp)}/>
-        </ИдСв>${renderContact(input.carrierPhone, input.carrierAddress, 'перевозчик: адрес')}
+        </ИдСв>${renderContact(input.carrierPhone, 'перевозчик: телефон')}
       </СвПер>
       <СвВодит НомВУ="${escapeXml(lic)}"${attr('СерВУ', input.driverLicenseSeries)}${attr('ДатаВыдВУ', input.driverLicenseIssueDate ? formatDate(input.driverLicenseIssueDate) : undefined)}>
         ${input.driverPhone ? `<Тлф>${escapeXml(input.driverPhone)}</Тлф>\n        ` : ''}${renderFio(input.driverFullName, 'водитель: ФИО')}

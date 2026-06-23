@@ -32,7 +32,7 @@ const docs: Array<{ name: string; xml: string; schema: string }> = [
         vehiclePlateNumber: 'А123ВС777', driverFullName: 'Иванов Иван Иванович', driverLicenseNumber: '7700 123456',
         driverLicenseSeries: '7700', driverLicenseIssueDate: '2020-03-15T00:00:00.000Z', driverPhone: '+79161112233',
         shipperName: 'ООО Поставщик', shipperInn: '7701234567', shipperKpp: '770101001', shipperAddress: 'г. Москва, ул. Складская, д. 1', shipperPhone: '+74951234567',
-        carrierName: 'ООО ТрансПульт', carrierInn: '7709876543', carrierKpp: '770901001', carrierAddress: 'г. Москва, ул. Логистов, д. 5',
+        carrierName: 'ООО ТрансПульт', carrierInn: '7709876543', carrierKpp: '770901001', carrierAddress: 'г. Москва, ул. Логистов, д. 5', carrierPhone: '+74959998877',
         consigneeName: 'ООО Получатель', consigneeInn: '5012345678', consigneeKpp: '501201001', consigneeAddress: 'г. Подольск, ул. Приёмная, д. 9', consigneePhone: '+74957654321',
         cargoDescription: 'Паллеты с товаром', cargoWeight: 12000, cargoPackages: 20, loadingAddress: 'г. Москва, ул. Складская, д. 1', unloadingAddress: 'г. Подольск, ул. Приёмная, д. 9',
         loadingRequestedAt: '2026-06-23T05:00:00.000Z', loadingArrivalAt: '2026-06-23T05:15:00.000Z', loadingDepartureAt: '2026-06-23T07:30:00.000Z',

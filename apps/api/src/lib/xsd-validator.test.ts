@@ -209,6 +209,15 @@ describe('validateEtrnAgainstXsd — реальная XSD ФНС (приказ 1
         expect(result.valid).toBe(true);
     });
 
+    // BUG-EPD-01 (QA): УчастникТрНТип требует <Контакт> всегда; без телефона участника
+    // генератор обязан отказать (422), а не выдавать невалидный XML с <Адрес>-фолбэком.
+    it('Титул 1 без телефона перевозчика → EtrnIncompleteError, а не невалидный XML', () => {
+        expect(() => generateETrN({ ...t01Input, carrierPhone: undefined })).toThrow(/перевозчик: телефон/);
+    });
+    it('Титул 1 без телефона грузоотправителя → EtrnIncompleteError', () => {
+        expect(() => generateETrN({ ...t01Input, shipperPhone: undefined })).toThrow(/телефон/);
+    });
+
     it('Титул 2 проходит XSD', async () => {
         const result = await validateEtrnAgainstXsd(t02, 'T02');
         expect(result.errors).toEqual([]);
