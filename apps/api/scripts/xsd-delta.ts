@@ -13,10 +13,11 @@ import {
     validateEtrnAgainstXsd,
     validateXmlAgainstSchema,
     EZZ_SCHEMA_FILE,
+    EZZ_SHIPPER_SCHEMA_FILE,
     EPL_SCHEMA_FILE,
     type EtrnSchemaTitle,
 } from '../src/lib/xsd-schema-validator.js';
-import { generateEZZ } from '../src/modules/waybills/ezz-generator.js';
+import { generateEZZCarrier, generateEZZShipper } from '../src/modules/waybills/ezz-generator.js';
 import { generateEPL } from '../src/modules/waybills/epl-generator.js';
 
 const t01: ETrNInput = {
@@ -171,7 +172,7 @@ for (const { title, xml } of cases) {
     if (!result.valid) allGreen = false;
 }
 // --- ЭЗЗ (969_02, информация перевозчика) ---
-const ezzXml = generateEZZ({
+const ezzXml = generateEZZCarrier({
     orderNumber: 'ZAK-2026-000123',
     issuedAt: '2026-06-23T11:00:00.000Z',
     carrierName: 'ООО ТрансПульт',
@@ -204,6 +205,40 @@ console.log(`\n=== ЭЗЗ (информация перевозчика, 969_02) 
 console.log('valid:', ezzRes.valid, '| errors:', ezzRes.errors.length);
 for (const e of ezzRes.errors) console.log('  •', e);
 if (!ezzRes.valid) allGreen = false;
+
+// --- ЭЗЗ грузоотправителя (969_01, первичная заявка) ---
+const ezzGoXml = generateEZZShipper({
+    orderNumber: 'ЗЗ-2026-001',
+    issuedAt: '2026-06-23T11:00:00.000Z',
+    shipperName: 'ООО Поставщик',
+    shipperInn: '7707083893',
+    shipperKpp: '770701001',
+    shipperPhone: '+74951234567',
+    carrierName: 'ООО ТрансПульт',
+    carrierInn: '7728168971',
+    carrierKpp: '772801001',
+    carrierPhone: '+74957654321',
+    dispatchAt: '2026-06-23T06:00:00.000Z',
+    dispatchAddress: 'г. Москва, ул. Тверская, д. 1',
+    loadingAddress: 'г. Москва, ул. Тверская, д. 1',
+    unloadingAddress: 'г. Санкт-Петербург, Невский пр., д. 10',
+    cargoDescription: 'Товары народного потребления',
+    cargoGrossWeightKg: 5000,
+    cargoPackages: 100,
+    cargoVolumeM3: 25.5,
+    cargoHeightM: 2,
+    cargoLengthM: 3,
+    cargoWidthM: 2,
+    vehicleCapacityTons: 20,
+    vehicleVolumeM3: 86,
+    signatoryFullName: 'Иванов Иван Иванович',
+    signatoryPosition: 'Генеральный директор',
+});
+const ezzGoRes = await validateXmlAgainstSchema(ezzGoXml, EZZ_SHIPPER_SCHEMA_FILE);
+console.log(`\n=== ЭЗЗ (заявка грузоотправителя, 969_01) ===`);
+console.log('valid:', ezzGoRes.valid, '| errors:', ezzGoRes.errors.length);
+for (const e of ezzGoRes.errors) console.log('  •', e);
+if (!ezzGoRes.valid) allGreen = false;
 
 // --- ЭПЛ (968_01, главный путевой лист) ---
 const eplXml = generateEPL({

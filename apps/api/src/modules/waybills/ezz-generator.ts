@@ -42,9 +42,18 @@ function formatTime(isoDate: string): string {
     const d = new Date(new Date(isoDate).getTime() + MSK_OFFSET_MS);
     return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:${String(d.getUTCSeconds()).padStart(2, '0')}`;
 }
+function formatDateTimeTZ(isoDate: string): string {
+    return `${formatDate(isoDate)}T${formatTime(isoDate)}+03:00`;
+}
 function attr(name: string, value: string | number | undefined | null): string {
     if (value === undefined || value === null || value === '') return '';
     return ` ${name}="${escapeXml(String(value))}"`;
+}
+/** Свободный адрес <Адрес><АдрИнф КодСтр="643" АдрТекст="..."/></Адрес>. */
+function renderAddr(freeform: string, field: string): string {
+    return `<Адрес>
+            <АдрИнф КодСтр="643" АдрТекст="${escapeXml(req(freeform, field))}"/>
+          </Адрес>`;
 }
 function renderFio(full: string, field: string): string {
     const parts = req(full, field).trim().split(/\s+/);
@@ -56,7 +65,7 @@ function renderFio(full: string, field: string): string {
 /** Ссылка на ЭП заявки грузоотправителя (placeholder до подключения КЭП). */
 export const SIGNATURE_PLACEHOLDER = 'PLACEHOLDER_ЭП_до_подключения_КЭП';
 
-export interface EZZInput {
+export interface EZZCarrierInput {
     orderNumber: string;     // УИД_Зак
     issuedAt: string;        // ISO → ДатИнфПрв/ВрИнфПрв
 
@@ -104,7 +113,7 @@ export interface EZZInput {
 /**
  * Сгенерировать XML ЭЗЗ — информация перевозчика (969_02, акцепт заявки).
  */
-export function generateEZZ(input: EZZInput): string {
+export function generateEZZCarrier(input: EZZCarrierInput): string {
     const docId = `ON_ZAKZVPER_${input.carrierInn}_${input.shipperInn}_${formatDate(input.issuedAt).split('.').reverse().join('')}_${randomUUID()}`;
 
     return `<?xml version="1.0" encoding="windows-1251"?>
@@ -130,6 +139,125 @@ export function generateEZZ(input: EZZInput): string {
     <ПодпИнфПрв${attr('Должн', input.signatoryPosition)} СпосПодтПолном="1">
       ${renderFio(input.signatoryFullName, 'подписант перевозчика')}
     </ПодпИнфПрв>
+  </Документ>
+</Файл>`;
+}
+
+// ============================================================
+// ЭЗЗ — ПЕРВИЧНАЯ заказ-заявка ГРУЗООТПРАВИТЕЛЯ.
+// Формат: ФНС приказ ЕД-7-26/108@, схема ON_ZAKZVGO_1_969_01 (КНД 1110361).
+// Несёт груз/адреса/участников — формируется из данных заказа TMS, без
+// зависимости от входящего ЭДО. Это обязательный документ на каждую перевозку.
+// ============================================================
+
+export interface EZZShipperInput {
+    orderNumber: string;     // НомЗак
+    issuedAt: string;        // ISO → ДатИнфГО/ВрИнфГО/ДатаЗак
+
+    // Грузоотправитель (СвГО) — составитель
+    shipperName: string;     // НаимЭкСубСост + СвЮЛУч
+    shipperInn: string;
+    shipperKpp?: string;
+    shipperPhone: string;
+
+    // Перевозчик (СвПрв)
+    carrierName: string;
+    carrierInn: string;
+    carrierKpp?: string;
+    carrierPhone: string;
+
+    // Подача ТС (ПунктПод)
+    dispatchAt: string;      // ISO → ДатВрПод
+    dispatchAddress: string;
+
+    // Погрузка (АдрПункт Опер=Погрузка) + владелец инфраструктуры
+    loadingAddress: string;
+    loadingOwnerName?: string; // ОргВладИнфр (default = грузоотправитель)
+    loadingOwnerInn?: string;
+
+    // Выгрузка
+    unloadingAddress: string;
+
+    // Груз (ОпГруз)
+    cargoDescription: string;
+    cargoGrossWeightKg?: number;
+    cargoPackages?: number;
+    cargoVolumeM3?: number;
+    cargoTareCode?: string;   // ВидТар ОКВГУМ (default «01»)
+    cargoState?: string;      // СостГруз (default «Исправное»)
+    massMethod?: string;      // МетОпрМасс (default «01»)
+    distributable?: string;   // РаспрГр (default «1»)
+    divisible?: string;       // ДелГр (default «1»)
+    // Габариты грузового места (РазмерГрМест обязателен по XSD), м
+    cargoHeightM?: number;
+    cargoLengthM?: number;
+    cargoWidthM?: number;
+
+    // Требуемые параметры ТС (ПарТСПрвз) — обязательны по XSD
+    vehicleType?: string;     // Тип (default «Грузовой автомобиль»)
+    vehicleCapacityTons?: number;
+    vehicleVolumeM3?: number;
+
+    // Нормативные требования (обязательны по XSD, шаблонные дефолты)
+    normReq?: string;         // УкНормПрвз (default «Особых требований нет»)
+    foodTransport?: string;   // ПрвзПищПрод (default «Не требуется»)
+
+    // Подписант грузоотправителя
+    signatoryFullName: string;
+    signatoryPosition?: string;
+}
+
+/**
+ * Сгенерировать XML первичной заказ-заявки грузоотправителя (969_01, КНД 1110361).
+ */
+export function generateEZZShipper(input: EZZShipperInput): string {
+    const docId = `ON_ZAKZVGO_${input.shipperInn}_${input.carrierInn}_${formatDate(input.issuedAt).split('.').reverse().join('')}_${randomUUID()}`;
+
+    return `<?xml version="1.0" encoding="windows-1251"?>
+<Файл ВерсФорм="5.01" ВерсПрог="TMS-1.0" ИдФайл="${escapeXml(docId)}">
+  <Документ КНД="1110361" Функция="Заказ" ДатИнфГО="${formatDate(input.issuedAt)}" ВрИнфГО="${formatTime(input.issuedAt)}" НаимЭкСубСост="${escapeXml(input.shipperName)}">
+    <СодИнфГО СодОпер="Предоставление заказа и заявки на перевозку груза автомобильным транспортом" НомЗак="${escapeXml(input.orderNumber)}" ДатаЗак="${formatDate(input.issuedAt)}" УкНормПрвз="${escapeXml(input.normReq ?? 'Особых требований нет')}" ПрвзПищПрод="${escapeXml(input.foodTransport ?? 'Не требуется')}">
+      <СвГО>
+        <ИдСв>
+          <СвЮЛУч НаимОрг="${escapeXml(input.shipperName)}" ИННЮЛ="${escapeXml(input.shipperInn)}"${attr('КПП', input.shipperKpp)}/>
+        </ИдСв>
+        <Конт>
+          <Тлф>${escapeXml(req(input.shipperPhone, 'грузоотправитель: телефон'))}</Тлф>
+        </Конт>
+      </СвГО>
+      <СвПрв>
+        <ИдСв>
+          <СвЮЛУч НаимОрг="${escapeXml(input.carrierName)}" ИННЮЛ="${escapeXml(input.carrierInn)}"${attr('КПП', input.carrierKpp)}/>
+        </ИдСв>
+        <Конт>
+          <Тлф>${escapeXml(req(input.carrierPhone, 'перевозчик: телефон'))}</Тлф>
+        </Конт>
+      </СвПрв>
+      <ПунктПод ДатВрПод="${formatDateTimeTZ(input.dispatchAt)}" НалКоорТочВрПод="0">
+        <АдрПунктПод>
+          ${renderAddr(input.dispatchAddress, 'адрес подачи ТС')}
+        </АдрПунктПод>
+      </ПунктПод>
+      <АдрПункт Опер="Погрузка">
+        <АдресПункт>
+          ${renderAddr(input.loadingAddress, 'адрес погрузки')}
+        </АдресПункт>
+        <ОргВладИнфр НаимВладИнфр="${escapeXml(input.loadingOwnerName ?? input.shipperName)}" ИННВладИнфр="${escapeXml(input.loadingOwnerInn ?? input.shipperInn)}"/>
+      </АдрПункт>
+      <АдрПункт Опер="Выгрузка">
+        <АдресПункт>
+          ${renderAddr(input.unloadingAddress, 'адрес выгрузки')}
+        </АдресПункт>
+      </АдрПункт>
+      <ОпГруз НаимГруз="${escapeXml(input.cargoDescription)}" СостГруз="${escapeXml(input.cargoState ?? 'Исправное')}" ВидТар="${escapeXml(input.cargoTareCode ?? '01')}" КолГрМест="${req(input.cargoPackages, 'груз: количество мест')}" МетОпрМасс="${escapeXml(input.massMethod ?? '01')}"${attr('Объем', input.cargoVolumeM3?.toFixed(2))} РаспрГр="${escapeXml(input.distributable ?? '1')}" ДелГр="${escapeXml(input.divisible ?? '1')}">
+        <МасГруз МасБрутЗнач="${req(input.cargoGrossWeightKg, 'груз: масса брутто').toFixed(3)}"/>
+        <РазмерГрМест ВысЗнач="${req(input.cargoHeightM, 'груз: высота места').toFixed(3)}" ДлЗнач="${req(input.cargoLengthM, 'груз: длина места').toFixed(3)}" ШирЗнач="${req(input.cargoWidthM, 'груз: ширина места').toFixed(3)}"/>
+      </ОпГруз>
+      <ПарТСПрвз Тип="${escapeXml(input.vehicleType ?? 'Грузовой автомобиль')}" Грузопод="${req(input.vehicleCapacityTons, 'требуемая грузоподъёмность ТС').toFixed(2)}" Вместим="${req(input.vehicleVolumeM3, 'требуемый объём ТС').toFixed(2)}"/>
+    </СодИнфГО>
+    <ПодпИнфГО${attr('Должн', input.signatoryPosition)} СпосПодтПолном="1">
+      ${renderFio(input.signatoryFullName, 'подписант грузоотправителя')}
+    </ПодпИнфГО>
   </Документ>
 </Файл>`;
 }

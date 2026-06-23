@@ -839,42 +839,40 @@ export default async function waybillRoutes(app: FastifyInstance) {
             if (!contractor?.inn) {
                 return reply.status(422).send({ success: false, code: 'SHIPPER_REQUISITES_MISSING', error: 'Не заполнен ИНН грузоотправителя. Документ не может быть выпущен — укажите реквизиты контрагента в заказе.' });
             }
-            const [issuer] = await db.select({ fullName: usersTable.fullName }).from(usersTable).where(eq(usersTable.id, user.userId)).limit(1);
+            const [issuer] = await db.select({ fullName: usersTable.fullName, phone: usersTable.phone }).from(usersTable).where(eq(usersTable.id, user.userId)).limit(1);
 
-            const { generateEZZ } = await import('./ezz-generator.js');
-            const xml = generateEZZ({
+            // Формируем ПЕРВИЧНУЮ заказ-заявку ГРУЗООТПРАВИТЕЛЯ (969_01) — она несёт
+            // груз/адреса/участников и собирается из данных заказа (без зависимости
+            // от входящего ЭДО). Документ перевозчика (969_02) — отдельный ответ на
+            // входящую заявку (generateEZZCarrier).
+            const { generateEZZShipper } = await import('./ezz-generator.js');
+            const xml = generateEZZShipper({
                 orderNumber: order.number,
                 issuedAt: (order.createdAt ?? new Date()).toISOString(),
+                shipperName: contractor.name,
+                shipperInn: contractor.inn,
+                shipperKpp: contractor.kpp || undefined,
+                shipperPhone: contractor.phone || '',          // СвГО/Конт/Тлф
                 carrierName: carrierOrg.name,
                 carrierInn: carrierOrg.inn,
-                shipperInn: contractor.inn,
-                // Документ ПЕРЕВОЗЧИКА (969_02) ссылается на ВХОДЯЩУЮ заявку
-                // грузоотправителя через её ЭП (ИдИнфГО). Без неё (приходит по ЭДО,
-                // ожидается Контур) сформировать нельзя → честный 422.
-                shipperFileId: '',
-                shipperFileFormedAt: (order.createdAt ?? new Date()).toISOString(),
-                shipperSignature: '',
-                contactFullName: issuer?.fullName || '',
-                contactPhone: '',
-                // Водитель/ТС назначенного рейса (паспортные данные водителя — ИНН,
-                // серия/дата ВУ — TMS пока не хранит → 422 до их захвата).
-                driverFullName: '',
-                driverLicenseNumber: '',
-                driverLicenseSeries: '',
-                driverLicenseIssueDate: (order.createdAt ?? new Date()).toISOString(),
-                driverInn: '',
-                driverPhone: '',
-                vehiclePlateNumber: '',
-                vehicleMake: '',
-                vehicleCapacityTons: 0,
-                vehicleVolumeM3: 0,
-                // Расчёт платы перевозчика (carrier_cost живёт на уровне рейса/тарифа,
-                // не на orders) — подставится при сборке из назначенного рейса; здесь
-                // плейсхолдеры, т.к. документ всё равно 422-ит выше на ссылке на заявку ГО.
-                carrierCost: 0,
-                carrierCostWithVat: 0,
-                vatRate: '20%',
-                signatoryFullName: issuer?.fullName || carrierOrg.name,
+                carrierKpp: carrierOrg.kpp || undefined,
+                carrierPhone: issuer?.phone || '',             // СвПрв/Конт/Тлф (контакт перевозчика)
+                dispatchAt: (order.loadingDate ?? order.createdAt ?? new Date()).toISOString(),
+                dispatchAddress: order.loadingAddress || '',
+                loadingAddress: order.loadingAddress || '',
+                unloadingAddress: order.unloadingAddress || '',
+                cargoDescription: order.cargoDescription || '—',
+                cargoGrossWeightKg: order.cargoWeightKg ? Number(order.cargoWeightKg) : undefined,
+                cargoPackages: order.cargoPlaces ?? undefined,
+                cargoVolumeM3: order.cargoVolumeM3 ? Number(order.cargoVolumeM3) : undefined,
+                cargoTareCode: undefined,  // ОКВГУМ-код тары — TMS пока не маппит (default «01»)
+                // Габариты места и требуемые параметры ТС TMS пока не хранит → честный 422.
+                cargoHeightM: undefined,
+                cargoLengthM: undefined,
+                cargoWidthM: undefined,
+                vehicleCapacityTons: undefined,
+                vehicleVolumeM3: undefined,
+                signatoryFullName: issuer?.fullName || contractor.name,
             });
             const xmlBuffer = encodeWindows1251(xml);
             reply.header('Content-Type', 'application/xml; charset=windows-1251');

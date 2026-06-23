@@ -43,6 +43,8 @@ export const ETRN_SCHEMA_FILE: Record<EtrnSchemaTitle, string> = {
 
 /** Схема ЭЗЗ — «информация перевозчика» (приказ 108@, КНД 1110362). */
 export const EZZ_SCHEMA_FILE = 'ON_ZAKZVPER_1_969_02_05_01_03.xsd';
+/** Схема ЭЗЗ — первичная заказ-заявка ГРУЗООТПРАВИТЕЛЯ (приказ 108@, КНД 1110361). */
+export const EZZ_SHIPPER_SCHEMA_FILE = 'ON_ZAKZVGO_1_969_01_05_01_01.xsd';
 /** Схема ЭПЛ — главный документ путевого листа (приказ 116@, КНД 1110380). */
 export const EPL_SCHEMA_FILE = 'ON_PTLSSOBTS_1_968_01_05_01_01.xsd';
 

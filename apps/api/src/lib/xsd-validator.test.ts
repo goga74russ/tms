@@ -4,9 +4,10 @@ import {
     validateEtrnAgainstXsd,
     validateXmlAgainstSchema,
     EZZ_SCHEMA_FILE,
+    EZZ_SHIPPER_SCHEMA_FILE,
     EPL_SCHEMA_FILE,
 } from './xsd-schema-validator.js';
-import { generateEZZ } from '../modules/waybills/ezz-generator.js';
+import { generateEZZCarrier, generateEZZShipper } from '../modules/waybills/ezz-generator.js';
 import { generateEPL } from '../modules/waybills/epl-generator.js';
 import { generateETrN, type ETrNInput } from '../modules/waybills/etrn-generator.js';
 import {
@@ -230,8 +231,41 @@ describe('validateEtrnAgainstXsd — реальная XSD ФНС (приказ 1
 });
 
 describe('ЭЗЗ / ЭПЛ — реальная XSD ФНС (приказы 108@ / 116@)', () => {
+    it('ЭЗЗ грузоотправителя (первичная заявка, 969_01) проходит XSD', async () => {
+        const xml = generateEZZShipper({
+            orderNumber: 'ЗЗ-2026-001',
+            issuedAt: '2026-06-23T11:00:00.000Z',
+            shipperName: 'ООО Поставщик',
+            shipperInn: '7707083893',
+            shipperKpp: '770701001',
+            shipperPhone: '+74951234567',
+            carrierName: 'ООО ТрансПульт',
+            carrierInn: '7728168971',
+            carrierKpp: '772801001',
+            carrierPhone: '+74957654321',
+            dispatchAt: '2026-06-23T06:00:00.000Z',
+            dispatchAddress: 'г. Москва, ул. Тверская, д. 1',
+            loadingAddress: 'г. Москва, ул. Тверская, д. 1',
+            unloadingAddress: 'г. Санкт-Петербург, Невский пр., д. 10',
+            cargoDescription: 'Товары народного потребления',
+            cargoGrossWeightKg: 5000,
+            cargoPackages: 100,
+            cargoVolumeM3: 25.5,
+            cargoHeightM: 2,
+            cargoLengthM: 3,
+            cargoWidthM: 2,
+            vehicleCapacityTons: 20,
+            vehicleVolumeM3: 86,
+            signatoryFullName: 'Иванов Иван Иванович',
+            signatoryPosition: 'Генеральный директор',
+        });
+        const result = await validateXmlAgainstSchema(xml, EZZ_SHIPPER_SCHEMA_FILE);
+        expect(result.errors).toEqual([]);
+        expect(result.valid).toBe(true);
+    });
+
     it('ЭЗЗ (информация перевозчика, 969_02) проходит XSD', async () => {
-        const xml = generateEZZ({
+        const xml = generateEZZCarrier({
             orderNumber: 'ZAK-2026-000123',
             issuedAt: '2026-06-23T11:00:00.000Z',
             carrierName: 'ООО ТрансПульт',
