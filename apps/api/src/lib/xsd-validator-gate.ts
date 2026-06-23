@@ -8,7 +8,7 @@
 // он проходит структурную проверку из `xsd-validator.ts`.
 // Не-XML контент (PDF и т.п.) пропускается без проверки.
 // ============================================================
-import { validateETrNXml, type ETrNTitleType } from './xsd-validator.js';
+import { validateETrNXml, ETRN_TITLE_KND, type ETrNTitleType } from './xsd-validator.js';
 
 export class XsdValidationError extends Error {
     readonly statusCode = 422 as const;
@@ -27,38 +27,26 @@ export function isXsdValidationError(err: unknown): err is XsdValidationError {
     return err instanceof XsdValidationError;
 }
 
-/** Маппинг ТипДок (атрибут <Документ>) → внутренний титул-тип. */
-const TIP_DOK_TO_TITLE: Record<string, ETrNTitleType> = {
-    ТитулПеревозчикаПрием: 'T02',
-    ТитулГрузополучателя: 'T05',
-    ТитулПеревозчикаЗавершение: 'T06',
-};
+/** Маппинг КНД (атрибут <Документ>) → внутренний титул-тип. */
+const KND_TO_TITLE: Record<string, ETrNTitleType> = Object.fromEntries(
+    Object.entries(ETRN_TITLE_KND).map(([title, knd]) => [knd, title as ETrNTitleType]),
+);
 
 /**
- * Попытаться распознать XML как титул ЭТрН.
+ * Попытаться распознать XML как титул ЭТрН по КНД <Документ>.
  * Возвращает тип титула или `null`, если контент не похож на ЭТрН XML.
  *
- * Распознавание делается через дешёвую regex-эвристику — мы не парсим
- * XML здесь, чтобы не платить за полный парс на каждом вызове.
- * Реальный парс делает `validateETrNXml` уже после распознавания.
+ * Распознавание — дешёвой regex-эвристикой по КНД (имена КНД уникальны
+ * для каждого титула по приказу 1065@); полный парс делает
+ * `validateETrNXml` уже после распознавания.
  */
 export function detectETrNTitleType(xml: string): ETrNTitleType | null {
-    // Быстрый отказ: нет root <Файл> — точно не ЭТрН.
-    if (!/<Файл[\s>]/.test(xml)) return null;
+    if (!/<Файл[\s>]/.test(xml)) return null; // нет root <Файл> — не ЭТрН
 
-    const tipDokMatch = xml.match(/<Документ[^>]*ТипДок="([^"]+)"/);
-    if (tipDokMatch) {
-        const mapped = TIP_DOK_TO_TITLE[tipDokMatch[1] ?? ''];
+    const kndMatch = xml.match(/<Документ[^>]*КНД="(\d+)"/);
+    if (kndMatch) {
+        const mapped = KND_TO_TITLE[kndMatch[1] ?? ''];
         if (mapped) return mapped;
-    }
-
-    // Эвристика по структуре для T01 (generateETrN не пишет ТипДок).
-    if (/<СвУчаст>/.test(xml) || /<СвУчастниковПеревозкиГруза>/.test(xml)) {
-        if (/<СсылкаНаТитул5/.test(xml)) return 'T06';
-        if (/<СсылкаНаТитул1/.test(xml)) return 'T05';
-        if (/ТипДок="ТитулПеревозчикаПрием"/.test(xml)) return 'T02';
-        // По умолчанию — T01 (initiation grass-roots).
-        return 'T01';
     }
 
     return null;

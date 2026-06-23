@@ -11,6 +11,28 @@
 // ============================================================
 import { randomUUID } from 'node:crypto';
 
+/**
+ * Ошибка неполноты данных для ЭТрН — бросается, когда обязательное по XSD
+ * ФНС (приказ 1065@) поле отсутствует в TMS. routes.ts ловит и отдаёт 422
+ * с человекочитаемым списком. Дисциплина «не подставляем фиктивные реквизиты»:
+ * лучше честный отказ, чем невалидный/выдуманный документ.
+ */
+export class EtrnIncompleteError extends Error {
+    readonly statusCode = 422 as const;
+    readonly code = 'ETRN_DATA_INCOMPLETE' as const;
+    constructor(public readonly field: string) {
+        super(`Не заполнено обязательное для ЭТрН поле: ${field}`);
+        this.name = 'EtrnIncompleteError';
+    }
+}
+
+function req<T>(value: T | undefined | null, field: string): T {
+    if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
+        throw new EtrnIncompleteError(field);
+    }
+    return value;
+}
+
 /** Input data for ЭТрН generation — assembled from TMS tables */
 export interface ETrNInput {
     // Waybill
@@ -20,49 +42,76 @@ export interface ETrNInput {
     // Trip
     tripNumber: string;
 
+    // Заказ/заявка (опц.) → НомЗак/ДатаЗак
+    orderNumber?: string;
+    orderDate?: string; // ISO
+
     // Vehicle
     vehicleMake: string;
     vehicleModel: string;
     vehiclePlateNumber: string;
     vehicleVin?: string;
+    vehicleType?: string;          // ПарТС/@Тип (default «Грузовой автомобиль»)
+    vehicleCapacityTons?: number;  // ПарТС/@Грузопод (т)
+    vehicleVolumeM3?: number;      // ПарТС/@Вместим (м³)
 
     // Driver
-    driverFullName: string;
-    driverLicenseNumber: string;
+    driverFullName: string;        // → ФИО (Фамилия/Имя/Отчество, split по пробелам)
+    driverLicenseNumber: string;   // → НомВУ
+    driverLicenseSeries?: string;  // → СерВУ (если хранится отдельно)
+    driverLicenseIssueDate?: string; // ISO → ДатаВыдВУ
+    driverInn?: string;            // ИННФЛ (альтернатива ВУ)
+    driverPhone?: string;          // СвВодит/Тлф
 
     // Shipper (грузоотправитель) — from order's contractor
     shipperName: string;
     shipperInn: string;
     shipperKpp?: string;
     shipperAddress: string;
+    shipperPhone?: string;         // СвГО/Контакт/Тлф (обязателен по XSD)
 
     // Carrier (перевозчик) — our company
     carrierName: string;
     carrierInn: string;
     carrierKpp?: string;
     carrierAddress: string;
+    carrierPhone?: string;         // СвПер/Контакт/Тлф
 
     // Consignee (грузополучатель) — from order
     consigneeName: string;
     consigneeInn: string;
     consigneeKpp?: string;
     consigneeAddress: string;
+    consigneePhone?: string;       // СвГП/Контакт/Тлф
 
     // Cargo
     cargoDescription: string;
-    cargoWeight?: number;     // kg
+    cargoWeight?: number;     // kg — брутто (МасБрутЗнач/МасБрутОтгр)
     cargoVolume?: number;     // m³
-    cargoPackages?: number;   // количество мест
+    cargoPackages?: number;   // количество мест (КолМестГр/КолМестПрием)
+    cargoState?: string;      // ОпГруз/@СостГруз (default «В упаковке»)
+    cargoPackaging?: string;  // ОпГруз/@СпУпак (default «Не указано»)
+    cargoTareCode?: string;   // ОпГруз/@ВидТар — код ОКВГУМ, 2 симв. (default «01»)
+    cargoMarking?: string;    // ОпГруз/Марк (default «Без маркировки»)
 
     // Route
     loadingAddress: string;
     unloadingAddress: string;
 
+    // Факты погрузки (СвПогруз) — обязательны по XSD Титула 1
+    loadingRequestedAt?: string; // ISO → ЗаявПогр
+    loadingArrivalAt?: string;   // ISO → ФДатВрПриб
+    loadingDepartureAt?: string; // ISO → ФДатВрУбыт
+    massMethod?: string;         // МетОпрМасс (enum 01/02/03, default «01»)
+
+    // Подписант со стороны грузоотправителя
+    signatoryFullName?: string;  // → Подписант/ФИО
+
     // Odometer
     odometerOut?: number;
     odometerIn?: number;
 
-    // Sprint 13/14: Cargo condition from delivery confirmation
+    // Sprint 13/14: Cargo condition from delivery confirmation (для Титула 4)
     cargoCondition?: 'intact' | 'damaged' | 'partial';
 }
 
@@ -122,71 +171,149 @@ export function encodeWindows1251(input: string): Buffer {
 }
 
 /**
- * Generate a unique document ID for ЭТрН.
- * Format: ON_ETRN_{carrier_inn}_{shipper_inn}_{date}_{guid}
+ * Generate a unique document ID for ЭТрН Титул 1.
+ * Формат имени файла обмена по приказу ФНС: ON_TRNACLGROT_{ИНН получателя}_{ИНН
+ * отправителя}_{ГГГГММДД}_{GUID}. Schematron ФНС требует ИдФайл == имя файла.xml.
  */
-function generateDocId(carrierInn: string, shipperInn: string, date: string): string {
-    const dateStr = formatDate(date).replace(/\./g, '');
-    // C9: было Math.random()-GUID (V8-PRNG, риск коллизий/предсказуемости для
-    // юр-значимой связки титулов). CSPRNG randomUUID() — как в auth/onboarding.
+function generateDocId(consigneeInn: string, shipperInn: string, date: string): string {
+    const dateStr = formatDate(date).split('.').reverse().join(''); // ГГГГММДД
+    // C9: CSPRNG randomUUID() вместо Math.random()-GUID (юр-значимая связка титулов).
     const guid = randomUUID();
-    return `ON_ETRN_${carrierInn}_${shipperInn}_${dateStr}_${guid}`;
+    return `ON_TRNACLGROT_${consigneeInn}_${shipperInn}_${dateStr}_${guid}`;
+}
+
+/** Время в МСК как ЧЧ:ММ:СС (ВремяТип ФНС). */
+function formatTime(isoDate: string): string {
+    const d = new Date(new Date(isoDate).getTime() + 3 * 60 * 60 * 1000);
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mm = String(d.getUTCMinutes()).padStart(2, '0');
+    const ss = String(d.getUTCSeconds()).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+}
+
+/** Дата-время в МСК как ДД.ММ.ГГГГTЧЧ:ММ:СС+03:00 (ДатаВремяВЗТип, ровно 25 симв.). */
+function formatDateTimeTZ(isoDate: string): string {
+    return `${formatDate(isoDate)}T${formatTime(isoDate)}+03:00`;
+}
+
+/** Опциональный XML-атрибут: пустые значения опускаем. */
+function attr(name: string, value: string | number | undefined | null): string {
+    if (value === undefined || value === null || value === '') return '';
+    return ` ${name}="${escapeXml(String(value))}"`;
+}
+
+/** Разбить ФИО «Фамилия Имя Отчество» на части (Отчество опц.). */
+function splitFio(full: string): { Фамилия: string; Имя: string; Отчество?: string } {
+    const parts = full.trim().split(/\s+/);
+    return { Фамилия: parts[0] ?? '', Имя: parts[1] ?? '', Отчество: parts[2] || undefined };
+}
+
+/** Элемент <ФИО Фамилия Имя [Отчество]/> с проверкой обязательных частей. */
+function renderFio(full: string, field: string): string {
+    const fio = splitFio(req(full, field));
+    req(fio.Фамилия, `${field} (фамилия)`);
+    req(fio.Имя, `${field} (имя)`);
+    return `<ФИО Фамилия="${escapeXml(fio.Фамилия)}" Имя="${escapeXml(fio.Имя)}"${attr('Отчество', fio.Отчество)}/>`;
+}
+
+/** Свободный адрес РФ как <АдресИнф КодСтр="643" АдрТекст="..."/> (АдрИнфТип). */
+function renderUserAddress(freeform: string, field: string): string {
+    return `<АдресИнф КодСтр="643" АдрТекст="${escapeXml(req(freeform, field))}"/>`;
 }
 
 /**
- * Generate ЭТрН Титул 1 — основные данные о перевозке.
- * Содержит информацию об участниках, грузе, ТС, водителе и маршруте.
+ * Контактная ветка участника (УчастникТрНТип требует один из <Адрес>/<Контакт>).
+ * Если есть телефон — пишем <Контакт><Тлф>; иначе fallback на <Адрес> (юр.адрес).
+ * Так перевозчик-организация без телефона остаётся валидной через адрес.
+ */
+function renderContact(phone: string | undefined, address: string, field: string): string {
+    if (phone) {
+        return `
+          <Контакт>
+            <Тлф>${escapeXml(phone)}</Тлф>
+          </Контакт>`;
+    }
+    return `
+          <Адрес>
+            <АдрИнф КодСтр="643" АдрТекст="${escapeXml(req(address, field))}"/>
+          </Адрес>`;
+}
+
+/**
+ * Generate ЭТрН Титул 1 — сведения грузоотправителя (приказ ФНС ЕД-7-26/1065@,
+ * КНД 1110339, ВерсФорм 5.01). Структура соответствует реальной XSD-схеме
+ * ON_TRNACLGROT_1_973_01 (проверяется через xsd-schema-validator).
  *
- * Формат приближен к XSD-схеме ФНС приказа ЕД-7-26/1065@ (авто-ЭТрН).
+ * Обязательные по XSD, но потенциально отсутствующие в TMS поля (телефоны
+ * сторон, факты погрузки, подписант) проверяются через req() → EtrnIncompleteError
+ * → 422 в routes. Фиктивные значения не подставляются.
  */
 export function generateETrN(input: ETrNInput): string {
-    const docId = generateDocId(input.carrierInn, input.shipperInn, input.issuedAt);
-    const docDate = formatDate(input.issuedAt);
+    const docId = generateDocId(input.consigneeInn, input.shipperInn, input.issuedAt);
+    const lic = req(input.driverLicenseNumber, 'водитель: номер ВУ').replace(/\s+/g, '');
 
     const xml = `<?xml version="1.0" encoding="windows-1251"?>
 <Файл ВерсФорм="5.01" ВерсПрог="TMS-1.0" ИдФайл="${escapeXml(docId)}">
-  <Документ ДатаДок="${docDate}" НомДок="${escapeXml(input.waybillNumber)}">
-    <СведТранспортнойНакладной>
-
-      <!-- Сведения об участниках -->
-      <СвУчаст>
-        <Отправитель>
-          <ЮЛ НаимОрг="${escapeXml(input.shipperName)}" ИНН="${escapeXml(input.shipperInn)}"${input.shipperKpp ? ` КПП="${escapeXml(input.shipperKpp)}"` : ''}/>
-          <Адрес>${escapeXml(input.shipperAddress)}</Адрес>
-        </Отправитель>
-        <Получатель>
-          <ЮЛ НаимОрг="${escapeXml(input.consigneeName)}" ИНН="${escapeXml(input.consigneeInn)}"${input.consigneeKpp ? ` КПП="${escapeXml(input.consigneeKpp)}"` : ''}/>
-          <Адрес>${escapeXml(input.consigneeAddress)}</Адрес>
-        </Получатель>
-        <Перевозчик>
-          <ЮЛ НаимОрг="${escapeXml(input.carrierName)}" ИНН="${escapeXml(input.carrierInn)}"${input.carrierKpp ? ` КПП="${escapeXml(input.carrierKpp)}"` : ''}/>
-          <Адрес>${escapeXml(input.carrierAddress)}</Адрес>
-        </Перевозчик>
-      </СвУчаст>
-
-      <!-- Сведения о грузе -->
+  <Документ КНД="1110339" ПоФактХЖ="Сведения грузоотправителя" ДатИнфГО="${formatDate(input.issuedAt)}" ВрИнфГО="${formatTime(input.issuedAt)}">
+    <СодИнфГО СодОпер="Информация грузоотправителя" НомерТрН="${escapeXml(input.waybillNumber)}" ДатаТрН="${formatDate(input.issuedAt)}" НомЗак="${escapeXml(req(input.orderNumber, 'номер заказа'))}" ДатаЗак="${formatDate(req(input.orderDate, 'дата заказа'))}">
+      <СвГО ГОЭксп="0">
+        <РекИдентГО>
+          <ИдСв>
+            <СвЮЛУч НаимОрг="${escapeXml(input.shipperName)}" ИННЮЛ="${escapeXml(input.shipperInn)}"${attr('КПП', input.shipperKpp)}/>
+          </ИдСв>${renderContact(input.shipperPhone, input.shipperAddress, 'грузоотправитель: адрес')}
+        </РекИдентГО>
+      </СвГО>
+      <СвГП>
+        <РекИдентГП>
+          <ИдСв>
+            <СвЮЛУч НаимОрг="${escapeXml(input.consigneeName)}" ИННЮЛ="${escapeXml(input.consigneeInn)}"${attr('КПП', input.consigneeKpp)}/>
+          </ИдСв>${renderContact(input.consigneePhone, input.consigneeAddress, 'грузополучатель: адрес')}
+        </РекИдентГП>
+        <АдресДостГр>${renderUserAddress(input.unloadingAddress, 'адрес доставки')}</АдресДостГр>
+      </СвГП>
       <СвГруз>
-        <Груз Наим="${escapeXml(input.cargoDescription)}"${input.cargoWeight ? ` МассаГруз="${input.cargoWeight}"` : ''}${input.cargoVolume ? ` ОбъемГруз="${input.cargoVolume}"` : ''}${input.cargoPackages ? ` КолМест="${input.cargoPackages}"` : ''}/>
+        <ОпГруз НаимГруз="${escapeXml(input.cargoDescription)}" СостГруз="${escapeXml(input.cargoState ?? 'В упаковке')}" СпУпак="${escapeXml(input.cargoPackaging ?? 'Не указано')}" ВидТар="${escapeXml(input.cargoTareCode ?? '01')}" КолМестГр="${req(input.cargoPackages, 'груз: количество мест')}">
+          <Марк>${escapeXml(input.cargoMarking ?? 'Без маркировки')}</Марк>
+          <ПлМасГруз МасБрутЗнач="${req(input.cargoWeight, 'груз: масса брутто')}"/>
+        </ОпГруз>
       </СвГруз>
-
-      <!-- Сведения о транспортном средстве -->
+      <УказГО УкНормПрвз="Перевозка осуществляется в соответствии с Уставом автомобильного транспорта и Правилами перевозок грузов автомобильным транспортом">
+        <СвПА ЛицоПА="Грузоотправитель" СпосПерУкПА="Электронное уведомление перевозчика о переадресовке">
+          <КонтПА>
+            <Тлф>${escapeXml(req(input.shipperPhone, 'грузоотправитель: телефон (для указаний ГО)'))}</Тлф>
+          </КонтПА>
+        </СвПА>
+      </УказГО>
+      <СвПер>
+        <ИдСв>
+          <СвЮЛУч НаимОрг="${escapeXml(input.carrierName)}" ИННЮЛ="${escapeXml(input.carrierInn)}"${attr('КПП', input.carrierKpp)}/>
+        </ИдСв>${renderContact(input.carrierPhone, input.carrierAddress, 'перевозчик: адрес')}
+      </СвПер>
+      <СвВодит НомВУ="${escapeXml(lic)}"${attr('СерВУ', input.driverLicenseSeries)}${attr('ДатаВыдВУ', input.driverLicenseIssueDate ? formatDate(input.driverLicenseIssueDate) : undefined)}>
+        ${input.driverPhone ? `<Тлф>${escapeXml(input.driverPhone)}</Тлф>\n        ` : ''}${renderFio(input.driverFullName, 'водитель: ФИО')}
+      </СвВодит>
       <СвТС>
-        <ТС Марка="${escapeXml(input.vehicleMake + ' ' + input.vehicleModel)}" ГосНом="${escapeXml(input.vehiclePlateNumber)}"${input.vehicleVin ? ` VIN="${escapeXml(input.vehicleVin)}"` : ''}/>
+        <ТС РегНомер="${escapeXml(input.vehiclePlateNumber)}" ТипВлад="1">
+          <ПарТС Тип="${escapeXml(input.vehicleType ?? 'Грузовой автомобиль')}" Марка="${escapeXml((input.vehicleMake + ' ' + input.vehicleModel).trim())}"${attr('Грузопод', input.vehicleCapacityTons?.toFixed(2))}${attr('Вместим', input.vehicleVolumeM3?.toFixed(2))}/>
+        </ТС>
       </СвТС>
-
-      <!-- Сведения о водителе -->
-      <СвВодит ФИО="${escapeXml(input.driverFullName)}" ВУ="${escapeXml(input.driverLicenseNumber)}"/>
-
-      <!-- Маршрут -->
-      <Маршрут>
-        <ПунктПогрузки Адрес="${escapeXml(input.loadingAddress)}"/>
-        <ПунктРазгрузки Адрес="${escapeXml(input.unloadingAddress)}"/>
-      </Маршрут>
-
-      <!-- Путевой лист -->
-      <ПутЛист Номер="${escapeXml(input.waybillNumber)}" ДатаВыд="${docDate}"${input.odometerOut ? ` ПоказОдомВыезд="${input.odometerOut}"` : ''}/>
-
-    </СведТранспортнойНакладной>
+      <СвПогруз ЗаявПогр="${formatDateTimeTZ(req(input.loadingRequestedAt, 'погрузка: заявленное время'))}" НалКоорТочВрЗаяв="0" ФДатВрПриб="${formatDateTimeTZ(req(input.loadingArrivalAt, 'погрузка: время прибытия'))}" НалКоорТочВрФПогр="0" ФДатВрУбыт="${formatDateTimeTZ(req(input.loadingDepartureAt, 'погрузка: время убытия'))}" НалКоорТочВрФУбыт="0" МасБрутОтгр="${req(input.cargoWeight, 'груз: масса брутто')}" МетОпрМасс="${escapeXml(input.massMethod ?? '01')}" КолМестПрием="${req(input.cargoPackages, 'груз: количество мест')}">
+        <ФАдресПогр>${renderUserAddress(input.loadingAddress, 'адрес погрузки')}</ФАдресПогр>
+        <СвЛицПогрГр СовпГОП="1">
+          <ИдентРекГО>
+            <ИННЮЛ>${escapeXml(input.shipperInn)}</ИННЮЛ>
+          </ИдентРекГО>
+        </СвЛицПогрГр>
+        <ВладИнфр СовпГОВ="1">
+          <ИдентРекГО>
+            <ИННЮЛ>${escapeXml(input.shipperInn)}</ИННЮЛ>
+          </ИдентРекГО>
+        </ВладИнфр>
+      </СвПогруз>
+    </СодИнфГО>
+    <Подписант СтатПодп="1">
+      ${renderFio(input.signatoryFullName ?? input.shipperName, 'подписант грузоотправителя')}
+    </Подписант>
   </Документ>
 </Файл>`;
 

@@ -159,125 +159,76 @@ export function validateETrNXml(
 }
 
 // ------------------------------------------------------------------
-// Структуры конкретных титулов.
-//
-// ВАЖНО: имена тегов выбраны под фактический вывод генераторов в
-// `apps/api/src/modules/waybills/etrn-generator.ts` и
-// `apps/api/src/modules/waybills/etrn-titles-generator.ts`.
-// В XSD ФНС используются составные имена (Грузоотправитель/
-// Грузополучатель), но текущие генераторы пишут короткие
-// (Отправитель/Получатель внутри <СвУчаст> или
-// <СвУчастниковПеревозкиГруза>). Когда подключим реальный XSD-валидатор,
-// либо приведём генераторы к ФНС-именам, либо смапим в адаптере.
+// Структуры конкретных титулов — имена тегов из РЕАЛЬНЫХ XSD ФНС
+// (приказ ЕД-7-26/1065@ v5.01), как их пишут генераторы после
+// приведения к сертифицируемому виду. Это БЫСТРАЯ структурная проверка
+// (root, КНД, наличие ключевых веток); полная XSD-валидация —
+// `xsd-schema-validator.ts` (xmllint-wasm).
 // ------------------------------------------------------------------
 
-function validateT01(dokument: ParsedNode, errors: string[]): void {
-    // Текущий generateETrN() пишет <СвУчаст>, не <СвУчастниковПеревозкиГруза>.
-    // Принимаем оба написания, чтобы не ломать существующий код.
-    const svUchast =
-        getChild(dokument, 'СвУчаст') ??
-        getChild(dokument, 'СвУчастниковПеревозкиГруза');
+/** КНД каждого титула (обязательный атрибут <Документ>). */
+export const ETRN_TITLE_KND: Record<ETrNTitleType, string> = {
+    T01: '1110339',
+    T02: '1110340',
+    T05: '1110341',
+    T06: '1110342',
+};
 
-    if (!svUchast) {
-        errors.push('T01: отсутствует блок участников (<СвУчаст> / <СвУчастниковПеревозкиГруза>).');
-        return;
-    }
-
-    const shipper =
-        getChild(svUchast, 'Отправитель') ?? getChild(svUchast, 'Грузоотправитель');
-    if (!shipper) {
-        errors.push('T01: отсутствует <Отправитель> (грузоотправитель).');
-    }
-
-    const carrier = getChild(svUchast, 'Перевозчик');
-    if (!carrier) {
-        errors.push('T01: отсутствует <Перевозчик>.');
-    }
-
-    if (!hasChild(dokument, 'СвГруз')) {
-        errors.push('T01: отсутствует блок <СвГруз> (сведения о грузе).');
+function checkKnd(dokument: ParsedNode, title: ETrNTitleType, errors: string[]): void {
+    const knd = getAttr(dokument, 'КНД');
+    const expected = ETRN_TITLE_KND[title];
+    if (knd !== expected) {
+        errors.push(`${title}: атрибут КНД должен быть "${expected}" (получено: "${knd ?? '—'}").`);
     }
 }
 
-function validateT02(dokument: ParsedNode, errors: string[]): void {
-    const svUchast =
-        getChild(dokument, 'СвУчастниковПеревозкиГруза') ??
-        getChild(dokument, 'СвУчаст');
-    if (!svUchast) {
-        errors.push('T02: отсутствует блок <СвУчастниковПеревозкиГруза>.');
+function validateT01(dokument: ParsedNode, errors: string[]): void {
+    checkKnd(dokument, 'T01', errors);
+    const sod = getChild(dokument, 'СодИнфГО');
+    if (!sod) {
+        errors.push('T01: отсутствует <СодИнфГО> (содержание информации грузоотправителя).');
         return;
     }
+    if (!getChild(sod, 'СвГО')) errors.push('T01: отсутствует <СвГО> (грузоотправитель).');
+    if (!getChild(sod, 'СвПер')) errors.push('T01: отсутствует <СвПер> (перевозчик).');
+    if (!hasChild(sod, 'СвГруз')) errors.push('T01: отсутствует <СвГруз> (сведения о грузе).');
+}
 
-    const carrier = getChild(svUchast, 'Перевозчик');
-    if (!carrier) {
-        errors.push('T02: отсутствует <Перевозчик> в составе участников.');
+function validateT02(dokument: ParsedNode, errors: string[]): void {
+    checkKnd(dokument, 'T02', errors);
+    const idInf = getChild(dokument, 'ИдИнфГО');
+    if (!idInf) {
+        errors.push('T02: отсутствует <ИдИнфГО> (ссылка на файл Титула 1).');
+    } else if (!getAttr(idInf, 'ЭП')) {
+        errors.push('T02: в <ИдИнфГО> отсутствует ЭП Титула 1.');
     }
-
-    const shipper =
-        getChild(svUchast, 'Отправитель') ?? getChild(svUchast, 'Грузоотправитель');
-    if (!shipper) {
-        errors.push('T02: отсутствует <Отправитель>.');
-    }
-
-    if (!hasChild(dokument, 'СвГруз')) {
-        errors.push('T02: отсутствует блок <СвГруз> (фактические сведения о грузе).');
+    if (!hasChild(dokument, 'СодИнфПрвПрием')) {
+        errors.push('T02: отсутствует <СодИнфПрвПрием> (подтверждение приёма).');
     }
 }
 
 function validateT05(dokument: ParsedNode, errors: string[]): void {
-    if (!hasChild(dokument, 'СсылкаНаТитул1')) {
-        errors.push('T05: отсутствует обязательная <СсылкаНаТитул1>.');
+    checkKnd(dokument, 'T05', errors);
+    const idInf = getChild(dokument, 'ИдИнфПрвПрием');
+    if (!idInf) {
+        errors.push('T05: отсутствует <ИдИнфПрвПрием> (ссылка на файл Титула 2).');
+    } else if (!getAttr(idInf, 'ЭП')) {
+        errors.push('T05: в <ИдИнфПрвПрием> отсутствует ЭП Титула 2.');
     }
-
-    const svUchast =
-        getChild(dokument, 'СвУчастниковПеревозкиГруза') ??
-        getChild(dokument, 'СвУчаст');
-    if (!svUchast) {
-        errors.push('T05: отсутствует блок <СвУчастниковПеревозкиГруза>.');
-        return;
-    }
-
-    const consignee =
-        getChild(svUchast, 'Получатель') ?? getChild(svUchast, 'Грузополучатель');
-    if (!consignee) {
-        errors.push('T05: отсутствует <Получатель> (грузополучатель).');
-    }
-
-    const carrier = getChild(svUchast, 'Перевозчик');
-    if (!carrier) {
-        errors.push('T05: отсутствует <Перевозчик>.');
-    }
-
-    if (!hasChild(dokument, 'СвГруз')) {
-        errors.push('T05: отсутствует блок <СвГруз>.');
+    if (!hasChild(dokument, 'СодИнфГП')) {
+        errors.push('T05: отсутствует <СодИнфГП> (содержание информации грузополучателя).');
     }
 }
 
 function validateT06(dokument: ParsedNode, errors: string[]): void {
-    if (!hasChild(dokument, 'СсылкаНаТитул5')) {
-        errors.push('T06: отсутствует обязательная <СсылкаНаТитул5>.');
+    checkKnd(dokument, 'T06', errors);
+    const idInf = getChild(dokument, 'ИдИнфГП');
+    if (!idInf) {
+        errors.push('T06: отсутствует <ИдИнфГП> (ссылка на файл Титула 5).');
+    } else if (!getAttr(idInf, 'ЭП')) {
+        errors.push('T06: в <ИдИнфГП> отсутствует ЭП Титула 5.');
     }
-
-    const svUchast =
-        getChild(dokument, 'СвУчастниковПеревозкиГруза') ??
-        getChild(dokument, 'СвУчаст');
-    if (!svUchast) {
-        errors.push('T06: отсутствует блок <СвУчастниковПеревозкиГруза>.');
-        return;
-    }
-
-    const carrier = getChild(svUchast, 'Перевозчик');
-    if (!carrier) {
-        errors.push('T06: отсутствует <Перевозчик> в составе участников.');
-    }
-
-    // Placeholder подписи — пока не требуем строгий формат КЭП,
-    // но факт наличия блока проверяем: без него ЭДО-оператор
-    // отбросит документ ещё на приёме.
-    if (
-        !hasChild(dokument, 'ПодписьПеревозчика') &&
-        !hasChild(dokument, 'Подписант')
-    ) {
-        errors.push('T06: отсутствует placeholder подписи перевозчика (<ПодписьПеревозчика>).');
+    if (!hasChild(dokument, 'СодПрвВыд')) {
+        errors.push('T06: отсутствует <СодПрвВыд> (содержание выдачи).');
     }
 }

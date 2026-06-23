@@ -507,8 +507,8 @@ export default async function waybillRoutes(app: FastifyInstance) {
     // ================================================================
     // ЭПД / ЭТрН вЂ” Электронная транспортная накладная (Sprint 6)
     // ================================================================
-    const { generateETrN, generateETrNTitle4, encodeWindows1251 } = await import('./etrn-generator.js');
-    const { trips, orders, vehicles: vehiclesTable, contractors, organizations: organizationsTable } = await import('../../db/schema.js');
+    const { generateETrN, generateETrNTitle4, encodeWindows1251, EtrnIncompleteError } = await import('./etrn-generator.js');
+    const { trips, orders, vehicles: vehiclesTable, contractors, organizations: organizationsTable, users: usersTable } = await import('../../db/schema.js');
 
     /**
      * GET /api/waybills/:id/etrn
@@ -537,6 +537,9 @@ export default async function waybillRoutes(app: FastifyInstance) {
             const [order] = trip ? await db.select({ order: orders }).from(tripOrders).innerJoin(orders, eq(tripOrders.orderId, orders.id)).where(eq(tripOrders.tripId, trip.id)).limit(1) : [null];
             const [vehicle] = waybill.vehicleId ? await db.select().from(vehiclesTable).where(eq(vehiclesTable.id, waybill.vehicleId)).limit(1) : [null];
             const [driver] = waybill.driverId ? await db.select().from(drivers).where(eq(drivers.id, waybill.driverId)).limit(1) : [null];
+            // Телефон водителя (СвВодит/Тлф обязателен по XSD) — в таблице drivers
+            // его нет, берём из связанного пользователя (drivers.userId → users.phone).
+            const [driverUser] = driver?.userId ? await db.select({ phone: usersTable.phone }).from(usersTable).where(eq(usersTable.id, driver.userId)).limit(1) : [null];
             const [contractor] = order?.order.contractorId ? await db.select().from(contractors).where(eq(contractors.id, order.order.contractorId)).limit(1) : [null];
 
             // P0-C3: перевозчик в ЭТрН — реквизиты ОРГАНИЗАЦИИ рейса, не глобальный
@@ -603,9 +606,26 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 consigneeAddress: consigneeContractor.legalAddress || 'вЂ”',
                 cargoDescription: order?.order.cargoDescription || 'вЂ”',
                 cargoWeight: order?.order.cargoWeightKg ? Number(order.order.cargoWeightKg) : undefined,
+                cargoPackages: order?.order.cargoPlaces ?? undefined,
                 loadingAddress: order?.order.loadingAddress || 'вЂ”',
                 unloadingAddress: order?.order.unloadingAddress || 'вЂ”',
                 odometerOut: waybill.odometerOut ? Number(waybill.odometerOut) : undefined,
+                // Новые обязательные по XSD ФНС (1065@) поля:
+                orderNumber: order?.order.number ?? undefined,
+                orderDate: (order?.order.loadingDate ?? order?.order.createdAt)?.toISOString(),
+                shipperPhone: contractor?.phone ?? undefined,        // СвГО (fallback на адрес)
+                consigneePhone: consigneeContractor?.phone ?? undefined, // СвГП (fallback на адрес)
+                // carrierPhone: у организации-перевозчика нет телефона в схеме → СвПер по адресу.
+                driverPhone: driverUser?.phone ?? undefined,         // СвВодит/Тлф (обязателен)
+                vehicleCapacityTons: vehicle?.payloadCapacityKg ? vehicle.payloadCapacityKg / 1000 : undefined,
+                vehicleVolumeM3: vehicle?.payloadVolumeM3 ?? undefined,
+                // СвПогруз: ЗаявПогр — плановое время погрузки; ФДатВрПриб/Убыт — пока
+                // тот же тайминг (TMS не фиксирует фактические прибытие/убытие под
+                // погрузку отдельно). Для предпросмотра/экспорта корректно; перед
+                // юр-отправкой через ЭДО заменить на фактические события погрузки.
+                loadingRequestedAt: order?.order.loadingDate?.toISOString(),
+                loadingArrivalAt: order?.order.loadingDate?.toISOString(),
+                loadingDepartureAt: order?.order.loadingDate?.toISOString(),
             });
 
             const xmlBuffer = encodeWindows1251(xml);
@@ -614,6 +634,16 @@ export default async function waybillRoutes(app: FastifyInstance) {
             reply.header('Content-Length', xmlBuffer.length);
             return reply.send(xmlBuffer);
         } catch (error: any) {
+            // Неполнота данных для ЭТрН — честный 422 с указанием поля (без фиктивных
+            // реквизитов). Перечень требований формата 1065@ — docs/etrn/CERTIFICATION-DELTA.md.
+            if (error instanceof EtrnIncompleteError) {
+                return reply.status(422).send({
+                    success: false,
+                    code: error.code,
+                    field: error.field,
+                    error: `${error.message}. Заполните данные перед выпуском ЭТрН.`,
+                });
+            }
             request.log.error(error);
             return reply.status(error.statusCode || 500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
         }
