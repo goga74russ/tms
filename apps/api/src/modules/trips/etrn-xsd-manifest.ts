@@ -5,7 +5,13 @@ export type EtrnXsdManifestEntry = {
     reason: string;
 };
 
-export const ETRN_XSD_SOURCE_DIR = String.raw`D:\Ai\TMS\docs\etrn`;
+import { fileURLToPath } from 'node:url';
+
+// Схемы ФНС завендорены в репозиторий: apps/api/src/assets/etrn-schemas/
+// (поставляются в Docker-образ через COPY src/assets → dist/assets).
+// Резолвим от расположения манифеста — путь работает и в dev (tsx из src),
+// и в рантайме (node из dist).
+export const ETRN_XSD_SOURCE_DIR = fileURLToPath(new URL('../../assets/etrn-schemas/', import.meta.url));
 
 export const ETRN_XSD_MANIFEST: EtrnXsdManifestEntry[] = [
     { file: 'ON_TRNACLGROT_1_973_01_05_01_02.xsd', titleType: 'title_01', status: 'used', reason: 'Mandatory ETRN title 01 baseline' },
