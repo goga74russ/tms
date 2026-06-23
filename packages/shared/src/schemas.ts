@@ -169,6 +169,11 @@ export const DriverSchema = z.object({
     licenseNumber: z.string(),
     licenseCategories: z.array(z.string()),
     licenseExpiry: z.string(),
+    // ЭПД: реквизиты для ЭЗЗ/ЭПЛ. В полной схеме опц. (старые строки), обязательны в Create/Update.
+    licenseSeries: z.string().optional(),
+    licenseIssueDate: z.string().optional(),
+    inn: z.string().optional(),
+    phone: z.string().optional(),
     medCertificateExpiry: z.string().optional(),
     personalDataConsent: z.boolean().default(false),
     personalDataConsentDate: z.string().optional(),
@@ -182,9 +187,16 @@ export const DriverSchema = z.object({
 });
 export type Driver = z.infer<typeof DriverSchema>;
 
+// ЭПД-поля обязательны при создании (жёстко): без них документы ФНС не сформировать.
+const epdDriverFields = {
+    licenseSeries: z.string().min(1, 'Серия ВУ обязательна (для ЭПД)'),
+    licenseIssueDate: z.string().min(1, 'Дата выдачи ВУ обязательна (для ЭПД)'),
+    inn: z.string().regex(/^\d{12}$/, 'ИНН водителя: 12 цифр (для ЭПД)'),
+    phone: z.string().min(1, 'Телефон водителя обязателен (для ЭПД)'),
+};
 export const DriverCreateSchema = DriverSchema.omit({
     id: true, createdAt: true, updatedAt: true,
-});
+}).extend(epdDriverFields);
 
 // Update DTO — явный список полей. Не .partial() от Create:
 //   • userId — driver-transplant vector (пересадка driver-записи на чужого
@@ -200,6 +212,8 @@ export const DriverUpdateSchema = z.object({
     licenseNumber: z.string().optional(),
     licenseCategories: z.array(z.string()).optional(),
     licenseExpiry: z.string().optional(),
+    // ЭПД-поля обязательны и при обновлении (жёстко).
+    ...epdDriverFields,
     medCertificateExpiry: z.string().optional(),
     powerOfAttorneyNumber: z.string().optional(),
     powerOfAttorneyExpiry: z.string().optional(),

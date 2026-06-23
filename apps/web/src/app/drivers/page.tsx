@@ -20,6 +20,9 @@ interface Driver {
     licenseNumber: string;
     licenseCategories: string[];
     licenseExpiry: string;
+    licenseSeries?: string;
+    licenseIssueDate?: string;
+    inn?: string;
     medCertificateExpiry?: string;
     adrCertificateExpiry?: string;
     phone?: string;
@@ -206,6 +209,10 @@ function CreateDriverModal({ onClose, onCreated, editingItem }: { onClose: () =>
     const [licenseNumber, setLicenseNumber] = useState(editingItem?.licenseNumber ?? '');
     const [licenseCategories, setLicenseCategories] = useState((editingItem?.licenseCategories ?? []).join(', '));
     const [licenseExpiry, setLicenseExpiry] = useState(toDateInput(editingItem?.licenseExpiry));
+    // ЭПД: обязательны для документов ФНС (ЭЗЗ/ЭПЛ/ЭТрН).
+    const [licenseSeries, setLicenseSeries] = useState(editingItem?.licenseSeries ?? '');
+    const [licenseIssueDate, setLicenseIssueDate] = useState(toDateInput(editingItem?.licenseIssueDate));
+    const [inn, setInn] = useState(editingItem?.inn ?? '');
     const [medCertExpiry, setMedCertExpiry] = useState(toDateInput(editingItem?.medCertificateExpiry));
     const [adrCertExpiry, setAdrCertExpiry] = useState(toDateInput(editingItem?.adrCertificateExpiry));
     const [phone, setPhone] = useState(editingItem?.phone ?? '');
@@ -215,7 +222,7 @@ function CreateDriverModal({ onClose, onCreated, editingItem }: { onClose: () =>
     const [consent, setConsent] = useState(true);
     const [users, setUsers] = useState<{ id: string; email: string; fullName: string; roles: string[] }[]>([]);
     const [submitting, setSubmitting] = useState(false);
-    const [fieldError, setFieldError] = useState<{ fullName?: string; licenseNumber?: string; userId?: string; birthDate?: string; licenseExpiry?: string }>({});
+    const [fieldError, setFieldError] = useState<{ fullName?: string; licenseNumber?: string; userId?: string; birthDate?: string; licenseExpiry?: string; licenseSeries?: string; licenseIssueDate?: string; inn?: string; phone?: string }>({});
 
     useEffect(() => {
         if (isEdit) return;
@@ -228,10 +235,14 @@ function CreateDriverModal({ onClose, onCreated, editingItem }: { onClose: () =>
     }, [isEdit]);
 
     async function handleSubmit() {
-        const errs: { fullName?: string; licenseNumber?: string; userId?: string; birthDate?: string; licenseExpiry?: string } = {};
+        const errs: { fullName?: string; licenseNumber?: string; userId?: string; birthDate?: string; licenseExpiry?: string; licenseSeries?: string; licenseIssueDate?: string; inn?: string; phone?: string } = {};
         if (!fullName.trim()) errs.fullName = 'Укажите ФИО';
         if (!licenseNumber.trim()) errs.licenseNumber = 'Укажите номер ВУ';
         if (!licenseExpiry) errs.licenseExpiry = 'Укажите срок действия ВУ';
+        if (!licenseSeries.trim()) errs.licenseSeries = 'Укажите серию ВУ (для ЭПД)';
+        if (!licenseIssueDate) errs.licenseIssueDate = 'Укажите дату выдачи ВУ (для ЭПД)';
+        if (!/^\d{12}$/.test(inn.trim())) errs.inn = 'ИНН водителя: 12 цифр (для ЭПД)';
+        if (!phone.trim()) errs.phone = 'Укажите телефон (для ЭПД)';
         if (!isEdit && !userId) errs.userId = 'Выберите учётную запись водителя';
         if (!isEdit && !birthDate) errs.birthDate = 'Укажите дату рождения';
         setFieldError(errs);
@@ -242,11 +253,14 @@ function CreateDriverModal({ onClose, onCreated, editingItem }: { onClose: () =>
             const payload = {
                 fullName,
                 licenseNumber,
+                licenseSeries,
+                licenseIssueDate: licenseIssueDate ? new Date(licenseIssueDate).toISOString() : undefined,
+                inn,
                 licenseCategories: licenseCategories.split(',').map(s => s.trim()).filter(Boolean),
                 licenseExpiry: licenseExpiry || undefined,
                 medCertificateExpiry: medCertExpiry || undefined,
                 adrCertificateExpiry: adrCertExpiry || undefined,
-                phone: phone || undefined,
+                phone,
                 ...(isEdit ? {} : {
                     userId,
                     birthDate,
@@ -342,6 +356,12 @@ function CreateDriverModal({ onClose, onCreated, editingItem }: { onClose: () =>
                     <Input label="Срок ВУ" type="date" required value={licenseExpiry} onChange={e => setLicenseExpiry(e.target.value)} error={fieldError.licenseExpiry} />
                     <Input label="Медсправка до" type="date" value={medCertExpiry} onChange={e => setMedCertExpiry(e.target.value)} />
                 </div>
+                {/* ЭПД: обязательные реквизиты для документов ФНС (ЭЗЗ/ЭПЛ/ЭТрН) */}
+                <div className="grid grid-cols-2 gap-3">
+                    <Input label="Серия ВУ" required value={licenseSeries} onChange={e => setLicenseSeries(e.target.value)} placeholder="7701" error={fieldError.licenseSeries} />
+                    <Input label="Дата выдачи ВУ" type="date" required value={licenseIssueDate} onChange={e => setLicenseIssueDate(e.target.value)} error={fieldError.licenseIssueDate} />
+                </div>
+                <Input label="ИНН водителя" required value={inn} onChange={e => setInn(e.target.value)} placeholder="123456789012" error={fieldError.inn} />
                 <Input
                     label="ADR-сертификат до"
                     type="date"
@@ -352,8 +372,10 @@ function CreateDriverModal({ onClose, onCreated, editingItem }: { onClose: () =>
                 <FormField
                     format="phone"
                     label="Телефон"
+                    required
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
+                    externalError={fieldError.phone}
                 />
                 {!isEdit && (
                     <label className="flex items-start gap-2 text-sm text-neutral-700">

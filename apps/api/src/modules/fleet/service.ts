@@ -415,6 +415,8 @@ export async function createDriver(
         userId: string; fullName: string; birthDate: string; snils?: string;
         licenseNumber: string; licenseCategories: string[];
         licenseExpiry: string; medCertificateExpiry?: string;
+        // ЭПД: обязательны (для ЭЗЗ/ЭПЛ/ЭТрН).
+        licenseSeries: string; licenseIssueDate: string; inn: string; phone: string;
         personalDataConsent: boolean; personalDataConsentDate?: string;
     },
     user: { userId: string; roles: string[]; organizationId?: string | null },
@@ -442,6 +444,10 @@ export async function createDriver(
             licenseNumber: data.licenseNumber,
             licenseCategories: data.licenseCategories,
             licenseExpiry: new Date(data.licenseExpiry),
+            licenseSeries: data.licenseSeries,
+            licenseIssueDate: new Date(data.licenseIssueDate),
+            inn: data.inn,
+            phone: data.phone,
             medCertificateExpiry: data.medCertificateExpiry ? new Date(data.medCertificateExpiry) : undefined,
             personalDataConsent: data.personalDataConsent,
             personalDataConsentDate: data.personalDataConsentDate ? new Date(data.personalDataConsentDate) : undefined,
@@ -466,6 +472,7 @@ export async function updateDriver(
     data: Partial<{
         fullName: string; snils: string; licenseNumber: string; licenseCategories: string[];
         licenseExpiry: string; medCertificateExpiry: string;
+        licenseSeries: string; licenseIssueDate: string; inn: string; phone: string;
         personalDataConsent: boolean; personalDataConsentDate: string;
         isActive: boolean;
     }>,
@@ -482,6 +489,10 @@ export async function updateDriver(
     if (data.licenseNumber !== undefined) updateData.licenseNumber = data.licenseNumber;
     if (data.licenseCategories !== undefined) updateData.licenseCategories = data.licenseCategories;
     if (data.licenseExpiry !== undefined) updateData.licenseExpiry = new Date(data.licenseExpiry);
+    if (data.licenseSeries !== undefined) updateData.licenseSeries = data.licenseSeries;
+    if (data.licenseIssueDate !== undefined) updateData.licenseIssueDate = new Date(data.licenseIssueDate);
+    if (data.inn !== undefined) updateData.inn = data.inn;
+    if (data.phone !== undefined) updateData.phone = data.phone;
     if (data.medCertificateExpiry !== undefined) updateData.medCertificateExpiry = new Date(data.medCertificateExpiry);
     if (data.personalDataConsent !== undefined) updateData.personalDataConsent = data.personalDataConsent;
     if (data.personalDataConsentDate !== undefined) updateData.personalDataConsentDate = new Date(data.personalDataConsentDate);
