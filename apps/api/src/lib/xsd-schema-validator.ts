@@ -47,6 +47,12 @@ export const EZZ_SCHEMA_FILE = 'ON_ZAKZVPER_1_969_02_05_01_03.xsd';
 export const EZZ_SHIPPER_SCHEMA_FILE = 'ON_ZAKZVGO_1_969_01_05_01_01.xsd';
 /** Схема ЭПЛ — главный документ путевого листа (приказ 116@, КНД 1110380). */
 export const EPL_SCHEMA_FILE = 'ON_PTLSSOBTS_1_968_01_05_01_01.xsd';
+/** Схемы суб-документов ЭПЛ (приказ 116@, часть 968): медосмотры/техконтроль/одометр. */
+export const EPL_PRETRIP_MED_SCHEMA_FILE = 'ON_PTLSPRMO_1_968_02_05_01_01.xsd';   // КНД 1110381
+export const EPL_VEHICLE_CONTROL_SCHEMA_FILE = 'ON_PTLSVIPTS_1_968_03_05_01_01.xsd'; // КНД 1110382
+export const EPL_ODOMETER_OUT_SCHEMA_FILE = 'ON_PTLSODVZD_1_968_04_05_01_01.xsd';  // КНД 1110383
+export const EPL_ODOMETER_IN_SCHEMA_FILE = 'ON_PTLSODPARK_1_968_05_05_01_01.xsd';  // КНД 1110384
+export const EPL_POSTTRIP_MED_SCHEMA_FILE = 'ON_PTLSPOSMO_1_968_06_05_01_01.xsd';  // КНД 1110385
 
 const SCHEMA_DIR = fileURLToPath(new URL('../assets/etrn-schemas/', import.meta.url));
 

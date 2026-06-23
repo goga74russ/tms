@@ -9,6 +9,16 @@ import {
 } from './xsd-schema-validator.js';
 import { generateEZZCarrier, generateEZZShipper } from '../modules/waybills/ezz-generator.js';
 import { generateEPL } from '../modules/waybills/epl-generator.js';
+import {
+    generateEPLPreTripMed, generateEPLPostTripMed, generateEPLVehicleControl,
+    generateEPLOdometerOut, generateEPLOdometerIn,
+    SIGNATURE_PLACEHOLDER as EPL_SIG,
+} from '../modules/waybills/epl-subdocs-generator.js';
+import {
+    validateXmlAgainstSchema as valSchema,
+    EPL_PRETRIP_MED_SCHEMA_FILE, EPL_VEHICLE_CONTROL_SCHEMA_FILE,
+    EPL_ODOMETER_OUT_SCHEMA_FILE, EPL_ODOMETER_IN_SCHEMA_FILE, EPL_POSTTRIP_MED_SCHEMA_FILE,
+} from './xsd-schema-validator.js';
 import { generateETrN, type ETrNInput } from '../modules/waybills/etrn-generator.js';
 import {
     generateETrNTitle2,
@@ -332,5 +342,51 @@ describe('ЭЗЗ / ЭПЛ — реальная XSD ФНС (приказы 108@ /
             vehicleMake: 'КАМАЗ', vehicleModel: '5490', vehiclePlateNumber: 'А123ВС77',
             driverFullName: 'Иванов Иван Иванович', signatoryFullName: 'Петров Пётр Петрович',
         })).toThrow(/ОГРН/);
+    });
+});
+
+describe('ЭПЛ суб-документы — реальная XSD ФНС (приказ 116@, часть 968)', () => {
+    const prior = { fileId: 'ON_PREV_7709876543_20260623_x', formedAt: '2026-06-23T05:00:00.000Z', signature: EPL_SIG };
+    const uid = '550e8400-e29b-41d4-a716-446655440000';
+    const license = { seria: 'ЛО-77', number: '01-000123', issueDate: '2020-03-15T00:00:00.000Z', expiryDate: '2030-03-15T00:00:00.000Z' };
+    const med = {
+        waybillUid: uid, issuedAt: '2026-06-23T06:30:00.000Z', carrierInn: '7709876543', prior,
+        examAt: '2026-06-23T06:20:00.000Z', medOrgName: 'ООО Медцентр', medicFullName: 'Иванова Мария Петровна',
+        medicPosition: 'Фельдшер', license, driverFullName: 'Петров Иван Сергеевич', driverInn: '771234567890',
+        signatoryFullName: 'Сидоров Алексей Николаевич',
+    };
+
+    it('предрейсовый медосмотр (968_02) проходит XSD', async () => {
+        const r = await valSchema(generateEPLPreTripMed(med), EPL_PRETRIP_MED_SCHEMA_FILE);
+        expect(r.errors).toEqual([]); expect(r.valid).toBe(true);
+    });
+    it('послерейсовый медосмотр (968_06) проходит XSD', async () => {
+        const r = await valSchema(generateEPLPostTripMed(med), EPL_POSTTRIP_MED_SCHEMA_FILE);
+        expect(r.errors).toEqual([]); expect(r.valid).toBe(true);
+    });
+    it('контроль/выпуск ТС (968_03) проходит XSD', async () => {
+        const r = await valSchema(generateEPLVehicleControl({
+            waybillUid: uid, issuedAt: '2026-06-23T08:15:00.000Z', carrierInn: '7709876543', prior,
+            controlAt: '2026-06-23T07:45:00.000Z', releaseAt: '2026-06-23T08:00:00.000Z', serviceable: true,
+            vehicleType: 'Грузовой тягач седельный', vehicleMake: 'КАМАЗ', vehicleModel: '5490-S5', vehiclePlateNumber: 'А123ВС77',
+            controllerFullName: 'Петров Михаил Андреевич', signatoryFullName: 'Кузнецов Андрей Владимирович',
+        }), EPL_VEHICLE_CONTROL_SCHEMA_FILE);
+        expect(r.errors).toEqual([]); expect(r.valid).toBe(true);
+    });
+    it('одометр выезд (968_04) проходит XSD', async () => {
+        const r = await valSchema(generateEPLOdometerOut({
+            waybillUid: uid, issuedAt: '2026-06-23T08:30:00.000Z', carrierInn: '7709876543', prior,
+            departureAt: '2026-06-23T08:30:00.000Z', odometer: 152340,
+            responsibleFullName: 'Иванов Пётр Сергеевич', signatoryFullName: 'Иванов Пётр Сергеевич',
+        }), EPL_ODOMETER_OUT_SCHEMA_FILE);
+        expect(r.errors).toEqual([]); expect(r.valid).toBe(true);
+    });
+    it('одометр заезд (968_05) проходит XSD', async () => {
+        const r = await valSchema(generateEPLOdometerIn({
+            waybillUid: uid, issuedAt: '2026-06-23T18:45:00.000Z', carrierInn: '7709876543', prior,
+            returnAt: '2026-06-23T18:35:00.000Z', odometer: 152600,
+            responsibleFullName: 'Смирнов Алексей Николаевич', signatoryFullName: 'Смирнов Алексей Николаевич',
+        }), EPL_ODOMETER_IN_SCHEMA_FILE);
+        expect(r.errors).toEqual([]); expect(r.valid).toBe(true);
     });
 });
