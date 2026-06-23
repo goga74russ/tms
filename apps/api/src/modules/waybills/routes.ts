@@ -593,6 +593,9 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 vehicleVin: vehicle?.vin || undefined,
                 driverFullName: driver?.fullName || 'вЂ”',
                 driverLicenseNumber: driver?.licenseNumber || 'вЂ”',
+                driverLicenseSeries: driver?.licenseSeries ?? undefined,
+                driverLicenseIssueDate: driver?.licenseIssueDate ? new Date(driver.licenseIssueDate).toISOString() : undefined,
+                driverInn: driver?.inn ?? undefined,
                 shipperName: contractor?.name || 'вЂ”',
                 shipperInn: contractor.inn,
                 shipperAddress: contractor?.legalAddress || 'вЂ”',
@@ -618,8 +621,8 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 orderDate: (order?.order.loadingDate ?? order?.order.createdAt)?.toISOString(),
                 shipperPhone: contractor?.phone ?? undefined,        // СвГО/Контакт/Тлф (обязателен)
                 consigneePhone: consigneeContractor?.phone ?? undefined, // СвГП/Контакт/Тлф (обязателен)
-                carrierPhone: etrnIssuer?.phone ?? undefined,        // СвПер/Контакт/Тлф (обязателен)
-                driverPhone: driverUser?.phone ?? undefined,         // СвВодит/Тлф (обязателен)
+                carrierPhone: carrierOrg.phone ?? etrnIssuer?.phone ?? undefined,  // СвПер/Контакт/Тлф (орг → инициатор)
+                driverPhone: driver?.phone ?? driverUser?.phone ?? undefined,      // СвВодит/Тлф (свой → users)
                 // Подписант — реальный человек (пользователь-инициатор), НЕ имя орга.
                 signatoryFullName: etrnIssuer?.fullName ?? undefined,
                 vehicleCapacityTons: vehicle?.payloadCapacityKg ? vehicle.payloadCapacityKg / 1000 : undefined,
@@ -798,11 +801,14 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 carrierKpp: carrierOrg.kpp || undefined,
                 carrierOgrn: carrierOrg.ogrn || '',  // обязателен в СвЛицПЛ → 422 если пуст
                 carrierAddress: carrierOrg.legalAddress || '',
+                carrierPhone: carrierOrg.phone ?? undefined,  // СвЛицПЛ/Контакт/Тлф (опц.)
                 vehicleMake: vehicle?.make || '—',
                 vehicleModel: vehicle?.model || '—',
                 vehiclePlateNumber: vehicle?.plateNumber || '—',
                 driverFullName: driver?.fullName || '—',
                 driverLicenseNumber: driver?.licenseNumber || undefined,
+                driverLicenseSeries: driver?.licenseSeries ?? undefined,
+                driverLicenseIssueDate: driver?.licenseIssueDate ? new Date(driver.licenseIssueDate).toISOString() : undefined,
                 signatoryFullName: issuer?.fullName || driver?.fullName || undefined, // реальный человек, не имя орга
                 signatoryPosition: 'Ответственное лицо',
             });
@@ -872,9 +878,9 @@ export default async function waybillRoutes(app: FastifyInstance) {
                 cargoVolumeM3: order.cargoVolumeM3 ? Number(order.cargoVolumeM3) : undefined,
                 cargoTareCode: undefined,  // ОКВГУМ-код тары — TMS пока не маппит (default «01»)
                 // Габариты места и требуемые параметры ТС TMS пока не хранит → честный 422.
-                cargoHeightM: undefined,
-                cargoLengthM: undefined,
-                cargoWidthM: undefined,
+                cargoHeightM: order.cargoHeightM ?? undefined,
+                cargoLengthM: order.cargoLengthM ?? undefined,
+                cargoWidthM: order.cargoWidthM ?? undefined,
                 vehicleCapacityTons: undefined,
                 vehicleVolumeM3: undefined,
                 signatoryFullName: issuer?.fullName || undefined, // реальный человек, не имя контрагента

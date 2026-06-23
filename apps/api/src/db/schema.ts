@@ -206,6 +206,8 @@ export const organizations = pgTable('organizations', {
     kpp: text('kpp'),
     ogrn: text('ogrn'),
     legalAddress: text('legal_address'),
+    // ЭПД: контактный телефон перевозчика (ЭТрН СвПер/Контакт/Тлф). Миграция 0059.
+    phone: varchar('phone', { length: 20 }),
     bankBik: text('bank_bik'),
     bankAccount: text('bank_account'),
     // ③ (legal-register §2.F1, миграция 0048) — наименование банка и корр.счёт
@@ -386,6 +388,11 @@ export const drivers = pgTable('drivers', {
     licenseNumber: varchar('license_number', { length: 20 }).notNull(),
     licenseCategories: jsonb('license_categories').$type<string[]>().notNull().default([]),
     licenseExpiry: timestamp('license_expiry', { withTimezone: true }).notNull(),
+    // ЭПД: реквизиты водителя для ЭЗЗ/ЭПЛ (ВодитУд серия/дата ВУ, ИННФЛ, Тлф). Миграция 0059.
+    licenseSeries: varchar('license_series', { length: 10 }),
+    licenseIssueDate: timestamp('license_issue_date', { withTimezone: true }),
+    inn: varchar('inn', { length: 12 }),
+    phone: varchar('phone', { length: 20 }),
     medCertificateExpiry: timestamp('med_certificate_expiry', { withTimezone: true }),
     personalDataConsent: boolean('personal_data_consent').notNull().default(false),
     personalDataConsentDate: timestamp('personal_data_consent_date', { withTimezone: true }),
@@ -429,6 +436,10 @@ export const orders = pgTable('orders', {
     cargoWeightKg: doublePrecision('cargo_weight_kg').notNull(),
     cargoVolumeM3: doublePrecision('cargo_volume_m3'),
     cargoPlaces: integer('cargo_places'),
+    // ЭПД: габариты грузового места (ЭЗЗ грузоотправителя РазмерГрМест), м. Миграция 0059.
+    cargoHeightM: doublePrecision('cargo_height_m'),
+    cargoLengthM: doublePrecision('cargo_length_m'),
+    cargoWidthM: doublePrecision('cargo_width_m'),
     cargoType: varchar('cargo_type', { length: 100 }),
     // Sprint 9: Ярусность
     multiTierAllowed: boolean('multi_tier_allowed').notNull().default(false),
