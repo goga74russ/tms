@@ -294,12 +294,14 @@ export function AddVehicleModal({ onClose, onCreated, editingVehicle }: AddVehic
                     <TabsContent value="advanced" className="space-y-4">
                         {/* Row 1: Объём кузова */}
                         <div>
-                            <label className="block text-xs font-medium text-neutral-600 mb-1">Объём кузова, м³</label>
+                            <label className="block text-xs font-medium text-neutral-600 mb-1">Объём кузова, м³ <span className="text-red-500">*</span></label>
                             <input
                                 type="number"
-                                min={0}
+                                min={0.01}
+                                step="0.01"
+                                required
                                 value={form.payloadVolumeM3}
-                                onChange={e => updateField('payloadVolumeM3', parseInt(e.target.value))}
+                                onChange={e => updateField('payloadVolumeM3', parseFloat(e.target.value))}
                                 className={inputClass('payloadVolumeM3')}
                             />
                         </div>

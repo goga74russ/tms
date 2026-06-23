@@ -63,6 +63,9 @@ export type Contractor = z.infer<typeof ContractorSchema>;
 
 export const ContractorCreateSchema = ContractorSchema.omit({
     id: true, createdAt: true, updatedAt: true, isArchived: true,
+}).extend({
+    // ЭПД: телефон обязателен (Контакт/Тлф грузоотправителя/получателя).
+    phone: z.string().min(1, 'Телефон контрагента обязателен (для ЭПД)'),
 });
 
 // ================================================================
@@ -146,6 +149,9 @@ export type Vehicle = z.infer<typeof VehicleSchema>;
 export const VehicleCreateSchema = VehicleSchema.omit({
     id: true, createdAt: true, updatedAt: true, status: true, isArchived: true,
     currentOdometerKm: true,
+}).extend({
+    // ЭПД: вместимость обязательна (ПарТС/@Вместим в ЭЗЗ/ЭТрН).
+    payloadVolumeM3: z.number().positive('Вместимость (м³) обязательна для ЭПД'),
 });
 
 // P1 (код-аудит 2026-06-14): PUT /fleet/vehicles/:id раньше валидировал через

@@ -81,8 +81,8 @@ function CreateContractorModal({ onClose, onCreated, editingItem }: { onClose: (
     const [error, setError] = useState('');
 
     async function handleSubmit() {
-        if (!name || !inn || !legalAddress) {
-            setError('Укажите название, ИНН и адрес');
+        if (!name || !inn || !legalAddress || !phone) {
+            setError('Укажите название, ИНН, адрес и телефон (телефон обязателен для ЭПД)');
             return;
         }
         setSubmitting(true);
@@ -90,7 +90,7 @@ function CreateContractorModal({ onClose, onCreated, editingItem }: { onClose: (
         try {
             const payload = {
                 name, inn, kpp: kpp || undefined,
-                legalAddress, phone: phone || undefined,
+                legalAddress, phone,
                 email: email || undefined, contactPerson: contactPerson || undefined,
             };
             const result = isEdit
@@ -145,6 +145,7 @@ function CreateContractorModal({ onClose, onCreated, editingItem }: { onClose: (
                     <FormField
                         format="phone"
                         label="Телефон"
+                        required
                         value={phone}
                         onChange={e => setPhone(e.target.value)}
                     />
