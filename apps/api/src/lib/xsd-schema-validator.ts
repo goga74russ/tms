@@ -41,6 +41,11 @@ export const ETRN_SCHEMA_FILE: Record<EtrnSchemaTitle, string> = {
     T08: 'ON_TRNPUDGO_1_973_08_05_01_01.xsd',    // Титул 8 — подтверждение ПУД грузополучателем
 };
 
+/** Схема ЭЗЗ — «информация перевозчика» (приказ 108@, КНД 1110362). */
+export const EZZ_SCHEMA_FILE = 'ON_ZAKZVPER_1_969_02_05_01_03.xsd';
+/** Схема ЭПЛ — главный документ путевого листа (приказ 116@, КНД 1110380). */
+export const EPL_SCHEMA_FILE = 'ON_PTLSSOBTS_1_968_01_05_01_01.xsd';
+
 const SCHEMA_DIR = fileURLToPath(new URL('../assets/etrn-schemas/', import.meta.url));
 
 /** Кэш декодированных (windows-1251 → UTF-8) схем — декодируем файл один раз. */
@@ -84,13 +89,23 @@ export async function validateEtrnAgainstXsd(
     xml: string,
     title: EtrnSchemaTitle,
 ): Promise<XsdValidationResult> {
-    if (typeof xml !== 'string' || xml.trim().length === 0) {
-        return { valid: false, errors: ['XML пустой или не является строкой.'] };
-    }
-
     const schemaFile = ETRN_SCHEMA_FILE[title];
     if (!schemaFile) {
         return { valid: false, errors: [`Нет XSD-схемы для титула ${title}.`] };
+    }
+    return validateXmlAgainstSchema(xml, schemaFile);
+}
+
+/**
+ * Универсальная XSD-валидация XML против завендоренной схемы ФНС по имени файла.
+ * Используется для ЭЗЗ (EZZ_SCHEMA_FILE), ЭПЛ (EPL_SCHEMA_FILE) и ЭТрН.
+ */
+export async function validateXmlAgainstSchema(
+    xml: string,
+    schemaFile: string,
+): Promise<XsdValidationResult> {
+    if (typeof xml !== 'string' || xml.trim().length === 0) {
+        return { valid: false, errors: ['XML пустой или не является строкой.'] };
     }
 
     let schema: string;
@@ -105,7 +120,7 @@ export async function validateEtrnAgainstXsd(
 
     try {
         const result = await validateXML({
-            xml: [{ fileName: `etrn-${title}.xml`, contents: xmlUtf8 }],
+            xml: [{ fileName: 'doc.xml', contents: xmlUtf8 }],
             schema: [schema],
         });
         return { valid: Boolean(result.valid), errors: normalizeErrors(result.errors) };

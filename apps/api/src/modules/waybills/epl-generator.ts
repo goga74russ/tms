@@ -1,105 +1,139 @@
 // ============================================================
-// ЭПЛ XML Generator — Электронный путевой лист.
-// Формат: ФНС приказ ЕД-7-26/116@ (ВерсФорм 5.01 действует; 5.02 — проект).
-// ⚠️ Обязателен с 01.09.2026 ТОЛЬКО для маркируемого алкоголя (пиво, сидр,
-// пуаре, медовуха); для остальных грузов — добровольный, НЕ блокер compliance.
-// Структура 116@ — файлы обмена: путевой лист (маршрут/ТС/водитель),
-// предрейсовый медосмотр, показания одометра выезд/возврат, опц.
-// предрейсовый техконтроль и послесменный медосмотр.
+// ЭПЛ XML Generator — Электронный путевой лист (главный документ).
+// Формат: ФНС приказ ЕД-7-26/116@ (ВерсФорм 5.01), схема
+// ON_PTLSSOBTS_1_968_01 (КНД 1110380). Структура проверяется через
+// xsd-schema-validator (EPL_SCHEMA_FILE) → valid:true.
 //
-// ⚠️ Первая версия: структурно приближено к XSD приказа 116@.
-// Точные имена элементов и ВерсФорм финализируются после подключения
-// реальных XSD ФНС (см. xsd-validator) + подтверждения /jurist действующей
-// на 01.09.2026 редакции приказа. Фиктивные реквизиты не подставляются —
-// сборка входа в routes.ts отказывает (422) при отсутствии ИНН перевозчика.
+// ⚠️ Это ГЛАВНЫЙ документ ПЛ. Предрейсовый медосмотр (968_02),
+// техконтроль/выпуск ТС (968_03), показания одометра выезд/возврат
+// (968_04/05) и послерейсовый медосмотр (968_06) — ОТДЕЛЬНЫЕ документы
+// ФНС, моделируются отдельными генераторами (TODO).
+//
+// ⚠️ Обязателен с 01.09.2026 ТОЛЬКО для маркируемого алкоголя; для
+// остальных грузов — добровольный, НЕ блокер compliance.
+//
+// Фиктивные реквизиты не подставляются: отсутствие обязательного поля →
+// EtrnIncompleteError → 422 в routes.
 // ============================================================
-import { escapeXml, formatDate, genDocId, attr } from './epd-helpers.js';
+import { randomUUID } from 'node:crypto';
+import { EtrnIncompleteError } from './etrn-generator.js';
+
+function req<T>(value: T | undefined | null, field: string): T {
+    if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
+        throw new EtrnIncompleteError(field);
+    }
+    return value;
+}
+
+function escapeXml(str: string): string {
+    return str
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
+const MSK_OFFSET_MS = 3 * 60 * 60 * 1000;
+function formatDate(isoDate: string): string {
+    const d = new Date(new Date(isoDate).getTime() + MSK_OFFSET_MS);
+    return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}.${d.getUTCFullYear()}`;
+}
+function formatTime(isoDate: string): string {
+    const d = new Date(new Date(isoDate).getTime() + MSK_OFFSET_MS);
+    return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:${String(d.getUTCSeconds()).padStart(2, '0')}`;
+}
+function attr(name: string, value: string | number | undefined | null): string {
+    if (value === undefined || value === null || value === '') return '';
+    return ` ${name}="${escapeXml(String(value))}"`;
+}
+function renderFio(full: string, field: string): string {
+    const parts = req(full, field).trim().split(/\s+/);
+    const last = parts[0] ?? '';
+    const first = parts[1] ?? '';
+    req(last, `${field} (фамилия)`);
+    req(first, `${field} (имя)`);
+    return `<ФИО Фамилия="${escapeXml(last)}" Имя="${escapeXml(first)}"${attr('Отчество', parts[2] || undefined)}/>`;
+}
 
 export interface EPLInput {
     waybillNumber: string;
-    issuedAt: string;        // ISO
-    validFrom?: string;      // ISO
-    validTo?: string;        // ISO
+    issuedAt: string;       // ISO → ДатИнфСоб/ВрИнфСоб/УИД_ПЛ/ДатаПЛ
+    validDate?: string;     // ISO → ДатаИспПЛ (путевой лист на один день)
 
-    // Перевозчик (организация рейса)
+    // Перевозчик / владелец ТС (СвЛицПЛ)
     carrierName: string;
     carrierInn: string;
     carrierKpp?: string;
+    carrierOgrn: string;    // ОГРН обязателен в СвЛицПЛ
     carrierAddress: string;
+    carrierPhone?: string;
 
     // ТС
+    vehicleType?: string;   // ТС/@Тип (default «Грузовой автомобиль»)
     vehicleMake: string;
     vehicleModel: string;
     vehiclePlateNumber: string;
-    vehicleVin?: string;
 
     // Водитель
     driverFullName: string;
-    driverLicenseNumber: string;
+    driverLicenseNumber?: string;
+    driverLicenseSeries?: string;
+    driverLicenseIssueDate?: string; // ISO
+    driverInn?: string;
 
-    // Маршрут
-    loadingAddress?: string;
-    unloadingAddress?: string;
+    // Классификация (enum ФНС)
+    transportType?: string; // ВидПрв: КП/СН/СТ (default «СН» — служебная необходимость)
+    messageType?: string;   // ВидСообщ: Г/П/М (default «Г» — городское)
+    postTripMedExam?: string; // ОбМедОсмПосле: 1/2 (default «2»)
+    ownerType?: string;     // ЛицоОфПЛ: С/А (default «С» — собственник)
 
-    // Предрейсовый медосмотр
-    med?: {
-        decision: 'approved' | 'rejected';
-        systolicBp?: number;
-        diastolicBp?: number;
-        heartRate?: number;
-        temperature?: number;
-        medicName?: string;
-        at?: string; // ISO
-    };
-
-    // Предрейсовый техконтроль
-    tech?: {
-        decision: 'approved' | 'rejected';
-        mechanicName?: string;
-        at?: string; // ISO
-    };
-
-    // Одометр / выезд-возврат
-    odometerOut?: number;
-    odometerIn?: number;
-    departureAt?: string; // ISO
-    returnAt?: string;    // ISO
+    // Подписант
+    signatoryFullName: string;
+    signatoryPosition?: string;
 }
 
 /**
- * Сгенерировать XML электронного путевого листа (ЭПЛ) по структуре 116@.
- * Один документ <Файл> с разделами: участник (перевозчик), ТС, водитель,
- * маршрут, медосмотр, техконтроль, показания одометра.
+ * Сгенерировать XML электронного путевого листа (главный документ, 968_01).
  */
 export function generateEPL(input: EPLInput): string {
-    const docId = genDocId('EPL', input.carrierInn, input.carrierInn, input.issuedAt);
-    const docDate = formatDate(input.issuedAt);
+    const docId = `ON_PTLSSOBTS_${input.carrierInn}_${input.carrierInn}_${formatDate(input.issuedAt).split('.').reverse().join('')}_${randomUUID()}`;
+    const uid = randomUUID();
 
-    const medBlock = input.med ? `
-      <ПредрейсМедОсмотр Решение="${input.med.decision === 'approved' ? 'допущен' : 'не допущен'}"${attr('ДатаВремя', input.med.at ? formatDate(input.med.at) : undefined)}>
-        <Показатели${attr('АД_Сист', input.med.systolicBp)}${attr('АД_Диаст', input.med.diastolicBp)}${attr('Пульс', input.med.heartRate)}${attr('Температура', input.med.temperature)}/>
-        ${input.med.medicName ? `<Медработник ФИО="${escapeXml(input.med.medicName)}"/>` : ''}
-      </ПредрейсМедОсмотр>` : '';
+    // ВодитУд опционален, но требует все три реквизита ВУ — пишем только если есть полная триада.
+    const license = input.driverLicenseNumber?.replace(/\s+/g, '');
+    const vuBlock = license && input.driverLicenseSeries && input.driverLicenseIssueDate
+        ? `\n        <ВодитУд НомВУ="${escapeXml(license)}" СерВУ="${escapeXml(input.driverLicenseSeries)}" ДатаВыдВУ="${formatDate(input.driverLicenseIssueDate)}"/>`
+        : '';
 
-    const techBlock = input.tech ? `
-      <ПредрейсТехКонтроль Решение="${input.tech.decision === 'approved' ? 'исправен' : 'неисправен'}"${attr('ДатаВремя', input.tech.at ? formatDate(input.tech.at) : undefined)}>
-        ${input.tech.mechanicName ? `<Контролёр ФИО="${escapeXml(input.tech.mechanicName)}"/>` : ''}
-      </ПредрейсТехКонтроль>` : '';
+    const contact = input.carrierPhone
+        ? `\n        <Контакт>\n          <Тлф>${escapeXml(input.carrierPhone)}</Тлф>\n        </Контакт>`
+        : '';
 
     return `<?xml version="1.0" encoding="windows-1251"?>
 <Файл ВерсФорм="5.01" ВерсПрог="TMS-1.0" ИдФайл="${escapeXml(docId)}">
-  <Документ ВидДок="ЭлПутевойЛист" ДатаДок="${docDate}" НомДок="${escapeXml(input.waybillNumber)}"${attr('ДействУетС', input.validFrom ? formatDate(input.validFrom) : undefined)}${attr('ДействУетПо', input.validTo ? formatDate(input.validTo) : undefined)}>
-    <СвПеревозчик>
-      <ЮЛ НаимОрг="${escapeXml(input.carrierName)}" ИНН="${escapeXml(input.carrierInn)}"${attr('КПП', input.carrierKpp)}/>
-      <Адрес>${escapeXml(input.carrierAddress)}</Адрес>
-    </СвПеревозчик>
-    <СвТС Марка="${escapeXml(input.vehicleMake + ' ' + input.vehicleModel)}" ГосНом="${escapeXml(input.vehiclePlateNumber)}"${attr('VIN', input.vehicleVin)}/>
-    <СвВодит ФИО="${escapeXml(input.driverFullName)}" ВУ="${escapeXml(input.driverLicenseNumber)}"/>
-    <Маршрут>
-      ${input.loadingAddress ? `<ПунктПогрузки Адрес="${escapeXml(input.loadingAddress)}"/>` : ''}
-      ${input.unloadingAddress ? `<ПунктРазгрузки Адрес="${escapeXml(input.unloadingAddress)}"/>` : ''}
-    </Маршрут>${medBlock}${techBlock}
-    <ПоказанияОдометра${attr('Выезд', input.odometerOut)}${attr('Возврат', input.odometerIn)}${attr('ВремяВыезда', input.departureAt ? formatDate(input.departureAt) : undefined)}${attr('ВремяВозврата', input.returnAt ? formatDate(input.returnAt) : undefined)}/>
+  <Документ КНД="1110380" ДатИнфСоб="${formatDate(input.issuedAt)}" ВрИнфСоб="${formatTime(input.issuedAt)}" НомерПЛ="${escapeXml(input.waybillNumber)}" ДатаПЛ="${formatDate(input.issuedAt)}" ПризнНачРейс="1">
+    <СодИнфСоб УИД_ПЛ="${uid}" ОбМедОсмПосле="${escapeXml(input.postTripMedExam ?? '2')}" ВидПрв="${escapeXml(input.transportType ?? 'СН')}" ВидСообщ="${escapeXml(input.messageType ?? 'Г')}">
+      <СрокПЛ ПЛДень="1" ДатаИспПЛ="${formatDate(input.validDate ?? input.issuedAt)}"/>
+      <СвЛицПЛ ЛицоОфПЛ="${escapeXml(input.ownerType ?? 'С')}">
+        <ИдСв>
+          <СвЮЛУч НаимОрг="${escapeXml(input.carrierName)}" ИННЮЛ="${escapeXml(input.carrierInn)}"${attr('КПП', input.carrierKpp)} ОГРН="${escapeXml(req(input.carrierOgrn, 'перевозчик: ОГРН'))}"/>
+        </ИдСв>
+        <Адрес>
+          <АдрИнф КодСтр="643" АдрТекст="${escapeXml(req(input.carrierAddress, 'перевозчик: адрес'))}"/>
+        </Адрес>${contact}
+      </СвЛицПЛ>
+      <СвТС>
+        <ТС Тип="${escapeXml(input.vehicleType ?? 'Грузовой автомобиль')}" Марка="${escapeXml(input.vehicleMake)}" Модель="${escapeXml(input.vehicleModel)}" РегНомер="${escapeXml(input.vehiclePlateNumber)}"/>
+      </СвТС>
+      <СвВодит${attr('ИННФЛ', input.driverInn)}>${vuBlock}
+        ${renderFio(input.driverFullName, 'водитель: ФИО')}
+      </СвВодит>
+    </СодИнфСоб>
+    <ПодпИнфСоб${attr('Должн', input.signatoryPosition)} СпосПодтПолном="1">
+      ${renderFio(input.signatoryFullName, 'подписант ПЛ')}
+    </ПодпИнфСоб>
   </Документ>
 </Файл>`;
 }

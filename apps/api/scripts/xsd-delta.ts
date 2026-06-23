@@ -7,7 +7,15 @@ import {
     generateETrNTitle6,
     SIGNATURE_PLACEHOLDER,
 } from '../src/modules/waybills/etrn-titles-generator.js';
-import { validateEtrnAgainstXsd, type EtrnSchemaTitle } from '../src/lib/xsd-schema-validator.js';
+import {
+    validateEtrnAgainstXsd,
+    validateXmlAgainstSchema,
+    EZZ_SCHEMA_FILE,
+    EPL_SCHEMA_FILE,
+    type EtrnSchemaTitle,
+} from '../src/lib/xsd-schema-validator.js';
+import { generateEZZ } from '../src/modules/waybills/ezz-generator.js';
+import { generateEPL } from '../src/modules/waybills/epl-generator.js';
 
 const t01: ETrNInput = {
     waybillNumber: 'ТН-2026-001',
@@ -120,4 +128,65 @@ for (const { title, xml } of cases) {
     for (const e of result.errors) console.log('  •', e);
     if (!result.valid) allGreen = false;
 }
-console.log(`\n${allGreen ? '✅ Все титулы проходят XSD ФНС' : '❌ Есть ошибки валидации'}`);
+// --- ЭЗЗ (969_02, информация перевозчика) ---
+const ezzXml = generateEZZ({
+    orderNumber: 'ZAK-2026-000123',
+    issuedAt: '2026-06-23T11:00:00.000Z',
+    carrierName: 'ООО ТрансПульт',
+    carrierInn: '7709876543',
+    shipperInn: '7701234567',
+    shipperFileId: 'ON_ZAKZVGO_7701234567_7709876543_20260623_aaaa',
+    shipperFileFormedAt: '2026-06-23T09:00:00.000Z',
+    shipperSignature: 'PLACEHOLDER_ЭП',
+    contactFullName: 'Петров Пётр Петрович',
+    contactPhone: '+74951234567',
+    driverFullName: 'Сидоров Иван Васильевич',
+    driverLicenseNumber: '123456',
+    driverLicenseSeries: '9900',
+    driverLicenseIssueDate: '2020-05-15T00:00:00.000Z',
+    driverInn: '500100732259',
+    driverPhone: '+79161112233',
+    vehiclePlateNumber: 'А123ВС777',
+    vehicleMake: 'Volvo',
+    vehicleModel: 'FH',
+    vehicleCapacityTons: 20,
+    vehicleVolumeM3: 86,
+    carrierCost: 50000,
+    carrierCostWithVat: 60000,
+    vatRate: '20%',
+    signatoryFullName: 'Петров Пётр Петрович',
+    signatoryPosition: 'Директор',
+});
+const ezzRes = await validateXmlAgainstSchema(ezzXml, EZZ_SCHEMA_FILE);
+console.log(`\n=== ЭЗЗ (информация перевозчика, 969_02) ===`);
+console.log('valid:', ezzRes.valid, '| errors:', ezzRes.errors.length);
+for (const e of ezzRes.errors) console.log('  •', e);
+if (!ezzRes.valid) allGreen = false;
+
+// --- ЭПЛ (968_01, главный путевой лист) ---
+const eplXml = generateEPL({
+    waybillNumber: 'ПЛ-2026-000123',
+    issuedAt: '2026-06-23T05:30:00.000Z',
+    carrierName: 'ООО ТрансПульт',
+    carrierInn: '7709876543',
+    carrierKpp: '770901001',
+    carrierOgrn: '1027700132195',
+    carrierAddress: '119991, г. Москва, ул. Тверская, д. 1',
+    carrierPhone: '+74951234567',
+    vehicleMake: 'КАМАЗ',
+    vehicleModel: '5490-S5',
+    vehiclePlateNumber: 'А123ВС77',
+    driverFullName: 'Иванов Иван Иванович',
+    driverLicenseNumber: '123456',
+    driverLicenseSeries: '7799',
+    driverLicenseIssueDate: '2020-03-15T00:00:00.000Z',
+    signatoryFullName: 'Петров Пётр Петрович',
+    signatoryPosition: 'Механик',
+});
+const eplRes = await validateXmlAgainstSchema(eplXml, EPL_SCHEMA_FILE);
+console.log(`\n=== ЭПЛ (главный путевой лист, 968_01) ===`);
+console.log('valid:', eplRes.valid, '| errors:', eplRes.errors.length);
+for (const e of eplRes.errors) console.log('  •', e);
+if (!eplRes.valid) allGreen = false;
+
+console.log(`\n${allGreen ? '✅ Все документы (ЭТрН ×4 + ЭЗЗ + ЭПЛ) проходят XSD ФНС' : '❌ Есть ошибки валидации'}`);

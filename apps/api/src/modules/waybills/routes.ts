@@ -770,7 +770,7 @@ export default async function waybillRoutes(app: FastifyInstance) {
             const waybill = await getWaybillById(id);
             if (!waybill) return reply.status(404).send({ success: false, error: 'Путевой лист не найден' });
 
-            const { medInspections, techInspections, tripOrders } = await import('../../db/schema.js');
+            const { tripOrders } = await import('../../db/schema.js');
             const [trip] = await db.select().from(trips).where(eq(trips.id, waybill.tripId!)).limit(1);
             const [order] = trip ? await db.select({ order: orders }).from(tripOrders).innerJoin(orders, eq(tripOrders.orderId, orders.id)).where(eq(tripOrders.tripId, trip.id)).limit(1) : [null];
             const [vehicle] = waybill.vehicleId ? await db.select().from(vehiclesTable).where(eq(vehiclesTable.id, waybill.vehicleId)).limit(1) : [null];
@@ -780,25 +780,26 @@ export default async function waybillRoutes(app: FastifyInstance) {
             if (!carrierOrg?.inn) {
                 return reply.status(422).send({ success: false, code: 'CARRIER_REQUISITES_MISSING', error: 'Не заполнены реквизиты организации-перевозчика (ИНН). Заполните их в Настройках → Реквизиты перед выпуском ЭПЛ.' });
             }
-            const [med] = waybill.medInspectionId ? await db.select().from(medInspections).where(eq(medInspections.id, waybill.medInspectionId)).limit(1) : [null];
-            const [tech] = waybill.techInspectionId ? await db.select().from(techInspections).where(eq(techInspections.id, waybill.techInspectionId)).limit(1) : [null];
+            // Подписант ПЛ — пользователь, выпускающий документ (ФИО из users).
+            const [issuer] = await db.select({ fullName: usersTable.fullName }).from(usersTable).where(eq(usersTable.id, (request.user as { userId: string }).userId)).limit(1);
 
             const { generateEPL } = await import('./epl-generator.js');
             const xml = generateEPL({
                 waybillNumber: waybill.number || id.slice(0, 8),
                 issuedAt: (waybill.issuedAt || new Date()).toISOString(),
-                validFrom: waybill.validFrom ? new Date(waybill.validFrom).toISOString() : undefined,
-                validTo: waybill.validTo ? new Date(waybill.validTo).toISOString() : undefined,
-                carrierName: carrierOrg.name, carrierInn: carrierOrg.inn, carrierKpp: carrierOrg.kpp || undefined, carrierAddress: carrierOrg.legalAddress || '—',
-                vehicleMake: vehicle?.make || '—', vehicleModel: vehicle?.model || '—', vehiclePlateNumber: vehicle?.plateNumber || '—', vehicleVin: vehicle?.vin || undefined,
-                driverFullName: driver?.fullName || '—', driverLicenseNumber: driver?.licenseNumber || '—',
-                loadingAddress: order?.order.loadingAddress || undefined, unloadingAddress: order?.order.unloadingAddress || undefined,
-                med: med ? { decision: med.decision, systolicBp: med.systolicBp ?? undefined, diastolicBp: med.diastolicBp ?? undefined, heartRate: med.heartRate ?? undefined, temperature: med.temperature ?? undefined, at: med.createdAt ? new Date(med.createdAt).toISOString() : undefined } : undefined,
-                tech: tech ? { decision: tech.decision, at: tech.createdAt ? new Date(tech.createdAt).toISOString() : undefined } : undefined,
-                odometerOut: waybill.odometerOut ? Number(waybill.odometerOut) : undefined,
-                odometerIn: waybill.odometerIn ? Number(waybill.odometerIn) : undefined,
-                departureAt: waybill.departureAt ? new Date(waybill.departureAt).toISOString() : undefined,
-                returnAt: waybill.returnAt ? new Date(waybill.returnAt).toISOString() : undefined,
+                validDate: waybill.validFrom ? new Date(waybill.validFrom).toISOString() : undefined,
+                carrierName: carrierOrg.name,
+                carrierInn: carrierOrg.inn,
+                carrierKpp: carrierOrg.kpp || undefined,
+                carrierOgrn: carrierOrg.ogrn || '',  // обязателен в СвЛицПЛ → 422 если пуст
+                carrierAddress: carrierOrg.legalAddress || '',
+                vehicleMake: vehicle?.make || '—',
+                vehicleModel: vehicle?.model || '—',
+                vehiclePlateNumber: vehicle?.plateNumber || '—',
+                driverFullName: driver?.fullName || '—',
+                driverLicenseNumber: driver?.licenseNumber || undefined,
+                signatoryFullName: issuer?.fullName || driver?.fullName || carrierOrg.name,
+                signatoryPosition: 'Ответственное лицо',
             });
             const xmlBuffer = encodeWindows1251(xml);
             reply.header('Content-Type', 'application/xml; charset=windows-1251');
@@ -806,6 +807,9 @@ export default async function waybillRoutes(app: FastifyInstance) {
             reply.header('Content-Length', xmlBuffer.length);
             return reply.send(xmlBuffer);
         } catch (error: any) {
+            if (error?.code === 'ETRN_DATA_INCOMPLETE') {
+                return reply.status(422).send({ success: false, code: error.code, field: error.field, error: `${error.message}. Заполните данные перед выпуском ЭПЛ.` });
+            }
             request.log.error(error);
             return reply.status(error.statusCode || 500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
         }
@@ -835,20 +839,42 @@ export default async function waybillRoutes(app: FastifyInstance) {
             if (!contractor?.inn) {
                 return reply.status(422).send({ success: false, code: 'SHIPPER_REQUISITES_MISSING', error: 'Не заполнен ИНН грузоотправителя. Документ не может быть выпущен — укажите реквизиты контрагента в заказе.' });
             }
+            const [issuer] = await db.select({ fullName: usersTable.fullName }).from(usersTable).where(eq(usersTable.id, user.userId)).limit(1);
+
             const { generateEZZ } = await import('./ezz-generator.js');
             const xml = generateEZZ({
                 orderNumber: order.number,
-                issuedAt: (order.createdAt ? new Date(order.createdAt) : new Date()).toISOString(),
-                shipperName: contractor.name, shipperInn: contractor.inn, shipperKpp: contractor.kpp || undefined, shipperAddress: contractor.legalAddress || '—',
-                carrierName: carrierOrg.name, carrierInn: carrierOrg.inn, carrierKpp: carrierOrg.kpp || undefined, carrierAddress: carrierOrg.legalAddress || '—',
-                loadingAddress: order.loadingAddress || '—', unloadingAddress: order.unloadingAddress || '—',
-                cargoDescription: order.cargoDescription || '—',
-                cargoWeight: order.cargoWeightKg ? Number(order.cargoWeightKg) : undefined,
-                cargoVolume: order.cargoVolumeM3 ? Number(order.cargoVolumeM3) : undefined,
-                cargoPackages: order.cargoPlaces ?? undefined,
-                cargoType: order.cargoType || undefined,
-                loadingDate: order.loadingDate ? new Date(order.loadingDate).toISOString() : undefined,
-                unloadingDate: order.unloadingDate ? new Date(order.unloadingDate).toISOString() : undefined,
+                issuedAt: (order.createdAt ?? new Date()).toISOString(),
+                carrierName: carrierOrg.name,
+                carrierInn: carrierOrg.inn,
+                shipperInn: contractor.inn,
+                // Документ ПЕРЕВОЗЧИКА (969_02) ссылается на ВХОДЯЩУЮ заявку
+                // грузоотправителя через её ЭП (ИдИнфГО). Без неё (приходит по ЭДО,
+                // ожидается Контур) сформировать нельзя → честный 422.
+                shipperFileId: '',
+                shipperFileFormedAt: (order.createdAt ?? new Date()).toISOString(),
+                shipperSignature: '',
+                contactFullName: issuer?.fullName || '',
+                contactPhone: '',
+                // Водитель/ТС назначенного рейса (паспортные данные водителя — ИНН,
+                // серия/дата ВУ — TMS пока не хранит → 422 до их захвата).
+                driverFullName: '',
+                driverLicenseNumber: '',
+                driverLicenseSeries: '',
+                driverLicenseIssueDate: (order.createdAt ?? new Date()).toISOString(),
+                driverInn: '',
+                driverPhone: '',
+                vehiclePlateNumber: '',
+                vehicleMake: '',
+                vehicleCapacityTons: 0,
+                vehicleVolumeM3: 0,
+                // Расчёт платы перевозчика (carrier_cost живёт на уровне рейса/тарифа,
+                // не на orders) — подставится при сборке из назначенного рейса; здесь
+                // плейсхолдеры, т.к. документ всё равно 422-ит выше на ссылке на заявку ГО.
+                carrierCost: 0,
+                carrierCostWithVat: 0,
+                vatRate: '20%',
+                signatoryFullName: issuer?.fullName || carrierOrg.name,
             });
             const xmlBuffer = encodeWindows1251(xml);
             reply.header('Content-Type', 'application/xml; charset=windows-1251');
@@ -856,6 +882,9 @@ export default async function waybillRoutes(app: FastifyInstance) {
             reply.header('Content-Length', xmlBuffer.length);
             return reply.send(xmlBuffer);
         } catch (error: any) {
+            if (error?.code === 'ETRN_DATA_INCOMPLETE') {
+                return reply.status(422).send({ success: false, code: error.code, field: error.field, error: `${error.message}. ЭЗЗ перевозчика формируется в ответ на входящую заявку грузоотправителя (ЭДО).` });
+            }
             request.log.error(error);
             return reply.status(error.statusCode || 500).send({ success: false, error: safeClientError(error, 'Внутренняя ошибка сервера') });
         }
