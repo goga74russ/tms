@@ -28,3 +28,4 @@ domain-report*.md
 
 # Playwright per-role storage state (F2) — created on each `pnpm test:e2e` run.
 apps/web/tests/.auth/
+qa-epd-samples/
