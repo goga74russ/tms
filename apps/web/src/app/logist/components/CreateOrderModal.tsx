@@ -45,6 +45,9 @@ const EMPTY_FORM = {
     cargoWeightKg: '',
     cargoVolumeM3: '',
     cargoPlaces: '',
+    cargoHeightM: '',
+    cargoLengthM: '',
+    cargoWidthM: '',
     multiTierAllowed: false,
     maxTiers: '1',
     coldChainRequired: false,
@@ -344,6 +347,9 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                 cargoWeightKg: parseFloat(form.cargoWeightKg),
                 cargoVolumeM3: form.cargoVolumeM3 ? parseFloat(form.cargoVolumeM3) : undefined,
                 cargoPlaces: form.cargoPlaces ? parseInt(form.cargoPlaces, 10) : undefined,
+                cargoHeightM: form.cargoHeightM ? parseFloat(form.cargoHeightM) : undefined,
+                cargoLengthM: form.cargoLengthM ? parseFloat(form.cargoLengthM) : undefined,
+                cargoWidthM: form.cargoWidthM ? parseFloat(form.cargoWidthM) : undefined,
                 multiTierAllowed: form.multiTierAllowed,
                 maxTiers: form.multiTierAllowed ? parseInt(form.maxTiers, 10) : 1,
                 coldChainRequired: form.coldChainRequired,
@@ -562,15 +568,31 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                             />
                         </div>
                         <div>
-                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Кол-во мест</label>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Кол-во мест <span className="text-red-500">*</span></label>
                             <input
                                 type="number"
+                                required
                                 value={form.cargoPlaces}
                                 onChange={(e) => setForm((current) => ({ ...current, cargoPlaces: e.target.value }))}
                                 className={fieldClass()}
-                                placeholder="0"
-                                min="0"
+                                placeholder="1"
+                                min="1"
                             />
+                        </div>
+                    </div>
+                    {/* ЭПД: габариты грузового места обязательны для ЭЗЗ */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Высота, м <span className="text-red-500">*</span></label>
+                            <input type="number" step="0.01" min="0.01" required value={form.cargoHeightM} onChange={(e) => setForm((c) => ({ ...c, cargoHeightM: e.target.value }))} className={fieldClass()} placeholder="2.0" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Длина, м <span className="text-red-500">*</span></label>
+                            <input type="number" step="0.01" min="0.01" required value={form.cargoLengthM} onChange={(e) => setForm((c) => ({ ...c, cargoLengthM: e.target.value }))} className={fieldClass()} placeholder="1.2" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-neutral-700 mb-1.5 block">Ширина, м <span className="text-red-500">*</span></label>
+                            <input type="number" step="0.01" min="0.01" required value={form.cargoWidthM} onChange={(e) => setForm((c) => ({ ...c, cargoWidthM: e.target.value }))} className={fieldClass()} placeholder="0.8" />
                         </div>
                     </div>
 
@@ -616,10 +638,11 @@ export function CreateOrderModal({ onClose, onCreate }: CreateOrderModalProps) {
                         <div className="mt-2">
                             <label className="text-xs text-neutral-500 mb-1 block">
                                 <Clock className="w-3 h-3 inline mr-1" />
-                                Дата погрузки
+                                Дата погрузки <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="date"
+                                required
                                 value={form.loadingDate}
                                 onChange={(e) => setForm((current) => ({ ...current, loadingDate: e.target.value }))}
                                 className="w-full px-2 py-1.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"

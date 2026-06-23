@@ -241,6 +241,10 @@ export const OrderSchema = z.object({
     cargoWeightKg: z.number().positive(),
     cargoVolumeM3: z.number().positive().optional(),
     cargoPlaces: z.number().int().positive().optional(),
+    // ЭПД: габариты грузового места (ЭЗЗ РазмерГрМест), м. Опц. в полной схеме.
+    cargoHeightM: z.number().positive().optional(),
+    cargoLengthM: z.number().positive().optional(),
+    cargoWidthM: z.number().positive().optional(),
     cargoType: z.string().optional(),
     // Sprint 9: Ярусность
     multiTierAllowed: z.boolean().default(false),
@@ -288,6 +292,13 @@ export type Order = z.infer<typeof OrderSchema>;
 export const OrderCreateSchema = OrderSchema.omit({
     id: true, number: true, status: true, tripId: true,
     createdAt: true, updatedAt: true,
+}).extend({
+    // ЭПД (жёстко при создании заказа): места, дата погрузки, габариты места для ЭЗЗ.
+    cargoPlaces: z.number().int().positive('Количество мест обязательно (для ЭПД)'),
+    loadingDate: z.string().min(1, 'Дата погрузки обязательна (для ЭПД)'),
+    cargoHeightM: z.number().positive('Высота места обязательна (для ЭПД)'),
+    cargoLengthM: z.number().positive('Длина места обязательна (для ЭПД)'),
+    cargoWidthM: z.number().positive('Ширина места обязательна (для ЭПД)'),
 });
 
 // Update DTO — explicit allowed-fields, не .partial() от Create.
@@ -303,6 +314,9 @@ export const OrderUpdateSchema = z.object({
     cargoWeightKg: z.number().positive().optional(),
     cargoVolumeM3: z.number().positive().optional(),
     cargoPlaces: z.number().int().positive().optional(),
+    cargoHeightM: z.number().positive().optional(),
+    cargoLengthM: z.number().positive().optional(),
+    cargoWidthM: z.number().positive().optional(),
     cargoType: z.string().optional(),
     multiTierAllowed: z.boolean().optional(),
     maxTiers: z.number().int().min(1).max(3).optional(),

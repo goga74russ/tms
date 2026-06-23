@@ -64,6 +64,9 @@ export interface CreateOrderInput {
     cargoWeightKg: number;
     cargoVolumeM3?: number;
     cargoPlaces?: number;
+    cargoHeightM?: number;
+    cargoLengthM?: number;
+    cargoWidthM?: number;
     cargoType?: string;
     // Sprint 9
     multiTierAllowed?: boolean;
@@ -171,6 +174,9 @@ export async function createOrder(
                     cargoWeightKg: input.cargoWeightKg,
                     cargoVolumeM3: input.cargoVolumeM3,
                     cargoPlaces: input.cargoPlaces,
+                    cargoHeightM: input.cargoHeightM,
+                    cargoLengthM: input.cargoLengthM,
+                    cargoWidthM: input.cargoWidthM,
                     cargoType: input.cargoType,
                     // Sprint 9
                     multiTierAllowed: input.multiTierAllowed,

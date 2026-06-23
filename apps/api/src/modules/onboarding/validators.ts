@@ -36,8 +36,10 @@ export const ProfileSchema = z.object({
     inn: z.string().regex(/^\d{10}(\d{2})?$/),
     name: z.string().min(1).max(500),
     kpp: z.string().nullish(),
-    ogrn: z.string().nullish(),
-    legalAddress: z.string().nullish(),
+    // ЭПД (жёстко): ОГРН (ЭПЛ СвЛицПЛ), юр.адрес, телефон (ЭТрН СвПер/Контакт) обязательны.
+    ogrn: z.string().min(1, 'ОГРН обязателен для ЭПД'),
+    legalAddress: z.string().min(1, 'Юридический адрес обязателен для ЭПД'),
+    phone: z.string().min(1, 'Телефон организации обязателен для ЭПД'),
     bankBik: z.string().nullish(),
     bankAccount: z.string().nullish(),
 });

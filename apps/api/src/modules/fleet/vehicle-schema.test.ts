@@ -11,6 +11,7 @@ const baseVehicle = (plate: string) => ({
     year: 2020,
     bodyType: 'тент',
     payloadCapacityKg: 20000,
+    payloadVolumeM3: 86, // ЭПД: обязательна
 });
 
 describe('VehicleCreateSchema.plateNumber', () => {

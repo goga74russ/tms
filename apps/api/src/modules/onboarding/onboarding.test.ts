@@ -115,7 +115,8 @@ describe('IntegrationChoiceSchema', () => {
 });
 
 describe('ProfileSchema', () => {
-    const baseProfile = (inn: string) => ({ inn, name: 'ООО Тест' });
+    // ЭПД: ОГРН/адрес/телефон теперь обязательны в ProfileSchema.
+    const baseProfile = (inn: string) => ({ inn, name: 'ООО Тест', ogrn: '1027700132195', legalAddress: 'г. Москва, ул. Тверская, д. 1', phone: '+74951234567' });
 
     it('accepts 10-digit ИНН (legal entity)', () => {
         expect(ProfileSchema.safeParse(baseProfile('1234567890')).success).toBe(true);

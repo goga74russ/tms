@@ -139,8 +139,9 @@ const onboardingRoutes: FastifyPluginAsync = async (fastify) => {
             inn: data.inn,
             name: data.name,
             kpp: data.kpp ?? null,
-            ogrn: data.ogrn ?? null,
-            legalAddress: data.legalAddress ?? null,
+            ogrn: data.ogrn,
+            legalAddress: data.legalAddress,
+            phone: data.phone,  // ЭПД: СвПер/Контакт/Тлф
             bankBik: data.bankBik ?? null,
             bankAccount: data.bankAccount ?? null,
             // C9: было `Math.max(2, 0)` — константа 2, регрессила юзеров,

@@ -28,6 +28,7 @@ export function StepProfile({ initial, onNext, onBack }: Props) {
     const [kpp, setKpp] = useState(initial?.kpp ?? '');
     const [ogrn, setOgrn] = useState(initial?.ogrn ?? '');
     const [legalAddress, setLegalAddress] = useState(initial?.legalAddress ?? '');
+    const [phone, setPhone] = useState('');  // телефон вводит пользователь (нет в DaData)
     const [bankBik, setBankBik] = useState('');
     const [bankAccount, setBankAccount] = useState('');
     const [saving, setSaving] = useState(false);
@@ -39,7 +40,10 @@ export function StepProfile({ initial, onNext, onBack }: Props) {
         if (!name.trim()) e.name = 'Укажите название';
         if (!/^\d{10}(\d{2})?$/.test(inn)) e.inn = 'ИНН: 10 или 12 цифр';
         if (kpp && !/^\d{9}$/.test(kpp)) e.kpp = 'КПП: 9 цифр';
-        if (ogrn && !/^\d{13,15}$/.test(ogrn)) e.ogrn = 'ОГРН: 13 или 15 цифр';
+        // ЭПД (жёстко): ОГРН, юр.адрес, телефон обязательны.
+        if (!/^\d{13,15}$/.test(ogrn)) e.ogrn = 'ОГРН обязателен: 13 или 15 цифр (для ЭПД)';
+        if (!legalAddress.trim()) e.legalAddress = 'Юр.адрес обязателен (для ЭПД)';
+        if (!phone.trim()) e.phone = 'Телефон организации обязателен (для ЭПД)';
         if (bankBik && !/^\d{9}$/.test(bankBik)) e.bankBik = 'БИК: 9 цифр';
         if (bankAccount && !/^\d{20}$/.test(bankAccount)) e.bankAccount = 'Счёт: 20 цифр';
         return e;
@@ -64,6 +68,7 @@ export function StepProfile({ initial, onNext, onBack }: Props) {
                 kpp,
                 ogrn,
                 legalAddress,
+                phone,
                 bankBik,
                 bankAccount,
             });
@@ -128,6 +133,7 @@ export function StepProfile({ initial, onNext, onBack }: Props) {
                     <FormField
                         format="ogrn"
                         label="ОГРН / ОГРНИП"
+                        required
                         inputMode="numeric"
                         maxLength={15}
                         value={ogrn}
@@ -138,8 +144,20 @@ export function StepProfile({ initial, onNext, onBack }: Props) {
                 <div className="sm:col-span-2">
                     <Input
                         label="Юридический адрес"
+                        required
                         value={legalAddress}
                         onChange={(e) => setLegalAddress(e.target.value)}
+                        error={errors.legalAddress}
+                    />
+                </div>
+                <div className="sm:col-span-2">
+                    <FormField
+                        format="phone"
+                        label="Телефон организации"
+                        required
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        externalError={errors.phone}
                     />
                 </div>
                 <FormField
