@@ -651,10 +651,14 @@ function CredentialModal({
     const [user, setUser] = useState('');
     const [password, setPassword] = useState('');
     const [apiKey, setApiKey] = useState('');
+    const [boxId, setBoxId] = useState('');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const isSmtp = type === 'email' && name === 'mailru_smtp';
+    // Диадок: классический DiadocAuth требует api_client_id (Api-ключ Контура) +
+    // токен из Authenticate по логину/паролю аккаунта. Одного поля мало.
+    const isDiadoc = type === 'edi' && name === 'diadoc';
 
     const submit = async () => {
         setError(null);
@@ -665,6 +669,11 @@ function CredentialModal({
                 if (host) credentials.host = host;
                 if (user) credentials.user = user;
                 if (password) credentials.password = password;
+            } else if (isDiadoc) {
+                if (apiKey) credentials.apiClientId = apiKey;
+                if (user) credentials.login = user;
+                if (password) credentials.password = password;
+                if (boxId) credentials.boxId = boxId;
             } else {
                 if (apiKey) credentials.apiKey = apiKey;
             }
@@ -713,6 +722,17 @@ function CredentialModal({
                         <Field label="SMTP host"><Input value={host} onChange={(e) => setHost(e.target.value)} placeholder="smtp.mail.ru" /></Field>
                         <Field label="Пользователь"><Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="user@mail.ru" /></Field>
                         <Field label="Пароль"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+                    </>
+                ) : isDiadoc ? (
+                    <>
+                        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-600">
+                            Api-ключ и логин/пароль аккаунта Контур (раздел «Аутентификация через Контур»).
+                            Box ID — необязателен, нужен только для отправки документов.
+                        </div>
+                        <Field label="Api-ключ (ddauth_api_client_id)"><Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="b5fb30..." /></Field>
+                        <Field label="Логин Контур"><Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="user@example.ru" /></Field>
+                        <Field label="Пароль Контур"><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
+                        <Field label="Box ID ящика (опционально)"><Input value={boxId} onChange={(e) => setBoxId(e.target.value)} placeholder="идентификатор ящика в Диадоке" /></Field>
                     </>
                 ) : (
                     <Field label="API ключ"><Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="API key / token" /></Field>
