@@ -1,19 +1,18 @@
 // ============================================================
-// Diadoc (Контур) EDI provider — реальная интеграция с ГИС ЭПД.
-// Docs: developer.kontur.ru/Docs/diadoc-api  ·  host: diadoc-api.kontur.ru
+// Контур.Логистика EDI provider — ЭТрН/ЭПЛ → ГИС ЭПД.
+// Spec: developer.kontur.ru/doc/logistics.api  ·  hosts: logist-api.kontur.ru
 // Design + флоу: apps/api/docs/etrn/DIADOC-INTEGRATION.md
 //
-// Аутентификация — классическая схема Диадока под выданный API-ключ:
-//   1) POST V3/Authenticate?type=password
-//        Authorization: DiadocAuth ddauth_api_client_id=<ключ>
-//        body { login, password }   → токен (долгоживущий, тело = токен)
-//   2) каждый вызов:
-//        Authorization: DiadocAuth ddauth_api_client_id=<ключ>, ddauth_token=<токен>
-//   (если в кредах уже лежит готовый authToken — шаг 1 пропускается.)
+// ⚠️ Провайдер исторически зарегистрирован как `diadoc` (registry edi:diadoc,
+// UI «Контур.Диадок»), но интегрируемся через ВЫСОКОУРОВНЕВЫЙ Контур.Логистика
+// API — он покрывает ровно ЭТрН/ЭПЛ (генерация титулов, подпись, ГИС ЭПД,
+// согласование с водителем ПЭП), а не сырой Diadoc message-protocol.
 //
-// ⚠️ Боевая отправка титула в ГИС ЭПД требует КЭП-подписи
-// (SignedContent.Signature, detached PKCS#7/CAdES). Пока signer не
-// сконфигурирован — sendDocument честно бросает ошибку, НЕ фейковый success.
+// Auth: заголовок `x-kontur-apikey: <ключ>` (схема auth.apikey) либо Bearer.
+//
+// ⚠️ Боевая отправка титула требует КЭП-подписи (детач PKCS#7/CAdES) —
+// загружается multipart в /v1/documents/waybill. Пока signer не внедрён,
+// sendDocument честно бросает ошибку, НЕ фейковый success.
 // ============================================================
 import { nowIso, type ProviderHealth } from '../base.js';
 import type {
@@ -22,50 +21,35 @@ import type {
 import { assertValidETrNPayload } from '../../lib/xsd-validator-gate.js';
 import { httpFetch } from '../_http.js';
 
-export const DIADOC_API_URL = 'https://diadoc-api.kontur.ru';
+export const LOGIST_API_URL = 'https://logist-api.kontur.ru';
+export const LOGIST_API_STAGING_URL = 'https://logist-api-staging.kontur.ru';
+// Историческое имя — раньше адаптер бил в сырой Diadoc host. Оставлено как
+// алиас, чтобы не ломать импорты; для Логистики не используется.
+export const DIADOC_API_URL = LOGIST_API_URL;
 
 export interface DiadocCredentials {
-    /**
-     * Значение из однополевой формы кабинета интеграций. Трактуется как
-     * access-токен Контур.ID (Bearer) — именно его используют методы логистики
-     * в доке (`Authorization: Bearer <access_token>`). Алиас к authToken.
-     */
+    /** Ключ для заголовка x-kontur-apikey (значение из формы кабинета интеграций). */
     apiKey?: string;
-    /** ddauth_api_client_id — для классической схемы DiadocAuth (расширенный сценарий). */
+    /** Алиас apiKey (если форма прислала под другим именем). */
     apiClientId?: string;
-    /** Идентификатор ящика нашей организации в Диадоке (нужен для отправки, не для healthCheck). */
-    boxId?: string;
-    /** Готовый долгоживущий токен. Если есть — login/password не нужны. */
+    /** OIDC access_token — альтернатива apiKey (Authorization: Bearer). */
     authToken?: string;
-    /** Логин/пароль для Authenticate (только классическая схема DiadocAuth). */
-    login?: string;
-    password?: string;
-    /** Override базового URL (например Staging-хост). По умолчанию production. */
+    /** Идентификатор ящика нашей организации (нужен для части операций отправки). */
+    boxId?: string;
+    /** Override базового URL. Если не задан — staging?staging:prod. */
     baseUrl?: string;
+    /** Использовать Staging-хост (logist-api-staging) вместо прод. */
+    staging?: boolean;
 }
 
 /**
- * Сейм для КЭП-подписи. Реализация (КриптоПро / Контур.Плагин / серверная
- * подпись) внедряется отдельно — у нас её пока нет. Возвращает detached
- * PKCS#7 (CAdES-BES) в base64 для переданного содержимого.
+ * Сейм для КЭП-подписи. Реализация (КриптоПро / Контур.Плагин в браузере /
+ * серверная подпись) внедряется отдельно — у нас её пока нет. Возвращает
+ * detached PKCS#7 (CAdES-BES) в base64 для переданного содержимого.
  */
 export interface DiadocSigner {
     signDetached(contentUtf8: string): Promise<string>;
 }
-
-/** Тип формализованного документа Диадока + функция + версия для PostMessage. */
-interface DiadocDocType {
-    typeNamedId: string;
-    function: string;
-    version: string;
-}
-
-/** ЭТрН: единый тип/версия для всех титулов (см. DIADOC-INTEGRATION.md). */
-const ETRN_DOC_TYPE: DiadocDocType = {
-    typeNamedId: 'LogisticsWaybill',
-    function: 'reception',
-    version: 'kl_trn_mt_05_01',
-};
 
 export class DiadocEdiProvider implements EdiProvider {
     readonly name = 'diadoc';
@@ -73,115 +57,67 @@ export class DiadocEdiProvider implements EdiProvider {
     readonly mode = 'production' as const;
 
     private readonly baseUrl: string;
-    /** Токен кэшируется в памяти процесса; перезапрашивается при 401. */
-    private token: string | null;
 
     constructor(
         private readonly creds: DiadocCredentials,
         /** Внедряется отдельно, когда появится КЭП. Без него отправка невозможна. */
         private readonly signer?: DiadocSigner,
     ) {
-        this.baseUrl = (creds.baseUrl ?? DIADOC_API_URL).replace(/\/+$/, '');
-        // Однополевая форма кладёт значение в apiKey → трактуем как Bearer-токен.
-        this.token = creds.authToken ?? creds.apiKey ?? null;
+        const fallback = creds.staging ? LOGIST_API_STAGING_URL : LOGIST_API_URL;
+        this.baseUrl = (creds.baseUrl ?? fallback).replace(/\/+$/, '');
     }
 
     // ---------- Аутентификация ----------
 
-    private authHeader(includeToken = true): string {
-        // Bearer-режим: есть токен, но нет apiClientId (Контур.ID access_token).
-        if (includeToken && this.token && !this.creds.apiClientId) {
-            return `Bearer ${this.token}`;
-        }
-        // Классический DiadocAuth (apiClientId + опционально ddauth_token).
-        const parts = [`ddauth_api_client_id=${this.creds.apiClientId ?? ''}`];
-        if (includeToken && this.token) parts.push(`ddauth_token=${this.token}`);
-        return `DiadocAuth ${parts.join(', ')}`;
+    private get apiKey(): string | undefined {
+        return this.creds.apiKey ?? this.creds.apiClientId;
     }
 
-    /** Получить (и закэшировать) токен. Идемпотентно. */
-    private async ensureToken(): Promise<string> {
-        if (this.token) return this.token;
-        if (!this.creds.login || !this.creds.password) {
-            throw new Error(
-                'Diadoc: не задан токен (поле «API ключ») и нет login/password для Authenticate. ' +
-                'Впишите access-токен Контур в /admin/integrations.',
-            );
-        }
-        const res = await httpFetch(
-            `${this.baseUrl}/V3/Authenticate?type=password`,
-            {
-                method: 'POST',
-                headers: {
-                    'Authorization': this.authHeader(false),
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ login: this.creds.login, password: this.creds.password }),
-            },
-            { timeoutMs: 20000, retries: 1 },
+    private authHeaders(): Record<string, string> {
+        // Приоритет — x-kontur-apikey (основная схема Логистики). Bearer как
+        // альтернатива, если задан только OIDC-токен.
+        if (this.apiKey) return { 'x-kontur-apikey': this.apiKey };
+        if (this.creds.authToken) return { 'Authorization': `Bearer ${this.creds.authToken}` };
+        throw new Error(
+            'Контур.Логистика: не задан API-ключ (поле «API ключ»). ' +
+            'Впишите ключ в /admin/integrations.',
         );
-        if (!res.ok) {
-            throw new Error(`Diadoc Authenticate failed: HTTP ${res.status}`);
-        }
-        // Тело ответа = сам токен (plain text).
-        const token = (await res.text()).trim();
-        if (!token) throw new Error('Diadoc Authenticate: пустой токен в ответе');
-        this.token = token;
-        return token;
     }
 
-    /** Авторизованный запрос к API. Один ретрай при 401 (протух токен). */
-    private async api(
-        method: string,
-        path: string,
-        init: RequestInit = {},
-        opts: { contentType?: string } = {},
-    ): Promise<Response> {
-        await this.ensureToken();
-        const doFetch = (): Promise<Response> => httpFetch(
+    private async api(method: string, path: string, init: RequestInit = {}): Promise<Response> {
+        return httpFetch(
             `${this.baseUrl}${path}`,
             {
                 ...init,
                 method,
                 headers: {
-                    'Authorization': this.authHeader(true),
-                    ...(opts.contentType ? { 'Content-Type': opts.contentType } : {}),
+                    ...this.authHeaders(),
                     ...(init.headers as Record<string, string> | undefined),
                 },
             },
             { timeoutMs: 20000, retries: 2 },
         );
-        let res = await doFetch();
-        if (res.status === 401 && this.creds.login && this.creds.password) {
-            // Классическая схема: токен мог протухнуть — переаутентифицируемся раз.
-            this.token = null;
-            await this.ensureToken();
-            res = await doFetch();
-        }
-        // Bearer-режим (статичный токен без login/password): 401 = невалидный токен,
-        // возвращаем как есть — healthCheck честно покажет HTTP 401.
-        return res;
     }
 
     async healthCheck(): Promise<ProviderHealth> {
-        // GetMyOrganizations — лёгкий аутентифицированный пинг. Проверяемо
-        // тестовым ключом уже сейчас (до КЭП и боевой отправки).
+        // GET /v1/organizations/my — лёгкий аутентифицированный пинг.
+        // Проверяемо ключом уже сейчас (до КЭП и боевой отправки).
         try {
-            const res = await this.api('GET', '/GetMyOrganizations');
+            const res = await this.api('GET', '/v1/organizations/my');
             const ok = res.ok;
             return {
                 ok,
                 mode: 'production',
                 detail: ok
-                    ? `diadoc reachable (box ${this.creds.boxId})`
-                    : `diadoc GetMyOrganizations HTTP ${res.status}`,
+                    ? `Контур.Логистика доступен (${this.baseUrl})`
+                    : `Контур.Логистика /v1/organizations/my HTTP ${res.status} ${await safeText(res)}`,
                 checkedAt: nowIso(),
             };
         } catch (err) {
             return {
                 ok: false,
                 mode: 'production',
-                detail: `diadoc unreachable: ${err instanceof Error ? err.message : String(err)}`,
+                detail: `Контур.Логистика недоступен: ${err instanceof Error ? err.message : String(err)}`,
                 checkedAt: nowIso(),
             };
         }
@@ -191,113 +127,48 @@ export class DiadocEdiProvider implements EdiProvider {
         return this.sendDocument(input.organizationId, input.documentId, input.payload, input.counterpartyInn);
     }
 
-    // ---------- Резолв ящика контрагента ----------
-
-    /** ИНН контрагента → BoxId его ящика в Диадоке. */
-    private async resolveBoxId(inn: string): Promise<string> {
-        const res = await this.api('GET', `/GetOrganizationByInnKpp?inn=${encodeURIComponent(inn)}`);
-        if (!res.ok) {
-            throw new Error(`Diadoc GetOrganizationByInnKpp(${inn}) failed: HTTP ${res.status}`);
-        }
-        const org = await res.json() as {
-            Organizations?: Array<{ Boxes?: Array<{ BoxId?: string }> }>;
-            Boxes?: Array<{ BoxId?: string }>;
-        };
-        const boxes = org.Organizations?.[0]?.Boxes ?? org.Boxes ?? [];
-        const boxId = boxes.find(b => b.BoxId)?.BoxId;
-        if (!boxId) {
-            throw new Error(`Diadoc: у контрагента ИНН ${inn} нет активного ящика (не подключён к ЭДО)`);
-        }
-        return boxId;
-    }
-
-    // ---------- Отправка ----------
-
     async sendDocument(
         _orgId: string,
         _documentId: string,
         payload: string,
-        counterpartyInn?: string,
+        _counterpartyInn?: string,
     ): Promise<EdiSendResult> {
         // Defense-in-depth: структурная XSD-проверка ЭТрН-XML до отправки.
-        // No-op для не-XML payload.
         assertValidETrNPayload(payload);
-
-        if (!counterpartyInn) {
-            throw new Error('Diadoc sendDocument: не передан ИНН контрагента — некуда отправлять');
-        }
-        const toBoxId = await this.resolveBoxId(counterpartyInn);
 
         // Боевая отправка в ГИС ЭПД невозможна без КЭП-подписи. Честно
         // блокируем, пока signer не внедрён (см. DIADOC-INTEGRATION.md §блокеры).
+        // Флоу Логистики: POST /v1/documents/transportation/generation/consignor-reception
+        // (генерация Т1 из структурных данных) → подпись КЭП → POST /v1/documents/waybill
+        // (multipart: подписанный файл) → driver-approve (ПЭП водителя).
         if (!this.signer) {
             throw new Error(
-                'Diadoc sendDocument: КЭП-подпись не сконфигурирована (signer отсутствует). ' +
-                'Титул нельзя отправить в ГИС ЭПД без квалифицированной подписи. ' +
-                `Резолв выполнен: FromBox=${this.creds.boxId} → ToBox=${toBoxId}.`,
+                'Контур.Логистика sendDocument: КЭП-подпись не сконфигурирована (signer отсутствует). ' +
+                'Титул нельзя отправить в ГИС ЭПД без квалифицированной подписи.',
             );
         }
-
-        // Payload приходит как base64(XML) или raw XML — приводим к base64 и
-        // одновременно достаём UTF-8 для подписи.
-        const { base64, utf8 } = normalizePayload(payload);
-        const signature = await this.signer.signDetached(utf8);
-
-        const res = await this.api(
-            'POST',
-            '/V3/PostMessage',
-            {
-                body: JSON.stringify({
-                    FromBoxId: this.creds.boxId,
-                    ToBoxId: toBoxId,
-                    DocumentAttachments: [{
-                        SignedContent: { Content: base64, Signature: signature },
-                        TypeNamedId: ETRN_DOC_TYPE.typeNamedId,
-                        Function: ETRN_DOC_TYPE.function,
-                        Version: ETRN_DOC_TYPE.version,
-                    }],
-                }),
-            },
-            { contentType: 'application/json' },
-        );
-        if (!res.ok) {
-            throw new Error(`Diadoc PostMessage failed: HTTP ${res.status} ${await safeText(res)}`);
-        }
-        const data = await res.json() as { MessageId?: string; Entities?: Array<{ EntityId?: string }> };
-        const externalId = data.MessageId ?? data.Entities?.[0]?.EntityId ?? '';
-        if (!externalId) throw new Error('Diadoc PostMessage: пустой MessageId в ответе');
-        return { externalId, status: 'sent' };
+        throw new Error('Контур.Логистика sendDocument: отправка титулов ещё не реализована (этап после КЭП).');
     }
 
     async getStatus(externalId: string): Promise<EdiExternalStatus> {
-        // Документооборот по messageId. Маппинг статусов сверяется на Staging —
-        // best-effort: ищем признаки подписи/отказа в событиях сообщения.
-        if (!this.creds.boxId) {
-            throw new Error('Diadoc getStatus: не задан boxId нашей организации');
-        }
-        const res = await this.api(
-            'GET',
-            `/V3/GetMessage?boxId=${encodeURIComponent(this.creds.boxId)}&messageId=${encodeURIComponent(externalId)}`,
-        );
+        // GET /v1/transportations/{id}/full-docflow — статусы документооборота.
+        const res = await this.api('GET', `/v1/transportations/${encodeURIComponent(externalId)}/full-docflow`);
         if (!res.ok) {
-            throw new Error(`Diadoc GetMessage(${externalId}) failed: HTTP ${res.status}`);
+            throw new Error(`Контур.Логистика full-docflow(${externalId}) failed: HTTP ${res.status}`);
         }
-        const msg = await res.json() as {
-            Entities?: Array<{ DocumentInfo?: { DocflowStatus?: { Status?: string } } }>;
-        };
-        const statuses = (msg.Entities ?? [])
-            .map(e => e.DocumentInfo?.DocflowStatus?.Status)
-            .filter(Boolean) as string[];
-        return mapDiadocStatus(statuses);
+        const data = await res.json() as { status?: string; documents?: Array<{ status?: string }> };
+        const joined = [data.status, ...(data.documents ?? []).map(d => d.status)]
+            .filter(Boolean).join(' ').toLowerCase();
+        return mapLogistStatus(joined);
     }
 
     async handleCallback(payload: Record<string, unknown>): Promise<EdiCallbackEvent> {
-        // Диадок шлёт webhook-события на push-URL, настроенный в кабинете.
-        const externalId = String(payload.messageId ?? payload.MessageId ?? '');
-        const eventType = String(payload.eventType ?? payload.EventType ?? '');
+        const externalId = String(payload.transportationId ?? payload.id ?? payload.messageId ?? '');
+        const eventType = String(payload.eventType ?? payload.type ?? '');
         const status: EdiExternalStatus =
-            /sign/i.test(eventType) ? 'signed_by_client' :
             /reject/i.test(eventType) ? 'rejected' :
+            /signedbyrecipient|recipient/i.test(eventType) ? 'signed_by_client' :
+            /signedbysender|sender/i.test(eventType) ? 'signed_by_carrier' :
             /receive|deliver/i.test(eventType) ? 'delivered' : 'sent';
         return { externalId, status, occurredAt: nowIso(), payload };
     }
@@ -305,29 +176,17 @@ export class DiadocEdiProvider implements EdiProvider {
 
 // ---------- helpers ----------
 
-/** Привести payload (base64 или raw XML) к { base64, utf8 }. */
-function normalizePayload(payload: string): { base64: string; utf8: string } {
-    const trimmed = payload.trimStart();
-    if (trimmed.startsWith('<?xml') || trimmed.startsWith('<')) {
-        return { utf8: payload, base64: Buffer.from(payload, 'utf8').toString('base64') };
-    }
-    // Похоже на base64 — декодируем для подписи, оставляем исходный base64.
-    const utf8 = Buffer.from(payload, 'base64').toString('utf8');
-    return { base64: payload, utf8 };
-}
-
-/** Маппинг статусов документооборота Диадока → наш EdiExternalStatus. */
-function mapDiadocStatus(statuses: string[]): EdiExternalStatus {
-    const joined = statuses.join(' ').toLowerCase();
+function mapLogistStatus(joined: string): EdiExternalStatus {
     if (/reject/.test(joined)) return 'rejected';
-    if (/signed.*recipient|recipientsigned|подписан/.test(joined)) return 'signed_by_client';
+    if (/recipientsigned|signedbyrecipient|подписанполуч/.test(joined)) return 'signed_by_client';
+    if (/sendersigned|signedbysender|подписанотпр/.test(joined)) return 'signed_by_carrier';
     if (/delivered|received|доставлен/.test(joined)) return 'delivered';
     return 'sent';
 }
 
 async function safeText(res: Response): Promise<string> {
     try {
-        return (await res.text()).slice(0, 500);
+        return (await res.text()).slice(0, 300);
     } catch {
         return '';
     }
