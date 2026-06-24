@@ -25,13 +25,19 @@ import { httpFetch } from '../_http.js';
 export const DIADOC_API_URL = 'https://diadoc-api.kontur.ru';
 
 export interface DiadocCredentials {
-    /** ddauth_api_client_id — API-ключ из кабинета Контур.Интегратор. */
-    apiClientId: string;
-    /** Идентификатор ящика нашей организации в Диадоке. */
-    boxId: string;
-    /** Готовый долгоживущий токен (из Authenticate). Если есть — login/password не нужны. */
+    /**
+     * Значение из однополевой формы кабинета интеграций. Трактуется как
+     * access-токен Контур.ID (Bearer) — именно его используют методы логистики
+     * в доке (`Authorization: Bearer <access_token>`). Алиас к authToken.
+     */
+    apiKey?: string;
+    /** ddauth_api_client_id — для классической схемы DiadocAuth (расширенный сценарий). */
+    apiClientId?: string;
+    /** Идентификатор ящика нашей организации в Диадоке (нужен для отправки, не для healthCheck). */
+    boxId?: string;
+    /** Готовый долгоживущий токен. Если есть — login/password не нужны. */
     authToken?: string;
-    /** Логин/пароль для Authenticate, если authToken не задан. */
+    /** Логин/пароль для Authenticate (только классическая схема DiadocAuth). */
     login?: string;
     password?: string;
     /** Override базового URL (например Staging-хост). По умолчанию production. */
@@ -76,14 +82,20 @@ export class DiadocEdiProvider implements EdiProvider {
         private readonly signer?: DiadocSigner,
     ) {
         this.baseUrl = (creds.baseUrl ?? DIADOC_API_URL).replace(/\/+$/, '');
-        this.token = creds.authToken ?? null;
+        // Однополевая форма кладёт значение в apiKey → трактуем как Bearer-токен.
+        this.token = creds.authToken ?? creds.apiKey ?? null;
     }
 
     // ---------- Аутентификация ----------
 
-    private authHeader(withToken: boolean): string {
-        const parts = [`ddauth_api_client_id=${this.creds.apiClientId}`];
-        if (withToken && this.token) parts.push(`ddauth_token=${this.token}`);
+    private authHeader(includeToken = true): string {
+        // Bearer-режим: есть токен, но нет apiClientId (Контур.ID access_token).
+        if (includeToken && this.token && !this.creds.apiClientId) {
+            return `Bearer ${this.token}`;
+        }
+        // Классический DiadocAuth (apiClientId + опционально ddauth_token).
+        const parts = [`ddauth_api_client_id=${this.creds.apiClientId ?? ''}`];
+        if (includeToken && this.token) parts.push(`ddauth_token=${this.token}`);
         return `DiadocAuth ${parts.join(', ')}`;
     }
 
@@ -92,8 +104,8 @@ export class DiadocEdiProvider implements EdiProvider {
         if (this.token) return this.token;
         if (!this.creds.login || !this.creds.password) {
             throw new Error(
-                'Diadoc: нет authToken и не заданы login/password для Authenticate. ' +
-                'Заполните креды через /admin/integrations.',
+                'Diadoc: не задан токен (поле «API ключ») и нет login/password для Authenticate. ' +
+                'Впишите access-токен Контур в /admin/integrations.',
             );
         }
         const res = await httpFetch(
@@ -140,14 +152,14 @@ export class DiadocEdiProvider implements EdiProvider {
             { timeoutMs: 20000, retries: 2 },
         );
         let res = await doFetch();
-        if (res.status === 401) {
-            // Сбросить токен и попробовать переаутентифицироваться один раз.
-            this.token = this.creds.authToken ?? null;
-            if (!this.token) {
-                await this.ensureToken();
-                res = await doFetch();
-            }
+        if (res.status === 401 && this.creds.login && this.creds.password) {
+            // Классическая схема: токен мог протухнуть — переаутентифицируемся раз.
+            this.token = null;
+            await this.ensureToken();
+            res = await doFetch();
         }
+        // Bearer-режим (статичный токен без login/password): 401 = невалидный токен,
+        // возвращаем как есть — healthCheck честно покажет HTTP 401.
         return res;
     }
 
@@ -260,6 +272,9 @@ export class DiadocEdiProvider implements EdiProvider {
     async getStatus(externalId: string): Promise<EdiExternalStatus> {
         // Документооборот по messageId. Маппинг статусов сверяется на Staging —
         // best-effort: ищем признаки подписи/отказа в событиях сообщения.
+        if (!this.creds.boxId) {
+            throw new Error('Diadoc getStatus: не задан boxId нашей организации');
+        }
         const res = await this.api(
             'GET',
             `/V3/GetMessage?boxId=${encodeURIComponent(this.creds.boxId)}&messageId=${encodeURIComponent(externalId)}`,
