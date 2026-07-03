@@ -322,7 +322,8 @@ function ComplianceTimeline({
 
 function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null }) {
     const transportDocuments = dossier?.transportDocuments;
-    const etrn = dossier?.etrn;
+    // ЭТрН-воркфлоу приходит вложенным в transportDocuments.etrn; top-level dossier.etrn оставлен как фолбэк.
+    const etrn = dossier?.etrn ?? dossier?.transportDocuments?.etrn;
 
     if (!transportDocuments && !etrn) return null;
 
@@ -564,7 +565,7 @@ function PersistedTransportDocumentsBlock({ dossier }: { dossier?: any | null })
                             </span>
                         </div>
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                            {titles.slice(0, 6).map((title: any) => (
+                            {titles.map((title: any) => (
                                 <div key={title.id} className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">

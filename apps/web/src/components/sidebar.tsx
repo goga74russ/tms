@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { useUser } from '@/lib/user-context';
+import { NotificationsBell } from '@/components/notifications-bell';
 
 // ================================================================
 // Navigation with role filtering (H-16)
@@ -107,6 +108,7 @@ export function Sidebar() {
                         </div>
                     )}
                 </Link>
+                {!collapsed && user && <NotificationsBell />}
                 <button
                     type="button"
                     onClick={() => setCollapsed(!collapsed)}
@@ -193,6 +195,7 @@ export function Sidebar() {
             {/* Collapsed user avatar */}
             {collapsed && user && (
                 <div className="p-2 border-t border-neutral-200 flex flex-col items-center gap-2">
+                    <NotificationsBell collapsed />
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-success-500 to-success-700 flex items-center justify-center text-white text-sm font-bold shadow-soft" title={user.fullName}>
                         {user.fullName.charAt(0).toUpperCase()}
                     </div>

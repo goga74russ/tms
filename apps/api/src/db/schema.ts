@@ -1993,6 +1993,29 @@ export const mchd = pgTable('mchd', {
     uniqueIndex('uq_mchd_org_number').on(table.organizationId, table.mchdNumber),
 ]);
 
+// ================================================================
+// In-app уведомления (колокольчик в навигации). Отдельно от Telegram.
+// Строка = адресат: userId + createdAt + readAt = встроенный лог
+// «кому / когда отправлено / когда прочитано». См. migration 0037.
+// ================================================================
+export const appNotifications = pgTable('app_notifications', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    /** Тип события, напр. 'etrn_sign_required'. */
+    type: varchar('type', { length: 64 }).notNull(),
+    title: varchar('title', { length: 255 }).notNull(),
+    message: text('message').notNull(),
+    /** Дип-линк на рейс (nullable — уведомление переживает удаление рейса). */
+    tripId: uuid('trip_id').references(() => trips.id, { onDelete: 'set null' }),
+    meta: jsonb('meta').$type<Record<string, unknown>>().notNull().default({}),
+    readAt: timestamp('read_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+    index('idx_app_notifications_user_unread').on(table.userId, table.readAt),
+    index('idx_app_notifications_org').on(table.organizationId),
+]);
+
 // ============================================================
 // DPA Acceptances (Data Processing Acceptances) — 152-ФЗ ст. 9
 // ============================================================

@@ -1569,7 +1569,8 @@ function OperationalActionsBlock({
 function TransportDocumentsBlock({ dossier, isAdmin }: { dossier: any; isAdmin: boolean }) {
     const { user } = useUser();
     const transportDocuments = dossier?.transportDocuments;
-    const etrn = dossier?.etrn;
+    // ЭТрН-воркфлоу приходит вложенным в transportDocuments.etrn; top-level dossier.etrn оставлен как фолбэк.
+    const etrn = dossier?.etrn ?? dossier?.transportDocuments?.etrn;
     const tripId = dossier?.trip?.id;
     // Подписант = реальный текущий пользователь, а не захардкоженный «dispatcher / Оператор ТрансПульт».
     const signerRole = user?.roles?.[0] ?? 'operator';

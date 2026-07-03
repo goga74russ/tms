@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm';
 import { changeTripStatus, updateRoutePoint } from '../trips/service.js';
 import { recordEvent } from '../../events/journal.js';
 import { safeClientError } from '../../utils/safe-error.js';
+import { resolveEtrnSignRecipients, createNotifications } from '../notifications/app-notifications.service.js';
 
 export type SyncEvent = {
     id: string; // client-side event id
@@ -183,6 +184,40 @@ async function processSingleEvent(event: SyncEvent, user: { userId: string, role
                 photoUrls,
                 signatureUrl
             });
+
+            // Уведомление подписанту ЭТрН: после подписи ПОГРУЗКИ водителем нужно
+            // оформить титул Т2 (приём груза) — типовой срок 4 часа. Внутри guard'а,
+            // чтобы не дублировать на реплее уже завершённой точки. Любая ошибка
+            // проглатывается — сбой уведомления не должен ронять синк водителя.
+            if (point.type === 'loading' && trip?.organizationId) {
+                const orgId = trip.organizationId;
+                try {
+                    const recipients = await resolveEtrnSignRecipients(orgId);
+                    if (recipients.length > 0) {
+                        const deadline = new Date(offlineTimestamp.getTime() + 4 * 60 * 60 * 1000);
+                        await createNotifications({
+                            organizationId: orgId,
+                            userIds: recipients,
+                            type: 'etrn_sign_required',
+                            title: 'Требуется подпись ЭТрН',
+                            message: `Водитель подписал погрузку. Подпишите титул Т2 (приём груза) до ${deadline.toLocaleString('ru-RU')}.`,
+                            tripId: point.tripId,
+                            meta: { titleType: 'T02', pointId, deadlineAt: deadline.toISOString(), reason: 'loading_signed' },
+                        });
+                        await recordEvent({
+                            authorId: user.userId,
+                            authorRole: user.roles[0],
+                            eventType: 'notification.etrn_sign_required',
+                            entityType: 'trip',
+                            entityId: point.tripId,
+                            data: { recipients: recipients.length, pointId },
+                            offlineCreatedAt: offlineTimestamp.toISOString(),
+                        });
+                    }
+                } catch {
+                    // no-op: подтверждение точки водителем важнее доставки уведомления
+                }
+            }
         }
 
         await recordEvent({
