@@ -44,6 +44,37 @@ export function saveBlob(blob: Blob, filename: string) {
     }, 3000);
 }
 
-export async function downloadFromApi(apiPath: string, fallbackFilename: string) {
-    clickDownloadLink(apiPath, fallbackFilename);
+/**
+ * Скачать файл с API. Раньше вешался простой `<a href download>` — при ответе
+ * 4xx/5xx (например 422 ETRN_DATA_INCOMPLETE) браузер показывал «Сайт недоступен»
+ * и проглатывал причину. Теперь: fetch → на успех сохраняем blob, на ошибку
+ * парсим JSON-сообщение сервера и отдаём его в onError (тост у вызывающего).
+ * Не бросает исключений — безопасно для fire-and-forget вызовов.
+ */
+export async function downloadFromApi(
+    apiPath: string,
+    fallbackFilename: string,
+    onError?: (message: string, status: number) => void,
+): Promise<void> {
+    try {
+        const res = await fetch(apiPath, { credentials: 'include' });
+        if (!res.ok) {
+            let message = `Не удалось скачать файл (ошибка ${res.status})`;
+            try {
+                const data = await res.clone().json();
+                if (data?.error) message = String(data.error);
+            } catch {
+                // тело не JSON — оставляем дефолтное сообщение
+            }
+            if (onError) onError(message, res.status);
+            else console.error('[downloadFromApi]', apiPath, message);
+            return;
+        }
+        const blob = await res.blob();
+        saveBlob(blob, fallbackFilename);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'Ошибка сети при загрузке';
+        if (onError) onError(message, 0);
+        else console.error('[downloadFromApi]', apiPath, message);
+    }
 }

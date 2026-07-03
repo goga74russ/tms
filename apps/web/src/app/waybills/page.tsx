@@ -1535,7 +1535,7 @@ export default function WaybillsPage() {
                             }
                         },
                     },
-                    { id: 'etrn-xml', label: 'Скачать ЭТрН XML', icon: <Download className="w-4 h-4" />, onClick: () => { void downloadFromApi(`/api/waybills/${wb.id}/etrn`, `etrn_${wb.number}.xml`); } },
+                    { id: 'etrn-xml', label: 'Скачать ЭТрН XML', icon: <Download className="w-4 h-4" />, onClick: () => { void downloadFromApi(`/api/waybills/${wb.id}/etrn`, `etrn_${wb.number}.xml`, (m) => setToast({ message: m, type: 'error' })); } },
                     { id: 'pdf', label: 'Скачать PDF', icon: <FileDown className="w-4 h-4" />, onClick: () => { void downloadFromApi(`/api/waybills/${wb.id}/pdf`, `waybill_${wb.number}.pdf`); } },
                     { id: 'etrn-preview', label: 'Предпросмотр ЭТрН', icon: <FileText className="w-4 h-4" />, onClick: () => { window.open(`/print/etrn/${wb.id}`, '_blank'); } },
                     { id: 'print', label: 'Печать ПЛ', icon: <Printer className="w-4 h-4" />, onClick: () => { window.open(`/print/waybill/${wb.id}`, '_blank'); } },

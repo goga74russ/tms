@@ -62,6 +62,9 @@ function toTripSyncRow(
     tripRoutePoints: Array<typeof routePoints.$inferSelect>,
 ) {
     return {
+        // WatermelonDB требует у каждой sync-записи поле `id` (его первичный ключ).
+        // Без него synchronize() падает: «Invalid raw record … must have an 'id' field».
+        id: trip.id,
         trip_id: trip.id,
         route: JSON.stringify(tripRoutePoints.map((point) => ({
             id: point.id,
@@ -80,6 +83,8 @@ function toTripSyncRow(
 
 function toRoutePointSyncRow(point: typeof routePoints.$inferSelect) {
     return {
+        // См. toTripSyncRow: WatermelonDB требует поле `id` у каждой записи.
+        id: point.id,
         route_point_id: point.id,
         trip_id: point.tripId,
         address: point.address,

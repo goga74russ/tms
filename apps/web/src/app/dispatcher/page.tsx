@@ -917,7 +917,7 @@ export default function DispatcherPage() {
                                             <button
                                                 onClick={async () => {
                                                     try {
-                                                        await downloadFromApi(`/api/waybills/${activeTripDetails.waybillId}/etrn`, `etrn_${activeTripDetails.number}.xml`);
+                                                        await downloadFromApi(`/api/waybills/${activeTripDetails.waybillId}/etrn`, `etrn_${activeTripDetails.number}.xml`, (m) => showToast(m));
                                                     } catch (e: any) {
                                                         showToast(e?.message || 'Ошибка загрузки ЭТрН');
                                                     }
